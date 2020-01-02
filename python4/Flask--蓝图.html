@@ -1,0 +1,208 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask--蓝图' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask--蓝图</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11783108.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#flask--蓝图">Flask--蓝图</a><ul>
+        <li><a href="#导入">导入</a><ul>
+        <li><a href="#不使用蓝图自己进行分文件">不使用蓝图，自己进行分文件</a></li>
+        </ul></li>
+        <li><a href="#blueprint概念">Blueprint概念</a></li>
+        <li><a href="#初识蓝图">初识蓝图</a></li>
+        <li><a href="#运行机制">运行机制</a></li>
+        <li><a href="#蓝图的url前缀">蓝图的url前缀</a></li>
+        <li><a href="#注册静态路由">注册静态路由</a></li>
+        <li><a href="#设置模版目录">设置模版目录</a></li>
+        <li><a href="#使用实例">使用实例</a><ul>
+        <li><a href="#中小型系统">中小型系统</a></li>
+        <li><a href="#大型项目">大型项目</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="flask--蓝图">Flask--蓝图</h1>
+<h2 id="导入">导入</h2>
+<p>由于我们现在的项目开发是一个相对于来说非常耗时间和精力的一个工程，如果我们将所有的Flask的请求方法都写在同一个文件下的话，非常的不便于我们的代码的管理和后期的功能代码的添加</p>
+<p>当我们在一个文件中写入多个路由，这会使代码维护变得困难。所以就需要进行分文件进行处理</p>
+<h3 id="不使用蓝图自己进行分文件">不使用蓝图，自己进行分文件</h3>
+<p><strong>目录结构</strong></p>
+<h2 id="blueprint概念">Blueprint概念</h2>
+<p>简单来说，Blueprint 是一个存储操作方法的容器，这些操作在这个Blueprint 被注册到一个应用之后就可以被调用，Flask 可以通过Blueprint来组织URL以及处理请求。</p>
+<p>Flask使用Blueprint让应用实现模块化，在Flask中，Blueprint具有如下属性：</p>
+<ul>
+<li>一个应用可以具有多个Blueprint</li>
+<li>可以将一个Blueprint注册到任何一个未使用的URL下比如 “/”、“/sample”或者子域名</li>
+<li>在一个应用中，一个模块可以注册多次</li>
+<li>Blueprint可以单独具有自己的模板、静态文件或者其它的通用操作方法，它并不是必须要实现应用的视图和函数的</li>
+<li>在一个应用初始化时，就应该要注册需要使用的Blueprint</li>
+</ul>
+<p>但是一个Blueprint并不是一个完整的应用，它不能独立于应用运行，而必须要注册到某一个应用中。</p>
+<h2 id="初识蓝图">初识蓝图</h2>
+<p>蓝图/Blueprint对象用起来和一个应用/Flask对象差不多，最大的区别在于一个 蓝图对象没有办法独立运行，必须将它注册到一个应用对象上才能生效</p>
+<p>使用蓝图可以分为三个步骤</p>
+<ol>
+<li><p>创建一个蓝图对象</p>
+<pre><code><code>from flask import Blueprint
+admin=Blueprint(&#39;admin&#39;,__name__)</code></pre></li>
+<li><p>在这个蓝图对象上进行操作,注册路由,指定静态文件夹,注册模版过滤器</p>
+<pre><code><code>@admin.route(&#39;/&#39;)
+def admin_home():
+    return &#39;admin_home&#39;</code></pre></li>
+<li><p>在应用对象上注册这个蓝图对象</p>
+<pre><code><code>app.register_blueprint(admin,url_prefix=&#39;/admin&#39;)</code></pre></li>
+</ol>
+<p>当这个应用启动后,通过/admin/可以访问到蓝图中定义的视图函数</p>
+<h2 id="运行机制">运行机制</h2>
+<ul>
+<li>蓝图是保存了一组将来可以在应用对象上执行的操作，注册路由就是一种操作</li>
+<li>当在应用对象上调用 route 装饰器注册路由时,这个操作将修改对象的url_map路由表</li>
+<li>然而，蓝图对象根本没有路由表，当我们在蓝图对象上调用route装饰器注册路由时,它只是在内部的一个延迟操作记录列表defered_functions中添加了一个项</li>
+<li>当执行应用对象的 register_blueprint() 方法时，应用对象将从蓝图对象的 defered_functions 列表中取出每一项，并以自身作为参数执行该匿名函数，即调用应用对象的 add_url_rule() 方法，这将真正的修改应用对象的路由表</li>
+</ul>
+<h2 id="蓝图的url前缀">蓝图的url前缀</h2>
+<ul>
+<li><p>当我们在应用对象上注册一个蓝图时，可以指定一个url_prefix关键字参数（这个参数默认是/）</p></li>
+<li><p>在应用最终的路由表 url_map中，在蓝图上注册的路由URL自动被加上了这个前缀，这个可以保证在多个蓝图中使用相同的URL规则而不会最终引起冲突，只要在注册蓝图时将不同的蓝图挂接到不同的自路径即可</p></li>
+<li><p>url_for</p>
+<pre><code><code>url_for(&#39;admin.index&#39;) # /admin/</code></pre></li>
+</ul>
+<h2 id="注册静态路由">注册静态路由</h2>
+<p>和应用对象不同，蓝图对象创建时不会默认注册静态目录的路由。需要我们在 创建时指定 static_folder 参数。</p>
+<p>下面的示例将蓝图所在目录下的<code>static_admin</code>目录设置为静态目录</p>
+<pre><code><code>admin = Blueprint(&quot;admin&quot;,__name__,static_folder=&#39;static_admin&#39;)
+
+app.register_blueprint(admin,url_prefix=&#39;/admin&#39;)</code></pre>
+<p>现在就可以使用<code>/admin/static_admin/</code>访问<code>static_admin</code>目录下的静态文件了 定制静态目录URL规则 ：可以在创建蓝图对象时使用<code>static_url_path</code>来改变静态目录的路由。下面的示例将为 <code>static_admin</code> 文件夹的路由设置为 /lib</p>
+<pre><code><code>admin = Blueprint(&quot;admin&quot;,__name__,static_folder=&#39;static_admin&#39;,static_url_path=&#39;/lib&#39;)
+app.register_blueprint(admin,url_prefix=&#39;/admin&#39;)</code></pre>
+<h2 id="设置模版目录">设置模版目录</h2>
+<p>蓝图对象默认的模板目录为系统的模版目录，可以在创建蓝图对象时使用 template_folder 关键字参数设置模板目录</p>
+<pre><code><code>admin = Blueprint(&#39;admin&#39;,__name__,template_folder=&#39;my_templates&#39;)</code></pre>
+<h2 id="使用实例">使用实例</h2>
+<h3 id="中小型系统">中小型系统</h3>
+<p><strong>目录结构</strong></p>
+<pre><code><code>flask_pro
+  |-- flask_test
+  |     |-- __init__.py
+  |     |-- static
+  |     |-- templates
+  |     |-- views
+  |     |     |-- order.py
+  |     |     |-- user.py
+  |-- manage.py </code></pre>
+<p><strong>__init.py__</strong></p>
+<pre><code><code>from flask import  Flask
+app=Flask(__name__)
+
+from flask_test.views import user
+from flask_test.views import order
+
+app.register_blueprint(user.us)
+app.register_blueprint(order.ord)</code></pre>
+<p><strong>manage.py</strong></p>
+<pre><code><code>from flask_test import  app
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<p><strong>user.py</strong></p>
+<pre><code><code>from flask import Blueprint
+us=Blueprint(&#39;user&#39;,__name__)
+
+@us.route(&#39;/login&#39;)
+def login():
+    return &#39;login&#39;</code></pre>
+<p><strong>order.py</strong></p>
+<pre><code><code>from flask import Blueprint
+ord=Blueprint(&#39;order&#39;,__name__)
+
+@ord.route(&#39;/test&#39;)
+def test():
+    return &#39;order test&#39;</code></pre>
+<h3 id="大型项目">大型项目</h3>
+<p><strong>目录结构</strong></p>
+<pre><code><code>flask_pro
+  |-- flask_test
+  |     |-- __init__.py
+  |     |-- admin
+  |     |    |-- __init__.py
+  |     |    |-- static
+  |     |    |-- templates
+  |     |    |-- views.py
+  |     |-- web
+  |     |    |-- __init__.py
+  |     |    |-- static
+  |     |    |-- templates
+  |     |    |-- views.py
+  |-- run.py </code></pre>
+<p><strong>run.py</strong></p>
+<pre><code><code>from pro_flask import app
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<p><strong>flask_test/__init__.py</strong></p>
+<pre><code><code>from flask import Flask
+from .admin import admin
+from .web import web
+
+app = Flask(__name__)
+app.debug = True
+
+app.register_blueprint(admin, url_prefix=&#39;/admin&#39;)
+app.register_blueprint(web)</code></pre>
+<p><strong>admin/__init__.py</strong></p>
+<pre><code><code>from flask import Blueprint
+
+admin = Blueprint(
+    &#39;admin&#39;,
+    __name__,
+    template_folder=&#39;templates&#39;,
+    static_folder=&#39;static&#39;
+)
+from . import views</code></pre>
+<p><strong>admin/views.py</strong></p>
+<pre><code><code>from . import admin
+
+@admin.route(&#39;/index&#39;)
+def index():
+    return &#39;Admin.Index&#39;</code></pre>
+<p><strong>web/__init__.py</strong></p>
+<pre><code><code>from flask import Blueprint
+
+web = Blueprint(
+    &#39;web&#39;,
+    __name__,
+    template_folder=&#39;templates&#39;,
+    static_folder=&#39;static&#39;
+)
+from . import views</code></pre>
+<p><strong>web/views.py</strong></p>
+<pre><code><code>from . import web
+
+@web.route(&#39;/index&#39;)
+def index():
+    return &#39;Web.Index&#39;</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,412 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修HBase(2) Java 操作 HBase 教程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>HBase(2) Java 操作 HBase 教程</center></div><div class='banquan'>原文出处:本文由博客园博主美码师提供。<br/>
+原文连接:https://www.cnblogs.com/littleatp/p/12013982.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#一简介">一、简介</a></li>
+        <li><a href="#二hbase-client-引入">二、hbase-client 引入</a></li>
+        <li><a href="#三连接操作">三、连接操作</a></li>
+        <li><a href="#四表操作">四、表操作</a></li>
+        <li><a href="#五运行测试">五、运行测试</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#参考文档">参考文档</a></li>
+        </ul>
+    </div>
+</div>
+<h2 id="一简介">一、简介</h2>
+<p>在上一篇文章 <a href="https://www.cnblogs.com/littleatp/p/11946199.html">HBase 基础入门</a> 中，我们已经介绍了 HBase 的一些基本概念，以及如何安装使用的方法。<br />
+那么，作为一名 Javaer，自然是希望用 Java 的方式来与 HBase 进行对话了。<br />
+所幸的是，HBase 本身就是用 Java 编写的，天生自带了 Java 原生API。 我们可以通过 hbase-client 来实现 HBase 数据库的操作。<br />
+所以，这次主要介绍该组件的基本用法。</p>
+<p>在使用 hbase-client 之前，有几个要点需要注意：</p>
+<ul>
+<li>客户端需要能访问 Zoopkeeper，再获得 HMaster、RegionServer 实例进行操作</li>
+<li>客户端需运行在HBase/Hadoop 集群内，HBase会使用 hostname 来定位节点，因此要求客户端能访问到对应的主机名(或子域名)<br />
+如果是远程客户端则需要配置本地的hosts文件。</li>
+</ul>
+<p>下面这个图，有助于理解 Client 与 HBase 集群的交互架构：</p>
+<p><img src="./images/HBase(2) Java 操作 HBase 教程0.png" /></p>
+<p>下面开始介绍 client 的使用。</p>
+<h2 id="二hbase-client-引入">二、hbase-client 引入</h2>
+<p>在 Maven 的 pom.xml 中添加依赖：</p>
+<pre><code><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.hbase&lt;/groupId&gt;
+    &lt;artifactId&gt;hbase-client&lt;/artifactId&gt;
+    &lt;version&gt;2.1.5&lt;/version&gt;
+    &lt;exclusions&gt;
+        &lt;exclusion&gt;
+            &lt;artifactId&gt;slf4j-api&lt;/artifactId&gt;
+            &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+        &lt;/exclusion&gt;
+        &lt;exclusion&gt;
+            &lt;artifactId&gt;slf4j-log4j12&lt;/artifactId&gt;
+            &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+        &lt;/exclusion&gt;
+    &lt;/exclusions&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+    &lt;groupId&gt;org.apache.hbase&lt;/groupId&gt;
+    &lt;artifactId&gt;hbase&lt;/artifactId&gt;
+    &lt;version&gt;2.1.5&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+<p>这里需要注意的是，客户端版本和 HBase 版本需要保持一致，否则可能会遇到不兼容的问题。</p>
+<h2 id="三连接操作">三、连接操作</h2>
+<p>示例代码：</p>
+<pre><code><code>/**
+ * 建立连接
+ *
+ * @return
+ */
+public static Connection getConnection() {
+    try {
+        //获取配置
+        Configuration configuration = getConfiguration();
+        //检查配置
+        HBaseAdmin.checkHBaseAvailable(configuration);
+        return ConnectionFactory.createConnection(configuration);
+    } catch (IOException | ServiceException e) {
+        throw new RuntimeException(e);
+    }
+}
+
+/**
+ * 获取配置
+ *
+ * @return
+ */
+private static Configuration getConfiguration() {
+    try {
+        Properties props = PropertiesLoaderUtils.loadAllProperties(&quot;hbase.properties&quot;);
+        String clientPort = props.getProperty(&quot;hbase.zookeeper.property.clientPort&quot;);
+        String quorum = props.getProperty(&quot;hbase.zookeeper.quorum&quot;);
+
+        logger.info(&quot;connect to zookeeper {}:{}&quot;, quorum, clientPort);
+
+        Configuration config = HBaseConfiguration.create();
+        config.set(&quot;hbase.zookeeper.property.clientPort&quot;, clientPort);
+        config.set(&quot;hbase.zookeeper.quorum&quot;, quorum);
+        return config;
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }
+}
+</code></pre>
+<h2 id="四表操作">四、表操作</h2>
+<p>增删改查方法封装如下：</p>
+<pre><code><code>/**
+ * 创建表
+ * @param connection
+ * @param tableName
+ * @param columnFamilies
+ * @throws IOException
+ */
+public static void createTable(Connection connection, TableName tableName, String... columnFamilies) throws IOException {
+    Admin admin = null;
+    try {
+        admin = connection.getAdmin();
+        if (admin.tableExists(tableName)) {
+            logger.warn(&quot;table:{} exists!&quot;, tableName.getName());
+        } else {
+            TableDescriptorBuilder builder = TableDescriptorBuilder.newBuilder(tableName);
+            for (String columnFamily : columnFamilies) {
+                builder.setColumnFamily(ColumnFamilyDescriptorBuilder.of(columnFamily));
+            }
+            admin.createTable(builder.build());
+            logger.info(&quot;create table:{} success!&quot;, tableName.getName());
+        }
+    } finally {
+        if (admin != null) {
+            admin.close();
+        }
+    }
+}
+
+
+/**
+ * 插入数据
+ *
+ * @param connection
+ * @param tableName
+ * @param rowKey
+ * @param columnFamily
+ * @param column
+ * @param data
+ * @throws IOException
+ */
+public static void put(Connection connection, TableName tableName,
+                       String rowKey, String columnFamily, String column, String data) throws IOException {
+
+    Table table = null;
+    try {
+        table = connection.getTable(tableName);
+        Put put = new Put(Bytes.toBytes(rowKey));
+        put.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(column), Bytes.toBytes(data));
+        table.put(put);
+    } finally {
+        if (table != null) {
+            table.close();
+        }
+    }
+}
+
+/**
+ * 根据row key、column 读取
+ *
+ * @param connection
+ * @param tableName
+ * @param rowKey
+ * @param columnFamily
+ * @param column
+ * @throws IOException
+ */
+public static String getCell(Connection connection, TableName tableName, String rowKey, String columnFamily, String column) throws IOException {
+    Table table = null;
+    try {
+        table = connection.getTable(tableName);
+        Get get = new Get(Bytes.toBytes(rowKey));
+        get.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(column));
+
+        Result result = table.get(get);
+        List&lt;Cell&gt; cells = result.listCells();
+
+        if (CollectionUtils.isEmpty(cells)) {
+            return null;
+        }
+        String value = new String(CellUtil.cloneValue(cells.get(0)), &quot;UTF-8&quot;);
+        return value;
+    } finally {
+        if (table != null) {
+            table.close();
+        }
+    }
+}
+
+/**
+ * 根据rowkey 获取一行
+ *
+ * @param connection
+ * @param tableName
+ * @param rowKey
+ * @return
+ * @throws IOException
+ */
+public static Map&lt;String, String&gt; getRow(Connection connection, TableName tableName, String rowKey) throws IOException {
+    Table table = null;
+    try {
+        table = connection.getTable(tableName);
+        Get get = new Get(Bytes.toBytes(rowKey));
+
+        Result result = table.get(get);
+        List&lt;Cell&gt; cells = result.listCells();
+
+        if (CollectionUtils.isEmpty(cells)) {
+            return Collections.emptyMap();
+        }
+        Map&lt;String, String&gt; objectMap = new HashMap&lt;&gt;();
+        for (Cell cell : cells) {
+            String qualifier = new String(CellUtil.cloneQualifier(cell));
+            String value = new String(CellUtil.cloneValue(cell), &quot;UTF-8&quot;);
+            objectMap.put(qualifier, value);
+        }
+        return objectMap;
+    } finally {
+        if (table != null) {
+            table.close();
+        }
+    }
+}
+
+/**
+ * 扫描权标的内容
+ *
+ * @param connection
+ * @param tableName
+ * @param rowkeyStart
+ * @param rowkeyEnd
+ * @throws IOException
+ */
+public static List&lt;Map&lt;String, String&gt;&gt; scan(Connection connection, TableName tableName, String rowkeyStart, String rowkeyEnd) throws IOException {
+    Table table = null;
+    try {
+        table = connection.getTable(tableName);
+        ResultScanner rs = null;
+        try {
+            Scan scan = new Scan();
+            if (!StringUtils.isEmpty(rowkeyStart)) {
+                scan.withStartRow(Bytes.toBytes(rowkeyStart));
+            }
+            if (!StringUtils.isEmpty(rowkeyEnd)) {
+                scan.withStopRow(Bytes.toBytes(rowkeyEnd));
+            }
+            rs = table.getScanner(scan);
+
+            List&lt;Map&lt;String, String&gt;&gt; dataList = new ArrayList&lt;&gt;();
+            for (Result r : rs) {
+                Map&lt;String, String&gt; objectMap = new HashMap&lt;&gt;();
+                for (Cell cell : r.listCells()) {
+                    String qualifier = new String(CellUtil.cloneQualifier(cell));
+                    String value = new String(CellUtil.cloneValue(cell), &quot;UTF-8&quot;);
+                    objectMap.put(qualifier, value);
+                }
+                dataList.add(objectMap);
+            }
+            return dataList;
+        } finally {
+            if (rs != null) {
+                rs.close();
+            }
+        }
+    } finally {
+        if (table != null) {
+            table.close();
+        }
+    }
+}
+
+/**
+ * 删除表
+ *
+ * @param connection
+ * @param tableName
+ * @throws IOException
+ */
+public static void deleteTable(Connection connection, TableName tableName) throws IOException {
+    Admin admin = null;
+    try {
+        admin = connection.getAdmin();
+        if (admin.tableExists(tableName)) {
+            //现执行disable
+            admin.disableTable(tableName);
+            admin.deleteTable(tableName);
+        }
+    } finally {
+        if (admin != null) {
+            admin.close();
+        }
+    }
+}
+</code></pre>
+<h2 id="五运行测试">五、运行测试</h2>
+<p>最后，我们仍然以上一篇文章中的设备数据作为例子：</p>
+<ol>
+<li>建立 DeviceState 表；</li>
+<li>定义 name/state 两个列簇；</li>
+<li>写入列数据；</li>
+<li>读取列、行，范围读取；</li>
+<li>删除操作</li>
+</ol>
+<p>最终实现的代码如下：</p>
+<pre><code><code>private static final Logger logger = LoggerFactory.getLogger(HBaseTest.class);
+
+public static void main(String[] args) {
+
+    Connection connection = null;
+    try {
+        connection = getConnection();
+        TableName tableName = TableName.valueOf(&quot;DeviceState&quot;);
+
+        //创建DeviceState表
+        createTable(connection, tableName, &quot;name&quot;, &quot;state&quot;);
+
+        logger.info(&quot;创建表 {}&quot;, tableName.getNameAsString());
+
+        //写入数据
+        put(connection, tableName, &quot;row1&quot;, &quot;name&quot;, &quot;c1&quot;, &quot;空调&quot;);
+        put(connection, tableName, &quot;row1&quot;, &quot;state&quot;, &quot;c2&quot;, &quot;打开&quot;);
+        put(connection, tableName, &quot;row2&quot;, &quot;name&quot;, &quot;c1&quot;, &quot;电视机&quot;);
+        put(connection, tableName, &quot;row2&quot;, &quot;state&quot;, &quot;c2&quot;, &quot;关闭&quot;);
+
+        logger.info(&quot;写入数据.&quot;);
+
+        String value = getCell(connection, tableName, &quot;row1&quot;, &quot;state&quot;, &quot;c2&quot;);
+        logger.info(&quot;读取单元格-row1.state:{}&quot;, value);
+
+        Map&lt;String, String&gt; row = getRow(connection, tableName, &quot;row2&quot;);
+        logger.info(&quot;读取单元格-row2:{}&quot;, JsonUtil.toJson(row));
+
+        List&lt;Map&lt;String, String&gt;&gt; dataList = scan(connection, tableName, null, null);
+        logger.info(&quot;扫描表结果-:\n{}&quot;, JsonUtil.toPrettyJson(dataList));
+
+        //删除DeviceState表
+        deleteTable(connection, tableName);
+        logger.info(&quot;删除表 {}&quot;, tableName.getNameAsString());
+
+        logger.info(&quot;操作完成.&quot;);
+    } catch (Exception e) {
+        logger.error(&quot;操作出错&quot;, e);
+    } finally {
+        if (connection != null) {
+            try {
+                connection.close();
+            } catch (IOException e) {
+                logger.error(&quot;error occurs&quot;, e);
+            }
+        }
+    }
+
+}
+</code></pre>
+<p>执行代码，控制台输出如下：</p>
+<pre><code><code>INFO -createTable(HBaseTest.java:89) - create table:[68, 101, 118, 105, 99, 101, 83, 116, 97, 116, 101] success!
+INFO -main(HBaseTest.java:32) - 创建表 DeviceState
+INFO -main(HBaseTest.java:40) - 写入数据.
+INFO -main(HBaseTest.java:43) - 读取单元格-row1.state:打开
+INFO -main(HBaseTest.java:46) - 读取单元格-row2:{&quot;c1&quot;:&quot;电视机&quot;,&quot;c2&quot;:&quot;关闭&quot;}
+INFO -main(HBaseTest.java:49) - 扫描表结果-:
+[ {
+  &quot;c1&quot; : &quot;空调&quot;,
+  &quot;c2&quot; : &quot;打开&quot;
+}, {
+  &quot;c1&quot; : &quot;电视机&quot;,
+  &quot;c2&quot; : &quot;关闭&quot;
+} ]
+INFO -HBaseAdmin$9.call(HBaseAdmin.java:1380) - Started disable of DeviceState
+INFO -HBaseAdmin$DisableTableFuture.postOperationResult(HBaseAdmin.java:1409) - Disabled DeviceState
+INFO -HBaseAdmin$DeleteTableFuture.postOperationResult(HBaseAdmin.java:965) - Deleted DeviceState
+INFO -main(HBaseTest.java:53) - 删除表 DeviceState
+INFO -main(HBaseTest.java:55) - 操作完成.</code></pre>
+<p>此时Java Client已经完成制作。</p>
+<h2 id="faq">FAQ</h2>
+<ul>
+<li>提示报错 找不到winutils程序</li>
+</ul>
+<p><strong>Failed to locate the winutils binary in the hadoop binary path</strong><br />
+原因是在Windows下依赖一个winutils.exe程序，该程序通过${HADOOP_HOME}/bin 来查找。<br />
+该报错不影响程序执行，但如果要规避问题，需要下载hadoop-commons-master，再配置变量HADOOP_HOME<br />
+可参考地址：https://blog.csdn.net/ycf921244819/article/details/81706119</p>
+<ul>
+<li>提示报错，UnknownHostException，无法找到节点..<br />
+原因是客户端无法解析HMaster实例节点的主机名<br />
+需要编辑 C:\Windows\System32\drivers\etc\hosts 文件，添加对应的映射，如下：</li>
+</ul>
+<pre><code><code>47.xx.8x.xx izwz925kr63w5jitjys6dtt</code></pre>
+<h2 id="参考文档">参考文档</h2>
+<p>官方文档<br />
+https://hbase.apache.org/book.html#quickstart<br />
+Java HBase客户端API<br />
+https://www.baeldung.com/hbase</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

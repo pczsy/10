@@ -1,0 +1,85 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Frida的安装步骤基于Android系统组合Python语言' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Frida的安装步骤基于Android系统组合Python语言</center></div><div class='banquan'>原文出处:本文由博客园博主Mysticbinary提供。<br/>
+原文连接:https://www.cnblogs.com/mysticbinary/p/12012935.html</div><br>
+    <h1 id="frida是什么">Frida是什么</h1>
+<p>  我觉得官网已经说得很清楚了。简单的说就是一款动态代码检测工具，可用于各种主流操作系统，这里主要讨论的是动态检测Android系统里面代码运行情况。<br />
+<img src="./images/Frida的安装步骤基于Android系统组合Python语言0.png" /></p>
+<p>  Android版的Frida环境的搭建主要分为两个部分，一部分是运行在Android机器上的代理工具 <code>frida - server</code>，另一部分是Windows系统用Python PIP安装了发指令的工具 <code>frida - CLI</code>，下面 frida-server我简称为Android端、frida CLI我简称为Windows端。把这两端的环境都部署好后，就能通过Windows向Android发送指令了。</p>
+<p>分类如下：</p>
+<ul>
+<li>frida - server （相当于Android系统里面安装了一个代理工具）</li>
+<li>frida - CLI （指在Windows系统用Python PIP安装了发指令的工具）</li>
+</ul>
+<p>frida - CLI的其它替代方案：<br />
+  我这里使用Window系统的Python语言，同理你可以切换成Linux、Mac OS等其他操作系统，只要能安装Python环境即可。</p>
+<p><br/></p>
+<h1 id="android端安装步骤">Android端安装步骤</h1>
+<h2 id="根据cpu架构选择frida-server">根据CPU架构选择frida-server</h2>
+<p>  Android手机主要是安装一个 frida-server，安装前，但是需要根据不同的CPU架构去选择 frida-server，其实也可以从宏观的层面上看出Frida的核心功能就是监管CPU、内存的操作，现在Android主流的CPU架构分类为 x86 和 arm 架构的，那么怎么区分自己Android手机的CPU架构呢？ 跟着我敲一行命令即可：</p>
+<pre><code><code>adb shell getprop ro.product.cpu.abi </code></pre>
+<p><img src="./images/Frida的安装步骤基于Android系统组合Python语言1.png" /></p>
+<p>CPU架构和位数：<br />
+armeabi-v7a -------（32位ARM设备）<br />
+arm64-v8a -------（64位ARM设备）</p>
+<p>下载地址：<a href="https://github.com/frida/frida/releases" class="uri">https://github.com/frida/frida/releases</a><br />
+地址里面比较多产品，因为Frida比较牛逼，支持的平台众多，你就搜索<code>frida-server-XXX.XXX.XXX-android-x86_64.xz</code>就好。<br />
+<img src="./images/Frida的安装步骤基于Android系统组合Python语言2.png" /></p>
+<p>我这个是 arm64 架构的，下载好了之后解压，<code>adb push ~ ~</code>到Android手机就行了。</p>
+<h2 id="android安装frida-server">Android安装frida-server</h2>
+<pre><code><code>adb push frida-server /data/local/tmp   # adb push 参数1  参数2
+adb shell
+su
+cd data/local/tmp
+chmod 777 frida-server
+
+ls -all # 验证是否777
+-rwxrwxrwx shell    shell    21248332 2019-01-03 17:29 frida-server-12.2.27-android-arm
+
+./frida-server    # 必须运行</code></pre>
+<p>  机器需要root权限，因为Frida要求的权限比较大。<code>注意</code>尽量使用真机测试，因为一些虚拟机CPU使用混合模式架构，这样就会导致Frida报错无法运行，新手尽量使用真机来避免这个问题，如果实在没有这个条件，那么挑选虚拟机的时候尽量注意一下这个问题即可。</p>
+<p>  如果程序一直处于运行状态（如下图），不返回shell就是正常的。<br />
+<img src="./images/Frida的安装步骤基于Android系统组合Python语言3.png" /></p>
+<p><br/></p>
+<h1 id="windows端安装步骤">Windows端安装步骤</h1>
+<h2 id="python-pip安装组件">Python PIP安装组件</h2>
+<pre><code><code>pip install frida
+pip install frida-tools </code></pre>
+<pre><code><code>pip list # 验证一下pip是否安装成功</code></pre>
+<p><img src="./images/Frida的安装步骤基于Android系统组合Python语言4.png" /></p>
+<h2 id="windows端验证-frida-server-是否成功">Windows端验证 frida-server 是否成功</h2>
+<pre><code><code># 设置端口转发
+adb forward tcp:27042 tcp:27042
+adb forward tcp:27043 tcp:27043
+
+# 查看进程
+frida-ps -R
+# 或
+frida-ps -U</code></pre>
+<p><img src="./images/Frida的安装步骤基于Android系统组合Python语言5.png" /><br />
+能看到打印出来的PID和进程，说明Android、Windows端都已经安装好了。去探索吧，少年！</p>
+<p><br/></p>
+<h1 id="参考">参考</h1>
+<p><a href="https://frida.re/docs/home/" class="uri">https://frida.re/docs/home/</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

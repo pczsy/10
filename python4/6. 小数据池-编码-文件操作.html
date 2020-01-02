@@ -1,0 +1,250 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修6. 小数据池-编码-文件操作' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>6. 小数据池-编码-文件操作</center></div><div class='banquan'>原文出处:本文由博客园博主qi.hu提供。<br/>
+原文连接:https://www.cnblogs.com/hq82/p/11336599.html</div><br>
+    <h3 id="一小数据池">一、小数据池</h3>
+<h4 id="小数据池定义">1. 小数据池定义</h4>
+<p>小数据池(常量池)，一种数据缓存机制，也被称为驻留机制。小数据池只针对：<strong>整数、字符串、布尔值</strong>。其他数据类型不存在驻留机制。</p>
+<h4 id="各类型数据池限定">2. 各类型数据池限定</h4>
+<h5 id="整型">(1) 整型</h5>
+<p>在python中 <strong>-5 ~ 256</strong> 之间的整数会被驻留在内存中。每次使用都是同一个对象。</p>
+<h5 id="字符串">(2) 字符串</h5>
+<p>将一定规则的字符串缓存。在使用的时候，内存中只会创建一个该数据的对象。保存在小数据池中。当使用的时候直接从小数据池中获取对象的内存应用。而不需要创建一个新的数据，这样会节省更多的内存区域。</p>
+<p>优点：能提高一些字符串，整数的处理速度。省略创建对象的过程</p>
+<p>缺点：在“池”中创建或插入新的内容会花费更多的时间</p>
+<pre><code><code>a. 如果字符串的长度是0或者1, 都会默认进行缓存 
+b. 字符串长度大于1, 但是字符串中只包含字母, 数字, 下划线时才会缓存
+c. 用乘法得到的字符串.
+    ①. 乘数为1, 仅包含数字, 字母, 下划线时会被缓存. 如果包含其他字符, 而长度&lt;=1 也会被驻存, 
+    ②. 乘数大于1 . 仅包含数字, 字母, 下划 线这个时候会被缓存. 但字符串长度不能大于20 
+d. 指定驻留留. 我们可以通过sys模块中的intern()函数来指定要驻留留的内容.
+
+&gt;&gt;&gt; from sys import intern
+&gt;&gt;&gt; a = intern(&#39;alex.sb.com&#39; * 10)
+&gt;&gt;&gt; b = intern(&#39;alex.sb.com&#39; * 10)
+&gt;&gt;&gt; a is b
+True</code></pre>
+<h4 id="py文件与command小数据池区别">3. py文件与command小数据池区别</h4>
+<p>​ 在代码块内的缓存机制是不一样的. 在执行同一个代码块的初始化对象的命令时, 会检查其值是否已经存在, 如果存在, 会将其重用. 换句话说: 执行同一个代码块时, 遇到初始 化对象的命令时，他会将初始化的这个变量与 值存储在一个字典中, 在遇到新的变量时, 会先在字典中查询记录, 如果有同样的记录那么它会重复使用这个字典中的之前的这个值. 所以在 你给出的例子中, 文件执行时(同一个代码块) 会把a, b两个变量指向同一个对象. 如 果是不同的代码块, 他就会看这个两个变量是否是满足小数据池的数据, 如果是满足小数据池的数据则会指向同一个地址. 所以: a, b的赋值语句分别被当作两个代码块执行, 但是他们不满足小数据池的数据所以会得到两个不同的对象, 因而is判断返回False.</p>
+<p>​ py文件里. 一个代码块内部. 只会缓存int, str, bool 也有自己的小数据池。 缓存的范围会比外面的代码块的数据池要大</p>
+<p>​ (1). 数字。都会缓存。 运算的结果不缓存(-5~256 会缓存)</p>
+<p>​ (2). 字符串。 默认的字符串都缓存. 如果有乘法。 遵循上方的结论</p>
+<p>​ (3). 布尔值。 默认缓存</p>
+<h4 id="is-和-区别">4. is 和 == 区别</h4>
+<pre><code><code>查看内存地址：id(变量)   
+
+is : 判断左右两端内容的内存地址是否一致. 如果返回True, 那可以确定这两个变量量使 用的是同一个对象
+== ：判断左右两端的值是否相等. 是不是一致.</code></pre>
+<h3 id="二编码">二、编码</h3>
+<h4 id="python2和python编码">1. python2和python编码</h4>
+<h5 id="python2---ascii">(1) python2 - ASCII</h5>
+<p>默认使用ASCII码，所以不支持中文. 如果需要在Python2中更改编码. 需要在文件的开始编写。</p>
+<pre><code><code># -- encoding:utf-8 -</code></pre>
+<h5 id="python3---utf-8">(2) python3 - UTF-8</h5>
+<pre><code><code>(1)ASCII : 最早的编码.里面有英文大写字母,小写字母,数字,一些特殊字符.没有中文,8个01代码,8b,1B  (2)GBK: 中文国标码,里面包含了ASCII编码和中文常用编码.16b, 2B
+(3)UNICODE: 万国码, 里面包含了全世界所有国家文字的编码. 32b, 4B, 包含了了 ASCII
+(4)UTF-8: 可变长度的万国码.是unicode的一种实现.最⼩字符占8位；
+          英文8b,1B  欧文16b，2B  中文24bit,3B
+          综上, 除了了ASCII码以外, 其他信息不能直接转换.</code></pre>
+<h4 id="编解码">2. 编解码</h4>
+<p>​ 在python3的内存中。 在程序运⾏阶段。 使用的是unicode编码。 因为unicode是万国码。 什么内容都可以进行显示。 那么在数据传输和存储的时候由于unicode比较浪费空间和资源。 需要把 unicode转存成UTF-8或者GBK 进行存储。 怎么转换呢。 在python中可以把文字信息进行编码。 编码之后的内容就可以进行传输了。 编码之后的数据是bytes类型的数据。其实啊。 还是原来的数据只是经过编码之后表现形式发生了改变而已。</p>
+<p>​ bytes的表现形式: (1)英⽂ b'alex' 英⽂的表现形式和字符串没什么两样 (2)中文 b'\xe4\xb8\xad' 这是一个汉字的UTF-8的bytes表现形式</p>
+<h5 id="举例">(1) 举例</h5>
+<pre><code><code>s = &quot;alex&quot;
+print(s.encode(&quot;utf-8&quot;))    # 将字符串串编码成UTF-8
+print(s.encode(&quot;GBK&quot;))  # 将字符串串编码成GBK
+结果:
+b&#39;alex&#39;
+b&#39;alex&#39;
+s = &quot;中&quot;
+print(s.encode(&quot;UTF-8&quot;))    # 中?文编码成UTF-8
+print(s.encode(&quot;GBK&quot;))  # 中?文编码成GBK
+结果:
+b&#39;\xe4\xb8\xad&#39;
+b&#39;\xd6\xd0</code></pre>
+<p><strong>备注</strong>：英⽂编码之后的结果和源字符串一致.中文编码之后的结果根据编码的不同. 编码结果也不同. 我们能看到. 一个中文的UTF-8编码是3个字节. 一个GBK的中文编码是2个字节. 编码之后的类型就是bytes类型.在网络传输和存储的时候我们python是保存和存储的bytes 类型. 那么在对方接收的时候. 也是接收的bytes类型的数据. 我们可以使用decode()来进行解码操作. 把bytes类型的数据还原回我们熟悉的字符串</p>
+<pre><code><code>s = &quot;我叫李李嘉诚&quot; 
+print(s.encode(&quot;utf-8&quot;))    
+# b&#39;\xe6\x88\x91\xe5\x8f\xab\xe6\x9d\x8e\xe5\x98\x89\xe8\xaf\x9a&#39; 
+# 解码
+print(b&#39;\xe6\x88\x91\xe5\x8f\xab\xe6\x9d\x8e\xe5\x98\x89\xe8\xaf\x9a&#39;.decod e(&quot;utf-8&quot;))  </code></pre>
+<pre><code><code>s = &quot;我是文字&quot; 
+bs = s.encode(&quot;GBK&quot;)    # 我们这样可以获取到GBK的文字 
+# 把GBK转换成UTF-8 
+# 首先要把GBK转换成unicode. 也就是需要解码 
+s = bs.decode(&quot;GBK&quot;)  # 解码 
+# 然后需要进行重新编码成UTF-8 
+bss = s.encode(&quot;UTF-8&quot;) # 重新编码 
+print(bss)</code></pre>
+<h3 id="三文件操作">三、文件操作</h3>
+<h4 id="初始文件操作">1. 初始文件操作</h4>
+<p>​ 使用python来读写文件时非常简单的操作。我们使用open()函数来打开一个文件，获取文件句柄，然后通过文件句柄就可以进行各种文件操作。打开文件需要close()文件。可使用with上下文进行操作文件。</p>
+<h4 id="文件操作模式">2. 文件操作模式</h4>
+<p>​ 文件操作流程：建立文件对象，调用文件方法进行操作，不要忘记关闭文件(文件不关闭的情况下，内容会放在缓存，虽然python会在最后自动把内容读到磁盘)</p>
+<h5 id="ronly-read">(1) r(only-read)</h5>
+<pre><code><code>f = open(&quot;file&quot;, &quot;r&quot;)
+# read逐个字符地全部读取出，read可以指定参数，设定要读取多少字符；无论一个英文字母还是一个汉字都是一个字符
+f_read = f.read()</code></pre>
+<pre><code><code>f = open(&#39;file1&#39;,&#39;r&#39;)
+# readlines会把内容以列表的形式输出
+f_read = f.readlines() 
+print(f_read)
+f.close()</code></pre>
+<pre><code><code># 推荐读取方式
+
+#输出一行内容输出一个空行，一行内容一行空格... 因为文件中每行内容后面都有一个换行符，而且print()语句本身就可以换行，如果不想输出空行，就需要使用下面的语句：print(line.strip())
+f = open(&#39;file1&#39;,&#39;r&#39;)
+for line in f.readlines() 
+  print(line) 
+f.close()</code></pre>
+<pre><code><code># 读取图片、视频流文件 - rb
+f = open(&#39;file&#39;, rb)</code></pre>
+<h5 id="wonly-write">(2) w(only-write)</h5>
+<p>​ 在进行操作前，文件中所有内容会被清空。由于Python3的默认编码方式是Unicode，所以在写入文件的时候需要调用utf8，以utf8的方式保存，这时pycharm（默认编码方式是utf8）才能正确读取，当读取文件时，文件是utf8格式，pycharm也是utf8，就不需要调用了。写入字节文件wb</p>
+<pre><code><code>f = open(&#39;file1&#39;,&#39;w&#39;,encoding=&#39;utf8&#39;)  
+f_w = f.write(&#39;hello world&#39;)
+#有意思的是，这里并不打印&#39;hello world&#39;，只打印写入多少字符
+print(f_w)  
+f.close()</code></pre>
+<h5 id="aappend">(3) a(append)</h5>
+<p>​ 与w模式不同的是，a模式不会把原来内容清空，而是光标移到内容最后位置，继续写入新内容。比如在最后追加'hello world'</p>
+<pre><code><code>f = open(&#39;file1&#39;,&#39;a&#39;)
+f_a = f.write(&#39;hello world&#39;)
+#还是会打印写入的字符数
+print(f_a) 
+f.close()</code></pre>
+<h5 id="读取大文件">(4) 读取大文件</h5>
+<pre><code><code>num = 0
+# 不要过早关闭文件，否则程序不能识别操作句柄f.
+f.close() 
+f = open(&#39;file&#39;,&#39;r&#39;)
+# for内部把f变为一个迭代器，用一行取一行
+for i in f:  
+  num += 1
+  if num == 5:
+    i = &#39;&#39;.join([i.strip(),&#39;hello world&#39;])
+  print(i.strip())
+f.close()</code></pre>
+<h4 id="其他操作">3. 其他操作</h4>
+<h5 id="tell-和-seek">(1) tell 和 seek</h5>
+<pre><code><code>f = open(&#39;file&#39;,&#39;r&#39;)
+print(f.tell())  #光标默认在起始位置
+f.seek(10)    #把光标定位到第10个字符之后
+print(f.tell())  #输出10
+f.close()
+----------------------
+f = open(&#39;file&#39;,&#39;w&#39;)
+print(f.tell())  #先清空内容，光标回到0位置
+f.seek(10)    
+print(f.tell())
+f.close()
+----------------------
+f = open(&#39;file&#39;,&#39;a&#39;)
+print(f.tell())  #光标默认在最后位置
+f.write（&#39;你好 世界&#39;）
+print(f.tell())  #光标向后9个字符，仍在最后位置
+f.close()</code></pre>
+<h5 id="flush">(2) flush</h5>
+<p>​ 同步将数据从缓存转移到磁盘; 如实现进度条</p>
+<pre><code><code>import sys,time  #导入sys和time模块
+for i in range(40):
+  sys.stdout.write(&#39;*&#39;)
+  # flush的作用相当于照相，拍一张冲洗一张
+  sys.stdout.flush()  
+  time.sleep(0.2)
+
+# 下面代码也能够实现相同的功能
+import time 
+for i in range(40):
+  # print中的flush参数
+  print(&#39;*&#39;,end=&#39;&#39;,flush=True) 
+  time.sleep(0.2)</code></pre>
+<h5 id="truncate---截断">(3) truncate - 截断</h5>
+<p>不能是r模式下执行，w模式下，已经清空所有数据，使用<code>truncate</code>没有任何意义，a模式下，截断指定位置后的内容。</p>
+<pre><code><code>f = open(&#39;file&#39;,&#39;a&#39;)
+# 只显示6个字节的内容（6个英文字符或三个汉字），后面的内容被清空
+f.truncate(6) </code></pre>
+<h5 id="光标位置总结">(4) 光标位置总结</h5>
+<pre><code><code>#--------------------------光标总结head-----------------------------------
+f = open(&#39;file&#39;,&#39;r&#39;)
+print(f.read(6)) #6个字符
+print(f.tell())  #位置12字节，一个汉字两个字节
+f.close()
+ 
+f = open(&#39;file&#39;,&#39;r&#39;)
+f.seek(6)      #6个字节
+print(f.tell())
+f.close()
+ 
+f = open(&#39;file&#39;,&#39;a&#39;)
+# 光标默认在最后位置
+print(f.tell())  
+f.write(&#39;你好 世界&#39;)
+# 光标向后9个字节，一个汉字两个字节，仍在最后位置 182--&gt;191
+print(f.tell())  
+f.close()
+ 
+f = open(&#39;file&#39;,&#39;a&#39;,encoding=&#39;utf-8&#39;)
+# 由于需要光标定位位置，所以也是字节。只显示6个字节的内容（6个英文字母或三个汉字,一个汉字两个字节），后面的内容被清空。
+print(f.truncate(6)) 
+f.close()</code></pre>
+<h5 id="rwa">(4) r+/w+/a+</h5>
+<p>​ r+：读写模式，光标默认在起始位置，当需要写入的时候，光标自动移到最后</p>
+<p>​ w+：写读模式，先清空原内容，再写入，也能够读取</p>
+<p>​ a+：追加读模式，光标默认在最后位置，直接写入，也能够读取。</p>
+<pre><code><code>f = open(&#39;file&#39;,&#39;a&#39;)
+print(f.tell())  #末尾207位置
+f.close()
+ 
+f = open(&#39;file&#39;,&#39;r+&#39;)
+print(f.tell())  #0位置
+print(f.readline()) #读取第一行
+f.write(&#39;羊小羚&#39;)   #光标移到末尾207位置并写入
+print(f.tell())  #213位置
+f.seek(0)     #光标移到0位置
+print(f.readline())  #读取第一行
+f.close()</code></pre>
+<h5 id="修改文件内容">(5) 修改文件内容</h5>
+<pre><code><code>由于数据存储机制的关系，我们只能把文件1中的内容读取出来，经过修改后，放到文件2中
+
+f2 = open(&#39;file2&#39;,&#39;w&#39;,encoding=&#39;utf8&#39;)  #写入的时候必须加utf8
+f1 = open(&#39;file&#39;,&#39;r&#39;)
+num = 0
+for line in f1: #迭代器
+  num += 1
+  if num == 5:
+    line = &#39;&#39;.join([line.strip(),&#39;羊小羚\n&#39;])  #里面就是对字符串进行操作了
+  f2.write(line)
+f1.close()
+f2.close()</code></pre>
+<h4 id="with语句">4. with语句</h4>
+<p>可以同时对多个文件同时操作，当<code>with</code>代码块执行完毕时，会自动关闭文件释放内存资源，不用特意加<code>f.close()</code> ，我们通过下面的示例体会<code>with</code>的用法和好处。用<code>with</code>语句重写8中的代码</p>
+<pre><code><code>num = 0
+with open(&#39;file&#39;,&#39;r&#39;) as f1,open(&#39;file2&#39;,&#39;w&#39;,encoding=&#39;utf8&#39;) as f2:
+  for line in f1:
+    num += 1
+    if num == 5:
+      line = &#39;&#39;.join([line.strip(),&#39;羊小羚&#39;])
+    f2.write(line)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

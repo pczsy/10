@@ -1,0 +1,220 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修小白的springboot之路（十四）、AOP' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>小白的springboot之路（十四）、AOP</center></div><div class='banquan'>原文出处:本文由博客园博主大叔杨提供。<br/>
+原文连接:https://www.cnblogs.com/yanghj/p/12072516.html</div><br>
+    <h2>0、前言</h2>
+<h3>1、什么是AOP</h3>
+<p>　　AOP（面向切面编程），是一种横切技术，是对OOP的补充和完善；</p>
+<p>　　使用AOP的横切，可以对系统进行无侵入性的日志监听、事务、权限管理等；</p>
+<p>　　思想上跟拦截器其实类似;拦截器是对action进行拦截处理，AOP是对切面进行拦截处理，其实切面也属于一种action集合；</p>
+<p>　　AOP可以很好解耦；</p>
+<h3>2、AOP的组成</h3>
+<p><strong>　　Aspect：切面；</strong></p>
+<p><strong>　　Join point：连接点；</strong></p>
+<p><strong>　　Advice：通知，在切入点上执行的操作；</strong></p>
+<p><strong>　　Poincut：带有通知的连接点；</strong></p>
+<p><strong>　　target：被通知的对象；</strong></p>
+<p><strong>　　AOP proxy；AOP代理；</strong></p>
+<p>其中，Advice（通知）分为以下几种：</p>
+<div>
+<div>
+<ul>
+<li><strong>before(前置通知)： 在方法开始执行前执行</strong></li>
+<li><strong>after(后置通知)： 在方法执行后执行</strong></li>
+<li><strong>afterReturning(返回后通知)： 在方法返回后执行</strong></li>
+<li><strong>afterThrowing(异常通知)： 在抛出异常时执行</strong></li>
+<li><strong>around(环绕通知)： 在方法执行前和执行后都会执行</strong></li>
+</ul>
+</div>
+通知的执行顺序：</div>
+<div>
+<div class="cnblogs_code">
+<pre><code><strong>around &gt; before &gt; around &gt; after &gt; afterReturning</strong></pre>
+</div>
+<p>&nbsp;</p>
+<h2>一、实现示例</h2>
+<p>　　光看理论和定义，很多人可能都觉得很难理解，其实用法比较简单，不难的，</p>
+<p>　　我们先来个简单的例子，看完例子你可能就豁然开朗了，</p>
+<p>　　所谓程序员，好看书不如多动手：</p>
+<p>　<strong><span style="font-size: 18pt;">　实现：</span></strong></p>
+<h3>1、添加依赖</h3>
+<div class="cnblogs_code">
+<pre><code>        &lt;!-- 8、集成AOP  --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-aop&lt;/artifactId&gt;
+        &lt;/dependency&gt;</pre>
+</div>
+<h3>2、添加切面类LogAspect</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> com.anson.common.aspect;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.aspectj.lang.JoinPoint;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.aspectj.lang.ProceedingJoinPoint;
+</span><span style="color: #0000ff;">import</span> org.aspectj.lang.annotation.*<span style="color: #000000;">;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.slf4j.Logger;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.slf4j.LoggerFactory;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.stereotype.Component;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.web.context.request.RequestContextHolder;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.web.context.request.ServletRequestAttributes;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.servlet.http.HttpServletRequest;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Arrays;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * @description: AOP切面
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;">: anson
+ * @Date: 2019/12/20 10:11
+ </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+
+@Aspect </span><span style="color: #008000;">//</span><span style="color: #008000;">1、添加AOP相关注解</span>
+<span style="color: #000000;">@Component
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> LogAspect
+{
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> Logger logger = LoggerFactory.getLogger(LogAspect.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">2、定义切入点（可以匹配、注解的方式，可混用）
+</span><span style="color: #008000;">//</span><span style="color: #008000;">    @Pointcut("execution(public * com.anson.controller.*.*(..))")</span>
+@Pointcut("execution(public * com.anson.controller.*.*(..)) &amp;&amp; @annotation(com.anson.common.annotation.LogAnnotation)"<span style="color: #000000;">)
+  </span><span style="color: #008000;">//</span><span style="color: #008000;"> @Pointcut("execution(public * com.anson.controller.TestController.get*()) &amp;&amp; @annotation(com.anson.common.annotation.LogAnnotation)")</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> pointcut(){}
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">===========通知 多中通知可根据需要灵活选用，一般Before 、AfterReturning即可=======================</span>
+    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * 前置通知：在连接点之前执行的通知
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> joinPoint
+     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> Throwable
+     </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    @Before(</span>"pointcut()"<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> doBefore(JoinPoint joinPoint) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Throwable {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 接收到请求，记录请求内容</span>
+        ServletRequestAttributes attributes =<span style="color: #000000;"> (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        HttpServletRequest request </span>=<span style="color: #000000;"> attributes.getRequest();
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 记录下请求内容</span>
+        logger.info("URL : " +<span style="color: #000000;"> request.getRequestURL().toString());
+        logger.info(</span>"HTTP_METHOD : " +<span style="color: #000000;"> request.getMethod());
+        logger.info(</span>"IP : " +<span style="color: #000000;"> request.getRemoteAddr());
+        logger.info(</span>"CLASS_METHOD : " + joinPoint.getSignature().getDeclaringTypeName() + "." +<span style="color: #000000;"> joinPoint.getSignature().getName());
+        logger.info(</span>"ARGS : " +<span style="color: #000000;"> Arrays.toString(joinPoint.getArgs()));
+    }
+
+    @AfterReturning(returning </span>= "ret",pointcut = "pointcut()"<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> doAfterReturning(Object ret) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Throwable {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 处理完请求，返回内容</span>
+        logger.info("RESPONSE : " +<span style="color: #000000;"> ret);
+    }
+</span><span style="color: #008000;">//</span><span style="color: #008000;">==============================================</span>
+    @After("pointcut()"<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> commit() {
+        logger.info(</span>"after commit"<span style="color: #000000;">);
+    }
+
+    @AfterThrowing(</span>"pointcut()"<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> afterThrowing() {
+        logger.info(</span>"afterThrowing afterThrowing  rollback"<span style="color: #000000;">);
+    }
+
+    @Around(</span>"pointcut()"<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">public</span> Object around(ProceedingJoinPoint joinPoint) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Throwable {
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            System.out.println(</span>"around"<span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> joinPoint.proceed();
+        } </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Throwable e) {
+            e.printStackTrace();
+            </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> e;
+        } </span><span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+            logger.info(</span>"around"<span style="color: #000000;">);
+        }
+    }
+
+}</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>需要注意的是</strong>：上面代码注释2的地方【2、定义切入点（可以匹配、注解的方式，可混用）】；</p>
+<p><strong>简单点说就是通过匹配或者注解（也可两种同时使用）匹配哪些类的哪些方法；</strong></p>
+<p><strong>再直白点说，就是我们要对哪些类的哪些方法执行处理，要处理的范围是哪些；</strong></p>
+<p><strong>类用*作为通配符，方法用（..）表示,括号中的两点表示匹配任何参数，包括没有参数；</strong></p>
+<p>&nbsp;</p>
+<p>上面这样其实就可以完成一个切面了，</p>
+<p>&nbsp;</p>
+<pre><code><strong>比如将切面定义那里改为：@Pointcut("execution(public * com.anson.controller.*.*(..))")</strong><br /><strong>那么运行程序后，所有com.anson.controller包下的所有类的所有方法，都会执行这个切面定义的方法进行相关写日志处理了，结果如下：</strong></pre>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">around
+[</span>2019-12-20 11:19:02,205][INFO ][http-nio-8095-exec-1] URL : http:<span style="color: #008000;">//</span><span style="color: #008000;">localhost:8095/user/userall (LogAspect.java:45)</span>
+[2019-12-20 11:19:02,205][INFO ][http-nio-8095-exec-1] HTTP_METHOD : GET (LogAspect.java:46<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,206][INFO ][http-nio-8095-exec-1] IP : 0:0:0:0:0:0:0:1 (LogAspect.java:47<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,207][INFO ][http-nio-8095-exec-1] CLASS_METHOD : com.anson.controller.UserController.getUserAll (LogAspect.java:48<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,208][INFO ][http-nio-8095-exec-1] ARGS : [] (LogAspect.java:49<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,510][DEBUG][http-nio-8095-exec-1] ==&gt;  Preparing: select id, userName, passWord, realName from user  (BaseJdbcLogger.java:143<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,606][DEBUG][http-nio-8095-exec-1] ==&gt; Parameters:  (BaseJdbcLogger.java:143<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,631][DEBUG][http-nio-8095-exec-1] &lt;==      Total: 4 (BaseJdbcLogger.java:143<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,634][INFO ][http-nio-8095-exec-1] around (LogAspect.java:77<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,635][INFO ][http-nio-8095-exec-1] after commit (LogAspect.java:60<span style="color: #000000;">)
+[</span>2019-12-20 11:19:02,635][INFO ][http-nio-8095-exec-1] RESPONSE : com.anson.common.result.ResultBody@6d9947d (LogAspect.java:55)</pre>
+</div>
+<pre><code><strong>如果不用注解的话，上面就已经完成一个切面了，如果用注解来定义切面范围呢，好，也简单，我们来定义一个注解<br /><br /><span style="font-size: 18pt;">--------------华丽丽的分割线-------------------------------</span></strong><br /><strong><span style="font-size: 18pt;">--------------增加自定义注解的方式----------------------------</span></strong><strong><span style="font-size: 18pt;"><br /></span></strong></pre>
+<h3><strong>3、添加一个LogAnnotation注解</strong></h3>
+<pre><code></pre>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> com.anson.common.annotation;
+
+</span><span style="color: #0000ff;">import</span> java.lang.annotation.*<span style="color: #000000;">;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * @description: 自定义注解
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;">: anson
+ * @Date: 2019/12/20 10:32
+ </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+</span><span style="color: #0000ff;">public</span> @<span style="color: #0000ff;">interface</span><span style="color: #000000;"> LogAnnotation <br />{
+
+}</span></pre>
+</div>
+<p><strong>这样就可以了，然后，在需要的地方，加入这个自定义注解：</strong></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">//</span><span style="color: #008000;">2、获取所有用户</span>
+    @ApiOperation(value = "获取所有用户", notes = "获取所有用户"<span style="color: #000000;">)
+    @RequestMapping(value</span>="/userall",method=<span style="color: #000000;"> RequestMethod.GET)
+    @LogAnnotation </span><span style="color: #008000;">//</span><span style="color: #008000;">自定义注解</span>
+    <span style="color: #0000ff;">public</span><span style="color: #000000;"> ResultBody getUserAll()
+    {
+        List</span>&lt;User&gt; users =<span style="color: #000000;"> userservice.getAll();
+        </span><span style="color: #0000ff;">return</span>  ResultBody.success(users,"获取所有用户信息成功"<span style="color: #000000;">);
+    }</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>同时，修改切面范围的定义即可：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;">2、定义切入点（可以匹配、注解的方式，可混用）--以下表示范围为：controller包下所有包含@</span>LogAnnotation注解的方法</pre>
+<pre><code> @Pointcut("execution(public * com.anson.controller.*.*(..)) &amp;&amp; @annotation(com.anson.common.annotation.LogAnnotation)"<span style="color: #000000;">) <br /><br /></span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> pointcut(){}</pre>
+</div>
+<p><strong>完了，就这么简单；</strong></p>
+<p><strong>至于什么地方该使用AOP，以及AOP和拦截器用哪个比较好，这个就要根据业务场景灵活取舍了，掌握了思想，具体使用那就可以灵活发挥了</strong></p>
+<pre><code><br /><br /></pre>
+<p>&nbsp;</p>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

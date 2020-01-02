@@ -1,0 +1,334 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！</center></div><div class='banquan'>原文出处:本文由博客园博主北京-宏哥提供。<br/>
+原文连接:https://www.cnblogs.com/du-hong/p/12066776.html</div><br>
+    <h3>1.简介</h3>
+<p>　　前面文章，我们实现了框架的一部分功能，包括日志类和浏览器引擎类的封装，今天我们继续封装一个基类和介绍如何实现POM。关于基类，是这样定义的：把一些常见的页面操作的selenium封装到base_page.py这个类文件，以后每个POM中的页面类，都继承这个基类，这样每个页面类都有基类的方法，这个我们会在这篇文章由宏哥实现。</p>
+<h3>2.项目层级结构</h3>
+<p>1. 上一篇中我们已经创建好了项目层级结构，具体项目层级结构如下图。这里不再赘述，相关文件也如下：</p>
+<p><img src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！0.png" alt="" /></p>
+<h3>3.&nbsp;定位和截图类封装</h3>
+<p>1. 在实现封装基类里，我们实现了元素八大方式的定位和截图类封装。</p>
+<p>2. 基类base_page.py的具体实现代码，这里就封装了几个常用方法，其他方法，你自己去练习封装下。</p>
+<h4>3.1 代码实现：</h4>
+<p><img src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！1.png" alt="" /></p>
+<h4>3.2 参考代码：</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 1.先设置编码，utf-8可支持中英文，如上，一般放在第一行</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 2.注释：包括记录创建时间，创建人，项目名称。</span>
+<span style="color: #800000;">'''</span><span style="color: #800000;">
+Created on 2019-12-20
+@author: 北京-宏哥   QQ交流群：705269076
+Project: 《《一头扎进》系列之Python+Selenium框架设计篇4- 价值好几K的框架，不看别后悔，过时不候
+</span><span style="color: #800000;">'''</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 3.导入模块</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #0000ff;">from</span> selenium.common.exceptions <span style="color: #0000ff;">import</span><span style="color: #000000;"> NoSuchElementException
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os.path
+</span><span style="color: #0000ff;">from</span> automation_framework_demo.framework.logger <span style="color: #0000ff;">import</span><span style="color: #000000;"> Logger
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> create a logger instance</span>
+logger = Logger(logger=<span style="color: #800000;">"</span><span style="color: #800000;">BasePage</span><span style="color: #800000;">"</span><span style="color: #000000;">).getlog()
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BasePage(object):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    定义一个页面基类，让所有页面都继承这个类，封装一些常用的页面操作方法到这个类
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self, driver):
+        self.driver </span>=<span style="color: #000000;"> driver
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> quit browser and end testing</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> quit_browser(self):
+        self.driver.quit()
+
+     </span><span style="color: #008000;">#</span><span style="color: #008000;"> 浏览器前进操作</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> forward(self):
+        self.driver.forward()
+        logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Click forward on current page.</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 浏览器后退操作</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> back(self):
+        self.driver.back()
+        logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Click back on current page.</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 隐式等待</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> wait(self, seconds):
+        self.driver.implicitly_wait(seconds)
+        logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">wait for %d seconds.</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> seconds)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 点击关闭当前窗口</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> close(self):
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            self.driver.close()
+            logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Closing and quit the browser.</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NameError as e:
+            logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">Failed to quit the browser with %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> e)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 保存图片</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_windows_img(self):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        在这里我们把file_path这个参数写死，直接保存到我们项目根目录的一个文件夹.\Screenshots下
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        file_path </span>= os.path.dirname(os.path.abspath(<span style="color: #800000;">'</span><span style="color: #800000;">.</span><span style="color: #800000;">'</span>)) + <span style="color: #800000;">'</span><span style="color: #800000;">/screenshots/</span><span style="color: #800000;">'</span><span style="color: #000000;">
+        rq </span>= time.strftime(<span style="color: #800000;">'</span><span style="color: #800000;">%Y%m%d%H%M</span><span style="color: #800000;">'</span><span style="color: #000000;">, time.localtime(time.time()))
+        screen_name </span>= file_path + rq + <span style="color: #800000;">'</span><span style="color: #800000;">.png</span><span style="color: #800000;">'</span>
+        <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            self.driver.get_screenshot_as_file(screen_name)
+            logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Had take screenshot and save to folder : /screenshots</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NameError as e:
+            logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">Failed to take screenshot! %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> e)
+            self.get_windows_img()
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 定位元素方法</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> find_element(self, selector):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+         这个地方为什么是根据=&gt;来切割字符串，请看页面里定位元素的方法
+         submit_btn = "id=&gt;su"
+         login_lnk = "xpath =&gt; //*[@id='u1']/a[7]"  # 百度首页登录链接定位
+         如果采用等号，结果很多xpath表达式中包含一个=，这样会造成切割不准确，影响元素定位
+        :param selector:
+        :return: element
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        element </span>= <span style="color: #800000;">''</span>
+        <span style="color: #0000ff;">if</span> <span style="color: #800000;">'</span><span style="color: #800000;">=&gt;</span><span style="color: #800000;">'</span> <span style="color: #0000ff;">not</span> <span style="color: #0000ff;">in</span><span style="color: #000000;"> selector:
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.driver.find_element_by_id(selector)
+        selector_by </span>= selector.split(<span style="color: #800000;">'</span><span style="color: #800000;">=&gt;</span><span style="color: #800000;">'</span><span style="color: #000000;">)[0]
+        selector_value </span>= selector.split(<span style="color: #800000;">'</span><span style="color: #800000;">=&gt;</span><span style="color: #800000;">'</span>)[1<span style="color: #000000;">]
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(selector_value)
+        </span><span style="color: #0000ff;">if</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">i</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">id</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                element </span>=<span style="color: #000000;"> self.driver.find_element_by_id(selector_value)
+                logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Had find the element \' %s \' successful </span><span style="color: #800000;">"</span>
+                            <span style="color: #800000;">"</span><span style="color: #800000;">by %s via value: %s </span><span style="color: #800000;">"</span> %<span style="color: #000000;"> (element.text, selector_by, selector_value))
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NoSuchElementException as e:
+                logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">NoSuchElementException: %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> e)
+                self.get_windows_img()  </span><span style="color: #008000;">#</span><span style="color: #008000;"> take screenshot</span>
+        <span style="color: #0000ff;">elif</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">n</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">name</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            element </span>=<span style="color: #000000;"> self.driver.find_element_by_name(selector_value)
+        </span><span style="color: #0000ff;">elif</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">c</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">class_name</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            element </span>=<span style="color: #000000;"> self.driver.find_element_by_class_name(selector_value)
+        </span><span style="color: #0000ff;">elif</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">l</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">link_text</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            element </span>=<span style="color: #000000;"> self.driver.find_element_by_link_text(selector_value)
+        </span><span style="color: #0000ff;">elif</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">p</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">partial_link_text</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            element </span>=<span style="color: #000000;"> self.driver.find_element_by_partial_link_text(selector_value)
+        </span><span style="color: #0000ff;">elif</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">t</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">tag_name</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            element </span>=<span style="color: #000000;"> self.driver.find_element_by_tag_name(selector_value)
+        </span><span style="color: #0000ff;">elif</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">x</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">xpath</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                element </span>=<span style="color: #000000;"> self.driver.find_element_by_xpath(selector_value)
+                logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Had find the element \' %s \' successful </span><span style="color: #800000;">"</span>
+                            <span style="color: #800000;">"</span><span style="color: #800000;">by %s via value: %s </span><span style="color: #800000;">"</span> %<span style="color: #000000;"> (element.text, selector_by, selector_value))
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NoSuchElementException as e:
+                logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">NoSuchElementException: %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> e)
+                self.get_windows_img()
+        </span><span style="color: #0000ff;">elif</span> selector_by == <span style="color: #800000;">"</span><span style="color: #800000;">s</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">or</span> selector_by == <span style="color: #800000;">'</span><span style="color: #800000;">selector_selector</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+            element </span>=<span style="color: #000000;"> self.driver.find_element_by_css_selector(selector_value)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">raise</span> NameError(<span style="color: #800000;">"</span><span style="color: #800000;">Please enter a valid type of targeting elements.</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(element)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> element
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 输入</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> type(self, selector, text):
+        el </span>=<span style="color: #000000;"> self.find_element(selector)
+        el.clear()
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            el.send_keys(text)
+            logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Had type \' %s \' in inputBox</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> text)
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NameError as e:
+            logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">Failed to type in input box with %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> e)
+            self.get_windows_img()
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 清除文本框</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> clear(self, selector):
+
+        el </span>=<span style="color: #000000;"> self.find_element(selector)
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            el.clear()
+            logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Clear text in input box before typing.</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NameError as e:
+            logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">Failed to clear in input box with %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> e)
+            self.get_windows_img()
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 点击元素</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> click(self, selector):
+
+        el </span>=<span style="color: #000000;"> self.find_element(selector)
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            el.click()
+            logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">The element \' %s \' was clicked.</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> el)
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NameError as e:
+            logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">Failed to click the element with %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> e)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 或者网页标题</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_page_title(self):
+        logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Current page title is %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> self.driver.title)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.driver.title
+
+    @staticmethod
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> sleep(seconds):
+        time.sleep(seconds)
+        logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">Sleep for %d seconds</span><span style="color: #800000;">"</span> % seconds)</pre>
+</div>
+<h3>4. pageObjects文件夹下相关代码</h3>
+<p>1.页面对象中，百度主页的元素定位和简单的操作函数，页面类主要是元素定位和页面操作写成函数，供测试类调用。</p>
+<p><span style="font-size: 16px;"><strong>baidu_homepage.py</strong></span></p>
+<h4>4.1 代码实现：</h4>
+<p><img src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！2.png" alt="" /></p>
+<h4>4.2 参考代码：</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 1.先设置编码，utf-8可支持中英文，如上，一般放在第一行</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 2.注释：包括记录创建时间，创建人，项目名称。</span>
+<span style="color: #800000;">'''</span><span style="color: #800000;">
+Created on 2019-12-20
+@author: 北京-宏哥   QQ交流群：705269076
+Project: 《《一头扎进》系列之Python+Selenium框架设计篇4- 价值好几K的框架，不看别后悔，过时不候
+</span><span style="color: #800000;">'''</span>
+<span style="color: #008000;">#</span><span style="color: #008000;"> 3.导入模块</span>
+
+<span style="color: #0000ff;">from</span> automation_framework_demo.framework.base_page <span style="color: #0000ff;">import</span><span style="color: #000000;"> BasePage
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> HomePage(BasePage):
+    input_box </span>= <span style="color: #800000;">"</span><span style="color: #800000;">id=&gt;kw</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    search_submit_btn </span>= <span style="color: #800000;">"</span><span style="color: #800000;">xpath=&gt;//*[@id='su']</span><span style="color: #800000;">"</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;">百度新闻入口</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;">news_link = "xpath=&gt;//*[@id='u1']/a[@name='tj_trnews']"</span>
+    news_link = <span style="color: #800000;">"</span><span style="color: #800000;">xpath=&gt;//*[@id='u1']/a[@name='tj_trnews']</span><span style="color: #800000;">"</span>
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> type_search(self, text):
+        self.type(self.input_box, text)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> send_submit_btn(self):
+        self.click(self.search_submit_btn)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> click_news(self,):
+        self.click(self.news_link)
+        self.sleep(</span>2)</pre>
+</div>
+<p>这里注意下元素定位写法，=&gt;和base_page.py中find_element()方法元素定位切割有关系，网上有些人写根据逗号切割或者等号切割，在实际使用xpath定位，发现单独逗号或者单独等号切割都不精确，造成元素定位失败。</p>
+<h3>5. 测试类的写法举例</h3>
+<p>1.新建一个测试类baidu_search1.py。</p>
+<p><strong>baidu_search1.py</strong></p>
+<h4>5.1 代码实现：</h4>
+<p><img src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！3.png" alt="" /></p>
+<h4>5.2 参考代码：</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 1.先设置编码，utf-8可支持中英文，如上，一般放在第一行</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 2.注释：包括记录创建时间，创建人，项目名称。</span>
+<span style="color: #800000;">'''</span><span style="color: #800000;">
+Created on 2019-12-20
+@author: 北京-宏哥   QQ交流群：705269076
+Project: 《《一头扎进》系列之Python+Selenium框架设计篇4- 价值好几K的框架，不看别后悔，过时不候
+</span><span style="color: #800000;">'''</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 3.导入模块</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> unittest
+</span><span style="color: #0000ff;">from</span> automation_framework_demo.framework.browser_engine <span style="color: #0000ff;">import</span><span style="color: #000000;"> BrowserEngine
+</span><span style="color: #0000ff;">from</span> automation_framework_demo.pageobjects.baidu_homepage <span style="color: #0000ff;">import</span><span style="color: #000000;"> HomePage
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BaiduSearch(unittest.TestCase):
+
+    
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> setUpClass(cls):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        测试固件的setUp()的代码，主要是测试的前提准备工作
+        :return:
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        browse </span>=<span style="color: #000000;"> BrowserEngine(cls)
+        cls.driver </span>=<span style="color: #000000;"> browse.open_browser(cls)
+
+    
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> tearDownClass(cls):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        测试结束后的操作，这里基本上都是关闭浏览器
+        :return:
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        cls.driver.quit()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> test_baidu_search(self):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        这里一定要test开头，把测试逻辑代码封装到一个test开头的方法里。
+        :return:
+        </span><span style="color: #800000;">"""</span>
+       <span style="color: #008000;">#</span><span style="color: #008000;"> self.driver.find_element_by_id('kw').send_keys('selenium')</span>
+       <span style="color: #008000;">#</span><span style="color: #008000;"> time.sleep(1)</span>
+        homepage =<span style="color: #000000;"> HomePage(self.driver)
+        homepage.type_search(</span><span style="color: #800000;">'</span><span style="color: #800000;">selenium</span><span style="color: #800000;">'</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> 调用页面对象中的方法</span>
+        homepage.send_submit_btn()  <span style="color: #008000;">#</span><span style="color: #008000;"> 调用页面对象类中的点击搜索按钮方法</span>
+        time.sleep(2<span style="color: #000000;">)
+        homepage.get_windows_img()  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 调用基类截图方法</span>
+        <span style="color: #0000ff;">print</span><span style="color: #000000;">(self.driver.title)
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">assert</span>(<span style="color: #800000;">'</span><span style="color: #800000;">selenium</span><span style="color: #800000;">'</span> <span style="color: #0000ff;">in</span><span style="color: #000000;"> HomePage.get_page_title(self))
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Test Pass.</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Test Fail.</span><span style="color: #800000;">'</span><span style="color: #000000;">, format(e))
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> test_search2(self):
+        homepage </span>=<span style="color: #000000;"> HomePage(self.driver)
+        homepage.type_search(</span><span style="color: #800000;">'</span><span style="color: #800000;">python</span><span style="color: #800000;">'</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> 调用页面对象中的方法</span>
+        homepage.send_submit_btn()  <span style="color: #008000;">#</span><span style="color: #008000;"> 调用页面对象类中的点击搜索按钮方法</span>
+        time.sleep(2<span style="color: #000000;">)
+        homepage.get_windows_img()  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 调用基类截图方法</span>
+
+
+<span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    unittest.main()</span></pre>
+</div>
+<h4>5.3 运行结果：</h4>
+<p>运行代码后，控制台打印如下图的结果</p>
+<p><img src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！4.png" alt="" /></p>
+<h4>5.4 代码说明</h4>
+<div class="cnblogs_code">
+<pre><code>homepage = HomePage(self.driver)</pre>
+</div>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 上面这行代码要注意，意思是：到一个页面，第一件事情是初始化这个页面的一个页面对象实例。注意，一定要带self.driver，不然会报错，这个self.driver，可以这样理解：在当前测试类里面，self.driver是来自浏览器引擎类中方法得到的，在初始化一个页面对象</p>
+<p>的时候，也把这个来自浏览器引擎类的driver给赋值给当前的页面对象，这样，才能执行页面对象或者基类里面的相关driver方法。写多了selenium的自动化脚本，你会明白，最重要的是保持前后driver的唯一性。</p>
+<h4>5.5 生成图片</h4>
+<p>1.测试结果：会在logs文件夹生成一个日志文件，也会在screenshots文件夹生成一个png图片。日志看过了，这里我们看一下图片</p>
+<p><img src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！5.png" alt="" /></p>
+<p>2.图片内容如下图：</p>
+<p><img src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！6.png" alt="" /></p>
+<h3>6. 小结</h3>
+<p>好了，今天的分享就到这里吧！！！谢谢各位的耐心阅读。有问题加群交流讨论</p>
+<p>&nbsp;</p>
+<p style="text-align: center;"><span style="font-size: 14pt;">您的肯定就是我进步的动力。如果你感觉还不错，就请鼓励一下吧！记得随手点波<strong>&nbsp;&nbsp;<span style="font-size: 18pt; color: #ff0000;">推荐</span>&nbsp;&nbsp;</strong>不要忘记哦！！！</span></p>
+<p style="text-align: center;"><span style="font-size: 14pt;">别忘了点&nbsp;<strong><span style="font-size: 18pt; color: #ff0000;">推荐</span>&nbsp;</strong>留下您来过的痕迹</span></p>
+<p style="text-align: center;"><span style="font-size: 14pt;">&nbsp;</span></p>
+<p><span style="font-size: 14pt;"><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/《一头扎进》系列之Python+Selenium框架实战篇4- 价值好几K的框架，呵！这个框架有点意思啊！！！7.png" alt="" /></span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

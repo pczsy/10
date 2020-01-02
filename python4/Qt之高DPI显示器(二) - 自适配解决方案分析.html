@@ -1,0 +1,514 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Qt之高DPI显示器(二) - 自适配解决方案分析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Qt之高DPI显示器(二) - 自适配解决方案分析</center></div><div class='banquan'>原文出处:本文由博客园博主朝十晚八提供。<br/>
+原文连接:https://www.cnblogs.com/swarmbees/p/12006601.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#一回顾">一、回顾</a></li>
+        <li><a href="#二框架说明">二、框架说明</a><ul>
+        <li><a href="#icalldpichanged">1、ICallDPIChanged</a></li>
+        <li><a href="#idpihelper">2、IDPIHelper</a></li>
+        <li><a href="#悬浮窗体管理器">3、悬浮窗体管理器</a></li>
+        </ul></li>
+        <li><a href="#三方案分析">三、方案分析</a><ul>
+        <li><a href="#窗口大小">1、窗口大小</a></li>
+        <li><a href="#字体大小">2、字体大小</a></li>
+        <li><a href="#间距">3、间距</a></li>
+        <li><a href="#图标">4、图标</a></li>
+        </ul></li>
+        <li><a href="#四相关文章">四、相关文章</a></li>
+        </ul>
+    </div>
+</div>
+<p><strong>原文链接：</strong><a href="https://www.cnblogs.com/swarmbees/p/12006601.html">Qt之高DPI显示器(二) - 自适配解决方案分析</a></p>
+<p><strong><span style='font-size:28px;'>最近一直在处理高DPI问题，也花费了不少功夫，前前后后使用了多种解决方案，各种方案也都有利弊，<span style='color:red;'>笔者最终采用了自适配方案，虽然复杂一些，但是结果可控</span>。这里把处理的过程记录下来，留给有同样需求的同学</span></strong></p>
+<h2 id="一回顾">一、回顾</h2>
+<p>上一篇文章<a href="https://www.cnblogs.com/swarmbees/p/12004594.html">Qt之高DPI显示器(一) - 解决方案整理</a>讲述了笔者处理高DPI显示的一系列分析过程，为了更好的阅读和排版，其中有一些实验方案没有具体写出，即使写出来也没有多大用处，而且会影响大家阅读。</p>
+<p>本篇文章将会接着上一篇文章的最后一小节-<code>自适配高DPI</code>进行讲解，由于内容比较多，而且整个解决方案代码量也会相当大，因此文章中也只会涉及到整个DPI适配架构的核心和一些关键代码，有疑问欢迎提问</p>
+<p><strong>上一篇文章提到了T窗口，那么什么是T窗口呢！下面我们来具体分析。</strong></p>
+<p>这里笔者贴一个适配完成以后的TWidget类，大家可以先分析分析，也可以猜猜看，每一处代码的具体含义。所有代码细节笔者后边会具体分析每一处细节</p>
+<pre><code><code>//函数声明
+//xxx.h
+#define CreateTWidget() CreateObject(Widget)
+class TWidget : public QWidget, public ICallDPIChanged
+{
+    Q_OBJECT
+
+public:
+    TWidget(float scale, QWidget * parent = nullptr);
+    TWidget(QWidget * parent = nullptr);//不建议使用
+    TWidget(QWidget * parent, Qt::WindowFlags f);//不建议使用
+    ~TWidget();
+
+public:
+    //重写大小变化相关函数
+    DECLARE_RESIZE();
+    void setLayout(QLayout * layout);
+
+public:
+    //QWidget
+    virtual bool nativeEvent(const QByteArray &amp;eventType, void *message, long *result)override;
+
+    //ICallDPIChanged
+    DECLARE_DPI();
+
+    //TWidget
+    virtual void AdjustReiszeHandle();
+
+    DECLARE_DPI_SYMBOL;
+
+protected:
+    WidgetResizeHandler resize_handler;// 用于支持放大缩小 拖拽 等功能
+
+private:
+    TigerUILib::ReiszeActions m_sizeActions;
+    QSize m_size;
+    QSize m_minimumSize;
+    QSize m_maximumSize;
+    ICallDPIChanged * m_pLayout = nullptr;//DPI发生变化时 通知布局
+};
+
+//函数实现
+//xxx.cpp
+TWidget::TWidget(float scale, QWidget * parent)
+    : QWidget(parent)
+    , dpi_scale(scale)
+{
+}
+
+TWidget::TWidget(QWidget * parent /*= nullptr*/)
+    : QWidget(parent)
+{
+    dpi_scale = WINDOW_SCALE;
+}
+
+TWidget::TWidget(QWidget *parent, Qt::WindowFlags f)
+    : QWidget(parent, f)
+{
+    dpi_scale = WINDOW_SCALE;
+}
+
+TWidget::~TWidget()
+{
+    DPIHelper()-&gt;RemoveDPIRecord(WINDOW_WINID);
+}
+
+void TWidget::setLayout(QLayout * layout)
+{
+    WIDGET_RELEATE_LAYOUTS(layout);
+
+    __super::setLayout(layout);
+}
+
+DEFINE_RESIZE(Widget);
+DEFINE_DPI(Widget);
+
+bool TWidget::nativeEvent(const QByteArray &amp;eventType, void *message, long *result)
+{
+    MSG* pMsg = reinterpret_cast&lt;MSG*&gt;(message);
+
+    switch (pMsg-&gt;message)
+    {
+    case WM_DPICHANGED:
+    {
+        DWORD dpi = LOWORD(pMsg-&gt;wParam);
+        WId id = WINDOW_WINID;
+        if (DPIHelper()-&gt;DPIChanged(dpi, id))
+        {
+            ScaleChanged(DPIHelper()-&gt;GetDPIScale(id));
+            RefrushSheet(this, id);
+        }
+    }
+    }
+
+    return __super::nativeEvent(eventType, message, result);
+}
+
+void TWidget::ScaleChanged(float scale)
+{
+    DEFINTE_SCALE_RESIZE(Widget);
+    if (m_pLayout)
+    {
+        m_pLayout-&gt;ScaleChanged(scale);
+    }
+    AdjustReiszeHandle();
+}
+
+void TWidget::AdjustReiszeHandle()
+{
+    if (resize_handler.isWidgetMoving())
+    {
+        resize_handler.dpiChanged(WINDOW_SCALE);
+    }
+}</code></pre>
+<h2 id="二框架说明">二、框架说明</h2>
+<p>用一段话描述一下DPI适配方案？</p>
+<p>答：笔者提到的DPI适配方案其实原理很简单，没有想象中那么复杂，方案也是中规中矩，其中遵守以下这么几条大的原则</p>
+<ol>
+<li>首先就是window窗体自己去监测自身所在屏幕DPI发生变化，发生变化时通知布局进行缩放</li>
+<li>局部缩放后，然后对自身所包含的widget窗体和布局进行缩放</li>
+<li>不在布局中的窗体需要单独去控制缩放</li>
+</ol>
+<p>是不是说起来很简单，但是要实现这么一个流程还是有一些难度的，首先考虑的就是效率，如果做完效率跟不上那么一切都是瞎扯。</p>
+<blockquote>
+<p><strong>为了更好的效率，笔者也是做了不需要的优化，优化的内容不在本篇文章中进行讨论，后续会单独分出一篇文章说明</strong></p>
+</blockquote>
+<p>下面是两个DPI适配框架的核心接口类，分别是DPI发生变化时的回调接口类和DPi管理接口类</p>
+<pre><code><code>struct ICallDPIChanged
+{
+    virtual void ScaleChanged(float scale) = 0;
+    virtual WId GetWID() const = 0;
+    virtual void SetScale(float scale) = 0;
+};
+
+#define STANDARD_DPI 96.0
+struct IDPIHelper
+{
+    virtual bool DPIChanged(unsigned short, WId) = 0;
+    virtual void RemoveDPIRecord(WId) = 0;//移除指定native窗体的DPI记录 一般用于native窗体析构时
+    virtual float GetDPIScale(WId) const = 0;
+    virtual float GetOldDPIScale(WId) const = 0;
+    virtual QString GetStyleSheet(WId) const = 0;//获取指定DPI下的样式表
+    virtual float GetScaleNumber(float, WId) const = 0;//获取指定DPI下的数值 缩放后数值
+    virtual QList&lt;WId&gt; GetAllWindowID() const = 0;//获取所有自己加载过皮肤的窗口ID
+
+    //优化接口 主要是为了适配用户主机只有一种DPI时使用
+    virtual bool IsOnlyOneDPI() const = 0;//获取用户主机是否只有一种DPI
+    virtual void RefrushDPIRecords() = 0;//显示器数量发生了变化 刷新历史显示器DPI记录
+    virtual void SetDefaultScale(float scale) = 0;//设置缺省DPI值 当显示器dpi只有一种时刷新
+    virtual float GetDefaultScale() const = 0;//获取缺省DPI缩放值 只有当机器上所有的显示器为统一dpi时起作用
+};
+
+IDPIHelper * GetDPIHelper();
+#define DPIHelper() GetDPIHelper()</code></pre>
+<h3 id="icalldpichanged">1、ICallDPIChanged</h3>
+<p>dpi变化时回调类，当dpi发生变化时，通过该接口类中的ScaleChanged方法进行处理变动，比如说第一小节中的TWidget类，我们也重写了这个接口，在该接口中我们对窗体进行了大小适配和布局适配</p>
+<blockquote>
+<p>对象声明中的函数声明使用了宏进行包装因此没有直接显示出来</p>
+</blockquote>
+<pre><code><code>void TWidget::ScaleChanged(float scale)
+{
+    DEFINTE_SCALE_RESIZE(Widget);
+    if (m_pLayout)
+    {
+        m_pLayout-&gt;ScaleChanged(scale);
+    }
+    AdjustReiszeHandle();//如果窗体正在被拖拽需要适配拖拽的位置
+}
+</code></pre>
+<h3 id="idpihelper">2、IDPIHelper</h3>
+<p>IDPIHelper是整个DPi适配的核心模块，他负责整个DPI调度的核心功能，包括：DPI改变检测、获取指定window窗体缩放比、获取指定window窗体的qss内容和获取指定数值在不同DPI下的实际数值等。除过以上核心接口以外，笔者为了优化DPI适配效果，还增加了一系列优化接口，主要是针对用户主机只有一种DPI时所作的性能提升。</p>
+<p>由于篇幅原因，这里把一些关键实现节点列出来</p>
+<p><strong>1、dpi变化入口</strong></p>
+<p>如下是dpi发生变化实现接口，函数中干了三件事</p>
+<ol>
+<li>首先监测dpi是否正在发生了变化，如果发生了变化则更新缓存中的window窗体的dpi缩放比</li>
+<li>接着读取window窗体中的qss标识生成新的qss样式字符串</li>
+<li>通知所有悬浮窗体管理器，适配所有悬浮窗体</li>
+</ol>
+<blockquote>
+<p>悬浮窗体指没有布局的窗体，当悬浮窗体的父窗体dpi发生变化时，相应的悬浮窗体也需要进行适配</p>
+</blockquote>
+<pre><code><code>bool CDPIHelper::DPIChanged(unsigned short dpi, WId id)
+{
+#ifndef HIGHDPI_ENABLE
+    return false;
+#endif
+    float scale = dpi / STANDARD_DPI;
+
+    RefrushDPIRecords();
+
+    if (m_pWindowScale.contains(id))
+    {
+        if (m_pWindowScale[id] == scale)
+        {
+            return false;
+        }
+
+        m_pWindowOldScale[id] = m_pWindowScale[id];
+    }
+
+    m_pWindowScale[id] = scale;
+
+    QWidget * window = QWidget::find(id);
+    m_strQssFile = window-&gt;property(QSS_FIlE).toString();
+    if (m_strQssFile.isEmpty())
+    {
+        m_strQssFile = DEFAULT_QSS_FILE;
+    }
+    else
+    {
+        if (m_strQssFile.endsWith(DEFAULT_QSS_SUFFIX) == false)
+        {
+            m_strQssFile.append(DEFAULT_QSS_SUFFIX);
+        }
+    }
+
+    RefrushTimesSheet(Skin::TypeDefault, id);
+    RefrushTimesSheet(Skin::TypeLight, id);
+
+    CFloatingWidgetMgr::getInstance()-&gt;dpiChanged(id, scale);
+    return true;
+}</code></pre>
+<p><strong>2、获取指定DPI下的qss内容</strong></p>
+<pre><code><code>void CDPIHelper::RefrushTimesSheet(Skin::SKIN_TYPE skin, WId id)
+{
+    float scale = GetDPIScale(id);
+
+    int times = (int)(scale + 0.5001);//几倍图
+
+    //如果基础qss不存在 则需要从硬盘中读取  
+    //读取时按照向上取整进行读取qss文件
+    //如果高分屏qss不存在 则读取一倍qss文件
+    if (m_StyleSheets[skin].size() &lt; times)
+    {
+        m_StyleSheets[skin].resize(times);
+    }
+
+    std::wstring filePath = ImagePath::GetSkinFilePath(skin, m_strQssFile.toStdWString(), times);
+    if (QFile::exists(QString::fromStdWString(filePath)) == false)
+    {
+        filePath = ImagePath::GetSkinFilePath(skin, m_strQssFile.toStdWString());
+    }
+    QFile qss(QString::fromStdWString(filePath));
+    qss.open(QFile::ReadOnly);
+    if (qss.isOpen())
+    {
+        QString btnstylesheet = QObject::tr(qss.readAll());
+        m_StyleSheets[skin][times - 1][SCALE_ENLARGE(m_strQssFile, scale)] = btnstylesheet;
+        qss.close();
+    }
+
+    Q_ASSERT(m_StyleSheets[skin].size() &gt; times - 1);
+    
+    //更新缓存中的换肤文件
+    m_StyleSheetMap[skin][SCALE_ENLARGE(m_strQssFile, scale)] =
+        QtTigerHelper::ScaleSheet(m_StyleSheets[skin][times - 1][SCALE_ENLARGE(m_strQssFile, scale)], scale);
+}</code></pre>
+<h3 id="悬浮窗体管理器">3、悬浮窗体管理器</h3>
+<p>大多数的窗体都是在布局中完成的，但是也有一小部分的窗口不在布局中，需要单独去适配，这个时候就需要使用CFloatingWidgetMgr布局管理器。</p>
+<pre><code><code>/**
+* 简介：悬浮窗口管理器 负责在DPI发生变化时通知悬浮窗口
+        支持如下类型的悬浮窗口:
+        TFrame TPushButton TLabel TTableView TWidget TDialog TMainWindow
+*/
+class CFloatingWidgetMgr : public QObject
+{
+    Q_OBJECT
+
+public:
+    static CFloatingWidgetMgr * getInstance();
+
+public:
+    void addWidget(QWidget * widget);
+
+    //dpi helper call
+    void dpiChanged(WId id, float scale);
+
+private:
+    QSet&lt;ICallDPIChanged *&gt; m_pWidgets;
+};</code></pre>
+<p>悬浮窗体适配高DPI也很简单，只需要把自己加入到悬浮窗体管理器中即可，是不是也很简单。</p>
+<pre><code><code>CFloatingWidgetMgr::getInstance()-&gt;addWidget(xxx);</code></pre>
+<h2 id="三方案分析">三、方案分析</h2>
+<p><span style='font-size:20px;color:red;'>既然我们要重写Qt控件的非virtual接口，那么这个行为在C++语法上应该叫覆盖，要想调用我们覆盖的函数，使用多态肯定是不行的，聪明的你肯定也想到了，我们在使用界面类时，只能使用T打头的控件类声明对象，这样就会调用我们覆盖后的接口</span></p>
+<p>上一篇文章大致说过，要自适配高DPI我们需要适配四个项目，分别是窗口大小、字体大小、间距和图标，那么接下来就开始我们的分析过程</p>
+<h3 id="窗口大小">1、窗口大小</h3>
+<p>要适配软件窗口大小，我们总共需要重写如下14个和大小相关函数，而且这只是大小相关的函数，也就是QWidget的接口，其他更复杂的接口需要针对具体的类去重写</p>
+<pre><code><code>void resize(int w, int h);void resize(const QSize &amp;); void setFixedHeight(int w); 
+void setFixedWidth(int w);void setFixedSize(int w, int h);void setFixedSize(const QSize &amp;s);
+void setMinimumSize(const QSize &amp;);void setMinimumSize(int minw, int minh);
+void setMinimumHeight(int minh);void setMinimumWidth(int minw);
+void setMaximumSize(const QSize &amp;);void setMaximumSize(int maxw, int maxh);
+void setMaximumHeight(int minh);void setMaximumWidth(int minw);</code></pre>
+<p><strong>Qt的界面类我粗略估计了下，至少有几十个，如果每一个类都需要去适配，那么工作量可想而知，因此笔者想了一个办法，做了一系列宏，像下面代码这样，只需要在我们想要适配的类中添加宏即可</strong></p>
+<pre><code><code>//函数声明
+#define DECLARE_RESIZE()\
+    void resize(int w, int h);void resize(const QSize &amp;); void setFixedHeight(int w); \
+    void setFixedWidth(int w);void setFixedSize(int w, int h);void setFixedSize(const QSize &amp;s);\
+    void setMinimumSize(const QSize &amp;);void setMinimumSize(int minw, int minh);\
+    void setMinimumHeight(int minh);void setMinimumWidth(int minw);\
+    void setMaximumSize(const QSize &amp;);void setMaximumSize(int maxw, int maxh);\
+    void setMaximumHeight(int minh);void setMaximumWidth(int minw);\</code></pre>
+<p>实际使用过程类似第一小节那样，非常简单。</p>
+<p>函数声明有了，接下来就是函数实现，方法类似，笔者还是写了一个宏来适配相关放大函数，代码下下面这样</p>
+<pre><code><code>//函数实现
+#define DEFINE_RESIZE(name)\
+    void T##name::resize(int w, int h){ m_sizeActions |= TigerUILib::RA_Resize; float scale = dpi_scale;    m_size = QSize(w, h);;__super::resize(m_size.width() * scale, m_size.height() * scale);}\
+    void T##name::resize(const QSize &amp; size){   m_sizeActions |= TigerUILib::RA_Resize; float scale = dpi_scale;m_size = size;__super::resize(m_size * scale);}\
+    void T##name::setFixedHeight(int h){m_sizeActions |= TigerUILib::RA_FixedHeight;float scale = dpi_scale;m_size.setHeight(h);__super::setFixedHeight(m_size.height() * scale);}\
+    void T##name::setFixedWidth(int w){m_sizeActions |= TigerUILib::RA_FixedWidth;float scale = dpi_scale;m_size.setWidth(w);__super::setFixedWidth(m_size.width() * scale);}\
+    void T##name::setFixedSize(int w, int h){m_sizeActions |= TigerUILib::RA_FixedSize;float scale = dpi_scale;     m_size = QSize(w, h);   __super::setFixedSize(m_size.width() * scale, m_size.height() * scale);}\
+    void T##name::setFixedSize(const QSize &amp; size){m_sizeActions |= TigerUILib::RA_FixedSize;float scale = dpi_scale;   m_size = size;  __super::setFixedSize(m_size * scale);}\
+    void T##name::setMinimumSize(const QSize &amp; size){m_sizeActions |= TigerUILib::RA_MinimumSize;float scale = dpi_scale;m_minimumSize = size;  __super::setMinimumSize(m_minimumSize * scale);}\
+    void T##name::setMinimumSize(int w, int h){m_sizeActions |= TigerUILib::RA_MinimumSize;float scale = dpi_scale; m_minimumSize = QSize(w, h);    __super::setMinimumSize(m_minimumSize.width() * scale, m_minimumSize.height() * scale);}\
+    void T##name::setMinimumHeight(int h){m_sizeActions |= TigerUILib::RA_MinimumHeight;float scale = dpi_scale;m_minimumSize.setHeight(h); __super::setMinimumHeight(m_minimumSize.height() * scale);}\
+    void T##name::setMinimumWidth(int w){m_sizeActions |= TigerUILib::RA_MinimumWidth;float scale = dpi_scale;      m_minimumSize.setWidth(w);  __super::setMinimumWidth(m_minimumSize.width() * scale);}\
+    void T##name::setMaximumSize(const QSize &amp; size){m_sizeActions |= TigerUILib::RA_MaximumSize;float scale = dpi_scale;   m_maximumSize = size;   __super::setMaximumSize(m_maximumSize * scale);}\
+    void T##name::setMaximumSize(int w, int h){m_sizeActions |= TigerUILib::RA_MaximumSize;float scale = dpi_scale; m_maximumSize = QSize(w, h);    __super::setMaximumSize(m_maximumSize.width() * scale, m_maximumSize.height() * scale);}\
+    void T##name::setMaximumHeight(int h){m_sizeActions |= TigerUILib::RA_MaximumHeight;float scale = dpi_scale;    m_maximumSize.setHeight(h); __super::setMaximumHeight(m_maximumSize.height() * scale);}\
+    void T##name::setMaximumWidth(int w){m_sizeActions |= TigerUILib::RA_MaximumWidth;float scale = dpi_scale;  m_maximumSize.setWidth(w);  __super::setMaximumWidth(m_maximumSize.width() * scale);}</code></pre>
+<p><strong>动态调整</strong></p>
+<p>仔细阅读DEFINE_RESIZE宏中的任意一个函数，就能发现每一个函数中都有一个TigerUILib::WidgetAction标记，表示该对象的此函数是否被调用过，标记之后有一个好处，那就是当我们软件所在屏幕的DPI发生变化时可以有针对性的去调用相关函数，下面是一个简单的测试代码。</p>
+<pre><code><code>if (testflag(&quot;setfixedWidth&quot;))
+{
+    setFixedWidth(width * scale);
+}</code></pre>
+<p>说到这里有必要介绍下DEFINTE_SCALE_RESIZE宏，如下代码，就不解释了一看应该都会明白</p>
+<pre><code><code>#define DEFINTE_SCALE_RESIZE(name)\
+    if (m_sizeActions.testFlag(TigerUILib::RA_FixedWidth)){Q##name::setFixedWidth(m_size.width() * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_FixedHeight)){Q##name::setFixedHeight(m_size.height() * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_FixedSize)){Q##name::setFixedSize(m_size * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_Resize)){ QSize newSize = m_size * scale;if(minimumSize().width() &gt; newSize.width()){Q##name::setMinimumSize(newSize);}Q##name::resize(newSize);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_MinimumSize)){Q##name::setMinimumSize(m_minimumSize * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_MinimumHeight)){Q##name::setMinimumHeight(m_minimumSize.height() * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_MinimumWidth)){Q##name::setMinimumWidth(m_minimumSize.width() * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_MaximumSize)){Q##name::setMaximumSize(m_maximumSize * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_MaximumHeight)){Q##name::setMaximumHeight(m_maximumSize.height() * scale);}\
+    if (m_sizeActions.testFlag(TigerUILib::RA_MaximumWidth)){ Q##name::setMaximumWidth(m_maximumSize.width() * scale); }\
+    dpi_scale = scale;</code></pre>
+<h3 id="字体大小">2、字体大小</h3>
+<p>Qt程序我们的字体大小都是在qss文件中进行标记，那么适配高DPI也就很简单了，只需要把96dpi下的数字大小按比例进行放大即可。</p>
+<p>知道方法后，做起来就很简单了，只需要写一个字符串替换函数，把qss中的数值按比例放大即可，方法如下。</p>
+<blockquote>
+<p>数值放大时有一个小技巧，那就是要做一个平滑处理，1.49px当做1px处理 1.5px当做2px，意思就是说在做数字当大的过程中，可能会出现小数，我们的原则是数值放大后加上0.50001然后取整数部分。</p>
+</blockquote>
+<pre><code><code>QString QtTigerHelper::ScaleSheet(const QString &amp; sheet, float scale)
+{
+    if (sheet.isEmpty())
+    {
+        return sheet;
+    }
+
+    //1倍图时不需要做任何处理
+    if (scale == 1.0)
+    {
+        return sheet;
+    }
+
+    //放大字体
+    QString tempStyle = sheet;
+    QRegExp rx(&quot;\\d+px&quot;, Qt::CaseInsensitive);
+    rx.setMinimal(true);
+    int index = -1;
+    while ((index = rx.indexIn(tempStyle, index + 1)) &gt;= 0)
+    {
+        int capLen = rx.cap(0).length() - 2;
+        QString snum = tempStyle.mid(index, capLen);
+        snum = QString::number(qRound(snum.toInt() * scale));
+        tempStyle.replace(index, capLen, snum);
+        index += snum.length();
+        if (index &gt; tempStyle.size() - 2)
+        {
+            break;
+        }
+    }
+
+    return tempStyle;
+}</code></pre>
+<h3 id="间距">3、间距</h3>
+<p>Qt中的布局有2中方式可以设置，可以在代码中通过接口设置，也可以通过qss进行设置，当然了这两种情况都需要适配。</p>
+<p><strong>布局的margin</strong></p>
+<p>记录调用了哪些设置大小的函数，在dpi发生变化时重新设置一遍，类似于窗口大小变化时所作调整</p>
+<pre><code><code>if (testflag(&quot;margin&quot;))
+{
+    setContextMargin(...);
+}</code></pre>
+<p><strong>padding和margin</strong></p>
+<blockquote>
+<p>方式和放大字体一样，可以通过统一的时机去处理</p>
+</blockquote>
+<p>读取原有qss文件，使用正则表达式生成scale版本的新qss文件。</p>
+<h3 id="图标">4、图标</h3>
+<p>图标替换是一个相对来说比较复杂的事情，这里有必要细说一下。</p>
+<p>首先是工程中需要额外添加2x和3x分辨率的图标，1x图标为正常情况下使用的图标，2x和3x图标分别是高分辨率下的图标</p>
+<p>替换图标有两种情况，一种是使用qss方式贴的图，另一种是自绘贴的图</p>
+<p><strong>qss方式</strong></p>
+<p>预先生成高分辨率下的整数倍xxx_2x.qss和xxx_3x.qss文件，需要强调一下，2x和3xqss文件中的字号还是一倍程序中的字号，实际使用的时候在动态放大，如果想要程序的效率高一些可能还需要做一些缓存</p>
+<p><strong>自绘</strong></p>
+<p>如果是自绘文字和图片，那就需要自己控制缩放比，和图片压缩系数</p>
+<p><strong>缩放比：</strong> 绘制文字时需要放大的比例，计算方式为当前dpi值除以96.0，结果是一个浮点数，比如说1.5</p>
+<p><strong>压缩系数：</strong> 绘制图片的时候这里有一个小窍门，当我们绘制缩放比为小数情况时，需要使用距离较近的整数图片进行压缩绘制，这样的情况我们就需要使用压缩系数进行动态调整绘制图片的大小</p>
+<pre><code><code>float ImagePath::GetStretchFactor(float scale)
+{
+    if (scale &lt; 1.5)
+    {
+        return scale;
+    }
+    else if (scale &lt; 2.5)
+    {
+        return scale / 2;
+    }
+    else if (scale &lt; 3.5)
+    {
+        return scale / 3;
+    }
+    else//缺省为3倍图拉伸
+    {
+        return scale / 3;
+    }
+}</code></pre>
+<p><span style='font-size:20px;'>以上就是DPI适配方案的大致思路了，因为篇幅原因没有针对每一个widget和layout进行详细说明，有需要的可以私聊。</span></p>
+<h2 id="四相关文章">四、相关文章</h2>
+<p><a href="https://www.cnblogs.com/swarmbees/p/12004594.html">Qt之高DPI显示器(一) - 解决方案整理</a></p>
+<p><a href="http://blog.jeswang.org/blog/2013/08/07/ppi-vs-dpi-you-shi-yao-qu-bie/">PPI vs. DPI: 有什么区别?</a></p>
+<p><a href="https://docs.microsoft.com/zh-cn/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows?redirectedfrom=MSDN">High DPI Desktop Application Development on Windows</a></p>
+<p><a href="https://docs.microsoft.com/zh-cn/windows/win32/api/shellscalingapi/ne-shellscalingapi-process_dpi_awareness">PROCESS_DPI_AWARENESS Enumeration</a></p>
+<p><a href="https://docs.microsoft.com/zh-cn/windows/win32/api/winuser/nf-winuser-setprocessdpiaware?redirectedfrom=MSDN">SetProcessDPIAware function</a>：Win Vista开始支持的接口</p>
+<p><a href="https://docs.microsoft.com/zh-cn/windows/win32/api/shellscalingapi/nf-shellscalingapi-setprocessdpiawareness?redirectedfrom=MSDN">SetProcessDpiAwareness function</a>：Win8.1开始支持的接口</p>
+<p><a href="https://blog.csdn.net/rankun1/article/details/55225022">关于Windows高DPI的一些简单总结</a></p>
+<p><a href="http://www.cocoachina.com/articles/69830">如何开发新的Qt 5.7高DPI每监视器DPI感</a></p>
+<p><strong>值得一看的优秀文章：</strong></p>
+<ol>
+<li><strong><a href="https://www.cnblogs.com/swarmbees/p/6707798.html">财联社-产品展示</a></strong></li>
+<li><strong><a href="https://www.cnblogs.com/swarmbees/p/10836505.html">广联达-产品展示</a></strong></li>
+<li><strong><a href="https://blog.csdn.net/qq_30392343/article/details/95527107">Qt定制控件列表</a></strong></li>
+<li><strong><a href="https://blog.csdn.net/qq_30392343/article/details/95526527">牛逼哄哄的Qt库</a></strong></li>
+</ol>
+<p><br><br />
+<html><br />
+<div style='font-weight:600;'><br />
+如果您觉得文章不错，不妨给个<span style='font-size:24px;color:blue;'>打赏</span>，写作不易，感谢各位的支持。您的支持是我最大的动力，谢谢！！！<br />
+</div><br />
+<center><br />
+<div><br />
+<table><br />
+<tr><br />
+<td><img src=https://www.cnblogs.com/images/cnblogs_com/swarmbees/1497876/o_weixin_reward.png border=0></td><br />
+<td><img src=https://www.cnblogs.com/images/cnblogs_com/swarmbees/1497876/o_zhifubao_reward.png border=0></td><br />
+</tr><br />
+</table><br />
+</div><br />
+</center><br />
+</html></p>
+<p><br><br></p>
+<hr />
+<p><strong>很重要--转载声明</strong></p>
+<ol>
+<li><p>本站文章无特别说明，皆为原创，版权所有，转载时请用链接的方式，给出原文出处。同时写上原作者：<a href="https://www.cnblogs.com/swarmbees/">朝十晚八</a> or <a href="https://www.jianshu.com/u/7673f8cfb4e6">Twowords</a></p></li>
+<li><p>如要转载，请原文转载，如在转载时修改本文，请事先告知，谢绝在转载时通过修改本文达到有利于转载者的目的。</p></li>
+</ol>
+<hr />
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

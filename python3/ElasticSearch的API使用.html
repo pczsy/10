@@ -1,0 +1,163 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修ElasticSearch的API使用' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>ElasticSearch的API使用</center></div><div class='banquan'>原文出处:本文由博客园博主Yrion提供。<br/>
+原文连接:https://www.cnblogs.com/wyq178/p/11968529.html</div><br>
+    <p>前言：之前写过如何安装ElasticSearch(以下简称ES)以及简单的crud的使用实例的博客,不过ElasticSearch的版本变化太快,像之前的5.6版本使用的TransPortClient目前已经无法使用了,官方的API变化较快.最近工作中需要用到ES作为查询的中间件,项目组长决定使用7.4.2最新版本,在项目中如何使用ElasticSearch整个任务交给了我,经过几天的研究(瞎折腾),终于把基本的使用方法搞明白了,因为网上关于7.4.2版本的API使用说明实在太少，所以我决定整理成一篇博客发出来~</p>
+<p><span style="font-size: 16px;">目录</span></p>
+<p><span style="font-size: 16px;"><strong>一：ES的基本数据类型</strong></span></p>
+<p><span style="font-size: 16px;"><strong>二：查询的基本语言</strong></span></p>
+<p><span style="font-size: 16px;"><strong>三：使用实例</strong></span></p>
+<p><span style="font-size: 16px;"><strong>四：总结</strong></span></p>
+<p>&nbsp;</p>
+<p><strong><span style="font-size: 12px;">正文&nbsp;</span></strong></p>
+<h1><span style="font-size: 18pt;"><strong>一：ES的基本数据类型</strong></span></h1>
+<p><span style="font-size: 12px;">ES的数据类型大概可以分为以下几种,值得注意的是ES是没有java中的list或者set这个概念的,每种类型都天然的支持list多层数据,但是如果设置为list的类信息,就必须将数据类型指定为nested，详情看以下介绍：</span></p>
+<p><span style="font-size: 12px;"><strong><img src="./images/ElasticSearch的API使用0.png" alt="" /></strong></span></p>
+<h1><span style="font-size: 18pt;"><strong>二：基本的查询语言</strong></span></h1>
+<p><span style="font-size: 13px;">&nbsp;es的查询语言叫做QSL,也就是它的查询语言,和mysql的sql概念类似,所有的查询都需要去匹配相关的QSL才能得到信息,同时QSL又有自己的语法，必须遵守语法才能得到我们想要的信息,接下来我们就来解析一下QSL.</span></p>
+<p><span style="font-size: 16px;"><strong>1.1:Index</strong></span></p>
+<p><span style="font-size: 13px;">Index是ES的数据库的概念，所以一开始就必须建立索引,在7.4.2版本中已经去除了type的概念。所以不需要建立type,在ES中创建一个index也是十分简单的,按照官方的文档,注意索引的名字只能是小写,不能是大写,否则会报错,建立一个index的QSL如下,使用PUT请求的格式(注意PUT要大写)，斜杠后面跟上index的名字,然后在设置里写上分片和副本的数量(如果不指定的话,ES会默认设置为shards和replicas为1)。关于如何定义shards和replicas的数量,请参考xxx.</span></p>
+<p><span style="font-size: 13px;"><img src="./images/ElasticSearch的API使用1.png" alt="" /></span></p>
+<p><span style="font-size: 18px;"><strong>1.2:mapping</strong></span></p>
+<p><span style="font-size: 13px;">建立mapping就好比是mysql中创建表结构,我们要来表达业务必须在mapping里面创建具体的数据properties(properties就好比是mysql表中的字段概念),完整的创建一个mapping的结构如下，使用PUT请求,在proerties中声明field的类型,在type中声明数据类型，需要注意的是es的mapping创建之后无法修改,如果需要修改需要重新建立index,然后reindex迁移数据，所以创建mapping之前一定要考虑清楚具体的业务</span></p>
+<p><span style="font-size: 13px;"><img src="./images/ElasticSearch的API使用2.png" alt="" /></span></p>
+<p><span style="font-size: 18px;">&nbsp;1.3:创建index的同时创建mapping</span></p>
+<p>在1.1和1.2中创建index和mapping是分开的,其实也可以一步到位同时创建index和mapping,使用如下语法,在index中声明mappings，具体的创建结构和1.2的mapping保持一致</p>
+<p><img src="./images/ElasticSearch的API使用3.png" alt="" />&nbsp;</p>
+<p>实例：我们来创建一个人,这个有年龄、名字、出生日期等属性(以下命令可以在kibana中直接使用，详情请安装kiana)</p>
+<div class="cnblogs_code">
+<pre><code>PUT  /<span style="color: #000000;">person
+{
+   </span><span style="color: #800000;">"</span><span style="color: #800000;">settings</span><span style="color: #800000;">"</span><span style="color: #000000;"> : {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">index</span><span style="color: #800000;">"</span><span style="color: #000000;"> : {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">number_of_shards</span><span style="color: #800000;">"</span> : <span style="color: #800080;">2</span><span style="color: #000000;">, 
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">number_of_replicas</span><span style="color: #800000;">"</span> : <span style="color: #800080;">1</span><span style="color: #000000;">
+        }
+     },
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">mappings</span><span style="color: #800000;">"</span><span style="color: #000000;">:{
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">properties</span><span style="color: #800000;">"</span><span style="color: #000000;">:{
+           </span><span style="color: #800000;">"</span><span style="color: #800000;">id</span><span style="color: #800000;">"</span><span style="color: #000000;">:{
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">type</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">keyword</span><span style="color: #800000;">"</span><span style="color: #000000;">
+             },
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">name</span><span style="color: #800000;">"</span><span style="color: #000000;">:{
+               </span><span style="color: #800000;">"</span><span style="color: #800000;">type</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">text</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+               </span><span style="color: #800000;">"</span><span style="color: #800000;">analyzer</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">ik_max_word</span><span style="color: #800000;">"</span><span style="color: #000000;">
+            },
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">age</span><span style="color: #800000;">"</span><span style="color: #000000;">:{
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">type</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">integer</span><span style="color: #800000;">"</span><span style="color: #000000;">
+            },<br /></span></pre>
+<pre><code><span>           "phone"<span>:{
+                "type":"text"<span>
+            },</span></span></span></pre>
+<pre><code><span style="color: #800000;">           "</span><span style="color: #800000;">birthday</span><span style="color: #800000;">"</span><span style="color: #000000;">:{ <br /></span><span style="color: #800000;">              "</span><span style="color: #800000;">type</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">date</span><span style="color: #800000;">"</span><span style="color: #000000;"> <br />            }, <br />         <br /></span><span style="color: #800000;">          "</span><span style="color: #800000;">position</span><span style="color: #800000;">"</span><span style="color: #000000;">:{ <br /></span><span style="color: #800000;">             "</span><span style="color: #800000;">type</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">geo_point</span><span style="color: #800000;">"</span><span style="color: #000000;"> <br />            }, <br /> <br /></span><span style="color: #800000;">         "</span><span style="color: #800000;">provinceId</span><span style="color: #800000;">"</span><span style="color: #000000;">:{ <br /></span><span style="color: #800000;">            "</span><span style="color: #800000;">type</span><span style="color: #800000;">"</span>:<br /><span style="color: #800000;">             "</span><span style="color: #800000;">integer</span><span style="color: #800000;">"</span><span style="color: #000000;"> <br />         } <br />       } <br />    } <br /> }</span></pre>
+</div>
+<p>&nbsp;<span style="font-size: 13px;">以下结果表示创建成功:&nbsp;&nbsp;</span></p>
+<p><span style="font-size: 13px;"><strong><img src="./images/ElasticSearch的API使用4.png" alt="" />&nbsp;</strong></span></p>
+<h2><span style="font-size: 18px;"><strong>1.4:match</strong></span></h2>
+<p><span style="font-size: 13px;">match是模糊匹配查询(和fuzzy不同)，根据分词器(如果创建mapping没有指定分词器，Es将会采取默认的分词器:standard,standard分词将会把匹配的词组分成单个的字,而不是短语)将指定的query查询的语句进行分词匹配，如下的match是在index中查询messae字段中包含test字段的短语：</span></p>
+<p><img src="./images/ElasticSearch的API使用5.png" alt="" /></p>
+<p><strong>实例：</strong>查询person中name为周星驰的文档：</p>
+<p><img src="./images/ElasticSearch的API使用6.png" alt="" /></p>
+<p>&nbsp;以为name字段指定了分词器为&rdquo;ik_max_word&ldquo;,在分词器下&rdquo;周星驰&ldquo;三个字会进行拆分，只要匹配到任一词汇就会返回，这里需要注意不是全部匹配</p>
+<p><img src="./images/ElasticSearch的API使用7.png" alt="" /></p>
+<p><img src="./images/ElasticSearch的API使用8.png" alt="" /></p>
+<p>匹配结果:</p>
+<p><img src="./images/ElasticSearch的API使用9.png" alt="" /></p>
+<p><span style="font-size: 16px;"><strong>1.5:match_pharse</strong></span></p>
+<p>&nbsp;match_pharse属于短语匹配,要求查询的词句和匹配的短语顺序必须一致,并且是连续的，但可以设置&nbsp;<code>slop</code>&nbsp;值来指定查询项之间可以分隔多远的距离</p>
+<p><strong>实例：</strong></p>
+<p><strong><img src="./images/ElasticSearch的API使用10.png" alt="" /></strong></p>
+<p>这里故意颠倒了词组顺序,可以看出来没有匹配到任何结果：&nbsp;</p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用11.png" alt="" /></p>
+<p><span style="font-size: 18px;"><strong>1.6:fuzzy</strong></span></p>
+<p><span style="font-size: 13px;">fuzzy查询的时候,不会根据分词器匹配,只会进行拆分,比如查询的是"周大驰",在分词器下(也就是match中)是无法匹配到单个词的，因为它不是一个短语,但是在fuzzy中是可以匹配的，并且fuzzy支持模糊和一定的容错查询匹配,因为它做的是匹配词的拆分,并不是短语。</span></p>
+<p><span style="font-size: 13px;"><img src="./images/ElasticSearch的API使用12.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 13px;">返回的结果：</span></p>
+<p>&nbsp;</p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用13.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><strong>&nbsp;<span style="font-size: 16px;">1.7:regexp</span></strong></p>
+<p>正则表达式匹配，该匹配模式下我们可以按照正则表达式的符号去匹配具体的值,比如name字段，可以包含有.和*去正则匹配具体的值，?表示任一字符，*表示所有字符，还有其他的正则符号都可以使用，详情参考<a href="https://www.elastic.co/guide/en/elasticsearch/reference/6.8/query-dsl-regexp-query.html#regexp-syntax">https://www.elastic.co/guide/en/elasticsearch/reference/6.8/query-dsl-regexp-query.html#regexp-syntax</a></p>
+<p><img src="./images/ElasticSearch的API使用14.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>匹配手机号以1到9之前的开头，并且第二位是3最后一位是0或者1的手机号</p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用15.png" alt="" /></p>
+<p><span style="font-size: 16px;"><strong>1.8:wildcard</strong></span></p>
+<p>通配符匹配，wildcard和regexp类似,不过它们也有不同之处。regexp的实际匹配能力要大于wildcard，在进行简单的匹配时候，比如名字的*或者?的简单普通匹配,建议使用wildcard而不是regexp,wildcard的效率要高于regexp，regexp可以实现更为复杂的场景,但是效率低一些,通俗的说wildcard是regexp的简化版本.</p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用16.png" alt="" /></p>
+<p>&nbsp;这里采用通配符匹配手机的电话号，*表示多个字符，可以看到匹配结果</p>
+<p><img src="./images/ElasticSearch的API使用17.png" alt="" width="584" height="459" /></p>
+<p><span style="font-size: 16px;"><strong>&nbsp;1.9:multi_match</strong></span></p>
+<p>多字段匹配，比如在查询test这个值的时候我们不仅需要在A这个字段中查询，同时它也有可能存在B中，按照普通的写法你可能需要写两次查询，但是使用了multi_search只需要指定具体的fields就可以实现多字段查询</p>
+<p><strong>实例:</strong>同时在age字段和phone字段搜索包含38这个数字的文档</p>
+<p><img src="./images/ElasticSearch的API使用18.png" alt="" /></p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用19.png" alt="" /></p>
+<p><span style="font-size: 16px;"><strong>2.0：term</strong></span></p>
+<p>&nbsp;term的英文含义表示是:精确的意思，在term查询中，表示做的是精确查询，整词匹配，不会对所匹配项进行拆分。举个例子在field字段中查询Yrion这个词，那么它不会进行拆分，直接以整词Yrion进行匹配，如果能查询到就命中该文档：</p>
+<p><img src="./images/ElasticSearch的API使用20.png" alt="" /></p>
+<p>这里查询的name为周星星,term不会分词,因为没有任何文档的name匹配,所以不会命中任何结果</p>
+<p><img src="./images/ElasticSearch的API使用21.png" alt="" /></p>
+<p><span style="font-size: 16px;">&nbsp;2.1<strong>:terms</strong></span></p>
+<p>terms和term的区别就是terms允许匹配多个值，而term只允许匹配一个值,在进行多值匹配的场景中可以使用terms,terms匹配到其中任何一个值就会认为整个文档是匹配的,terms多个值如果多个都匹配会返回所有文档</p>
+<p>实例：查询age为24、66的任一值，查到就返回文档，可以看出命中了两个文档</p>
+<p><img src="./images/ElasticSearch的API使用22.png" alt="" /></p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用23.png" alt="" /></p>
+<p><span style="font-size: 16px;"><strong>2.2:range</strong></span></p>
+<p><span style="font-size: 13px;">range表示一个区间范围查找,这个范围可以是日期或者数值,类似于mysql中的between,不过ES的range比较灵活和明确,可以指定两个边界是否包含。如下的查询表示寻找age在10和20之间的数据</span></p>
+<p><span style="font-size: 13px;">实例：查询age为20到30区间所有文档,<strong>include_lower</strong>表示是否包含边界最小值(true表示包含),<strong>include_upper</strong>表示是否包含边界最大值(true表示包含,false表示不包含)</span></p>
+<p><img src="./images/ElasticSearch的API使用24.png" alt="" /></p>
+<p>返回结果：</p>
+<p><img src="./images/ElasticSearch的API使用25.png" alt="" /></p>
+<p><strong><span style="font-size: 16px;">2.7:bool</span></strong></p>
+<p>bool表示逻辑关系的查询,must表示and的关系，should表示or的关系，mustNot表示not的关系</p>
+<p>实例：查询省份在北京(provinceId:2)或者年龄在10-60岁之间的并且名字不姓周的人：</p>
+<p><img src="./images/ElasticSearch的API使用26.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用27.png" alt="" /></p>
+<p><span style="font-size: 16px;">&nbsp;<strong>2.8:geo</strong></span></p>
+<p><span style="font-size: 13px;">geo表示根据经纬度进行地理位置的查找，ES提供了地理位置的三种查找方式：①以指定的经纬度为圆心,距离为半径画圆搜索周围区间落到的点 ②：以指定的经纬度组成多边形(geo_shape),查找矩形中的点。不过需要注意的是geo搜索需要将field指定为geo_ponint的数据类型,否则在查询的时候会报错.以下表示以-70和40为中心圆点,查找距离为12km的文档，如果符合这个距离的条件，就会hit到文档</span></p>
+<p><img src="./images/ElasticSearch的API使用28.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;以经度为47.998，维度为63.841为中心寻找周围5公里的位置：</p>
+<p><img src="./images/ElasticSearch的API使用29.png" alt="" /></p>
+<p><span style="font-size: 16px;"><strong>2.9:sort</strong></span></p>
+<p><span style="font-size: 13px;">sort表示排序，ES提供了三种排序方式①:按照文档的得分来排序,ES会自动根据查询的条件来匹配文档,每个文档命中值就会有一个score值,可以按照score值进行排序 ②按照指定字段的值可以倒序,也可以正序③按照指定地理位置的距离来进行排序,这里需要注意的就是在排序字段上如果是text类型就必须开启&nbsp;fielddata，而keyword可以直接用来排序，所以建议如果要给字段排序就最好声明为keyword类型<br /></span></p>
+<p><img src="./images/ElasticSearch的API使用30.png" alt="" /></p>
+<p>这里指定了匹配所有文档,然后按照年龄的降序排序desc表示降序,esc表示升序</p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用31.png" alt="" /></p>
+<p><span style="font-size: 16px;"><strong>3.0:page</strong></span></p>
+<p><span style="font-size: 13px;">ES默认返回的条数值为10，如果想改变返回的条数值,可以指定size的大小,也可以指定from的起始位置,也就好比mysql中的pageIndex,size是pageSize,对应于mysql中的limit 0,5,则在ES中是from 0&nbsp;to&nbsp;5:</span></p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用32.png" alt="" /></p>
+<p>&nbsp;这里选择返回两条数据,表示分页的大小为2，可以看出最终的结果是只返回了两条数据：</p>
+<p>&nbsp;<img src="./images/ElasticSearch的API使用33.png" alt="" /></p>
+<p><span style="font-size: 18pt;"><strong>二：使用实例</strong></span></p>
+<p>&nbsp; &nbsp; &nbsp; 首先来定义这样一个场景,有很多人的文档人的属性有年龄、名字、爱好、职业、出生日期、地理位置等属性,我们需要找到符合指定条件的人，这里就需要用到查询的方式，我们首先来创建person整个index，然后创建mapping结构,之后put进去数据,可能还会涉及到person的修改或者删除，之后可以建立复杂的查询来模拟现实的业务场景.具体的api可以查询官方文档，API就不做说明了，git地址的代码里都有，就不做搬运工了</p>
+<p>关于查询的API代码都放在了git中,使用的是官网的API,地址如下,有兴趣的可以研究下：<a title="git地址" href="https://gitee.com/Yrion/elasticsearchApiTest.git" target="_blank"> https://gitee.com/Yrion/elasticsearchApiTest.git</a></p>
+<p>接口已经写好,结合前端可以直接实现增删改查,整体架构也比较简单：</p>
+<p><img src="./images/ElasticSearch的API使用34.png" alt="" /></p>
+<h1><strong>三：总结</strong></h1>
+<p>&nbsp; &nbsp; 本篇博客总结了ElasticSearch的一些基本查询语法,并给出了实际查询的例子,只要是学会了语法，查询的API很容易学会，具体的代码也在git中给出，作为一款全文检索引擎，ES的效率和使用的场景都可见一斑,ES基本属于程序员必须掌握的一项学习技能。目前开源的搜索引擎还有阿里的opensearch,两者各有千秋~opensearch以后有机会研究，总之在全文搜索的路上，ES基本是必经之路，加油！</p>
+<p><strong>最后</strong>:&nbsp;<strong>如果对学习java有兴趣可以加入群:618626589,本群旨在打造无培训广告、无闲聊扯皮、无注水斗图的纯技术交流群，群里每天会分享有价值的问题和学习资料,欢迎各位随时加入～</strong></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

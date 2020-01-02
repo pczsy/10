@@ -1,0 +1,196 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask路由系统' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask路由系统</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11764998.html</div><br>
+    <h1 id="flask路由系统">Flask路由系统</h1>
+<p>我们之前了解了路由系统是由带参数的装饰器完成的。</p>
+<p>路由本质：装饰器和闭包实现的。</p>
+<h2 id="设置路由的两种方式">设置路由的两种方式</h2>
+<p><strong>第一种：</strong></p>
+<pre><code><code>@app.route(&#39;/index&#39;)
+def index():
+    return &quot;index&quot;</code></pre>
+<p>我们之前用的装饰器都是不带参数的，执行的时候直接是将函数名作为参数传给装饰器执行。那么带参数的装饰器时如何执行的呢？</p>
+<p>我们看一下源码：先从route点进去。</p>
+<p>先去掉@执行</p>
+<pre><code><code>def route(self, rule, **options):
+    &quot;&quot;&quot;...&quot;&quot;&quot;
+    def decorator(f):
+        endpoint = options.pop(&quot;endpoint&quot;, None)
+        self.add_url_rule(rule, endpoint, f, **options)
+        return f
+
+    return decorator
+
+&quot;&quot;&quot;
+我们可以将这个带参数的装饰器分开执行:
+    1. 先执行decorator = app.route(&#39;/index&#39;) 
+    2. @decorator: 将函数名参数传给装饰器@decorator
+&quot;&quot;&quot;</code></pre>
+<p><strong>第二种：</strong></p>
+<p>通过源码分析，以上带参数的装饰器最后也可以写成：</p>
+<pre><code><code>def index():
+    return &quot;index&quot;
+ 
+app.add_url_rule(&quot;/index&quot;,None,index)　</code></pre>
+<ul>
+<li><strong>注意事项：</strong>
+<ul>
+<li>不要让endpoint重名</li>
+<li>如果非要重名，必须要保证函数是同一个函数，两个函数同名也不行。</li>
+</ul></li>
+</ul>
+<h2 id="参数">参数</h2>
+<pre><code><code>&quot;&quot;&quot;
+@app.route和app.add_url_rule参数：
+1. rule: URL规则
+    1.1 静态参数路由：/index、/login等
+    1.2 动态参数路由：/index/&lt;name&gt;，在路由中使用了&lt;变量名&gt;的路由称为动态路由， 动态路由参数&lt;name&gt;会接收字符串和数字类型，但在制定了int时会优先调用该视图。
+        可以指定int型，如/index/&lt;int:id&gt;,在视图函数中必须有同名的形参来接收
+        动态参数默认转换器：
+            DEFAULT_CONVERTERS = {
+                &#39;default&#39;:          UnicodeConverter,
+                &#39;string&#39;:           UnicodeConverter,
+                &#39;any&#39;:              AnyConverter,
+                &#39;path&#39;:             PathConverter,
+                &#39;int&#39;:              IntegerConverter,
+                &#39;float&#39;:            FloatConverter,
+                &#39;uuid&#39;:             UUIDConverter,
+            }
+            
+2. endpoint=None: 名称，用于反向生成URL，即： url_for(&#39;名称&#39;)
+    3.1路由映射视图函数，endpoint不指定默认为视图函数名（view_func.__name__）
+    3.2项目中存储视图函数的view_funcs是以{endpoint:view_func}形式存储，因此视图函数不能同名，
+    3.3在使用自定义装饰器时注意指定唯一的endpoint,以避免在多个视图函数使用自定义装饰器时报错；
+
+3. view_func: 视图函数名称
+
+4. methods=None:  允许的请求方式，如：[&quot;GET&quot;,&quot;POST&quot;]
+    4.1当前视图函数支持的请求方式（405当前请求方式不被允许），
+    4.2参数为可迭代对象，请求方式不区分大小写，不设置默认为GET
+
+5. defaults=None: 默认值,当URL中无参数，函数需要参数时，使用defaults={&#39;k&#39;:&#39;v&#39;}为函数提供参数
+
+6. redirect_to=None: 重定向到指定地址
+    永久重定向（301或者308）
+    应用场景：用户之前收藏的是视图函数对应的路由地址，后来页面不在使用，换了新的路径，为了避免用户收藏的不能访问，因此设置永久重定向
+    6.1 @app.route(&#39;/index/&lt;int:nid&gt;&#39;, redirect_to=&#39;/home/&lt;nid&gt;&#39;)
+    6.2 def func(adapter, nid):
+            return &quot;/home/888&quot;
+        @app.route(&#39;/index/&lt;int:nid&gt;&#39;, redirect_to=func)
+    
+7. strict_slashes=True/False: 对URL最后的 / 符号是否严格要求
+    如：
+    1）@app.route(&#39;/index&#39;,strict_slashes=False)，
+       访问 http://www.xx.com/index/ 或 http://www.xx.com/index均可          
+    2）@app.route(&#39;/index&#39;,strict_slashes=True)
+        仅访问 http://www.xx.com/index
+        
+8. 补充小知识：falsk中通过视图函数名反向解析请求路径：
+    8.1 from  flask import url_for
+    8.2 url_for(&#39;函数名&#39;)==&gt;当前视图函数对应的路由请求路径（具体见知识点2）
+        FBV:app.add_url_rule(&#39;/&#39;,endpoint=&#39;&#39;,view_func=func)
+        CBV:app.sdd_url_rule(&#39;/&#39;,endpoint=&#39;&#39;,view_func=CLASS.as_view(name=&#39;&#39;))
+&quot;&quot;&quot;</code></pre>
+<h1 id="cbv的路由匹配">CBV的路由匹配</h1>
+<p>通过dispatch_request进行分配</p>
+<pre><code><code>import functools
+from flask import Flask,views
+app = Flask(__name__)
+ 
+ 
+def wrapper(func):
+    @functools.wraps(func)
+    def inner(*args,**kwargs):
+        return func(*args,**kwargs)
+ 
+    return inner
+ 
+ 
+class UserView(views.MethodView):
+    methods = [&#39;GET&#39;]             #方法
+    decorators = [wrapper,]     #装饰器
+ 
+    def get(self,*args,**kwargs):
+        return &#39;GET&#39;
+ 
+    def post(self,*args,**kwargs):
+        return &#39;POST&#39;
+ 
+app.add_url_rule(&#39;/user&#39;,None,UserView.as_view(&#39;uuuu&#39;))
+ 
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<h1 id="自定义正则匹配">自定义正则匹配</h1>
+<p>在flask中没有正则匹配，但是我们现在有需要进行正则匹配，所以我们可以自定义正则匹配</p>
+<pre><code><code>from flask import Flask, url_for
+from werkzeug.routing import BaseConverter
+
+app = Flask(__name__)
+
+# 定制类
+class RegexConverter(BaseConverter):
+    &quot;&quot;&quot;
+    自定义URL匹配正则表达式
+    &quot;&quot;&quot;
+    
+    def __init__(self, map, regex):
+        super(RegexConverter, self).__init__(map)
+        self.regex = regex
+        
+    def to_python(self, value):
+        &quot;&quot;&quot;
+        路由匹配时，匹配成功后传递给视图函数中参数的值
+        &quot;&quot;&quot;
+        return int(value)
+    
+    def to_url(self, value):
+        &quot;&quot;&quot;
+        使用url_for反向生成URL时，传递的参数经过该方法处理，返回的值用于生成URL中的参数
+        &quot;&quot;&quot;
+        value = super(RegexConverter, self).to_url(value)
+        return value
+    
+# 添加到转换器
+app.url_map.converters[&#39;reg&#39;] = RegexConverter
+
+
+&quot;&quot;&quot;
+1. 用户发送请求
+2. flask内部进行正则匹配
+3. 调用to_python(正则匹配的结果)方法
+4. to_python方法的返回值会交给视图函数的参数
+&quot;&quot;&quot;
+
+# 使用自定义正则
+@app.route(&#39;/index/&lt;reg(&quot;\d+&quot;):nid&gt;&#39;)
+def index(nid):
+    print(nid,type(nid))
+ 
+    print(url_for(&#39;index&#39;,nid=987))
+    return &quot;Index&quot;
+ 
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

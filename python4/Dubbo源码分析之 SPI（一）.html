@@ -1,0 +1,552 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Dubbo源码分析之 SPI（一）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Dubbo源码分析之 SPI（一）</center></div><div class='banquan'>原文出处:本文由博客园博主yxfree提供。<br/>
+原文连接:https://www.cnblogs.com/yxfree/p/12048176.html</div><br>
+    <h2>一、概述</h2>
+<p>&nbsp; &nbsp;&nbsp;dubbo SPI 在dubbo的作用是基础性的，要想分析研究dubbo的实现原理、dubbo源码，都绕不过 dubbo SPI，掌握dubbo SPI 是征服dubbo的必经之路。</p>
+<p>&nbsp; &nbsp; 本篇文章会详细介绍dubbo SPI相关的内容，通过源码分析，目标是让读者能通过本篇文章，彻底征服dubbo SPI。</p>
+<p>&nbsp; &nbsp; 文章的组织方式是先介绍SPI 的概念，通过Java SPI 让大家了解SPI 是什么，怎么用，有一个初步的概念，dubbo的SPI是扩展了Java SPI的内容，自己实现了一个SPI。</p>
+<h2>二、SPI概念介绍</h2>
+<p>&nbsp; &nbsp;&nbsp;SPI全称 Service Provider Interface，是一种服务发现机制。我们编程实现一个功能时，经常先抽象一个interface，内部再定一些方法。具体的实现交给 implments了此接口的类，实现了功能和实现类的分离。</p>
+<p>&nbsp; &nbsp;&nbsp;我们设想一下，如果一个描述汽车功能的interface&nbsp; Car，存在多个实现类BMW、Benz、Volvo，某个场景调用Car的行驶方法，程序就需要确认到底是需要BMW、Benz、Volvo中的那个类对象。如果硬编码到程序中，固然可以，但是出现了接口和实现类的耦合，缺点也显而易见。</p>
+<p>&nbsp; &nbsp;&nbsp;有办法做到在调用代码中不涉及BMW、Benz、Volvo字符，也随意的指定实现类么？当然，SPI就是解决这个问题。</p>
+<p>&nbsp; &nbsp;&nbsp;SPI的实现方式是，在指定的路径下增加一个文本文件，文件的名称是interface的全限定名(包名+接口名)，文件内容每行是一个此接口的实现类的全限定名，多个实现类就会有多行。接口进行调用时，根据接口全限定名，先读取文本文件，解析出具体的实现类，通过反射进行实例化，再调用之。如果增加新的实现类，不需要修改调用代码，只需要在文本文件中增加一行实现类的全限定名即可，删除实现类同理。</p>
+<h2>三、Java SPI 介绍</h2>
+<p>&nbsp; &nbsp;&nbsp;我们先看看Java的SPI怎么实现的，通过一个demo，进行了解。</p>
+<p>&nbsp; &nbsp; 先定一个小车的接口，有一个方法 goBeijing()：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> cn.hui.spi
+</span><span style="color: #008080;">2</span> <span style="color: #008000;">//</span><span style="color: #008000;">Car 接口</span>
+<span style="color: #008080;">3</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span><span style="color: #000000;"> Car {
+</span><span style="color: #008080;">4</span> 
+<span style="color: #008080;">5</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 开车去北京</span>
+<span style="color: #008080;">6</span>     <span style="color: #0000ff;">void</span><span style="color: #000000;"> goBeijing();
+</span><span style="color: #008080;">7</span> 
+<span style="color: #008080;">8</span> }</pre>
+</div>
+<p>&nbsp; &nbsp;&nbsp;我们建三个实现类：</p>
+<p>&nbsp; &nbsp;&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> cn.hui.spi.impl;
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> Bmw <span style="color: #0000ff;">implements</span><span style="color: #000000;"> Car{
+</span><span style="color: #008080;"> 3</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> goBeijing() {
+</span><span style="color: #008080;"> 5</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub</span>
+<span style="color: #008080;"> 6</span>         System.out.println("开着宝马去北京......"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 7</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">}
+</span><span style="color: #008080;"> 9</span> 
+<span style="color: #008080;">10</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> cn.hui.spi.impl;
+</span><span style="color: #008080;">11</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> Benz <span style="color: #0000ff;">implements</span><span style="color: #000000;"> Car{
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;">13</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> goBeijing() {
+</span><span style="color: #008080;">14</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub</span>
+<span style="color: #008080;">15</span>         System.out.println("开着奔驰去北京........"<span style="color: #000000;">);
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">17</span> <span style="color: #000000;">}
+</span><span style="color: #008080;">18</span> 
+<span style="color: #008080;">19</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> cn.hui.spi.impl;
+</span><span style="color: #008080;">20</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> Volvo <span style="color: #0000ff;">implements</span><span style="color: #000000;"> Car {
+</span><span style="color: #008080;">21</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;">22</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> goBeijing() {
+</span><span style="color: #008080;">23</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub</span>
+<span style="color: #008080;">24</span>         System.out.println("开着沃尔沃去北京......"<span style="color: #000000;">);
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">26</span> }</pre>
+</div>
+<p>&nbsp; &nbsp;&nbsp;我们在 "META-INF/services" 文件夹下新建一个文件，名称为&ldquo;cn.hui.spi.Car"，文件内容：</p>
+<p>&nbsp; &nbsp;&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">cn.hui.spi.impl.Bmw
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">cn.hui.spi.impl.Benz
+</span><span style="color: #008080;">3</span> cn.hui.spi.impl.Volvo</pre>
+</div>
+<p>&nbsp; &nbsp; &nbsp;方法调用的代码如下：</p>
+<p>&nbsp; &nbsp;&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Iterator;
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.ServiceLoader;
+</span><span style="color: #008080;"> 3</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> App {
+</span><span style="color: #008080;"> 4</span>     
+<span style="color: #008080;"> 5</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args) {
+</span><span style="color: #008080;"> 6</span>         ServiceLoader&lt;Car&gt; serviceLoader = ServiceLoader.load(Car.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+</span><span style="color: #008080;"> 7</span>         Iterator&lt;Car&gt; iterator =<span style="color: #000000;"> serviceLoader.iterator();
+</span><span style="color: #008080;"> 8</span>         <span style="color: #0000ff;">while</span><span style="color: #000000;">(iterator.hasNext()) {
+</span><span style="color: #008080;"> 9</span>             Car car =<span style="color: #000000;"> iterator.next();
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">            car.goBeijing();
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">13</span> }</pre>
+</div>
+<p>&nbsp; &nbsp;&nbsp;打印结果：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">开着宝马去北京......
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">开着奔驰去北京........
+</span><span style="color: #008080;">3</span> 开着沃尔沃去北京......</pre>
+</div>
+<p>&nbsp; &nbsp;&nbsp;这个就是Java SPI简单实现方式。</p>
+<h2>三、Dubbo&nbsp;SPI介绍</h2>
+<p>&nbsp; &nbsp;&nbsp;dubbo 在Java SPI的基础上进行了功能扩展，我们再看上面的Java SPI示例，可以发现很明显的问题，对文本文件的加载后，实例化对象是一次性全部进行实例化，得到一个实现类的对象集合，调用的时候循环执行。不能唯一指定一个实现类进行唯一调用。dubbo通过在文本文件中指定每个实现类的key，唯一标识出每个实现类，调用的时候可以指定唯一的一个实现类。同样实例化也不需要一次性全部实例化了，只需要实例化需要调用的类即可。</p>
+<p>&nbsp; &nbsp;&nbsp;&nbsp;同时dubbo还实现了IOC和AOP的功能，接口的实现类之间可以进行相互的注入，了解Spring的同学，应该很清楚IOC和AOP的逻辑，下面我们现在熟悉下dubbo SPI的相关概念，之后在通过一个简单的样例，了解dubbo SPI 的使用。</p>
+<h2>四、Dubbo&nbsp;SPI关键点</h2>
+<p>&nbsp; &nbsp;&nbsp;dubbo SPI的功能主要是通过ExtensionLoader类实现，dubbo启动时，默认扫描三个目录：META-INF/services/、META-INF/dubbo/、META-INF/internal/，在这三个目录下的文本文件都会加载解析，文本文件的内容：key=实现类的全限定名。</p>
+<p>&nbsp; &nbsp;&nbsp;dubbo把接口定义为 扩展点，实现类定义为 扩展点实现，所有的扩展点（接口）需要进行@SPI注解，更多的功能和注解我们逐步介绍。</p>
+<p>&nbsp; &nbsp;&nbsp;dubbo在启动的时候扫描文本文件，对文件内容进行解析，但是不会全部进行实例化，只有在调用到具体的扩展点实现时，才会进行特定扩展点的实例化。</p>
+<p>&nbsp; &nbsp;&nbsp;同时dubbo SPI提供自适应扩展、默认扩展、自动激活扩展等功能，我们后面介绍。</p>
+<h2>五、Dubbo SPI示例</h2>
+<p>&nbsp; &nbsp; 我们把上面Car接口的例子，改造成基于dubbo SPI的实现。进行配置的文本文件内容。</p>
+<p>&nbsp; &nbsp; 在扩展点实现类前都加上key，改为：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> bmw=<span style="color: #000000;">cn.hui.spi.impl.Bmw
+</span><span style="color: #008080;">2</span> benz=<span style="color: #000000;">cn.hui.spi.impl.Benz
+</span><span style="color: #008080;">3</span> volvo=cn.hui.spi.impl.Volvo</pre>
+</div>
+<p>&nbsp;Car接口改造为：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">@SPI
+</span><span style="color: #008080;">2</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span><span style="color: #000000;"> Car {
+</span><span style="color: #008080;">3</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 开车去北京</span>
+<span style="color: #008080;">4</span>     <span style="color: #0000ff;">void</span><span style="color: #000000;"> goBeijing();
+</span><span style="color: #008080;">5</span> }</pre>
+</div>
+<p>扩展点，暂时不做修改，我们看看调用方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> App {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args) {
+</span><span style="color: #008080;"> 3</span>         Car car = ExtensionLoader.getExtensionLoader(Car.<span style="color: #0000ff;">class</span>).getExtension("bmw"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 4</span> <span style="color: #000000;">        car.goBeijing();
+</span><span style="color: #008080;"> 5</span>         car = ExtensionLoader.getExtensionLoader(Car.<span style="color: #0000ff;">class</span>).getExtension("benz"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 6</span> <span style="color: #000000;">        car.goBeijing();
+</span><span style="color: #008080;"> 7</span>         car = ExtensionLoader.getExtensionLoader(Car.<span style="color: #0000ff;">class</span>).getExtension("volvo"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">        car.goBeijing();
+</span><span style="color: #008080;"> 9</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">10</span> }</pre>
+</div>
+<p>此时，控制台会出现：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">开着宝马去北京......
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">开着奔驰去北京........
+</span><span style="color: #008080;">3</span> 开着沃尔沃去北京......</pre>
+</div>
+<p>这个就是简单dubbo使用，复杂的功能我们放到源码分析的时候进行。</p>
+<h2>六、Dubbo&nbsp;SPI&nbsp;源码分析</h2>
+<p>&nbsp; &nbsp;&nbsp;dubbo SPI的功能主要几种在ExtensionLoader类中实现，分析源码也就主要分析此类，我们通过ExtensionLoader对外提供的方法作为入口进行源码分析。</p>
+<p>&nbsp; &nbsp;&nbsp;需要注意：一个type接口对应一个ExtensionLoader 实例。</p>
+<p>&nbsp; &nbsp;&nbsp;上面的示例中，我们通过 getExtensionLoader(..)方法，获得ExtensionLoader实例，ExtensionLoader类的构造方法是私有的，只能通过此方法获取实例。</p>
+<p>&nbsp; &nbsp;&nbsp;我们先看看此方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> @SuppressWarnings("unchecked"<span style="color: #000000;">)
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> &lt;T&gt; ExtensionLoader&lt;T&gt; getExtensionLoader(Class&lt;T&gt;<span style="color: #000000;"> type) {
+</span><span style="color: #008080;"> 3</span>     <span style="color: #0000ff;">if</span> (type == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 4</span>         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalArgumentException("Extension type == null"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 5</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 6</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 必须是接口</span>
+<span style="color: #008080;"> 7</span>     <span style="color: #0000ff;">if</span> (!<span style="color: #000000;">type.isInterface()) {
+</span><span style="color: #008080;"> 8</span>         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalArgumentException("Extension type(" + type + ") is not interface!"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 9</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">10</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 必须被@SPI注解</span>
+<span style="color: #008080;">11</span>     <span style="color: #0000ff;">if</span> (!<span style="color: #000000;">withExtensionAnnotation(type)) {
+</span><span style="color: #008080;">12</span>         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalArgumentException("Extension type(" + type + ") is not extension, because WITHOUT @" + SPI.<span style="color: #0000ff;">class</span>.getSimpleName() + " Annotation!"<span style="color: #000000;">);
+</span><span style="color: #008080;">13</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">14</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> extension_loaders 为成员变量，是 type---&gt; ExtensionLoader 实例的缓存</span>
+<span style="color: #008080;">15</span>     ExtensionLoader&lt;T&gt; loader = (ExtensionLoader&lt;T&gt;<span style="color: #000000;">) EXTENSION_LOADERS.get(type);
+</span><span style="color: #008080;">16</span>     <span style="color: #0000ff;">if</span> (loader == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">17</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> putIfAbsent put不覆盖</span>
+<span style="color: #008080;">18</span>         EXTENSION_LOADERS.putIfAbsent(type, <span style="color: #0000ff;">new</span> ExtensionLoader&lt;T&gt;<span style="color: #000000;">(type));
+</span><span style="color: #008080;">19</span>         loader = (ExtensionLoader&lt;T&gt;<span style="color: #000000;">) EXTENSION_LOADERS.get(type);
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">21</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> loader;
+</span><span style="color: #008080;">22</span> }</pre>
+</div>
+<p>我们看到该方法主要是先对type进行校验，再根据type为key，从缓存EXTENSION_LOADERS中获取ExtensionLoader实例，如果缓存没有，则新建一个ExtensionLoader实例，并放入缓存。<br />    注意，我们说过一个type对应一个ExtensionLoader实例，为什么还需要缓存呢，我们再看看 EXTENSION_LOADERS的定义：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> 扩展点接口和对应ExtensionLoader实例的缓存</span>
+<span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> ConcurrentMap&lt;Class&lt;?&gt;, ExtensionLoader&lt;?&gt;&gt; EXTENSION_LOADERS = <span style="color: #0000ff;">new</span> ConcurrentHashMap&lt;Class&lt;?&gt;, ExtensionLoader&lt;?&gt;&gt;();</pre>
+</div>
+<p>没错，EXTENSION_LOADERS 是一个static、final修饰的类静态变量。</p>
+<p>我们接着看上面，看一下ExtensionLoader的构造方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> ExtensionLoader(Class&lt;?&gt;<span style="color: #000000;"> type) {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #0000ff;">this</span>.type =<span style="color: #000000;"> type;
+</span><span style="color: #008080;"> 3</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> type 为ExtensionFactory时，objectFactory为空</span>
+<span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">if</span> (type == ExtensionFactory.<span style="color: #0000ff;">class</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 5</span>         objectFactory = <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 6</span>     } <span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 7</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> type为普通接口时，objectFactory为AdaptiveExtensionFactory，负责dubbo spi 的IOC 功能</span>
+<span style="color: #008080;"> 8</span>         objectFactory = ExtensionLoader.getExtensionLoader(ExtensionFactory.<span style="color: #0000ff;">class</span><span style="color: #000000;">).getAdaptiveExtension();
+</span><span style="color: #008080;"> 9</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">10</span> <span style="color: #008000;">//</span><span style="color: #008000;">        objectFactory = (type == ExtensionFactory.class ? null
+</span><span style="color: #008080;">11</span> <span style="color: #008000;">//</span><span style="color: #008000;">                : ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());</span>
+<span style="color: #008080;">12</span> }</pre>
+</div>
+<p>构造方法私有，不能直接在外部new出实例。</p>
+<p>方法内部，参数type赋值给成员变量type，还会进行ExtensionFactory类判断，ExtensionFactory是实现IOC功能的，我们此处暂时绕过，后面进行介绍。<br />    我们总结一下getExtensionLoader(..)方法，绕开ExtensionFactory，就是new 了一个ExtensionLoader对象实例，为成员变量type赋值为扩展点type，对象实例放入EXTENSION_LOADERS 缓存中。<br />    现在我们有了ExtensionLoader实例对象，我们再看看获取type实例的方法：getExtension(..)：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> @SuppressWarnings("unchecked"<span style="color: #000000;">)
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">public</span><span style="color: #000000;"> T getExtension(String name) {
+</span><span style="color: #008080;"> 3</span>     <span style="color: #0000ff;">if</span> (name == <span style="color: #0000ff;">null</span> || name.length() == 0<span style="color: #000000;">)
+</span><span style="color: #008080;"> 4</span>         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalArgumentException("Extension name == null"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 5</span>     <span style="color: #0000ff;">if</span> ("true"<span style="color: #000000;">.equals(name)) {
+</span><span style="color: #008080;"> 6</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 获取默认的扩展实现类</span>
+<span style="color: #008080;"> 7</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> getDefaultExtension();
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 9</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> Holder仅用于持有目标对象，没有其他逻辑</span>
+<span style="color: #008080;">10</span>     Holder&lt;Object&gt; holder =<span style="color: #000000;"> cachedInstances.get(name);
+</span><span style="color: #008080;">11</span>     <span style="color: #0000ff;">if</span> (holder == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">12</span>         cachedInstances.putIfAbsent(name, <span style="color: #0000ff;">new</span> Holder&lt;Object&gt;<span style="color: #000000;">());
+</span><span style="color: #008080;">13</span>         holder =<span style="color: #000000;"> cachedInstances.get(name);
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">15</span>     Object instance =<span style="color: #000000;"> holder.get();
+</span><span style="color: #008080;">16</span>     <span style="color: #0000ff;">if</span> (instance == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">17</span>         <span style="color: #0000ff;">synchronized</span><span style="color: #000000;"> (holder) {
+</span><span style="color: #008080;">18</span>             instance =<span style="color: #000000;"> holder.get();
+</span><span style="color: #008080;">19</span>             <span style="color: #0000ff;">if</span> (instance == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">20</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 创建扩展实例，并设置到holder中</span>
+<span style="color: #008080;">21</span>                 instance =<span style="color: #000000;"> createExtension(name);
+</span><span style="color: #008080;">22</span> <span style="color: #000000;">                holder.set(instance);
+</span><span style="color: #008080;">23</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">26</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> (T) instance;
+</span><span style="color: #008080;">27</span> }</pre>
+</div>
+<p>&nbsp; &nbsp; 方法的入参name为提供配置的文本文件中的key，还记得我们的文本文件中的内容吧，其中一行：bmw=cn.hui.spi.impl.Bmw，此处的name 就是 bmw。&nbsp;如果name为true，返回getDefaultExtension()，这个方法我们暂时绕过。</p>
+<p>&nbsp;我们看到13行，根据name从cachedInstances中获取Holder对象，很明显 cachedInstances就是一个存放对象的缓存，缓存中没有new一个新的实例，至于Holder，我们看下这个类：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">//</span><span style="color: #008000;"> 持有目标对象</span>
+<span style="color: #008080;"> 2</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> Holder&lt;T&gt;<span style="color: #000000;"> {
+</span><span style="color: #008080;"> 3</span> 
+<span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">volatile</span><span style="color: #000000;"> T value;
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> set(T value) {
+</span><span style="color: #008080;"> 7</span>         <span style="color: #0000ff;">this</span>.value =<span style="color: #000000;"> value;
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 9</span> 
+<span style="color: #008080;">10</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> T get() {
+</span><span style="color: #008080;">11</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> value;
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">13</span> 
+<span style="color: #008080;">14</span> }</pre>
+</div>
+<p>只是存放对象，没有任何逻辑。</p>
+<p>我们接着看到ExtensionLoader类的代码，在拿到holder实例后，我们要从hodler中获取扩展点的实例：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> Object instance =<span style="color: #000000;"> holder.get();
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">if</span> (instance == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 3</span>     <span style="color: #0000ff;">synchronized</span><span style="color: #000000;"> (holder) {
+</span><span style="color: #008080;"> 4</span>         instance =<span style="color: #000000;"> holder.get();
+</span><span style="color: #008080;"> 5</span>         <span style="color: #0000ff;">if</span> (instance == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 6</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 创建扩展实例，并设置到holder中</span>
+<span style="color: #008080;"> 7</span>             instance =<span style="color: #000000;"> createExtension(name);
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">            holder.set(instance);
+</span><span style="color: #008080;"> 9</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">11</span> }</pre>
+</div>
+<p>如果holder中没有扩展点的实例，通过双检锁，通过调用 createExtension方法 返回扩展点实例。并放入holder对象中。</p>
+<p>到此，我们发现new扩展点实例进到 createExtension方法中。</p>
+<p>我们接着分析此方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">//</span><span style="color: #008000;"> 创建扩展对象实例</span>
+<span style="color: #008080;"> 2</span> @SuppressWarnings("unchecked"<span style="color: #000000;">)
+</span><span style="color: #008080;"> 3</span> <span style="color: #0000ff;">private</span><span style="color: #000000;"> T createExtension(String name) {
+</span><span style="color: #008080;"> 4</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 从配置文件中加载所有的扩展类，形成配置项名称到配置类Clazz的映射关系</span>
+<span style="color: #008080;"> 5</span>     Class&lt;?&gt; clazz =<span style="color: #000000;"> getExtensionClasses().get(name);
+</span><span style="color: #008080;"> 6</span>     <span style="color: #0000ff;">if</span> (clazz == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 7</span>         <span style="color: #0000ff;">throw</span><span style="color: #000000;"> findException(name);
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">10</span>         T instance =<span style="color: #000000;"> (T) EXTENSION_INSTANCES.get(clazz);
+</span><span style="color: #008080;">11</span>         <span style="color: #0000ff;">if</span> (instance == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">12</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 通过反射创建实例</span>
+<span style="color: #008080;">13</span> <span style="color: #000000;">            EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.newInstance());
+</span><span style="color: #008080;">14</span>             instance =<span style="color: #000000;"> (T) EXTENSION_INSTANCES.get(clazz);
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">16</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 向实例中注入依赖，IOC实现</span>
+<span style="color: #008080;">17</span> <span style="color: #000000;">        injectExtension(instance);
+</span><span style="color: #008080;">18</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 包装处理
+</span><span style="color: #008080;">19</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> cachedWrapperClasses 加载@SPI配置时赋值，此处进行实例化</span>
+<span style="color: #008080;">20</span>         Set&lt;Class&lt;?&gt;&gt; wrapperClasses =<span style="color: #000000;"> cachedWrapperClasses;
+</span><span style="color: #008080;">21</span>         <span style="color: #0000ff;">if</span> (wrapperClasses != <span style="color: #0000ff;">null</span> &amp;&amp; !<span style="color: #000000;">wrapperClasses.isEmpty()) {
+</span><span style="color: #008080;">22</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 循环创建wrapper实例</span>
+<span style="color: #008080;">23</span>             <span style="color: #0000ff;">for</span> (Class&lt;?&gt;<span style="color: #000000;"> wrapperClass : wrapperClasses) {
+</span><span style="color: #008080;">24</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 将当前instance作为参数创建wrapper实例，然后向wrapper实例中注入属性值，
+</span><span style="color: #008080;">25</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 并将wrapper实例赋值给instance</span>
+<span style="color: #008080;">26</span>                 instance =<span style="color: #000000;"> injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
+</span><span style="color: #008080;">27</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">29</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> instance;
+</span><span style="color: #008080;">30</span>     } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Throwable t) {
+</span><span style="color: #008080;">31</span>         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalStateException("Extension instance(name: " + name + ", class: " + type + ")  could not be instantiated: " +<span style="color: #000000;"> t.getMessage(), t);
+</span><span style="color: #008080;">32</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">33</span> }</pre>
+</div>
+<p>&nbsp; &nbsp; 我们看到方法开始就通过 Class&lt;?&gt; clazz = getExtensionClasses().get(name); 获取Class对象，可以直观的看出通过name获得的这个clazz是在配置的文本文件中name对应的扩展点实现类的Class对象，关于getExtensionClasses方法，我们稍后分析，接着往下看：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> T instance =<span style="color: #000000;"> (T) EXTENSION_INSTANCES.get(clazz);
+</span><span style="color: #008080;">2</span> <span style="color: #0000ff;">if</span> (instance == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">3</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 通过反射创建实例</span>
+<span style="color: #008080;">4</span> <span style="color: #000000;">    EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.newInstance());
+</span><span style="color: #008080;">5</span>     instance =<span style="color: #000000;"> (T) EXTENSION_INSTANCES.get(clazz);
+</span><span style="color: #008080;">6</span> }</pre>
+</div>
+<p>通过clazz对象，从EXTENSION_INSTANCES获取缓存的实例，如果获取不到，通过反射clazz.newInstance() new一个新的实例对象，并放入EXTENSION_INSTANCES中。</p>
+<p>我们可以看到，扩展点的实现类 必须要有一个默认无参的构造函数。</p>
+<p>接着往下看：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span>  <span style="color: #008000;">//</span><span style="color: #008000;"> 向实例中注入依赖，IOC实现</span>
+<span style="color: #008080;">2</span> injectExtension(instance);</pre>
+</div>
+<p>此方法是实现IOC功能，我们暂且绕过。</p>
+<p>接下来，我们看到：</p>
+<div>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span>  <span style="color: #008000;">//</span><span style="color: #008000;"> 包装处理
+</span><span style="color: #008080;"> 2</span>  <span style="color: #008000;">//</span><span style="color: #008000;"> cachedWrapperClasses 加载@SPI配置时赋值，此处进行实例化</span>
+<span style="color: #008080;"> 3</span>  Set&lt;Class&lt;?&gt;&gt; wrapperClasses =<span style="color: #000000;"> cachedWrapperClasses;
+</span><span style="color: #008080;"> 4</span>  <span style="color: #0000ff;">if</span> (wrapperClasses != <span style="color: #0000ff;">null</span> &amp;&amp; !<span style="color: #000000;">wrapperClasses.isEmpty()) {
+</span><span style="color: #008080;"> 5</span>      <span style="color: #008000;">//</span><span style="color: #008000;"> 循环创建wrapper实例</span>
+<span style="color: #008080;"> 6</span>      <span style="color: #0000ff;">for</span> (Class&lt;?&gt;<span style="color: #000000;"> wrapperClass : wrapperClasses) {
+</span><span style="color: #008080;"> 7</span>          <span style="color: #008000;">//</span><span style="color: #008000;"> 将当前instance作为参数创建wrapper实例，然后向wrapper实例中注入属性值，
+</span><span style="color: #008080;"> 8</span>          <span style="color: #008000;">//</span><span style="color: #008000;"> 并将wrapper实例赋值给instance</span>
+<span style="color: #008080;"> 9</span>          instance =<span style="color: #000000;"> injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">     }
+</span><span style="color: #008080;">11</span>  }</pre>
+</div>
+<p>此处是处理包装类的，我们也暂且绕过。下面就是直接返回扩展点的instance实例了&nbsp;</p>
+</div>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">return</span> instance;</pre>
+</div>
+<p>&nbsp;现在我们还有一个方法没有分析，就是加载扩展点实现类的Class对象的方法getExtensionClasses()。我们现在来看这个方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> Map&lt;String, Class&lt;?&gt;&gt;<span style="color: #000000;"> getExtensionClasses() {
+</span><span style="color: #008080;"> 2</span>     Map&lt;String, Class&lt;?&gt;&gt; classes =<span style="color: #000000;"> cachedClasses.get();
+</span><span style="color: #008080;"> 3</span>     <span style="color: #0000ff;">if</span> (classes == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 4</span>         <span style="color: #0000ff;">synchronized</span><span style="color: #000000;"> (cachedClasses) {
+</span><span style="color: #008080;"> 5</span>             classes =<span style="color: #000000;"> cachedClasses.get();
+</span><span style="color: #008080;"> 6</span>             <span style="color: #0000ff;">if</span> (classes == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 7</span>                 classes =<span style="color: #000000;"> loadExtensionClasses();
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">                cachedClasses.set(classes);
+</span><span style="color: #008080;"> 9</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">12</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> classes;
+</span><span style="color: #008080;">13</span> }</pre>
+</div>
+<p>我们看到，这个方法返回的是一个Map对象，可以确认的是，这个Map存放的是扩展点的所有实现类的Class，Map的key就是配置的文本文件的name。如果缓存cachedClasses 中存在，即返回，如果没有，通过loadExtensionClasses()加载，并设置到cachedClasses中。</p>
+<p>我们接着看loadExtensionClasses方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> Map&lt;String, Class&lt;?&gt;&gt;<span style="color: #000000;"> loadExtensionClasses() {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 获取注解 SPI的接口
+</span><span style="color: #008080;"> 3</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> type为传入的扩展接口，必须有@SPI注解</span>
+<span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">final</span> SPI defaultAnnotation = type.getAnnotation(SPI.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+</span><span style="color: #008080;"> 5</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 获取默认扩展实现value，如果存在，赋值给cachedDefaultName</span>
+<span style="color: #008080;"> 6</span>     <span style="color: #0000ff;">if</span> (defaultAnnotation != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 7</span>         String value =<span style="color: #000000;"> defaultAnnotation.value();
+</span><span style="color: #008080;"> 8</span>         <span style="color: #0000ff;">if</span> ((value = value.trim()).length() &gt; 0<span style="color: #000000;">) {
+</span><span style="color: #008080;"> 9</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> @SPI value 只能是一个，不能为逗号分割的多个
+</span><span style="color: #008080;">10</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> @SPI value为默认的扩展实现</span>
+<span style="color: #008080;">11</span>             String[] names =<span style="color: #000000;"> NAME_SEPARATOR.split(value);
+</span><span style="color: #008080;">12</span>             <span style="color: #0000ff;">if</span> (names.length &gt; 1<span style="color: #000000;">) {
+</span><span style="color: #008080;">13</span>                 <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalStateException("more than 1 default extension name on extension " + type.getName() + ": " +<span style="color: #000000;"> Arrays.toString(names));
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">15</span>             <span style="color: #0000ff;">if</span> (names.length == 1<span style="color: #000000;">)
+</span><span style="color: #008080;">16</span>                 cachedDefaultName = names[0<span style="color: #000000;">];
+</span><span style="color: #008080;">17</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">19</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 加载三个目录配置的扩展类</span>
+<span style="color: #008080;">20</span>     Map&lt;String, Class&lt;?&gt;&gt; extensionClasses = <span style="color: #0000ff;">new</span> HashMap&lt;String, Class&lt;?&gt;&gt;<span style="color: #000000;">();
+</span><span style="color: #008080;">21</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> META-INF/dubbo/internal</span>
+<span style="color: #008080;">22</span> <span style="color: #000000;">    loadDirectory(extensionClasses, DUBBO_INTERNAL_DIRECTORY);
+</span><span style="color: #008080;">23</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> META-INF/dubbo</span>
+<span style="color: #008080;">24</span> <span style="color: #000000;">    loadDirectory(extensionClasses, DUBBO_DIRECTORY);
+</span><span style="color: #008080;">25</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> META-INF/services/</span>
+<span style="color: #008080;">26</span> <span style="color: #000000;">    loadDirectory(extensionClasses, SERVICES_DIRECTORY);
+</span><span style="color: #008080;">27</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> extensionClasses;
+</span><span style="color: #008080;">28</span> }</pre>
+</div>
+<p>我们看到方法内部的逻辑，首先判断扩展点接口type是否用@SPI注解，在前面的方法中，已经判断，如果没有@SPI注解，抛出异常，此处type必定存在@SPI注解。</p>
+<p>根据注解获取到defaultAnnotation 对象，目的是拿到@SPI中的value，且value值不能用逗号分隔，只能有一个，赋值给cachedDefaultName。</p>
+<p>接着定一个了Map对象extensionClasses，作为方法的返回值，我们知道，这个方法的返回值最后设置到了缓存cachedClasses中。我们看看这个extensionClasses是怎么赋值的。这个对象主要是&rdquo;经历&ldquo;了三个方法(其实是同一个方法loadDirectory，只是入参不同)。这三个方法的入参是extensionClasses 和一个目录参数，就是前面我们介绍的dubbo默认三个目录：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> META-INF/services/
+<span style="color: #008080;">2</span> META-INF/dubbo/
+<span style="color: #008080;">3</span> META-INF/dubbo/internal/</pre>
+</div>
+<p>我们再具体看方法loadDirectory的内容：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span> loadDirectory(Map&lt;String, Class&lt;?&gt;&gt;<span style="color: #000000;"> extensionClasses, String dir) {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 扩展配置文件完整文件路径+文件名</span>
+<span style="color: #008080;"> 3</span>     String fileName = dir +<span style="color: #000000;"> type.getName();
+</span><span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 5</span>         Enumeration&lt;java.net.URL&gt;<span style="color: #000000;"> urls;
+</span><span style="color: #008080;"> 6</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 获取类加载器</span>
+<span style="color: #008080;"> 7</span>         ClassLoader classLoader =<span style="color: #000000;"> findClassLoader();
+</span><span style="color: #008080;"> 8</span>         <span style="color: #0000ff;">if</span> (classLoader != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 9</span>             urls =<span style="color: #000000;"> classLoader.getResources(fileName);
+</span><span style="color: #008080;">10</span>         } <span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">11</span>             urls =<span style="color: #000000;"> ClassLoader.getSystemResources(fileName);
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">13</span>         <span style="color: #0000ff;">if</span> (urls != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">14</span>             <span style="color: #0000ff;">while</span><span style="color: #000000;"> (urls.hasMoreElements()) {
+</span><span style="color: #008080;">15</span>                 java.net.URL resourceURL =<span style="color: #000000;"> urls.nextElement();
+</span><span style="color: #008080;">16</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 加载</span>
+<span style="color: #008080;">17</span> <span style="color: #000000;">                loadResource(extensionClasses, classLoader, resourceURL);
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">20</span>     } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Throwable t) {
+</span><span style="color: #008080;">21</span>         logger.error("Exception when load extension class(interface: " + type + ", description file: " + fileName + ")."<span style="color: #000000;">, t);
+</span><span style="color: #008080;">22</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">23</span> }</pre>
+</div>
+<p>首先组合目录参数和type名称，作为文件的真实路径名，通过加载器进行加载，之后调用loadResource方法，同时extensionClasses 传入该方法。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span> loadResource(Map&lt;String, Class&lt;?&gt;&gt;<span style="color: #000000;"> extensionClasses, ClassLoader classLoader, java.net.URL resourceURL) {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 3</span>         BufferedReader reader = <span style="color: #0000ff;">new</span> BufferedReader(<span style="color: #0000ff;">new</span> InputStreamReader(resourceURL.openStream(), "utf-8"<span style="color: #000000;">));
+</span><span style="color: #008080;"> 4</span>         <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 5</span> <span style="color: #000000;">            String line;
+</span><span style="color: #008080;"> 6</span>             <span style="color: #0000ff;">while</span> ((line = reader.readLine()) != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 7</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 字符#是注释开始标志，只取#前面的字符</span>
+<span style="color: #008080;"> 8</span>                 <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">int</span> ci = line.indexOf('#'<span style="color: #000000;">);
+</span><span style="color: #008080;"> 9</span>                 <span style="color: #0000ff;">if</span> (ci &gt;= 0<span style="color: #000000;">)
+</span><span style="color: #008080;">10</span>                     line = line.substring(0<span style="color: #000000;">, ci);
+</span><span style="color: #008080;">11</span>                 line =<span style="color: #000000;"> line.trim();
+</span><span style="color: #008080;">12</span>                 <span style="color: #0000ff;">if</span> (line.length() &gt; 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">13</span>                     <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">14</span>                         String name = <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;">15</span>                         <span style="color: #0000ff;">int</span> i = line.indexOf('='<span style="color: #000000;">);
+</span><span style="color: #008080;">16</span>                         <span style="color: #0000ff;">if</span> (i &gt; 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">17</span>                             <span style="color: #008000;">//</span><span style="color: #008000;"> 解析出 name 和 实现类</span>
+<span style="color: #008080;">18</span>                             name = line.substring(0<span style="color: #000000;">, i).trim();
+</span><span style="color: #008080;">19</span>                             line = line.substring(i + 1<span style="color: #000000;">).trim();
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">                        }
+</span><span style="color: #008080;">21</span>                         <span style="color: #0000ff;">if</span> (line.length() &gt; 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">22</span>                             loadClass(extensionClasses, resourceURL, Class.forName(line, <span style="color: #0000ff;">true</span><span style="color: #000000;">, classLoader), name);
+</span><span style="color: #008080;">23</span> <span style="color: #000000;">                        }
+</span><span style="color: #008080;">24</span>                     } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Throwable t) {
+</span><span style="color: #008080;">25</span>                         IllegalStateException e = <span style="color: #0000ff;">new</span> IllegalStateException("Failed to load extension class(interface: " + type + ", class line: " + line + ") in " + resourceURL + ", cause: " +<span style="color: #000000;"> t.getMessage(), t);
+</span><span style="color: #008080;">26</span> <span style="color: #000000;">                        exceptions.put(line, e);
+</span><span style="color: #008080;">27</span> <span style="color: #000000;">                    }
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">29</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">30</span>         } <span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">31</span> <span style="color: #000000;">            reader.close();
+</span><span style="color: #008080;">32</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">33</span>     } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Throwable t) {
+</span><span style="color: #008080;">34</span>         logger.error("Exception when load extension class(interface: " + type + ", class file: " + resourceURL + ") in " +<span style="color: #000000;"> resourceURL, t);
+</span><span style="color: #008080;">35</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">36</span> }</pre>
+</div>
+<p>&nbsp;这个方法就简单多了，解析文件流，拿到配置文本文件中的key、value，同时通过Class.forName(..)加载解析出来的扩展点实现类，传入方法loadClass，注意这个方法传入的参数还有存放key、Class的Map对象extensionClasses，以及配置文本文件中的key，我们再看这个方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span> loadClass(Map&lt;String, Class&lt;?&gt;&gt; extensionClasses, java.net.URL resourceURL, Class&lt;?&gt; clazz, String name) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> NoSuchMethodException {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> type是否为clazz的超类，clazz是否实现了type接口
+</span><span style="color: #008080;"> 3</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 此处clazz 是扩展实现类的Class</span>
+<span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">if</span> (!<span style="color: #000000;">type.isAssignableFrom(clazz)) {
+</span><span style="color: #008080;"> 5</span>         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalStateException("Error when load extension class(interface: " + type + ", class line: " + clazz.getName() + "), class " + clazz.getName() + "is not subtype of interface."<span style="color: #000000;">);
+</span><span style="color: #008080;"> 6</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 7</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> clazz是否注解了 Adaptive 自适应扩展
+</span><span style="color: #008080;"> 8</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 不允许多个类注解Adaptive
+</span><span style="color: #008080;"> 9</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 注解adaptive的实现类，赋值给cachedAdaptiveClass</span>
+<span style="color: #008080;">10</span>     <span style="color: #0000ff;">if</span> (clazz.isAnnotationPresent(Adaptive.<span style="color: #0000ff;">class</span><span style="color: #000000;">)) {
+</span><span style="color: #008080;">11</span>         <span style="color: #0000ff;">if</span> (cachedAdaptiveClass == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">12</span>             cachedAdaptiveClass =<span style="color: #000000;"> clazz;
+</span><span style="color: #008080;">13</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 不允许多个实现类都注解@Adaptive</span>
+<span style="color: #008080;">14</span>         } <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (!<span style="color: #000000;">cachedAdaptiveClass.equals(clazz)) {
+</span><span style="color: #008080;">15</span>             <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalStateException("More than 1 adaptive class found: " + cachedAdaptiveClass.getClass().getName() + ", " +<span style="color: #000000;"> clazz.getClass().getName());
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">17</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 是否为包装类，判断扩展类是否提供了参数是扩展点的构造函数</span>
+<span style="color: #008080;">18</span>     } <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span><span style="color: #000000;"> (isWrapperClass(clazz)) {
+</span><span style="color: #008080;">19</span>         Set&lt;Class&lt;?&gt;&gt; wrappers =<span style="color: #000000;"> cachedWrapperClasses;
+</span><span style="color: #008080;">20</span>         <span style="color: #0000ff;">if</span> (wrappers == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">21</span>             cachedWrapperClasses = <span style="color: #0000ff;">new</span> ConcurrentHashSet&lt;Class&lt;?&gt;&gt;<span style="color: #000000;">();
+</span><span style="color: #008080;">22</span>             wrappers =<span style="color: #000000;"> cachedWrapperClasses;
+</span><span style="color: #008080;">23</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">        wrappers.add(clazz);
+</span><span style="color: #008080;">25</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 普通扩展类</span>
+<span style="color: #008080;">26</span>     } <span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">27</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 检测 clazz 是否有默认的构造方法，如果没有，则抛出异常</span>
+<span style="color: #008080;">28</span> <span style="color: #000000;">        clazz.getConstructor();
+</span><span style="color: #008080;">29</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 此处name为 SPI配置中的key
+</span><span style="color: #008080;">30</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> @SPI配置中key可以为空，此时key为扩展类的类名（getSimpleName()）小写</span>
+<span style="color: #008080;">31</span>         <span style="color: #0000ff;">if</span> (name == <span style="color: #0000ff;">null</span> || name.length() == 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">32</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 兼容旧版本</span>
+<span style="color: #008080;">33</span>             name =<span style="color: #000000;"> findAnnotationName(clazz);
+</span><span style="color: #008080;">34</span>             <span style="color: #0000ff;">if</span> (name.length() == 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">35</span>                 <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalStateException("No such extension name for the class " + clazz.getName() + " in the config " +<span style="color: #000000;"> resourceURL);
+</span><span style="color: #008080;">36</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">37</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">38</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 逗号分割</span>
+<span style="color: #008080;">39</span>         String[] names =<span style="color: #000000;"> NAME_SEPARATOR.split(name);
+</span><span style="color: #008080;">40</span>         <span style="color: #0000ff;">if</span> (names != <span style="color: #0000ff;">null</span> &amp;&amp; names.length &gt; 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">41</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 获取Activate注解</span>
+<span style="color: #008080;">42</span>             Activate activate = clazz.getAnnotation(Activate.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+</span><span style="color: #008080;">43</span>             <span style="color: #0000ff;">if</span> (activate != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">44</span>                 cachedActivates.put(names[0<span style="color: #000000;">], activate);
+</span><span style="color: #008080;">45</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">46</span>             <span style="color: #0000ff;">for</span><span style="color: #000000;"> (String n : names) {
+</span><span style="color: #008080;">47</span>                 <span style="color: #0000ff;">if</span> (!<span style="color: #000000;">cachedNames.containsKey(clazz)) {
+</span><span style="color: #008080;">48</span> <span style="color: #000000;">                    cachedNames.put(clazz, n);
+</span><span style="color: #008080;">49</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">50</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> name不能重复</span>
+<span style="color: #008080;">51</span>                 Class&lt;?&gt; c =<span style="color: #000000;"> extensionClasses.get(n);
+</span><span style="color: #008080;">52</span>                 <span style="color: #0000ff;">if</span> (c == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">53</span> <span style="color: #000000;">                    extensionClasses.put(n, clazz);
+</span><span style="color: #008080;">54</span>                 } <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (c !=<span style="color: #000000;"> clazz) {
+</span><span style="color: #008080;">55</span>                     <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalStateException("Duplicate extension " + type.getName() + " name " + n + " on " + c.getName() + " and " +<span style="color: #000000;"> clazz.getName());
+</span><span style="color: #008080;">56</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">57</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">58</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">59</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">60</span> }</pre>
+</div>
+<p>&nbsp;方法参数clazz就是传过来的扩展点实现类的Class对象，首先判断是否实现了扩展点type接口。接着判断是否注解了@Adaptive以及是否为包装类isWrapperClass(clazz)，这两个分支逻辑 我们暂且绕过，接下来会进行构造器检查，判断是否存在无参构造器，如果name为空，为了兼容老版本 会进行一次name赋值。</p>
+<p>此处会再进行一次name的分隔，前门已经知道，name中不会存在逗号的，但经过上面兼容老版本的重新赋值，会再进行一次判断。@Activate注解的判断，我们也暂且绕过。</p>
+<p>循环解析过的name字符串，把加载的扩展点实现Class对象和name存放到入参extensionClasses中。</p>
+<p>至此，解析、加载配置文本文件的逻辑已经结束。最后的结果主要是有：把加载到的扩展点Class和key存入到缓存对象extensionClasses中，同时设置cachedDefaultName为扩展点注解@SPI中的value。</p>
+<p>我们重新回到方法createExtension中，现在我们已经拿到了特定name对应的扩展点实现类的Class对象，如果对象为空，抛出异常。</p>
+<p>接着，我们从缓存对象EXTENSION_INSTANCES中，通过Class对象获取实例，如果实例为空，通过clazz.newInstance()创建，并放入EXTENSION_INSTANCES中。</p>
+<p>createExtension方法的后面的逻辑：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">//</span><span style="color: #008000;"> 向实例中注入依赖，IOC实现</span>
+<span style="color: #008080;"> 2</span> <span style="color: #000000;">injectExtension(instance);
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;">//</span><span style="color: #008000;"> 包装处理
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;">//</span><span style="color: #008000;"> cachedWrapperClasses 加载@SPI配置时赋值，此处进行实例化</span>
+<span style="color: #008080;"> 5</span> Set&lt;Class&lt;?&gt;&gt; wrapperClasses =<span style="color: #000000;"> cachedWrapperClasses;
+</span><span style="color: #008080;"> 6</span> <span style="color: #0000ff;">if</span> (wrapperClasses != <span style="color: #0000ff;">null</span> &amp;&amp; !<span style="color: #000000;">wrapperClasses.isEmpty()) {
+</span><span style="color: #008080;"> 7</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 循环创建wrapper实例</span>
+<span style="color: #008080;"> 8</span>     <span style="color: #0000ff;">for</span> (Class&lt;?&gt;<span style="color: #000000;"> wrapperClass : wrapperClasses) {
+</span><span style="color: #008080;"> 9</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 将当前instance作为参数创建wrapper实例，然后向wrapper实例中注入属性值，
+</span><span style="color: #008080;">10</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 并将wrapper实例赋值给instance</span>
+<span style="color: #008080;">11</span>         instance =<span style="color: #000000;"> injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">13</span> }</pre>
+</div>
+<p>&nbsp;是拿到扩展点的实例之后，后期的处理，包括对IOC的实现，包装类的处理等功能逻辑，这些知识点，我们稍后进行分析。</p>
+<h2>七、总结</h2>
+<p>&nbsp; &nbsp;&nbsp;总结一下，本篇文章，我们分析了dubbo SPI的主流程，从入门介绍、示例描述到源码分析，主流程基本介绍完了，中间涉及到的@Adaptive、@Activate注解，以及包装类、扩展点实现类的IOC功能等知识点，我们都暂且绕过了，后面我们会在下一篇文章中逐一介绍。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

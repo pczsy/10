@@ -1,0 +1,198 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Docker私有仓库搭建与界面化管理' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Docker私有仓库搭建与界面化管理</center></div><div class='banquan'>原文出处:本文由博客园博主LeoZhanggg提供。<br/>
+原文连接:https://www.cnblogs.com/leozhanggg/p/12050322.html</div><br>
+    <p>&nbsp;</p>
+<hr />
+<h2>一、关于Registry</h2>
+<p class="p0" style="margin-left: 30px;">官方的Docker&nbsp;hub是一个用于管理公共镜像的好地方，我们可以在上面找到我们想要的镜像，也可以把我们自己的镜像推送上去。</p>
+<p class="p0" style="margin-left: 30px;">但是有时候我们的使用场景需要我们拥有一个私有的镜像仓库用于管理我们自己的镜像。这个可以通过开源软件Registry来达成目的。</p>
+<p class="p0" style="margin-left: 30px;">&nbsp;Registry在github上有两份代码：老代码库和新代码库。老代码是采用python编写的，存在pull和push的性能问题，出到0.9.1版本之后就标志为deprecated，不再继续开发。</p>
+<p class="p0" style="margin-left: 30px;"><span style="color: #ff0000;">&nbsp;从2.0版本开始就到在新代码库进行开发，新代码库是采用go语言编写，修改了镜像id的生成算法、registry上镜像的保存结构，大大优化了pull和push镜像的效率。</span></p>
+<p class="p0" style="margin-left: 30px;">&nbsp;官方在Docker&nbsp;hub上提供了registry的镜像，我们可以直接使用该registry镜像来构建一个容器，搭建我们自己的私有仓库服务。</p>
+<p>&nbsp;</p>
+<hr />
+<h2>二、搭建Registry</h2>
+<h4 style="margin-left: 30px;">首先搜索并拉取镜像</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">docker search registry　　　　<span style="color: #008000;"># 建议先搜索一下，可以看一下相关的镜像，说不定哪天就有更好的镜像了</span>
+docker pull registry</span>　　　　<span style="color: #008000;">#</span><span style="color: #008000;"> 标签可以不加，因为当前最新就是v2</span></pre>
+</div>
+<p>&nbsp;</p>
+<p style="margin-left: 30px;">&nbsp;</p>
+<h4>　　运行一个registry容器</h4>
+<div class="cnblogs_code">
+<pre><code>docker run -d \            <span style="color: #008000;">#</span><span style="color: #008000;"> 后台运行</span>
+--name registry-srv \    <span style="color: #008000;">#</span><span style="color: #008000;"> 指定容器名</span>
+--restart=always \        <span style="color: #008000;">#</span><span style="color: #008000;"> 设置自动启动</span>
+-p 5000:5000 \            <span style="color: #008000;">#</span><span style="color: #008000;"> 端口映射宿主机，通过宿主机地址访问</span>
+-v /opt/zwx-registry:/var/lib/registry \     <span style="color: #008000;">#</span><span style="color: #008000;"> 把镜像存储目录挂载到本地，方便管理和持久化</span>
+-v /opt/zwx-registry/srv-config.yml:/etc/docker/registry/config.yml \    <span style="color: #008000;">#</span><span style="color: #008000;"> 把配置文件挂载到本地，方便修改和保存</span>
+registry</pre>
+</div>
+<p>&nbsp;</p>
+<h4 style="font-size: 14px;">　　srv-config.yml内容如下</h4>
+<p><span style="color: #ff0000;">　　标红delete参数设置为true，是为了让仓库支持删除功能。默认没有这个参数，也就是不能删除仓库镜像。</span></p>
+<div class="cnblogs_code">
+<pre><code>version: 0.1<span style="color: #000000;">
+log:
+  fields:
+    service: registry
+storage:
+<strong><span style="color: #ff0000;">  delete:
+    enabled: </span></strong></span><strong><span style="color: #ff0000;">true</span></strong><span style="color: #000000;">
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: </span>/var/lib/<span style="color: #000000;">registry
+http:
+  addr: :</span>5000<span style="color: #000000;">
+  headers:
+    X</span>-Content-Type-<span style="color: #000000;">Options: [nosniff]
+health:
+  storagedriver:
+    enabled: </span><span style="color: #0000ff;">true</span><span style="color: #000000;">
+    interval: 10s
+    threshold: </span>3</pre>
+</div>
+<h4>　　注册https协议（否则push安全认证过不去）</h4>
+<p><span style="font-family: 'Microsoft YaHei'; font-size: 13px;">　　需要通过本地仓库下载镜像，均需要配置</span><span style="color: #ff0000;">　　</span></p>
+<div class="cnblogs_code">
+<pre><code>vim /etc/docker/daemon.json　　　　　　　　<span style="color: #008000;">#</span><span style="color: #008000;"> 默认无此文件，需自行添加，有则追加以下内容。</span><span style="color: #000000;">
+{ </span><span style="color: #800000;">"</span><span style="color: #800000;">insecure-registries</span><span style="color: #800000;">"</span>:[<span style="color: #800000;">"</span><span style="color: #800000;">xx.xx.xx.xx:5000</span><span style="color: #800000;">"</span>] }　　<span style="color: #008000;">#</span><span style="color: #008000;"> 指定IP地址或域名<br /></span><span style="color: #000000;">
+systemctl daemon</span>-reload    <span style="color: #008000;">#</span><span style="color: #008000;"> 守护进程重启</span>
+systemctl restart docker    <span style="color: #008000;">#</span><span style="color: #008000;"> 重启docker服务</span></pre>
+</div>
+<h4 style="margin-left: 30px;">镜像上传与下载</h4>
+<div class="cnblogs_code">
+<pre><code>docker push xx.xx.xx.xx:5000/nginx            <span style="color: #008000;">#</span><span style="color: #008000;"> 一定要注明仓库地址，否则会报错</span>
+docker pull xx.xx.xx.xx:5000/nginx</pre>
+</div>
+<p>&nbsp;</p>
+<h4>　　查看仓库镜像信息</h4>
+<div class="cnblogs_code">
+<pre><code>curl -XGET http://xx.xx.xx.xx:5000/v2/<span style="color: #000000;">_catalog<span style="color: #008000;">　　　　# 查看仓库镜像列表（也可以通过windows浏览器打开查看）</span>
+curl </span>-XGET http://xx.xx.xx.xx:5000/v2/<span style="color: #ff0000;">image_name</span>/tags/list　　<span style="color: #008000;"># 查看指定应用镜像tag</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<hr />
+<h2>三、搭建Registry web</h2>
+<h4 style="margin-left: 30px;">首先搜索并拉取镜像</h4>
+<div class="cnblogs_code">
+<pre><code>docker search docker-registry-<span style="color: #000000;">web
+docker pull hyper</span>/docker-registry-web　　　　<span style="color: #008000;">#</span><span style="color: #008000;"> 这个镜像用的人较多</span></pre>
+</div>
+<p>&nbsp;</p>
+<h4 style="margin-left: 30px;">&nbsp;</h4>
+<h4 style="font-size: 14px;">　　运行一个registry web容器</h4>
+<div class="cnblogs_code">
+<pre><code>docker run -d \            <span style="color: #008000;">#</span><span style="color: #008000;"> 后台运行</span>
+--name registry-web \    <span style="color: #008000;">#</span><span style="color: #008000;"> 指定容器名</span>
+--restart=always \        <span style="color: #008000;">#</span><span style="color: #008000;"> 设置自动启动</span>
+-p 8000:8080 \            <span style="color: #008000;">#</span><span style="color: #008000;"> 端口映射宿主机，通过宿主机地址访问</span>
+-v /opt/zwx-registry/web-config.yml:/etc/config.yml \    <span style="color: #008000;">#</span><span style="color: #008000;"> 把配置文件挂载到本地，方便修改和保存</span>
+hyper/docker-registry-web</pre>
+</div>
+<p>&nbsp;</p>
+<h4 style="margin-left: 30px;">&nbsp;</h4>
+<h4 style="font-size: 14px;">　　web-config.yml文件内容如下</h4>
+<p style="margin-left: 30px;"><span style="color: #ff0000;">标红</span><span style="color: #ff0000; font-family: 'Courier New'; font-size: 12px;">readonly参数设置为false，是为了web页面可以显示删除按钮。默认是true，只读状态，没有删除按钮，只能查看。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">registry:
+  </span><span style="color: #008000;">#</span><span style="color: #008000;"> Docker registry url</span>
+  url: http://10.88.77.32:5000/<span style="color: #000000;">v2
+  </span><span style="color: #008000;">#</span><span style="color: #008000;"> Docker registry fqdn</span>
+  name: localhost:5000
+  <span style="color: #008000;">#</span><span style="color: #008000;"> To allow image delete, should be false</span>
+  <span style="color: #ff0000;">readonly: false</span><span style="color: #000000;">
+  auth:
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> Disable authentication</span>
+    enabled: <span style="color: #0000ff;">false</span></pre>
+</div>
+<h4 style="margin-left: 30px;">部署完成后，浏览器打开仓库UI地址即可查看到所有应用镜像</h4>
+<p style="margin-left: 30px;"><img src="./images/Docker私有仓库搭建与界面化管理0.png" alt="" width="814" height="221" /></p>
+<p style="margin-left: 30px;">选择任意应用镜像库，即可查看到该镜像的所有tag信息，每个tag后面都有个删除按钮（默认没有，配置参考config.yml）</p>
+<p style="margin-left: 30px;">&nbsp;<img src="./images/Docker私有仓库搭建与界面化管理1.png" alt="" width="808" height="186" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<hr />
+<h2>四、快捷部署</h2>
+<p><span style="font-family: 'Microsoft YaHei'; font-size: 13px;">　　集群模式可以通过docker stack快速部署registry和registry web。</span></p>
+<p><span style="font-family: 'Microsoft YaHei'; font-size: 13px;">　　新建配置文件srv-config.yml、web-config.yml放到指定路径，再新建docker-compose.yml文件，执行命令即可。</span></p>
+<div class="cnblogs_code">
+<pre><code>docker stack deploy -c docker-compose.yml RGT</pre>
+</div>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code>version: '3.7<span style="color: #000000;">'　　　　　　<span style="color: #008000;"># docker stack 需要是3.0以上版本</span>
+services:
+  registry</span>-<span style="color: #000000;">srv:　　　　　　<span style="color: #008000;"># 服务名</span>
+    image: registry
+    
+    ports:　　　　　　　　　<span style="color: #008000;"># 映射端口
+      </span></span>- 5000:5000<span style="color: #000000;">
+      
+    volumes:　　　　　　　　<span style="color: #008000;"># 挂载镜像路径和配置文件，注意修改路径与实际一致
+      </span></span>- /opt/zwx-registry:/var/lib/<span style="color: #000000;">registry
+      </span>- /opt/zwx-registry/srv-config.yml:/etc/docker/registry/<span style="color: #000000;">config.yml
+      
+    deploy:　　　　　　　　<span style="color: #008000;"># 设置单任务，并约束主节点运行</span>
+      mode: replicated
+      replicas: </span>1<span style="color: #000000;">
+      placement:
+        constraints:
+          </span>- node.role ==<span style="color: #000000;"> manager
+      
+  registry</span>-<span style="color: #000000;">web:　　　　　　<span style="color: #008000;"># 服务名　　</span>
+    image: hyper</span>/docker-registry-<span style="color: #000000;">web
+    
+    ports:　　　　　　　　<span style="color: #008000;"># 映射端口
+      </span></span>- 8000:8080<span style="color: #000000;">
+    
+    volumes:　　　　　　<span style="color: #008000;"># 挂载配置文件，注意修改路径与实际一致
+      </span></span>- /opt/zwx-registry/web-config.yml:/conf/<span style="color: #000000;">config.yml
+      
+    environment:
+      </span>- REGISTRY_URL=http://registry-srv:5000/<span style="color: #000000;">v2
+      </span>- REGISTRY_NAME=localhost:5000<span style="color: #000000;">
+    
+    deploy:　　　　　　　　<span style="color: #008000;"># 设置单任务，并约束主节点运行</span>
+      mode: replicated
+      replicas: </span>1<span style="color: #000000;">
+      placement:
+        constraints:
+          </span>- node.role ==<span style="color: #000000;"> manager</span><span style="color: #008000;"><br /></span></pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<hr />
+<p>&nbsp;</p>
+<blockquote>
+<p style="color: #4b4b4b; font-family: georgia, verdana, Arial, helvetica, sans-seriff; font-size: 13px;"><em>&nbsp;</em><span style="line-height: 19.5px; background-color: #ccffcc;">作者：<a style="color: #4371a6;" href="https://www.cnblogs.com/leozhanggg/" target="_blank">Leozhang</a>gg</span></p>
+<p style="color: #4b4b4b; font-family: georgia, verdana, Arial, helvetica, sans-seriff; font-size: 13px;"><span style="line-height: 19.5px; background-color: #ccffcc;">出处：&nbsp;<a class="ng-star-inserted" href="https://www.cnblogs.com/leozhanggg/p/12050322.html" target="_blank">https://www.cnblogs.com/leozhanggg/p/12050322.html</a></span></p>
+<p style="color: #4b4b4b; font-family: georgia, verdana, Arial, helvetica, sans-seriff; font-size: 13px;"><span style="line-height: 19.5px; background-color: #ccffcc;">本文版权归作者和博客园共有，欢迎转载，但未经作者同意必须保留此段声明，且在文章页面明显位置给出原文连接。</span></p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

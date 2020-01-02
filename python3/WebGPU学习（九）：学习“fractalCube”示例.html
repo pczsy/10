@@ -1,0 +1,196 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修WebGPU学习（九）：学习“fractalCube”示例' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>WebGPU学习（九）：学习“fractalCube”示例</center></div><div class='banquan'>原文出处:本文由博客园博主Wonder-YYC提供。<br/>
+原文连接:https://www.cnblogs.com/chaogex/p/12097129.html</div><br>
+    <p>大家好，本文学习Chrome-&gt;webgpu-samplers-&gt;fractalCube示例。</p>
+<p>上一篇博文：<br />
+<a href="https://www.cnblogs.com/chaogex/p/12091529.html">WebGPU学习（八）：学习“texturedCube”示例</a></p>
+<p>下一篇博文：<br />
+<a href="https://www.cnblogs.com/chaogex/p/12101154.html">WebGPU学习（十）：介绍“GPU实现粒子效果”</a></p>
+<h1 id="学习fractalcube.ts">学习fractalCube.ts</h1>
+<p>最终渲染结果：<br />
+<img src="./images/WebGPU学习（九）：学习“fractalCube”示例0.png" alt="截屏2019-12-25上午8.14.22.png-107.3kB" /></p>
+<p>该示例展示了如何用上一帧渲染的结果作为下一帧的纹理。</p>
+<p>与<a href="https://www.cnblogs.com/chaogex/p/12091529.html">“texturedCube”示例</a>相比，该示例的纹理并不是来自图片，而是来自上一帧渲染的结果</p>
+<p>下面，我们打开<a href="https://github.com/yyc-git/webgpu-samples/blob/master/src/examples/fractalCube.ts">fractalCube.ts</a>文件，分析相关代码：</p>
+<h2 id="传输顶点的color">传输顶点的color</h2>
+<p>它与“texturedCube”示例-&gt;“传递顶点的uv数据”类似，这里不再分析</p>
+<h2 id="上一帧渲染的结果作为下一帧的纹理">上一帧渲染的结果作为下一帧的纹理</h2>
+<ul>
+<li>配置swapChain</li>
+</ul>
+<p>因为swapChain保存了上一帧渲染的结果，所以将其作为下一帧纹理的source，它的usage需要增加GPUTextureUsage.COPY_SRC：</p>
+<pre><code><code>  const swapChain = context.configureSwapChain({
+    device,
+    format: &quot;bgra8unorm&quot;,
+    usage: GPUTextureUsage.OUTPUT_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+  });</code></pre>
+<ul>
+<li>创建空纹理和sampler，设置到uniform bind group中</li>
+</ul>
+<p>代码如下：</p>
+<pre><code><code>  const cubeTexture = device.createTexture({
+    size: { width: canvas.width, height: canvas.height, depth: 1 },
+    format: &quot;bgra8unorm&quot;,
+    usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.SAMPLED,
+  });
+
+  const sampler = device.createSampler({
+    magFilter: &quot;linear&quot;,
+    minFilter: &quot;linear&quot;,
+  });
+
+  const uniformBindGroup = device.createBindGroup({
+    layout: bindGroupLayout,
+    bindings: [
+    ...
+    {
+      binding: 1,
+      resource: sampler,
+    }, {
+      binding: 2,
+      resource: cubeTexture.createView(),
+    }],
+  });</code></pre>
+<ul>
+<li>绘制和拷贝</li>
+</ul>
+<p>在每一帧中：<br />
+绘制带纹理的立方体；<br />
+将渲染结果拷贝到纹理中。</p>
+<p>相关代码如下：</p>
+<pre><code><code>  return function frame() {
+    const swapChainTexture = swapChain.getCurrentTexture();
+                   
+    renderPassDescriptor.colorAttachments[0].attachment = swapChainTexture.createView();
+    
+    const commandEncoder = device.createCommandEncoder({});
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+    ...
+    passEncoder.setBindGroup(0, uniformBindGroup); 
+    ...
+    passEncoder.draw(36, 1, 0, 0);
+    passEncoder.endPass();
+
+    commandEncoder.copyTextureToTexture({
+      texture: swapChainTexture,
+    }, {
+      texture: cubeTexture,
+    }, {
+      width: canvas.width,
+      height: canvas.height,
+      depth: 1,
+    });
+    
+    device.defaultQueue.submit([commandEncoder.finish()]); 
+   
+    ...
+
+  }</code></pre>
+<h2 id="分析shader代码">分析shader代码</h2>
+<p>vertex shader与“texturedCube”示例相比，增加了color attribute：</p>
+<pre><code><code>  const vertexShaderGLSL = `#version 450
+  ...
+  layout(location = 1) in vec4 color;
+  ...
+
+  layout(location = 0) out vec4 fragColor;
+  ...
+
+  void main() {
+    ...
+    fragColor = color;
+    ...
+  }`;</code></pre>
+<p>fragment shader的代码如下：</p>
+<pre><code><code>  const fragmentShaderGLSL = `#version 450
+  layout(set = 0, binding = 1) uniform sampler mySampler;
+  layout(set = 0, binding = 2) uniform texture2D myTexture;
+
+  layout(location = 0) in vec4 fragColor;
+  layout(location = 1) in vec2 fragUV;
+  layout(location = 0) out vec4 outColor;
+
+  void main() {
+    vec4 texColor = texture(sampler2D(myTexture, mySampler), fragUV * 0.8 + 0.1);
+
+    // 1.0 if we&#39;re sampling the background
+    float f = float(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) &lt; 0.01);
+
+    outColor = mix(texColor, fragColor, f);
+  }`;</code></pre>
+<p>第10行对fragUV进行了处理，我们会在<a href="#分析渲染时间线">分析渲染时间线</a>中分析它。</p>
+<p>第13行和第15行相当于做了if判断：</p>
+<pre><code><code>if(纹理颜色 === 背景色){
+    outColor = fragColor
+}
+else{
+    outColor = 纹理颜色
+}</code></pre>
+<p>这里之所以不用if判断而使用计算的方式，是为了减少条件判断，提高gpu的并行性</p>
+<h2 id="分析渲染时间线">分析渲染时间线</h2>
+<p>下面分析下渲染的时间线：</p>
+<h3 id="第一帧">第一帧</h3>
+<p>因为纹理为空纹理，它的颜色为背景色，所以fragment shader的outColor始终为fragColor，因此立方体的所有片段的颜色均为fragColor。</p>
+<p>第一帧的渲染结果如下：<br />
+<img src="./images/WebGPU学习（九）：学习“fractalCube”示例1.png" alt="截屏2019-12-25下午12.23.39.png-116.5kB" /></p>
+<p>第一帧绘制结束后，渲染结果会被拷贝到纹理中。</p>
+<h3 id="第二帧">第二帧</h3>
+<p>分析执行的fragment shader代码：</p>
+<pre><code><code>  const fragmentShaderGLSL = `#version 450
+  layout(set = 0, binding = 1) uniform sampler mySampler;
+  layout(set = 0, binding = 2) uniform texture2D myTexture;
+
+  layout(location = 0) in vec4 fragColor;
+  layout(location = 1) in vec2 fragUV;
+  layout(location = 0) out vec4 outColor;
+
+  void main() {
+    vec4 texColor = texture(sampler2D(myTexture, mySampler), fragUV * 0.8 + 0.1);
+
+    // 1.0 if we&#39;re sampling the background
+    float f = float(length(texColor.rgb - vec3(0.5, 0.5, 0.5)) &lt; 0.01);
+
+    outColor = mix(texColor, fragColor, f);
+  }`;</code></pre>
+<ul>
+<li>第10行的“fragUV * 0.8 + 0.1”是为了取纹理坐标u、v方向的[0.1-0.9]部分，从而使纹理中立方体所占比例更大。</li>
+</ul>
+<p>得到的纹理区域如下图的红色区域所示：<br />
+<img src="./images/WebGPU学习（九）：学习“fractalCube”示例2.png" alt="截屏2019-12-25下午12.23.39.png-117kB" /></p>
+<ul>
+<li>第13行和第15行代码，将纹理中的背景色替换为了fragColor，使纹理中立方体区域的颜色保持不变</li>
+</ul>
+<p>第二帧的渲染结果如下：<br />
+<img src="./images/WebGPU学习（九）：学习“fractalCube”示例3.png" alt="截屏2019-12-25下午12.24.49.png-141.1kB" /></p>
+<ul>
+<li>第三帧</li>
+</ul>
+<p>依次类推，第三帧的渲染结果如下：<br />
+<img src="./images/WebGPU学习（九）：学习“fractalCube”示例4.png" alt="截屏2019-12-25下午12.47.45.png-157.2kB" /></p>
+<h1 id="参考资料">参考资料</h1>
+<p><a href="https://gpuweb.github.io/gpuweb/">WebGPU规范</a><br />
+<a href="https://github.com/yyc-git/webgpu-samples">webgpu-samplers Github Repo</a><br />
+<a href="https://blog.csdn.net/caxieyou/article/details/94995831">WebGPU-7</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

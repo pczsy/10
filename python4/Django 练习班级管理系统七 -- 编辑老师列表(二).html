@@ -1,0 +1,141 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django 练习班级管理系统七 -- 编辑老师列表(二)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django 练习班级管理系统七 -- 编辑老师列表(二)</center></div><div class='banquan'>原文出处:本文由博客园博主klvchen提供。<br/>
+原文连接:https://www.cnblogs.com/klvchen/p/11165015.html</div><br>
+    <p>修改 views.py</p>
+<pre><code><code>
+@auth
+def edit_teacher(request, nid):
+    if request.method == &quot;GET&quot;:
+        obj = models.Teacher.objects.get(id=nid)
+        obj_cls_list = obj.cls.all().values_list(&#39;id&#39;, &#39;caption&#39;)
+
+        # 三元运算，如果 obj_cls_list  为 true，则 list(zip(*obj_cls_list))[0]，否则为 []
+        id_list = list(zip(*obj_cls_list))[0] if obj_cls_list else []
+
+        # 获取 id 不在 id_list 的值
+        cls_list = models.Classes.objects.exclude(id__in=id_list)
+
+        return render(request, &#39;edit_teacher.html&#39;, {&#39;obj&#39;: obj,
+                                                     &#39;id_list&#39;: id_list,
+                                                     &#39;cls_list&#39;: cls_list,
+                                                     &#39;obj_cls_list&#39;: obj_cls_list})
+
+    elif request.method == &quot;POST&quot;:
+        name = request.POST.get(&#39;name&#39;)
+        cls_li = request.POST.getlist(&#39;cls&#39;)
+        obj = models.Teacher.objects.get(id=nid)
+        obj.name = name
+        obj.save()
+
+        obj.cls.set(cls_li)
+
+        return redirect(&#39;/teacher.html&#39;)
+</code></pre>
+<p>修改 edit_teacher.html</p>
+<pre><code><code>{% extends &quot;layout.html&quot; %}
+
+{% block css %}
+{% endblock %}
+
+{% block content %}
+    &lt;h1&gt;编辑老师&lt;/h1&gt;
+    &lt;form action=&quot;/edit_teacher-{{ obj.id }}.html&quot; method=&quot;POST&quot;&gt;
+        &lt;input style=&quot;display: none&quot; type=&quot;text&quot; id=&quot;nid&quot; value=&quot;{{ obj.id }}&quot; /&gt;
+        &lt;p&gt;
+            老师姓名: &lt;input type=&quot;text&quot; name=&quot;name&quot; value=&quot;{{ obj.name }}&quot; /&gt;
+        &lt;/p&gt;
+        &lt;p&gt;
+            已管理班级:
+            &lt;select id=&quot;sel&quot; name=&quot;cls&quot; multiple&gt;
+                &lt;!-- obj_cls_list 可能取的值：&lt;QuerySet [(2, &#39;全栈二班&#39;), (118, &#39;全栈一班101&#39;), (119, &#39;全栈6班1&#39;), (120, &#39;全栈一班77&#39;)]&gt; --&gt;
+                {% for row in obj_cls_list %}
+                        &lt;option value=&quot;{{ row.0 }}&quot;&gt;{{ row.1 }}&lt;/option&gt;
+                {% endfor %}
+            &lt;/select&gt;
+            未管理班级:
+            &lt;select id=&quot;none&quot; multiple&gt;
+                &lt;!-- cls_list 可能取的值：&lt;QuerySet [&lt;Classes: Classes object (1)&gt;, &lt;Classes: Classes object (3)&gt;..... --&gt;
+                {% for row in cls_list %}
+                        &lt;option value=&quot;{{ row.id }}&quot;&gt;{{ row.caption }}&lt;/option&gt;
+                {% endfor %}
+            &lt;/select&gt;
+        &lt;/p&gt;
+    &lt;div&gt;
+        &lt;a id=&quot;removeCls&quot;&gt; &gt;&gt; &lt;/a&gt;
+        &lt;a id=&quot;addCls&quot;&gt; &lt;&lt; &lt;/a&gt;
+    &lt;/div&gt;
+        &lt;input id=&quot;submit_form&quot; type=&quot;submit&quot; value=&quot;提交&quot;&gt;
+    &lt;/form&gt;
+{% endblock %}
+
+
+{% block js %}
+    &lt;script&gt;
+        $(function () {
+            $(&#39;#menu_teacher&#39;).addClass(&#39;active&#39;);
+            bindRemoveCls();
+            bindAddCls();
+            bindSubmitForm();
+        })
+    
+        function bindRemoveCls() {
+            $(&#39;#removeCls&#39;).click(function () {
+                // 获取 DOM 对象 
+                var options = $(&#39;#sel&#39;)[0].selectedOptions;
+                console.log(options)
+
+                while (options.length&gt;0){
+                   // 获取 jQuery 对象 
+                    $(options[0]).appendTo(&#39;#none&#39;);
+                }
+            })
+        }
+
+        function bindAddCls() {
+            $(&#39;#addCls&#39;).click(function () {
+                var options = $(&#39;#none&#39;)[0].selectedOptions;
+                while (options.length&gt;0){
+                    $(options[0]).appendTo(&#39;#sel&#39;);
+                }
+            })
+        }
+        
+        function bindSubmitForm() {
+            $(&#39;#submit_form&#39;).click(function () {
+                // 让 select 全选中
+                // each() 方法规定为每个匹配元素规定运行的函数。
+                $(&#39;#sel&#39;).children().each(function () {
+                    // prop() 方法设置或返回被选元素的属性和值。
+                    $(this).prop(&#39;selected&#39;, true)
+                })
+            })
+        }
+    
+    &lt;/script&gt;
+{% endblock %}
+</code></pre>
+<p><img src="./images/Django 练习班级管理系统七 -- 编辑老师列表(二)0.png" /><br />
+<img src="./images/Django 练习班级管理系统七 -- 编辑老师列表(二)1.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

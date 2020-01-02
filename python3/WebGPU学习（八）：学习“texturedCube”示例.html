@@ -1,0 +1,343 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修WebGPU学习（八）：学习“texturedCube”示例' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>WebGPU学习（八）：学习“texturedCube”示例</center></div><div class='banquan'>原文出处:本文由博客园博主Wonder-YYC提供。<br/>
+原文连接:https://www.cnblogs.com/chaogex/p/12091529.html</div><br>
+    <p>大家好，本文学习Chrome-&gt;webgpu-samplers-&gt;texturedCube示例。</p>
+<p>上一篇博文：<br />
+<a href="https://www.cnblogs.com/chaogex/p/12081022.html">WebGPU学习（七）：学习“twoCubes”和“instancedCube”示例</a></p>
+<p>下一篇博文：<br />
+<a href="https://www.cnblogs.com/chaogex/p/12097129.html">WebGPU学习（九）：学习“fractalCube”示例</a></p>
+<h1 id="学习texturedcube.ts">学习texturedCube.ts</h1>
+<p>最终渲染结果：<br />
+<img src="./images/WebGPU学习（八）：学习“texturedCube”示例0.png" alt="截屏2019-12-23上午8.11.40.png-117.2kB" /></p>
+<p>该示例绘制了有一个纹理的立方体。</p>
+<p>与“rotatingCube”示例相比，该示例增加了下面的步骤：</p>
+<ul>
+<li>传输顶点的uv数据</li>
+<li>增加了sampler和sampled-texture类型的uniform数据</li>
+</ul>
+<p>下面，我们打开<a href="https://github.com/yyc-git/webgpu-samples/blob/master/src/examples/texturedCube.ts">texturedCube.ts</a>文件，依次分析增加的步骤：</p>
+<h2 id="传递顶点的uv数据">传递顶点的uv数据</h2>
+<ul>
+<li>shader加入uv attribute</li>
+</ul>
+<p>代码如下：</p>
+<pre><code><code>  const vertexShaderGLSL = `#version 450
+  ...
+  layout(location = 0) in vec4 position;
+  layout(location = 1) in vec2 uv;
+
+  layout(location = 0) out vec2 fragUV;
+  layout(location = 1) out vec4 fragPosition;
+
+  void main() {
+    fragPosition = 0.5 * (position + vec4(1.0));
+    ...
+    fragUV = uv;
+  }
+  `;
+  
+  const fragmentShaderGLSL = `#version 450
+  layout(set = 0, binding = 1) uniform sampler mySampler;
+  layout(set = 0, binding = 2) uniform texture2D myTexture;
+
+  layout(location = 0) in vec2 fragUV;
+  layout(location = 1) in vec4 fragPosition;
+  layout(location = 0) out vec4 outColor;
+
+  void main() {
+    outColor =  texture(sampler2D(myTexture, mySampler), fragUV) * fragPosition;
+  }
+  `;</code></pre>
+<p>vertex shader传入了uv attribute数据，并将其传递给fragUV，从而传到fragment shader，作为纹理采样坐标</p>
+<p>另外，这里可以顺便说明下：fragPosition用来实现与position相关的颜色渐变效果</p>
+<ul>
+<li>uv数据包含在verticesBuffer的cubeVertexArray中</li>
+</ul>
+<p>cubeVertexArray的代码如下：</p>
+<pre><code><code>cube.ts:
+export const cubeUVOffset = 4 * 8;
+export const cubeVertexArray = new Float32Array([
+    // float4 position, float4 color, float2 uv,
+    1, -1, 1, 1,   1, 0, 1, 1,  1, 1,
+    -1, -1, 1, 1,  0, 0, 1, 1,  0, 1,
+    -1, -1, -1, 1, 0, 0, 0, 1,  0, 0,
+    1, -1, -1, 1,  1, 0, 0, 1,  1, 0,
+    1, -1, 1, 1,   1, 0, 1, 1,  1, 1,
+    -1, -1, -1, 1, 0, 0, 0, 1,  0, 0,
+
+    ...
+]);</code></pre>
+<p>创建和设置verticesBuffer的相关代码如下：</p>
+<pre><code><code>texturedCube.ts:
+  const verticesBuffer = device.createBuffer({
+    size: cubeVertexArray.byteLength,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+  });
+  verticesBuffer.setSubData(0, cubeVertexArray);
+  
+  ...
+  
+  return function frame() {
+    ...
+    passEncoder.setVertexBuffer(0, verticesBuffer);
+    ...
+  } </code></pre>
+<ul>
+<li>创建render pipeline时指定uv attribute的相关数据</li>
+</ul>
+<p>代码如下：</p>
+<pre><code><code>  const pipeline = device.createRenderPipeline({
+    ...
+    vertexState: {
+      vertexBuffers: [{
+        ...
+        attributes: [
+        ...
+        {
+          // uv
+          shaderLocation: 1,
+          offset: cubeUVOffset,
+          format: &quot;float2&quot;
+        }]
+      }],
+    },
+    ...
+  });    </code></pre>
+<h2 id="增加了sampler和sampled-texture类型的uniform数据">增加了sampler和sampled-texture类型的uniform数据</h2>
+<p>WebGPU相对于WebGL1，提出了sampler，可以对它设置filter、wrap等参数，从而实现了texture和sampler自由组合，同一个texture能够以不同filter、wrap来采样</p>
+<ul>
+<li>fragment shader传入这两个uniform数据，用于纹理采样</li>
+</ul>
+<p>代码如下：</p>
+<pre><code><code>  const fragmentShaderGLSL = `#version 450
+  layout(set = 0, binding = 1) uniform sampler mySampler;
+  layout(set = 0, binding = 2) uniform texture2D myTexture;
+
+  layout(location = 0) in vec2 fragUV;
+  layout(location = 1) in vec4 fragPosition;
+  layout(location = 0) out vec4 outColor;
+
+  void main() {
+    outColor =  texture(sampler2D(myTexture, mySampler), fragUV) * fragPosition;
+  }
+  `;</code></pre>
+<ul>
+<li>创建bind group layout时指定它们在shader中的binding位置等参数</li>
+</ul>
+<p>代码如下：</p>
+<pre><code><code>  const bindGroupLayout = device.createBindGroupLayout({
+    bindings: [
+    ...
+    {
+      // Sampler
+      binding: 1,
+      visibility: GPUShaderStage.FRAGMENT,
+      type: &quot;sampler&quot;
+    }, {
+      // Texture view
+      binding: 2,
+      visibility: GPUShaderStage.FRAGMENT,
+      type: &quot;sampled-texture&quot;
+    }]
+  });</code></pre>
+<ul>
+<li>拷贝图片到texture，返回texture</li>
+</ul>
+<p>代码如下，后面会进一步研究：</p>
+<pre><code><code>  const cubeTexture = await createTextureFromImage(device, &#39;assets/img/Di-3d.png&#39;, GPUTextureUsage.SAMPLED);</code></pre>
+<ul>
+<li>创建sampler，指定filter</li>
+</ul>
+<p>代码如下：</p>
+<pre><code><code>  const sampler = device.createSampler({
+    magFilter: &quot;linear&quot;,
+    minFilter: &quot;linear&quot;,
+  });
+  </code></pre>
+<p>我们看一下相关定义：</p>
+<pre><code><code>GPUSampler createSampler(optional GPUSamplerDescriptor descriptor = {});
+
+...
+
+dictionary GPUSamplerDescriptor : GPUObjectDescriptorBase {
+    GPUAddressMode addressModeU = &quot;clamp-to-edge&quot;;
+    GPUAddressMode addressModeV = &quot;clamp-to-edge&quot;;
+    GPUAddressMode addressModeW = &quot;clamp-to-edge&quot;;
+    GPUFilterMode magFilter = &quot;nearest&quot;;
+    GPUFilterMode minFilter = &quot;nearest&quot;;
+    GPUFilterMode mipmapFilter = &quot;nearest&quot;;
+    float lodMinClamp = 0;
+    float lodMaxClamp = 0xffffffff;
+    GPUCompareFunction compare = &quot;never&quot;;
+};</code></pre>
+<p>GPUSamplerDescriptor的addressMode指定了texture在u、v、w方向的wrap mode（u、v方向的wrap相当于WebGL1的wrapS、wrapT）（w方向是给3d texture用的）</p>
+<p>mipmapFilter与mipmap有关，lodXXX与texture lod有关，compare与软阴影的Percentage Closer Filtering技术有关，我们不讨论它们</p>
+<ul>
+<li>创建uniform bind group时传入sampler和texture的view</li>
+</ul>
+<pre><code><code>  const uniformBindGroup = device.createBindGroup({
+    layout: bindGroupLayout,
+    bindings: [
+    ...
+    {
+      binding: 1,
+      resource: sampler,
+    }, {
+      binding: 2,
+      resource: cubeTexture.createView(),
+    }],
+  });</code></pre>
+<h3 id="参考资料">参考资料</h3>
+<p><a href="https://www.khronos.org/opengl/wiki/Sampler_Object">Sampler Object</a></p>
+<h2 id="详细分析拷贝图片到texture步骤">详细分析“拷贝图片到texture”步骤</h2>
+<p>相关代码如下：</p>
+<pre><code><code>  const cubeTexture = await createTextureFromImage(device, &#39;assets/img/Di-3d.png&#39;, GPUTextureUsage.SAMPLED);</code></pre>
+<p>该步骤可以分解为两步：<br />
+1.解码图片<br />
+2.拷贝解码后的类型为HTMLImageElement的图片到GPU的texture中</p>
+<p>下面依次分析：</p>
+<h3 id="解码图片">解码图片</h3>
+<p>打开<a href="https://github.com/yyc-git/webgpu-samples/blob/master/src/helpers.ts">helper.ts</a>文件，查看createTextureFromImage对应代码：</p>
+<pre><code><code>  const img = document.createElement(&#39;img&#39;);
+  img.src = src;
+  await img.decode();</code></pre>
+<p>这里使用decode api来解码图片，也可以使用img.onload来实现：</p>
+<pre><code><code>  const img = document.createElement(&#39;img&#39;);
+  img.src = src;
+  img.onload = (img) =&gt; {
+    ...
+  };</code></pre>
+<p>根据<a href="https://usefulangle.com/post/123/javascript-pre-load-decode-image">Pre-Loading and Pre-Decoding Images with Javascript for Better Performance</a>的说法，图片的加载过程有两个步骤：<br />
+1.从服务器加载图片<br />
+2.解码图片</p>
+<p>第1步都是在其它线程上并行执行；<br />
+如果用onload，则浏览器会在主线程上同步执行第2步，会阻塞主线程；<br />
+如果用decode api，则浏览器会在其它线程上并行执行第2步，不会阻塞主线程。</p>
+<p>chrome和firefox浏览器都支持decode api，因此加载图片应该优先使用该API：<br />
+<img src="./images/WebGPU学习（八）：学习“texturedCube”示例1.png" alt="截屏2019-12-24下午2.31.34.png-85.3kB" /></p>
+<h4 id="参考资料-1">参考资料</h4>
+<p><a href="https://usefulangle.com/post/123/javascript-pre-load-decode-image">Pre-Loading and Pre-Decoding Images with Javascript for Better Performance</a><br />
+<a href="https://zhuanlan.zhihu.com/p/43991630">Chrome 图片解码与 Image.decode API</a></p>
+<h3 id="拷贝图片">拷贝图片</h3>
+<p>WebGL1直接使用texImage2D将图片上传到GPU texture中，而WebGPU能让我们更加灵活地控制上传过程。</p>
+<p>WebGPU有两种方法上传：</p>
+<ul>
+<li>创建图片对应的imageBitmap，将其拷贝到GPU texture中</li>
+</ul>
+<p>该方法要用到copyImageBitmapToTexture函数。虽然WebGPU规范已经定义了该函数，但目前Chrome Canary不支持它，所以暂时不能用该方法上传。</p>
+<p><strong>参考资料</strong><br />
+<a href="https://github.com/gpuweb/gpuweb/pull/266">Proposal for copyImageBitmapToTexture</a><br />
+<a href="https://github.com/gpuweb/gpuweb/blob/master/design/ImageBitmapToTexture.md">ImageBitmapToTexture design</a></p>
+<ul>
+<li>将图片绘制到canvas中，通过getImageData获得数据-&gt;将其设置到buffer中-&gt;把buffer数据拷贝到GPU texture中</li>
+</ul>
+<p>我们来看下createTextureFromImage对应代码：</p>
+<pre><code><code>  const imageCanvas = document.createElement(&#39;canvas&#39;);
+  imageCanvas.width = img.width;
+  imageCanvas.height = img.height;
+
+  const imageCanvasContext = imageCanvas.getContext(&#39;2d&#39;);
+  
+  //flipY
+  imageCanvasContext.translate(0, img.height);
+  imageCanvasContext.scale(1, -1);
+  
+  imageCanvasContext.drawImage(img, 0, 0, img.width, img.height);
+  const imageData = imageCanvasContext.getImageData(0, 0, img.width, img.height);</code></pre>
+<p>这里创建canvas-&gt;绘制图片-&gt;获得图片数据。<br />
+（注：在绘制图片时将图片在Y方向反转了）</p>
+<p>接着看代码：</p>
+<pre><code><code>  let data = null;
+
+  const rowPitch = Math.ceil(img.width * 4 / 256) * 256;
+  if (rowPitch == img.width * 4) {
+    data = imageData.data;
+  } else {
+    data = new Uint8Array(rowPitch * img.height);
+    for (let y = 0; y &lt; img.height; ++y) {
+      for (let x = 0; x &lt; img.width; ++x) {
+        let i = x * 4 + y * rowPitch;
+        data[i] = imageData.data[i];
+        data[i + 1] = imageData.data[i + 1];
+        data[i + 2] = imageData.data[i + 2];
+        data[i + 3] = imageData.data[i + 3];
+      }
+    }
+  }
+
+  const texture = device.createTexture({
+    size: {
+      width: img.width,
+      height: img.height,
+      depth: 1,
+    },
+    format: &quot;rgba8unorm&quot;,
+    usage: GPUTextureUsage.COPY_DST | usage,
+  });
+
+  const textureDataBuffer = device.createBuffer({
+    size: data.byteLength,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+  });
+
+  textureDataBuffer.setSubData(0, data);</code></pre>
+<p>rowPitch需要为256的倍数（也就是说，图片的宽度需要为64px的倍数），这是因为Dx12对此做了限制（参考<a href="https://github.com/gpuweb/gpuweb/issues/69">Copies investigation</a>）：</p>
+<blockquote>
+<p>RowPitch must be aligned to D3D12_TEXTURE_DATA_PITCH_ALIGNMENT.<br />
+Offset must be aligned to D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, which is 512.</p>
+</blockquote>
+<p>另外，关于纹理尺寸，可以参考<a href="https://blog.csdn.net/caxieyou/article/details/94987754">WebGPU-6</a>：</p>
+<blockquote>
+<p>第一个问题是关于纹理尺寸的，回答是WebGPU没有对尺寸有特别明确的要求。sample code中最多不能比4kor8k大就行。这个也不是太难理解，OpenGL对纹理和FBO的尺寸总是有上限的。</p>
+</blockquote>
+<p>根据我的测试，buffer（代码中的textureDataBuffer）中的图片数据需要为未压缩的图片数据（它的类型为Uint8Array，length=img.width * img.height * 4（因为每个像素有r、g、b、a这4个值）），否则会报错（在我的测试中，“通过canvas-&gt;toDataURL得到图片的base64-&gt;将其转为Uint8Array，得到压缩后的图片数据-&gt;将其设置到buffer中”会报错）</p>
+<p>继续看代码：</p>
+<pre><code><code>  const commandEncoder = device.createCommandEncoder({});
+  commandEncoder.copyBufferToTexture({
+    buffer: textureDataBuffer,
+    rowPitch: rowPitch,
+    imageHeight: 0,
+  }, {
+    texture: texture,
+  }, {
+    width: img.width,
+    height: img.height,
+    depth: 1,
+  });
+
+  device.defaultQueue.submit([commandEncoder.finish()]);
+
+  return texture;</code></pre>
+<p>这里提交了copyBufferToTexture这个command到GPU，并返回texture<br />
+（注：这个command此时并没有执行，会由GPU决定什么时候执行）</p>
+<p>WebGPU支持buffer与buffer、buffer与texture、texture与texture之间互相拷贝。</p>
+<p><strong>参考资料</strong><br />
+<a href="https://github.com/gpuweb/gpuweb/issues/66">3 channel formats</a><br />
+<a href="https://github.com/gpuweb/gpuweb/issues/69">Copies investigation (+ proposals)</a></p>
+<h1 id="参考资料-2">参考资料</h1>
+<p><a href="https://gpuweb.github.io/gpuweb/">WebGPU规范</a><br />
+<a href="https://github.com/yyc-git/webgpu-samples">webgpu-samplers Github Repo</a><br />
+<a href="https://blog.csdn.net/caxieyou/article/details/94987754">WebGPU-6</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

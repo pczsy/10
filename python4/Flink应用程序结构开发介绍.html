@@ -1,0 +1,192 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flink应用程序结构开发介绍' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flink应用程序结构开发介绍</center></div><div class='banquan'>原文出处:本文由博客园博主FlinkMe提供。<br/>
+原文连接:https://www.cnblogs.com/bigdata1024/p/12006450.html</div><br>
+    <p>Flink程序遵循一定的编程模式。DataStream API 和 DataSet API 基本具有相同的程序结构。以下为一个流式程序的示例代码来对文本文件进行词频统计。</p>
+<pre><code><code>package com.realtime.flink.streaming
+import org.apache.flink.apijava.utils.ParameterTool
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment, _}
+
+object WordCount {
+    def main(args: Array[String]) {
+        //第一步：设定执行环境
+        val env = SreamExecutionEnvironment.getExecutionEnvironment
+       //第二步：指定数据源地址，开始读取数据
+        val text = env.readTextFile(&quot;file:///path/file&quot;) 
+      //第三步：对数据集指定转换操作逻辑
+      val counts ： DataStream[(String, int)]  = text
+          .flatMap(_.toLowerCase.split(&quot; &quot;)) 
+          .fliter(_.nonEmpty)
+          .map(_, 1)
+          .sum(1)
+      //第四步：指定计算结果输出位置
+      if (params.has(&quot;output&quot;)) {
+          counts.writeAsText(params.get(&quot;output&quot;))
+      } else {
+        println(&quot;Printing resule to stdout. Use --output to specify output path.&quot;)
+        counts.print()
+      }
+      //第五步：指定名称并触发流式任务
+      env.execute(&quot;Streaming WordCount&quot;)
+    }
+}
+</code></pre>
+<p>整个Flink 程序一共分为5步:</p>
+<h3 id="flink执行环境">1. Flink执行环境</h3>
+<p>不同的执行环境决定了应用的类型:</p>
+<p>StreamExecutionEnvironmen用来流式处理,ExecutionEnvironment是批量数据处理环境.</p>
+<p>获取环境的三种方式:</p>
+<ul>
+<li><p>流处理:</p>
+<pre><code><code>//设定Flink运行环境,如果在本地启动则创建本地环境,如果在集群启动就创建集群环境
+StreamExecutionEnvironment.getExecutionEnvironment
+//指定并行度创建本地执行环境
+StreamExecutionEnvironment.createLocalEnvironment(5)
+//指定远程JobManager ip和RPC 端口以及运行程序所在的jar包和及其依赖包
+StreamExecutionEnvironment.createRemoteEnvironment(&quot;JobManagerHost&quot;, 6021, 5, &quot;/user/application.jar&quot;)</code></pre>
+<p>第三种方式直接从本地代码创建与远程集群的JobManager的RPC连接,指定jar将运行程序远程拷贝到JobManager节点上,Flink应用程序运行在远程的环境中,本地程序相当于一个客户端.</p></li>
+<li><p>批处理:</p></li>
+</ul>
+<pre><code><code>  //设定Flink运行环境,如果在本地启动则创建本地环境,如果在集群启动就创建集群环境
+ ExecutionEnvironment.getExecutionEnvironment
+  //指定并行度创建本地执行环境
+  ExecutionEnvironment.createLocalEnvironment(5)
+  //指定远程JobManager ip和RPC 端口以及运行程序所在的jar包和及其依赖包
+ ExecutionEnvironment.createRemoteEnvironment(&quot;JobManagerHost&quot;, 6021, 5, &quot;/user/application.jar&quot;)</code></pre>
+<p>注意不同的语言开发Flink应用的时候需要引入不同环境对应的执行环境</p>
+<h3 id="初始化数据">2. 初始化数据</h3>
+<ul>
+<li><p>创建完执行环境, ExecutionEnvironment 需要提供不同的数据接入接口完成数据初始化,将外部数据转换成DataStream<T> 或DataSet<T>数据集.</p></li>
+<li><p>Flink提供了多种从外部读取数据的连接器,包括批量和实时的数据连接器,能够将Flink系统与其他第三方系统进行连接,直接获取外部数据</p></li>
+<li><p>以下代码通过readTextFile()方法读取flle://pathfile路径中的数据并转换成DataStream<String>数据集.</p></li>
+</ul>
+<pre><code><code>val text: DataStream[String] = env.readTextFlie(&quot;flle://pathfile&quot;)</code></pre>
+<p>读取文件转换为DataStream[String]数据集,完成了从本地文件到分布式数据集的转换</p>
+<h3 id="执行转换操作">3. 执行转换操作</h3>
+<p>对数据集的各种Transformation操作通过不同的Operator来实现,每个Operator来实现,每个Operator内部通过实现Function接口完成数据处理逻辑的定义.</p>
+<p>DataStream API 和 DataSet API 提供了很多转换算子, 如: map, flatMap, filter, keyBy, 用户只需要定义每个算子执行的函数逻辑,然后应用在数据转换操作Operator 接口即可.</p>
+<pre><code><code> val counts: DataStream[String, Int] = text
+     .flatMap(_.toLowerCase.split(&quot; &quot;))  //执行flatMap操作
+     .filter(_.nonEmpty) //过滤空字段
+     .map((_, 1) //执行map转换操作,转换成key - value 接口
+     .keyBy(0) // 按照指定key对数据重分区
+     .sum(1) /执行求和运算操作</code></pre>
+<p>flink 定义Function的计算逻辑可以通过以下几种方式完成定义:</p>
+<p><strong>1. 通过创建Class 实现Function接口</strong></p>
+<pre><code><code>//实现MapFunction接口
+ class MyMapFunction extends MapFunction[String, String] {
+     override def map(t: String): String {
+         t.toUpperCase()
+     }
+ }
+ 
+ val dataStream: DataStream[String] = env.fromElements(&quot;hello&quot;, flink)
+ //将MyMapFunction实现类传入进去
+ dataStream.map(new MyMapFunction)</code></pre>
+<p>完成对实现将数据集中的字符串转换成大写的数据处理</p>
+<p><strong>2. 通过创建匿名类实现Function接口</strong></p>
+<pre><code><code> val dataStream: DataStream[String] = env.fromElements(&quot;hello&quot;, flink)
+ //通过创建MapFunction匿名实现类来定义map函数的计算逻辑
+ dataStream.map(new MapFunction[String, String] {
+     //实现对输入字符串大写转换
+      override def map(t: String): String{
+         t.toUpperCase()
+     }
+ })
+</code></pre>
+<p><strong>3. 通过实现RichFunction接口</strong></p>
+<p>Flink提供了RichFunction接口,用于比较高级的数据处理场景,RichFunction接口中有open、close、getRuntimeContext 以及setRuntimeContext来获取状态、缓存等系统内部数据. 与MapFunction类似,RichFunction子类也有RichMapFunction.</p>
+<pre><code><code>//定义匿名类实现RichMapFunction接口,完成对字符串到整形数字的转换
+ dataStream.map(new RichMapFunction[String, Int] {
+     //实现对输入字符串大写转换
+      override def map(in: String):Int = (in.toInt)
+ })
+</code></pre>
+<h3 id="分区key指定">4.分区key指定</h3>
+<p>某些算子需要指定的key进行转换,常见的算子有: join 、coGroup、groupBy.需要将DataStream或DataSet数据集转换成对应KeyedStream 和GroupDataSet ,主要是将相同key的数据路由到相同的Pipeline中</p>
+<p><strong>1.根据字段位置指定</strong></p>
+<pre><code><code>//DataStream API聚合计算
+
+val dataStream : DataStream[(String,Int)] = env.fromElements((&quot;a&quot;, 1),(&quot;c&quot;, 2))
+
+//根据第一个字段重新分区,然后对第二个字段进行求和计算
+val result = dataStream.keyBy(0).sum(1)
+</code></pre>
+<pre><code><code>//DataSet API 聚合计算
+val dataSet = env.fromElements((&quot;a&quot;, 1),(&quot;c&quot;, 2))
+//根据第一个字段进行数据重分区
+val groupDataSet : GroupDataSet[(String , Int)] = dataSet.groupBy(0)
+//求取相同key值第二个字段的最大值
+groupDataSet.max(1)</code></pre>
+<p><strong>2.根据字段名称指定</strong></p>
+<p>使用字段名称需要DataStream 中的数据结构类型必须是Tuple类或者POJOs类</p>
+<pre><code><code>val personDataSet = env.fromElements(new Person(&quot;Alex&quot;, 18), new Person(&quot;Peter&quot;, 43))
+//指定name字段名称来确定groupBy 字段
+ personDataSet.groupBy(&quot;name&quot;).max(1)
+</code></pre>
+<p>如果程序中使用Tuple数据类型,通常情况下字段名称从1开始计算,字段位置索引从0开始计算</p>
+<pre><code><code>val personDataStream = env.fromElements(new Person(&quot;Alex&quot;, 18), new Person(&quot;Peter&quot;, 43))
+//通过名称指定第一个字段
+personDataStream.keyBy(&quot;_1&quot;)
+
+//通过位置指定第一个字段
+personDataStream.keyBy(0)</code></pre>
+<p>使用嵌套的复杂数据结构:</p>
+<pre><code><code>class NestedClass {
+    var id: int,
+    tuples: (Long, Long, String)){
+        def this() {
+            this(0, (0, 0, &quot; &quot;))
+        }
+    }
+
+class CompelexClass(var nested: NestedClass, var tag: String) {
+    def this() {
+        this(null, &quot; &quot;)
+    }
+}
+</code></pre>
+<p>通过“nested”获取整个NestedClass对象所有字段,调用“tag”获取 CompelexClass中tag字段,调用“nested.id”获取NestedClass的id字段,调用“nested.tuples._1”获取NestedClass中tuple元祖第一个字段</p>
+<p><strong>3. 通过Key选择器指定</strong></p>
+<p>定义KeySelector,然后复写getKey方法,从Person对象中获取name为指定的Key.</p>
+<pre><code><code>case class Person(name: String, age: Int)
+var person = env.fromElements(Person(&quot;hello&quot;, 1), Person(&quot;Flink&quot;, 3) )
+//
+val keyed: KeyedStream[WC] = person.keyBy(new KeySelector[Person, String](){
+    override def getKey(person: Person): String = person.name
+})</code></pre>
+<h3 id="输出结果">5.输出结果</h3>
+<p>数据进行转换操作之后,一般会输出到外部系统或者控制台上.Flink 除了基本的数据输出方法,在系统中还定义了很多Connector,用户通过调用addSink()添加输出系统定义的DataSink类算子,这样就可以将数据输出到外部系统.</p>
+<pre><code><code>//将数据输出到文件中
+counts.writeAsText(&quot;file://path/to/savefile&quot;)
+//将数据输出控制台
+counts.print()</code></pre>
+<h3 id="程序触发">程序触发</h3>
+<p>计算逻辑全部操作定义好后,需要调ExecutionEnvironment的execute()方法来触发程序的执行,execute()方法返回的结果类型为JobExecutionResult,JobExecutionResult包含了程序执行的时间和累加器等指标.</p>
+<p>注意: DataStream流式应用需要显示调用execute()方法,否则Flink应用程序不会执行.但对于DataSet API 输出算子已经包含对execute()方法的调用,不再需要显示调用了,否则会出现程序异常.</p>
+<pre><code><code>//调StreamExecutionEnvironment的execute()方法来执行流式应用程序
+env.execute(&quot;App Name&quot;)</code></pre>
+<h3 id="总结">总结</h3>
+<p>本文主要介绍了Flink应用程序开发的5步:获取执行环境;初始化数据;执行转换操作;分区key指定;输出结果以及程序的触发等开发模式以及内部的一些实现细节.</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,517 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修线程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>线程</center></div><div class='banquan'>原文出处:本文由博客园博主corei5tj提供。<br/>
+原文连接:https://www.cnblogs.com/tangjian219/p/11421006.html</div><br>
+    <h1 id="线程">线程</h1>
+<pre><code><code>进程只是用来把资源集中到一起（进程只是一个资源单位，或者说资源集合），而线程才是cpu上的执行单位。
+把进程比作一个工厂,工厂内部有多个车间,车间内部的工具可以互相借用.
+这里的车间就好比线程,线程内部的资源时是共享的,而进程资源是不共享的(可以同过队列)
+
+开启一个进程:进程会在内存中开辟一个进程空间,将主进程的资料数据全部复制一份,线程会执行里面的代码.
+
+主线程什么时候结束?
+多线程是同一个空间,同一个进程,进程代表空间,资源,是静态的,主线程是进程空间存活在内存中的必要条件,守护线程必须要等主线程结束之后才结束,而主线程必须要等所有的非守护线程结束才能结束,所以守护进程必须等所有的非守护进程以及主线程结束之后才能结束.
+</code></pre>
+<h1 id="进程和线程">进程和线程</h1>
+<pre><code><code>1.进程:主要任务是划分空间,加载资源,是静态的
+  线程:执行代码,执行能力,动态的
+
+2.开启进程的开销非常大
+  开启线程的开销非常小
+
+3.开启多进程的速度慢
+  开启多线程的速度快
+
+4.进程之间的数据不共享,只有通过队列才能实现共享
+  同一进程下,线程的数据是共享的
+
+关系:线程是依赖于进程的,一个进程可以包含多个线程,但是一定有一个主线程,线程才是CPU的最小单元
+    
+多线程的应用场景!
+并发:一个CPU来回切换(线程之间的切换),多进程并发,多线程并发
+多进程并发:开启多个进程,每个进程里面的主线程执行任务
+多线程并发:开启一个进程,此进程里面多个线程执行任务
+
+什么时候用多进程,什么时候用多线程?
+一个程序:三个不同任务(多线程)
+以后工作中遇到并发:多线程居多.</code></pre>
+<h1 id="线程的两种创建方式">线程的两种创建方式</h1>
+<pre><code><code>函数
+from threading import Thread
+def task(name):
+    print(f&quot;{name} is running&quot;)
+    print(f&quot;{name} is gone&quot;)
+if __name__ == &#39;__main__&#39;:
+    t = Thread(target=task,args=(&#39;你&#39;,))
+    t.start()
+    print(666)
+    
+结果可能是随机的,结果基本是子线程执行完毕后执行主线程
+is running
+你 is gone
+666
+
+还有可能是
+is running
+666
+你 is gone
+
+
+
+from threading import Thread
+import time
+def task(name):
+    print(f&quot;{name} is running&quot;)
+    time.sleep(1)
+    print(f&quot;{name} is gone&quot;)
+if __name__ == &#39;__main__&#39;:
+    t = Thread(target=task,args=(&#39;你&#39;,))
+    t.start()
+    print(666)
+#
+你 is running
+666
+你 is gone
+
+用类创建
+from threading import Thread
+import time
+class Mythread(Thread):
+    def __init__(self,name):
+        super().__init__()  #先去父类
+        self.name = name    #封装name的属性
+    def run(self):  #必须定义run方法
+        print(f&#39;{self.name} is running&#39;) #,没有name 会返回Thread-1
+        time.sleep(1)
+        print(f&#39;{self.name} is gone&#39;)
+if __name__ == &#39;__main__&#39;:
+    t = Mythread(&#39;你&#39;)
+    t.start()
+    print(&#39;---主线程---&#39;)</code></pre>
+<h1 id="同一线程内共享数据和join">同一线程内共享数据和join</h1>
+<pre><code><code>from threading import Thread
+import os
+
+x = 3
+def task():
+    global x
+    x = 100
+
+if __name__ == &#39;__main__&#39;:
+
+    t1 = Thread(target=task)
+    t1.start()
+    t1.join()  #等待子线程结束后执行下一步
+    print(f&#39;===主线程{x}&#39;)
+# 同一进程内的资源数据对于这个进程的多个线程来说是共享的.===主线程{100}
+# 如果是进程,资源不共享,打印3</code></pre>
+<h1 id="守护线程">守护线程</h1>
+<pre><code><code># 对主线程来说，运行完毕指的是主线程所在的进程内所有非守护线程统统运行完毕，主线程才算运行完毕
+1.
+from threading import Thread
+import time
+def foo():
+    print(&#39;来啦&#39;)    #启动线程是时,先执行这步
+    time.sleep(1)    #在这睡一秒,在这一秒中去执行其他代码,打印完主线程后,主线程关闭,下面的代码不执行
+    print(&#39;走了&#39;)    #由于主线程关闭,所以不执行这步
+if __name__ == &#39;__main__&#39;:
+    t = Thread(target=foo)
+    t.daemon = True
+    t.start()
+    print(&#39;主线程&#39;)   #在foo中睡了1秒.所以执行这步,打印主线程
+
+
+2.
+from threading import Thread
+import time
+def foo():
+    print(123)      #执行 打印123
+    time.sleep(1)   #睡1秒
+    print(&quot;end123&quot;) #执行end123(主线程所在的进程里非守护线程全部运行完毕后,主线程才算结束)
+
+def bar():
+    print(456)      #在foo中睡一秒,执行 456
+    time.sleep(3)   #睡3秒
+    print(&quot;end456&quot;) #执行end456(非守护线程运行的最后一步结束后,主线程结束,子线程也关闭)
+t1=Thread(target=foo)
+t2=Thread(target=bar)
+t1.daemon=True      #守护foo线程
+t1.start()          #启动子线程
+t2.start()          #启动子线程
+print(&quot;main-------&quot;)#在bar中睡3秒,执行  main------
+
+
+3.
+from threading import Thread
+import time
+def foo():
+    print(123)        #先启动的foo线程,先执行123
+    time.sleep(3)     #睡3秒 向别的代码执行
+    print(&quot;end123&quot;)   #主线程关闭了,这步不执行
+def bar():
+    print(456)        #foo睡3秒,在此过程中执行456
+    time.sleep(1)     #睡1秒  向别的代码执行
+    print(&quot;end456&quot;)   #执行完main----后,上一步是睡一秒,所以先执行end456,由于这是非守护线程,这步也就是非守护线程结束,所以主线程关闭,其他代码都不执行
+t1=Thread(target=foo)
+t2=Thread(target=bar)
+t1.daemon=True         #守护foo线程
+t1.start()             #启动子线程
+t2.start()             #启动子线程
+print(&quot;main-------&quot;)   #bar中睡1秒,在此过程中执行main----</code></pre>
+<h1 id="线程的pid">线程的pid</h1>
+<pre><code><code>from threading import Thread
+import os
+
+def task():
+    print(os.getpid())
+
+if __name__ == &#39;__main__&#39;:
+
+    t1 = Thread(target=task)
+    t2 = Thread(target=task)
+    t1.start()
+    t2.start()
+    print(f&#39;===主线程{os.getpid()}&#39;)
+15060
+15060
+===主线程15060   在同一进程内,线程pid相等</code></pre>
+<h1 id="线程的互斥锁">线程的互斥锁</h1>
+<pre><code><code>from threading import Thread
+import time
+x = 100
+def task():
+    global x
+    temp = x
+    time.sleep(1)
+    temp -= 1
+    x = temp
+if __name__ == &#39;__main__&#39;:
+    t_l = []
+    for i in range(100):
+        t = Thread(target=task)
+        t_l.append(t)
+        t.start()
+    for i in t_l:
+        i.join()
+    print(f&#39;主线程{x}&#39;)
+结果:主线程99
+for循环的速度是很快的,当启动这100个线程时,所有线程共抢一个资源x=100,
+线程一抢到后减1,线程二抢到后减1,所有线程抢到的都是x=100,所以减后都为99
+    
+    
+加锁
+为什么要用互斥锁?
+线程之间共享资源, 这就导致了多个线程之间资源竞争, 导致了程序的运行
+
+优点:保证了同一时间内允许一个线程的完整执行
+缺点:降低了效率, 可能会造成死锁问题
+from threading import Thread
+from threading import Lock
+x = 100
+def task(lock):
+    lock.acquire()
+    global x  # global x  在lock.acquire()前后结构都一样
+    temp = x
+    temp -= 1
+    x = temp
+    lock.release()
+if __name__ == &#39;__main__&#39;:
+    lock = Lock()
+    t_l = []
+    for i in range(100):
+        t = Thread(target=task, args=(lock,))
+        t_l.append(t)
+        t.start()
+    for i in t_l:
+        i.join()  # 主线程在所有子线程结束后再执行
+    print(f&#39;主线程{x}&#39;)
+结果:主线程0
+启动执行100个线程,加锁是为了保证了同一时间内允许一个线程的完整执行,所以当线程1拿到x = 100,然后减1,当线程2拿到x就已经等于99,线程3就等于98,......
+</code></pre>
+<h1 id="死锁和递归锁">死锁和递归锁</h1>
+<pre><code><code>所谓死锁： 是指两个或两个以上的进程或线程在执行过程中，因争夺资源而造成的一种互相等待的现象，若无外力作用，它们都将无法推进下去。此时称系统处于死锁状态或系统产生了死锁，这些永远在互相等待的进程称为死锁进程，如下就是死锁
+死锁
+from threading import Thread
+from threading import Lock
+import time
+lock_A = Lock()
+lock_B = Lock()
+class MyThread(Thread):
+    def run(self):
+        self.f1()
+        self.f2()
+    def f1(self):
+        lock_A.acquire()                      #上锁
+        print(f&#39;{self.name}拿到了A锁&#39;)        #线程1拿到了A锁
+        lock_B.acquire()                      #上锁
+        print(f&#39;{self.name}拿到了B锁&#39;)        #线程1拿到了B锁
+        lock_B.release()                      #线程1释放B锁,线程2,3共抢B锁
+        lock_A.release()                      #线程1释放A锁,线程2,3共抢A锁,但同时,线程1拿到f2的B 锁,所以线程2,3只能抢A 锁
+    def f2(self):
+        lock_B.acquire()                      #上锁
+        print(f&#39;{self.name}拿到了B锁&#39;)         #拿到B锁
+        time.sleep(0.1)                        #阻塞
+        lock_A.acquire()                       #线程又想拿A锁,但是A锁在线程2/3中,这就形成死锁
+        print(f&#39;{self.name}拿到了A锁&#39;)
+        lock_A.release()
+        lock_B.release()
+if __name__ == &#39;__main__&#39;:
+    for i in range(3):
+        t = MyThread()
+        t.start()
+
+用递归锁解决死锁(递归锁可以解决死锁现象,业务需要多个锁时,先要考虑递归锁.)
+from threading import Thread
+from threading import RLock
+import time
+lock_a = lock_b = RLock()
+class myThread(Thread):
+    def run(self):
+        self.f1()
+        self.f2()
+    def f1(self):
+        lock_a.acquire()
+        print(f&quot;{self.name}拿到了a锁&quot;)
+
+        lock_b.acquire()
+        print(f&quot;{self.name}拿到了b锁&quot;)
+
+        lock_b.release()
+        lock_a.release()
+    def f2(self):
+        lock_b.acquire()
+        print(f&quot;{self.name}拿到了b锁&quot;)
+
+        lock_a.acquire()
+        print(f&quot;{self.name}拿到了a锁&quot;)
+
+        lock_a.release()
+        lock_b.release()
+if __name__ == &#39;__main__&#39;:
+    for i in range(3):
+        t = myThread()
+        t.start()</code></pre>
+<h1 id="信号量">信号量</h1>
+<pre><code><code>信号量也是一种锁,控制并发数量
+from threading import Thread,Semaphore,current_thread
+import time
+import random
+ser = Semaphore(5)  #
+def go_to_wc():
+    ser.acquire()   #
+    print(f&#39;{current_thread().getName()}上厕所ing&#39;)
+    time.sleep(random.randint(1,3))
+    ser.release()   #
+if __name__ == &#39;__main__&#39;:
+    for i in range(20):
+        t = Thread(target=go_to_wc)
+        t.start()</code></pre>
+<h1 id="gil全局解释器锁">GIL全局解释器锁</h1>
+<pre><code><code>from threading import Thread
+from threading import Lock
+import time
+x = 100
+def task(lock):
+    lock.acquire()
+    global x
+    temp = x
+    time.sleep(0.01)
+    temp = temp - 1
+    x = temp
+    lock.release()
+if __name__ == &#39;__main__&#39;:
+    mutex = Lock()
+    l = []
+    for i in range(100):
+        t = Thread(target=task,args=(mutex,))
+        l.append(t)
+        t.start()
+t1(代表线程1)先进入解释器要先抢到GIL锁,然后抢LOCK,遇到i/o阻塞,操作系统强行CPU切走,立马释放GIL锁,t2(线程2),先抢到GIL锁,要抢lock锁,但发现lock锁被t1占用着,就挂起......直到t1阻塞完毕,加上GIL锁继续执行,执行完毕了,释放GIL锁,释放lock锁,下一个线程才可以进入.........</code></pre>
+<h1 id="gil与lock锁的区别">GIL与lock锁的区别</h1>
+<p>全局锁不能保证自己开启的线程安全 但是保证解释器中的数据的安全的</p>
+<p>GIL 在线程调用解释器时 自动加锁 在IO阻塞时或线程代码执行完毕时 自动解锁</p>
+<h1 id="验证计算密集型和io密集型的效率">验证计算密集型和IO密集型的效率</h1>
+<pre><code><code>计算密集型
+
+#进程
+from threading import Thread
+from multiprocessing import Process
+import time
+import random
+def task():
+    count = 0
+    for i in range(100000000):
+        count += 1
+if __name__ == &#39;__main__&#39;:
+    star_time = time.time()
+    l = []
+    for i in range(4):
+        p = Process(target=task)
+        l.append(p)
+        p.start()
+    for x in l:
+        x.join()
+    print(f&quot;执行效率:{time.time()-star_time}&quot;) #执行效率:6.06178879737854
+
+    
+#线程
+from threading import Thread
+from multiprocessing import Process
+import time
+import random
+def task():
+    count = 0
+    for i in range(100000000):
+        count += 1
+if __name__ == &#39;__main__&#39;:
+    star_time = time.time()
+    l = []
+    for i in range(4):
+        p = Thread(target=task)
+        l.append(p)
+        p.start()
+    for x in l:
+        x.join()
+    print(f&quot;执行效率:{time.time()-star_time}&quot;) #执行效率:18.17316961288452
+在计算密集行中用多进程并发/并行效率高
+
+I/O密集型
+# 进程
+from threading import Thread
+from multiprocessing import Process
+import time
+import random
+def task():
+    count = 0
+    time.sleep(random.randint(1,3))
+    count += 1
+if __name__ == &#39;__main__&#39;:
+    start_time = time.time()
+    l = []
+    for i in range(60):
+        p = Process(target=task)
+        l.append(p)
+        p.start()
+    for x in l:
+        x.join()
+    print(f&quot;执行效率:{time.time()-start_time}&quot;)  #执行效率:3.9187402725219727
+
+线程
+from threading import Thread
+from multiprocessing import Process
+import time
+import random
+def task():
+    count = 0
+    time.sleep(random.randint(1,3))
+    count += 1
+if __name__ == &#39;__main__&#39;:
+    start_time = time.time()
+    l = []
+    for i in range(60):
+        p = Thread(target=task)
+        l.append(p)
+        p.start()
+    for x in l:
+        x.join()
+    print(f&quot;执行效率:{time.time()-start_time}&quot;) #执行效率:3.011273145675659
+# 对于IO密集型: 单个进程的多线程的并发效率高.
+
+</code></pre>
+<h1 id="多线程实现socket通信">多线程实现socket通信</h1>
+<pre><code><code>#客户端
+import socket
+client = socket.socket()
+client.connect((&#39;127.0.0.1&#39;,8848))
+while 1:
+    try:
+        to_server = input(&quot;&gt;&gt;&gt;&quot;).strip()
+        client.send(to_server.encode(&#39;utf-8&#39;))
+        from_server = client.recv(1024)
+        print(f&quot;来自服务端的消息:{from_server.decode(&#39;utf-8&#39;)}&quot;)
+    except Exception:
+        break
+client.close()
+
+#服务端
+import socket
+from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
+import os
+
+def jioaliu(conn,addr):
+    while 1:
+        try:
+            from_client = conn.recv(1024)
+            print(f&quot;来自客户端{os.getpid()}的消息:{from_client.decode(&#39;utf-8&#39;)}&quot;)
+            to_client = input(&quot;&gt;&gt;&gt;&quot;).strip()
+            conn.send(to_client.encode(&#39;utf-8&#39;))
+        except Exception:
+            break
+    conn.close()
+def acept():
+    server = socket.socket()
+    server.bind((&#39;127.0.0.1&#39;, 8848))
+    server.listen(5)
+    while 1:
+        conn,addr = server.accept()
+        t = Thread(target=jioaliu,args=(conn,addr))
+        t.start()
+
+if __name__ == &#39;__main__&#39;:
+    acept()</code></pre>
+<h1 id="进程池和线程池">进程池和线程池</h1>
+<pre><code><code> 进程池
+from concurrent.futures import ProcessPoolExecutor
+import os
+import time
+import random
+
+# print(os.cpu_count())计算CPU数量
+def task():
+    print(f&#39;{os.getpid()}接客&#39;)
+    time.sleep(random.randint(1,3))
+if __name__ == &#39;__main__&#39;:
+    #开启进程池(并发/并行)
+    p = ProcessPoolExecutor()   #里面的参数默认不写,金进程池里面的进程数与CPU个数相等
+    for i in range(20):         #20个进程
+        p.submit(task)
+
+
+线程池
+from concurrent.futures import ThreadPoolExecutor
+import os
+import time
+import random
+
+# print(os.cpu_count())计算CPU数量
+def task():
+    print(f&#39;{os.getpid()}接客&#39;)
+    time.sleep(random.randint(1,3))
+if __name__ == &#39;__main__&#39;:
+    # 开启进程池(并发/并行)
+    p = ThreadPoolExecutor()   #里面的参数默认不写,默认不写, cpu个数*5 线程数
+    for i in range(20):         #20个进程
+        p.submit(task)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

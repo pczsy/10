@@ -1,0 +1,383 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修为什么for循环可以遍历list：Python中迭代器与生成器' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>为什么for循环可以遍历list：Python中迭代器与生成器</center></div><div class='banquan'>原文出处:本文由博客园博主奥辰提供。<br/>
+原文连接:https://www.cnblogs.com/chenhuabin/p/11288797.html</div><br>
+    <h1 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">1 引言</h1>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">只要你学了Python语言，就不会不知道for循环，也肯定用for循环来遍历一个列表（list)，那为什么for循环可以遍历list，而不能遍历int类型对象呢？怎么让一个自定义的对象可遍历？</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">这篇博客中，我们来一起探索一下这个问题，在这个过程中，我们会介绍到迭代器、可迭代对象、生成器，更进一步的，我们会详细介绍他们的原理、异同。</p>
+<h1 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">2 迭代器与可迭代对象</h1>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">在开始下面内容之前，我们先说说标题中的&ldquo;迭代&rdquo;一词。什么是迭代？我认为，迭代一个完整过程中的一个重复，或者说每一次对过程的重复称为一次&ldquo;迭代&rdquo;，而每一次迭代得到的结果会作为下一次迭代的初始值，举一个类比来说：一个人类家族的发展是一个完整过程，需要经过数代人的努力，每一代都会以接着上一代的成果继续发展，所以每一代都是迭代。</p>
+<h2 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">2.1 迭代器</h2>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">（1）怎么判断是否可迭代</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">作为一门设计语言，Python提供了许多必要的数据类型，例如基本数据类型int、bool、str，还有容器类型list、tuple、dict、set。这些类型当中，有些是可迭代的，有些不可迭代，怎么判断呢？</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">在Python中，我们把所有可以迭代的对象统称为可迭代对象，有一个类专门与之对应：Iterable。所以，要判断一个类是否可迭代，只要判断是否是Iterable类的实例即可<span style="font-family: monospace;">。</span></p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> collections <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterable
+</span>&gt;&gt;&gt; isinstance(123<span style="color: #000000;">, Iterable)
+False
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance(True, Iterable)
+False
+</span>&gt;&gt;&gt; isinstance(<span style="color: #800000;">'</span><span style="color: #800000;">abc</span><span style="color: #800000;">'</span><span style="color: #000000;">, Iterable)
+True
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance([], Iterable)
+True
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance({}, Iterable)
+True
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance((), Iterable)
+True</span></pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">所以，整型、布尔不可迭代，字符串、列表、字典、元组可迭代。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">怎么让一个对象可迭代呢？毕竟，很多时候，我们需要用到的对象不止Python内置的这些数据类型，还有自定义的数据类型。答案就是实现<span style="font-weight: bold;">__iter__()方法，<span style="font-weight: bold;">只要一个对象定义了__iter__()方法，那么它就是可迭代对象。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> collections.abc <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterable
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> A():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__iter__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">pass</span>
+<span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">A()是可迭代对象吗：</span><span style="color: #800000;">'</span>,isinstance(A(),Iterable))</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">结果输出为：</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 16px;">A()是可迭代对象吗： True</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">瞧，我们在__iter__()方法里面甚至没写任何东西，反正我们在类A中定义则__iter__()方法，那么，它就是一个可迭代对象。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">重要的事情说3遍：</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">只要一个对象定义了__iter__()方法，那么它就是可迭代对象。</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">只要一个对象定义了__iter__()方法，那么它就是可迭代对象。</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">只要一个对象定义了__iter__()方法，那么它就是可迭代对象。</span></p>
+<h2 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">2.2 迭代器</h2>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">迭代器是对可迭代对象的改造升级，上面说过，一个对象定义了__iter__()方法，那么它就是可迭代对象，进一步地，<span style="font-weight: bold;">如果一个对象同时实现了__iter__()和__next()__()方法，那么它就是迭代器。</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">来，跟我读三遍：</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">如果一个对象同时实现了__iter__()和__next()__()方法，那么它就是迭代器。</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">如果一个对象同时实现了__iter__()和__next()__()方法，那么它就是迭代器。</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">如果一个对象同时实现了__iter__()和__next()__()方法，那么它就是迭代器。</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">在Python中，也有一个类与迭代器对应：Iterator。<span style="font-family: monospace;">所以，要判断一个类是否是迭代器，只要判断是否是Iterator<span style="font-family: monospace;">类的实例即可。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> collections.abc <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterable
+</span><span style="color: #0000ff;">from</span> collections.abc <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterator
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> B():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__iter__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">pass</span>
+    <span style="color: #0000ff;">def</span> <span style="color: #800080;">__next__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">pass</span>
+<span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">B()是可迭代对象吗：</span><span style="color: #800000;">'</span><span style="color: #000000;">,isinstance(B(), Iterable))
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">B()是迭代器吗：</span><span style="color: #800000;">'</span>,isinstance(B(), Iterator))</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">结果输出如下：</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 16px;">B()是可迭代对象吗： True</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 16px;">B()是迭代器吗： True</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">可见，<span style="font-weight: bold;">迭代器一定是可迭代对象，但可迭代对象不一定是迭代器。</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">所以整型、布尔一定不是迭代器，因为他们连可迭代对象都算不上。那么，字符串、列表、字典、元组是迭代器吗？猜猜！</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> collections.abc <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterator
+</span>&gt;&gt;&gt; isinstance(<span style="color: #800000;">'</span><span style="color: #800000;">abc</span><span style="color: #800000;">'</span><span style="color: #000000;">, Iterator)
+False
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance([], Iterator)
+False
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance({}, Iterator)
+False
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance((), Iterator)
+False</span></pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">惊不惊喜，意不意外，字符串、列表、字典、元组都不是迭代器。那为什么它们可以在for循环中遍历呢？而且，我想，看到这里，就算你已经可以在形式上区分可迭代对象和迭代器，但是你可能会问，这有什么卵用吗？确实，没多少卵用，因为我们还不知道__iter__()、__next__()到底是个什么鬼东西。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">接下来，我们通过继续探究for循环的本质来解答这些问题。</p>
+<h2 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">2.3 for循环的本质</h2>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">说到__iter__()和__next__()方法，就很有必要介绍一下iter()和next()方法了。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><strong>（1）iter()与__iter__()</strong></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">__iter__()的作用是返回一个迭代器，虽然上面说过，只要实现了__iter__()方法就是可迭代对象，但是，没有实现功能（返回迭代器）总归是有问题的，就像一个村长，当选之后，那就是村长了，但是如果尸位素餐不做事，那总是有问题的。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">__iter__()方法毕竟是一个特殊方法，不适合直接调用，所以Python提供了iter()方法。iter()是Python提供的一个内置方法，可以不用导入，直接调用即可。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> collections.abc <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterator
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> A():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__iter__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">A类的__iter__()方法被调用</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> B()
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> B():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__iter__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">B类的__iter__()方法被调用</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__next__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">pass</span><span style="color: #000000;">
+a </span>=<span style="color: #000000;"> A()
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">对A类对象调用iter()方法前，a是迭代器吗：</span><span style="color: #800000;">'</span><span style="color: #000000;">, isinstance(a, Iterator))
+a1 </span>=<span style="color: #000000;"> iter(a)
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">对A类对象调用iter()方法后，a1是迭代器吗：</span><span style="color: #800000;">'</span><span style="color: #000000;">, isinstance(a1, Iterator))
+
+b </span>=<span style="color: #000000;"> B()
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">对B类对象调用iter()方法前，b是迭代器吗：</span><span style="color: #800000;">'</span><span style="color: #000000;">, isinstance(b, Iterator))
+b1 </span>=<span style="color: #000000;"> iter(b)
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">对B类对象调用iter()方法后，b1是迭代器吗：</span><span style="color: #800000;">'</span>, isinstance(b1, Iterator))</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">运行结果如下：</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 15px;">对A类对象调用iter()方法前，a是迭代器吗： False</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 15px;">A类的__iter__()方法被调用</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 15px;">对A类对象调用iter()方法后，a1是迭代器吗： True</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 15px;">对B类对象调用iter()方法前，b是迭代器吗： True</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 15px;">B类的__iter__()方法被调用</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-family: 仿宋; font-size: 15px;">对B类对象调用iter()方法后，b1是迭代器吗： True</span></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">对于B类，因为B类本身就是迭代器，所以可以直接返回B类的实例，也就是说self，当然，你要是返回其他迭代器也没毛病。对于类A，它只是一个可迭代对象，__iter__()方法需要返回一个迭代器，所以返回了B类的实例，如果返回的不是一个迭代器，调用iter()方法时就会报以下错误：</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">TypeError: iter() returned non-iterator of type 'A'</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><strong>（2）next()与__next__()</strong></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">__next__()的作用是返回遍历过程中的下一个元素，如果没有下一个元素则主动抛出StopIteration异常。而next()就是Python提供的一个用于调用__next__()方法的内置方法。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">下面，我们通过next()方法来遍历一个list：</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; list_1 = [1, 2, 3<span style="color: #000000;">]
+</span>&gt;&gt;&gt;<span style="color: #000000;"> next(list_1)
+Traceback (most recent call last):
+File </span><span style="color: #800000;">"</span><span style="color: #800000;">&lt;pyshell#19&gt;</span><span style="color: #800000;">"</span>, line 1, <span style="color: #0000ff;">in</span> &lt;module&gt;<span style="color: #000000;">
+next(list_1)
+TypeError: </span><span style="color: #800000;">'</span><span style="color: #800000;">list</span><span style="color: #800000;">'</span> object <span style="color: #0000ff;">is</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> an iterator
+</span>&gt;&gt;&gt; list_2 =<span style="color: #000000;"> iter(list_1)
+</span>&gt;&gt;&gt;<span style="color: #000000;"> next(list_2)
+</span>1
+&gt;&gt;&gt;<span style="color: #000000;"> next(list_2)
+</span>2
+&gt;&gt;&gt;<span style="color: #000000;"> next(list_2)
+</span>3
+&gt;&gt;&gt;<span style="color: #000000;"> next(list_2)
+Traceback (most recent call last):
+File </span><span style="color: #800000;">"</span><span style="color: #800000;">&lt;pyshell#24&gt;</span><span style="color: #800000;">"</span>, line 1, <span style="color: #0000ff;">in</span> &lt;module&gt;<span style="color: #000000;">
+next(list_2)
+StopIteration</span></pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">因为列表只是可迭代对象，不是迭代器，所以对list_1直接调用next()方法会产生异常。对list_1调用iter()后就可以获得是迭代器的list_2，对list_2每一次调用next()方法都会取出一个元素，当没有下一个元素时继续调用next()就抛出了StopIteration异常。</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">class</span><span style="color: #000000;"> A():
+    　　</span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self, lst):
+        　　self.lst </span>=<span style="color: #000000;"> lst
+    　　</span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__iter__</span><span style="color: #000000;">(self):
+        　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">A.__iter__()方法被调用</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        　　</span><span style="color: #0000ff;">return</span><span style="color: #000000;"> B(self.lst)
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">class</span><span style="color: #000000;"> B():
+    　　</span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self, lst):
+        　　self.lst </span>=<span style="color: #000000;"> lst
+        　　self.index </span>=<span style="color: #000000;"> 0
+    　　</span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__iter__</span><span style="color: #000000;">(self):
+        　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">B.__iter__()方法被调用</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        　　</span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self
+    　　</span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__next__</span><span style="color: #000000;">(self):
+        　　</span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+         　　   </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">B.__next__()方法被调用</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        　　    value </span>=<span style="color: #000000;"> self.lst[self.index]
+        　　    self.index </span>+= 1
+        　　    <span style="color: #0000ff;">return</span><span style="color: #000000;"> value
+       　　 </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> IndexError:
+          　　  </span><span style="color: #0000ff;">raise</span><span style="color: #000000;"> StopIteration()
+</span>&gt;&gt;&gt; a = A([1, 2, 3<span style="color: #000000;">])
+</span>&gt;&gt;&gt; a1 =<span style="color: #000000;"> iter(a)
+A.</span><span style="color: #800080;">__iter__</span><span style="color: #000000;">()方法被调用
+</span>&gt;&gt;&gt;<span style="color: #000000;"> next(a1)
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+</span>1
+&gt;&gt;&gt;<span style="color: #000000;"> next(a1)
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+</span>2
+&gt;&gt;&gt;<span style="color: #000000;"> next(a1)
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+</span>3
+&gt;&gt;&gt;<span style="color: #000000;"> next(a1)
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+Traceback (most recent call last):
+  File </span><span style="color: #800000;">"</span><span style="color: #800000;">&lt;pyshell#78&gt;</span><span style="color: #800000;">"</span>, line 11, <span style="color: #0000ff;">in</span> <span style="color: #800080;">__next__</span><span style="color: #000000;">
+    value </span>=<span style="color: #000000;"> self.lst[self.index]
+IndexError: list index out of range
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File </span><span style="color: #800000;">"</span><span style="color: #800000;">&lt;pyshell#84&gt;</span><span style="color: #800000;">"</span>, line 1, <span style="color: #0000ff;">in</span> &lt;module&gt;<span style="color: #000000;">
+    next(a1)
+  File </span><span style="color: #800000;">"</span><span style="color: #800000;">&lt;pyshell#78&gt;</span><span style="color: #800000;">"</span>, line 15, <span style="color: #0000ff;">in</span> <span style="color: #800080;">__next__</span>
+    <span style="color: #0000ff;">raise</span><span style="color: #000000;"> StopIteration()
+StopIteration</span></pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">A类实例化出来的实例a只是可迭代对象，不是迭代器，调用iter()方法后，返回了一个B类的实例a1，每次对a1调用next()方法，都用调用B类的__next__()方法。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">接下来，我们用for循环遍历一下A类实例：</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> A([1, 2, 3<span style="color: #000000;">]):
+　　　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">for循环中取出值:</span><span style="color: #800000;">'</span><span style="color: #000000;">,i)
+ 
+A.</span><span style="color: #800080;">__iter__</span><span style="color: #000000;">()方法被调用
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>1<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>2<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>3<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span>()方法被调用</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><span style="font-weight: bold;">通过for循环对一个可迭代对象进行迭代时，for循环内部机制会自动通过调用iter()方法执行可迭代对象内部定义的__iter__()方法来获取一个迭代器，然后一次又一次得迭代过程中通过调用next()方法执行迭代器内部定义的__next__()方法获取下一个元素，当没有下一个元素时，for循环自动捕获并处理StopIteration异常。如果你还没明白，请看下面用while循环实现for循环功能，整个过程、原理都是一样的：</span></p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; a = A([1, 2, 3<span style="color: #000000;">])
+</span>&gt;&gt;&gt; a1 =<span style="color: #000000;"> iter(a)
+A.</span><span style="color: #800080;">__iter__</span><span style="color: #000000;">()方法被调用
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+　　　　</span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+　　　　　　i </span>=<span style="color: #000000;"> next(a1)
+　　　　　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">for循环中取出值:</span><span style="color: #800000;">'</span><span style="color: #000000;">, i)
+　　　　</span><span style="color: #0000ff;">except</span><span style="color: #000000;"> StopIteration:
+　　　　　　</span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+ 
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>1<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>2<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>3<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+作为一个迭代器，B类对象也可以通过for循环来迭代：
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> B([1, 2, 3<span style="color: #000000;">]):
+　　　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">for循环中取出值:</span><span style="color: #800000;">'</span><span style="color: #000000;">,i)
+ 
+ 
+B.</span><span style="color: #800080;">__iter__</span><span style="color: #000000;">()方法被调用
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>1<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>2<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+for循环中取出值: </span>3<span style="color: #000000;">
+B.</span><span style="color: #800080;">__next__</span><span style="color: #000000;">()方法被调用
+看出来了吗？这就是for循环的本质。</span></pre>
+</div>
+<h1 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">3 生成器</h1>
+<h2 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">3.1 迭代器与生成器</h2>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">如果一个函数体内部使用yield关键字，这个函数就称为生成器函数，生成器函数调用时产生的对象就是生成器。生成器是一个特殊的迭代器，在调用该生成器函数时，Python会自动在其内部添加__iter__()方法和__next__()方法。把生成器传给 next() 函数时， 生成器函数会向前继续执行， 执行到函数定义体中的下一个 yield 语句时， 返回产出的值， 并在函数定义体的当前位置暂停， 下一次通过next()方法执行生成器时，又从上一次暂停位置继续向下&hellip;&hellip;，最终， 函数内的所有yield都执行完，如果继续通过yield调用生成器， 则会抛出StopIteration 异常&mdash;&mdash;这一点与迭代器协议一致。</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> collections.abc <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterable
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> collections.abc <span style="color: #0000ff;">import</span><span style="color: #000000;"> Iterator
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">def</span><span style="color: #000000;"> gen():
+    　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">第1次执行</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    　　</span><span style="color: #0000ff;">yield</span> 1
+    　　<span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">第2次执行</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    　　</span><span style="color: #0000ff;">yield</span> 2
+    　　<span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">第3次执行</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    　　</span><span style="color: #0000ff;">yield</span> 3
+
+    
+&gt;&gt;&gt; g =<span style="color: #000000;"> gen()
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance(g, Iterable)
+True
+</span>&gt;&gt;&gt;<span style="color: #000000;"> isinstance(g, Iterator)
+True
+</span>&gt;&gt;&gt;<span style="color: #000000;"> g
+</span>&lt;generator object gen at 0x0000021CE9A39A98&gt;
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+第1次执行
+</span>1
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+第2次执行
+</span>2
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+第3次执行
+</span>3
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+Traceback (most recent call last):
+  File </span><span style="color: #800000;">"</span><span style="color: #800000;">&lt;pyshell#120&gt;</span><span style="color: #800000;">"</span>, line 1, <span style="color: #0000ff;">in</span> &lt;module&gt;<span style="color: #000000;">
+    next(g)
+StopIteration</span></pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">可以看到，生成器的执行机制与迭代器是极其相似的，生成器本就是迭代器，只不过，有些特殊。那么，生成器特殊在哪呢？或者说，有了迭代器，为什么还要用生成器？</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">从上面的介绍和代码中可以看出，生成器采用的是一种惰性计算机制，一次调用也只会产生一个值，它不会将所有的值一次性返回给你，你需要一个那就调用一次next()方法取一个值，这样做的好处是如果元素有很多（数以亿计甚至更多），如果用列表一次性返回所有元素，那么会消耗很大内存，如果我们只是想要对所有元素依次一个一个取出来处理，那么，使用生成器就正好，一次返回一个，并不会占用太大内存。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">举个例子，假设我们现在要取1亿以内的所有偶数，如果用列表来实现，代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> fun_list():
+    index </span>= 1<span style="color: #000000;">
+    temp_list </span>=<span style="color: #000000;"> []
+    </span><span style="color: #0000ff;">while</span> index &lt; 100000000<span style="color: #000000;">:
+        </span><span style="color: #0000ff;">if</span> index % 2 ==<span style="color: #000000;"> 0:
+            temp_list.append(index)
+            </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(index)
+        index </span>+= 1
+    <span style="color: #0000ff;">return</span> temp_list</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">上面程序会先获取所有符合要求的偶数，然后一次性返回。如果你运行了代码，你就会发现两个问题&mdash;&mdash;运行时间很长、消耗很多内存。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">有时候，我们并不一定需要一次性获得所有的对象，需要一个使用一个就可以，这样的话，可以用生成器来实现：</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">def</span><span style="color: #000000;"> fun_gen():
+    　　index </span>= 1
+    　　<span style="color: #0000ff;">while</span> index &lt; 100000000<span style="color: #000000;">:
+      　　  </span><span style="color: #0000ff;">if</span> index % 2 ==<span style="color: #000000;"> 0:
+      　　      </span><span style="color: #0000ff;">yield</span><span style="color: #000000;"> index
+      　　  index </span>+= 1
+
+        
+&gt;&gt;&gt;<span style="color: #000000;"> fun_gen()
+</span>&lt;generator object fun_gen at 0x00000222DC2F4360&gt;
+&gt;&gt;&gt; g =<span style="color: #000000;"> fun_gen()
+</span>&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+</span>2
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+</span>4
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+</span>6</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">看到了吗？对生成器没执行一次next()方法，就会返回一个元素，这样的话无论在速度上还是机器性能消耗上都会好很多。如果你还没感受到生成器的优势，我再说一个应用场景，假如需要取出远程数据库中的100万条记录进行处理，如果一次性获取所有记录，网络带宽、内存都会有很大消耗，但是如果使用生成器，就可以取一条，就在本地处理一条。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">不过，生成器也有不足，正因为采用了惰性计算，你不会知道下一个元素是什么，更不会知道后面还有多少元素，所以，对于列表、元组等结构，我们能调用len()方法获知长度，但是对于生成器却不能。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">总结一下迭代器与生成器的异同：</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><strong>（1）生成器是一种特殊的迭代器，拥有迭代器的所有特性；</strong></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><strong>（2）迭代器使用return返回值而生成器使用yield返回值每一次对生成器执行next()都会在yield处暂停；</strong></p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;"><strong>（3）迭代器和生成器虽然都执行next()方法时返回下一个元素，迭代器在实例化前就已知所有元素，但是采用惰性计算机制，共有多少元素，下一个元素是什么都是未知的，每一次对生成器对象执行next()方法才会产生下一个元素。</strong></p>
+<h2 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">3.2 生成器解析式</h2>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">使用过列表解析式吗？语法格式为：[返回值 for 元素 in 可迭代对象 if 条件]</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">看下面代码：</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; li =<span style="color: #000000;"> []
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(5<span style="color: #000000;">):
+    　　</span><span style="color: #0000ff;">if</span> i%2==<span style="color: #000000;">0:
+        　　li.append(i</span>**2<span style="color: #000000;">)
+
+        
+</span>&gt;&gt;&gt;<span style="color: #000000;"> li
+[0, </span>4, 16]</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">我们可以用列表解析式实现同样功能：</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; li = [i**2 <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(5) <span style="color: #0000ff;">if</span> i%2==<span style="color: #000000;">0]
+</span>&gt;&gt;&gt;<span style="color: #000000;"> li
+[0, </span>4, 16<span style="color: #000000;">]
+</span>&gt;&gt;&gt;<span style="color: #000000;"> type(li)
+</span>&lt;<span style="color: #0000ff;">class</span> <span style="color: #800000;">'</span><span style="color: #800000;">list</span><span style="color: #800000;">'</span>&gt;</pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">很简单对不对？简洁了很多，返回的li就是一个列表。咳咳&hellip;&hellip;偏题了，我们要说的是生成器解析式，而且我相信打开我这篇博文的同学大多都熟悉列表解析式，回归正题。</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">生成器解析式语法格式为：(返回值 for 元素 in 可迭代对象 if 条件)</p>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">你没看错，跟列表解析式相比，生成器解析式只是把方括号换成了原括号。来感受一下：</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; g = (i**2 <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(5) <span style="color: #0000ff;">if</span> i%2==<span style="color: #000000;">0)
+</span>&gt;&gt;&gt;<span style="color: #000000;"> g
+</span>&lt;generator object &lt;genexpr&gt; at 0x00000222DC2F4468&gt;
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+0
+</span>&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+</span>4
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+</span>16
+&gt;&gt;&gt;<span style="color: #000000;"> next(g)
+Traceback (most recent call last):
+File </span><span style="color: #800000;">"</span><span style="color: #800000;">&lt;pyshell#38&gt;</span><span style="color: #800000;">"</span>, line 1, <span style="color: #0000ff;">in</span> &lt;module&gt;<span style="color: #000000;">
+next(g)
+StopIteration</span></pre>
+</div>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">可以看到，生成器解析式返回的就是一个生成器对象，换句话说生成器解析式是生成器的一种定义方式，这种方式简单快捷，当然实现的功能不能太复杂。</p>
+<h1 style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">4 总结</h1>
+<p style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">本文全面总结了Python中可迭代对象、迭代器、生成器知识，我相信，只要你认真消化我这篇博文，就能深刻领悟迭代器生成器。</p>
+<div style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">&nbsp;</div>
+<div style="white-space: pre-wrap; text-align: left; line-height: 1.75; font-size: 14px;">&nbsp;</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

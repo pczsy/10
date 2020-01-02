@@ -1,0 +1,216 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修不一样的职责链模式(设计模式一)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>不一样的职责链模式(设计模式一)</center></div><div class='banquan'>原文出处:本文由博客园博主族语提供。<br/>
+原文连接:https://www.cnblogs.com/aoximin/p/12046378.html</div><br>
+    <h3 id="背景">背景</h3>
+<p>把以前的设计模式整理下，也有一些在工作中对设计模式的体悟。<br />
+准备写24篇吧，化名为二十四章经，第一章打算写职责链模式，也就是这一篇，是因为工作中除了单例用的最多的就是职责链了。<br />
+下面的例子，比市面的介绍类的复杂一些吧，还是可以交流交流的。话不多说，开工吧。</p>
+<h3 id="作用">作用</h3>
+<p>有些人喜欢针对设计模式去探讨优缺点，设计模式本身是非常完善的，更多的是一种解决方案，也就是只有合不合适这个概念。<br />
+作用：可以让对一个对象进行单一方向传递性处理。</p>
+<h3 id="例子">例子</h3>
+<p>对于职责，公司的职责是个很好的例子。比如说软件公司师A，做完了项目，交给小组长审核，小组长给了客户看，客户不满意，然后通知给小组长，小组长又通知开发人员A。</p>
+<pre><code><code>public abstract class handle
+{
+    //角色
+    public string role;
+    // 责任人状态
+    public int state;
+    // 下一个责任者
+    protected handle nextHandle;
+    //上一个责任者
+    protected handle preHandle;
+
+    public handle(string role) {
+        this.role = role;
+    }
+    //设置下一个责任者
+    public void SetNextHandle(handle nextHandle) {
+        this.nextHandle = nextHandle;
+    }
+    //发送请求
+    public void SendRequest(handle handler,RequestMessage request) {
+        this.preHandle = handler;
+        if (IsSendRequest(request))
+        {
+            if (nextHandle != null)
+            {
+                nextHandle.SendRequest(this, request);
+            }
+        }
+        else
+        {
+            SendResponse(request);
+        }
+    }
+    // 处理回复请求
+    public void SendResponse(RequestMessage request)
+    {
+        if (IsSendResponse(request))
+        {
+            if (preHandle != null)
+            {
+                preHandle.SendResponse(request);
+            }
+        }
+    }
+    // 是否发送请求
+    protected abstract bool IsSendResponse(RequestMessage request);
+    // 是否继续向下传递请求
+    protected abstract bool IsSendRequest(RequestMessage request); 
+}</code></pre>
+<p>这是一个很简单的抽象类，其中我实现了两个方法:</p>
+<ol>
+<li>SendRequest 用来判断是否传递给下一个责任者</li>
+<li>SendResponse 用来判断是否传递回责任者</li>
+</ol>
+<p>在这里我加入了责任人状态是为了方便演示。<br />
+下面是请求的RequestMessage，也就是要给客户的资料模板。</p>
+<pre><code><code>public class RequestMessage
+{
+        //项目名
+    private string name;
+        //内容
+    private string content;
+        //符合客户的程度
+    private ushort grade;
+
+    public string Name {
+        get { return name; }
+        set { name = value; }
+    }
+
+    public string Content {
+        get { return content; }
+        set { content= value; }
+    }
+
+    public ushort Grade
+    {
+        get { return grade; }
+        set { grade = value; }
+    }
+}</code></pre>
+<p>开发者:</p>
+<pre><code><code>public class developer : handle
+{
+    public developer():base(&quot;软件工程师&quot;) {
+
+    }
+    protected override bool IsSendRequest(RequestMessage request)
+    {
+        return true;
+    }
+
+    protected override bool IsSendResponse(RequestMessage request)
+    {
+        //fix bug 客户不满意苦逼改代码
+        System.Console.WriteLine(&quot;苦逼优化&quot;);
+        return false;
+    }
+}</code></pre>
+<p>在软件开发工程师角色中，IsSendRequest无论如何都为true，不可能自我认可，然后就ok的。</p>
+<pre><code><code>public class Manager : handle
+{
+    public Manager() : base(&quot;小组长&quot;)
+    {
+    }
+
+    protected override bool IsSendRequest(RequestMessage request)
+    {
+        if (request.Grade &gt;= 8)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    protected override bool IsSendResponse(RequestMessage request)
+    {
+        if (request.Grade &gt; 6)
+        {
+            System.Console.Write(&quot;客户沟通一下&quot;);
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+}</code></pre>
+<p>在小组长角色中，如果开发到了8分直接给客户，如果每到8分，到了6分，和客户商量，如果6分不到直接让程序员改代码。</p>
+<pre><code><code>public class Client : handle
+{
+    public int Grade;
+
+    public Client(int Grade) : base(&quot;客户&quot;)
+    {
+        this.Grade = Grade;
+    } 
+
+    protected override bool IsSendRequest(RequestMessage request)
+    {
+        return false;
+    }
+
+    protected override bool IsSendResponse(RequestMessage request)
+    {
+        if (request.Grade * 0.8 &gt;= Grade)
+        {
+            return false;
+        }
+        else
+        {
+            request.Grade = (unshort)(request.Grade * 0.8);
+        }
+        return true;
+    }
+}</code></pre>
+<p>在客户角色中假设客户评分，是软件开发人员的0.8，然后如果大于客户心中的评分就过，小于就打回,并把自己的评分发送回去。<br />
+执行代码如下:</p>
+<pre><code><code>static void Main(string[] args)
+{
+    developer developerA = new developer();
+    Manager managerB = new Manager();
+    Client clientC = new Client(9);
+    developerA.SetNextHandle(managerB);
+    managerB.SetNextHandle(clientC);
+    RequestMessage requestMessage = new RequestMessage();
+    requestMessage.Name = &quot;某某项目&quot;;
+    requestMessage.Content = &quot;某功能ok&quot;;
+    requestMessage.Grade = 8;//自我评分8分
+    // 发送这个请求
+    developerA.SendRequest(developerA, requestMessage);
+}</code></pre>
+<p><img src="./images/不一样的职责链模式(设计模式一)0.png" /></p>
+<p>得到的结果是重新优化代码，当软件工程师自我评分为10的时候，客户评分还是9的时候，小组长会与客户交流。<br />
+什么客户直接满意？为何会有如此问题？<br />
+<img src="./images/不一样的职责链模式(设计模式一)1.png" /></p>
+<h3 id="总结">总结</h3>
+<p>职责链在日常中还是出现挺多的，用起来感觉解决了不少问题。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

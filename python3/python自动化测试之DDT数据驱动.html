@@ -1,0 +1,517 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python自动化测试之DDT数据驱动' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python自动化测试之DDT数据驱动</center></div><div class='banquan'>原文出处:本文由博客园博主Secret608提供。<br/>
+原文连接:https://www.cnblogs.com/aoaoao/p/11200300.html</div><br>
+    <h2>　　时隔已久，再次冒烟，自动化测试工作仍在继续，自动化测试中的数据驱动技术尤为重要，不然咋去实现数据分离呢，对吧，这里就简单介绍下与传统unittest自动化测试框架匹配的DDT数据驱动技术。</h2>
+<h2>　　话不多说，先撸一波源码，其实整体代码并不多</h2>
+<div class="cnblogs_code" onclick="cnblogs_code_show('0409b586-21e1-4f49-b390-088a2b67cf81')"><img id="code_img_closed_0409b586-21e1-4f49-b390-088a2b67cf81" class="code_img_closed" src="./images/python自动化测试之DDT数据驱动0.png" alt="" /><img id="code_img_opened_0409b586-21e1-4f49-b390-088a2b67cf81" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('0409b586-21e1-4f49-b390-088a2b67cf81',event)" src="./images/python自动化测试之DDT数据驱动1.png" alt="" />
+<div id="cnblogs_code_open_0409b586-21e1-4f49-b390-088a2b67cf81" class="cnblogs_code_hide">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding: utf-8 -*-</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> This file is a part of DDT (https://github.com/txels/ddt)</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Copyright 2012-2015 Carles Barrob&eacute;s and DDT contributors</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> For the exact contribution history, see the git revision log.</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> DDT is licensed under the MIT License, included in</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> https://github.com/txels/ddt/blob/master/LICENSE.md</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> inspect
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> re
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> codecs
+</span><span style="color: #0000ff;">from</span> functools <span style="color: #0000ff;">import</span><span style="color: #000000;"> wraps
+
+</span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">import</span><span style="color: #000000;"> yaml
+</span><span style="color: #0000ff;">except</span> ImportError:  <span style="color: #008000;">#</span><span style="color: #008000;"> pragma: no cover</span>
+    _have_yaml =<span style="color: #000000;"> False
+</span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+    _have_yaml </span>=<span style="color: #000000;"> True
+
+</span><span style="color: #800080;">__version__</span> = <span style="color: #800000;">'</span><span style="color: #800000;">1.2.1</span><span style="color: #800000;">'</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> These attributes will not conflict with any real python attribute</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> They are added to the decorated test method and processed later</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> by the `ddt` class decorator.</span>
+<span style="color: #000000;">
+DATA_ATTR </span>= <span style="color: #800000;">'</span><span style="color: #800000;">%values</span><span style="color: #800000;">'</span>      <span style="color: #008000;">#</span><span style="color: #008000;"> store the data the test must run with</span>
+FILE_ATTR = <span style="color: #800000;">'</span><span style="color: #800000;">%file_path</span><span style="color: #800000;">'</span>   <span style="color: #008000;">#</span><span style="color: #008000;"> store the path to JSON file</span>
+UNPACK_ATTR = <span style="color: #800000;">'</span><span style="color: #800000;">%unpack</span><span style="color: #800000;">'</span>    <span style="color: #008000;">#</span><span style="color: #008000;"> remember that we have to unpack values</span>
+index_len = 5              <span style="color: #008000;">#</span><span style="color: #008000;"> default max length of case index</span>
+
+
+<span style="color: #0000ff;">try</span><span style="color: #000000;">:
+    trivial_types </span>=<span style="color: #000000;"> (type(None), bool, int, float, basestring)
+</span><span style="color: #0000ff;">except</span><span style="color: #000000;"> NameError:
+    trivial_types </span>=<span style="color: #000000;"> (type(None), bool, int, float, str)
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> is_trivial(value):
+    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> isinstance(value, trivial_types):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> True
+    </span><span style="color: #0000ff;">elif</span><span style="color: #000000;"> isinstance(value, (list, tuple)):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> all(map(is_trivial, value))
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> False
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> unpack(func):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Method decorator to add unpack feature.
+
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    setattr(func, UNPACK_ATTR, True)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> func
+
+
+</span><span style="color: #0000ff;">def</span> data(*<span style="color: #000000;">values):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Method decorator to add to your test methods.
+
+    Should be added to methods of instances of ``unittest.TestCase``.
+
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">global</span><span style="color: #000000;"> index_len
+    index_len </span>=<span style="color: #000000;"> len(str(len(values)))
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> idata(values)
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> idata(iterable):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Method decorator to add to your test methods.
+
+    Should be added to methods of instances of ``unittest.TestCase``.
+
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> wrapper(func):
+        setattr(func, DATA_ATTR, iterable)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> func
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> wrapper
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> file_data(value):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Method decorator to add to your test methods.
+
+    Should be added to methods of instances of ``unittest.TestCase``.
+
+    ``value`` should be a path relative to the directory of the file
+    containing the decorated ``unittest.TestCase``. The file
+    should contain JSON encoded data, that can either be a list or a
+    dict.
+
+    In case of a list, each value in the list will correspond to one
+    test case, and the value will be concatenated to the test method
+    name.
+
+    In case of a dict, keys will be used as suffixes to the name of the
+    test case, and values will be fed as test data.
+
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> wrapper(func):
+        setattr(func, FILE_ATTR, value)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> func
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> wrapper
+
+
+</span><span style="color: #0000ff;">def</span> mk_test_name(name, value, index=<span style="color: #000000;">0):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Generate a new name for a test case.
+
+    It will take the original test name and append an ordinal index and a
+    string representation of the value, and convert the result into a valid
+    python identifier by replacing extraneous characters with ``_``.
+
+    We avoid doing str(value) if dealing with non-trivial values.
+    The problem is possible different names with different runs, e.g.
+    different order of dictionary keys (see PYTHONHASHSEED) or dealing
+    with mock objects.
+    Trivial scalar values are passed as is.
+
+    A "trivial" value is a plain scalar, or a tuple or list consisting
+    only of trivial values.
+    </span><span style="color: #800000;">"""</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;"> Add zeros before index to keep order</span>
+    index = <span style="color: #800000;">"</span><span style="color: #800000;">{0:0{1}}</span><span style="color: #800000;">"</span>.format(index + 1<span style="color: #000000;">, index_len)
+    </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> is_trivial(value):
+        </span><span style="color: #0000ff;">return</span> <span style="color: #800000;">"</span><span style="color: #800000;">{0}_{1}</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(name, index)
+    </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+        value </span>=<span style="color: #000000;"> str(value)
+    </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> UnicodeEncodeError:
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> fallback for python2</span>
+        value = value.encode(<span style="color: #800000;">'</span><span style="color: #800000;">ascii</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">backslashreplace</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    test_name </span>= <span style="color: #800000;">"</span><span style="color: #800000;">{0}_{1}_{2}</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(name, index, value)
+    </span><span style="color: #0000ff;">return</span> re.sub(r<span style="color: #800000;">'</span><span style="color: #800000;">\W|^(?=\d)</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">_</span><span style="color: #800000;">'</span><span style="color: #000000;">, test_name)
+
+
+</span><span style="color: #0000ff;">def</span> feed_data(func, new_name, test_data_docstring, *args, **<span style="color: #000000;">kwargs):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    This internal method decorator feeds the test data item to the test.
+
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    @wraps(func)
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> wrapper(self):
+        </span><span style="color: #0000ff;">return</span> func(self, *args, **<span style="color: #000000;">kwargs)
+    wrapper.</span><span style="color: #800080;">__name__</span> =<span style="color: #000000;"> new_name
+    wrapper.</span><span style="color: #800080;">__wrapped__</span> =<span style="color: #000000;"> func
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> set docstring if exists</span>
+    <span style="color: #0000ff;">if</span> test_data_docstring <span style="color: #0000ff;">is</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> None:
+        wrapper.</span><span style="color: #800080;">__doc__</span> =<span style="color: #000000;"> test_data_docstring
+    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Try to call format on the docstring</span>
+        <span style="color: #0000ff;">if</span> func.<span style="color: #800080;">__doc__</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                wrapper.</span><span style="color: #800080;">__doc__</span> = func.<span style="color: #800080;">__doc__</span>.format(*args, **<span style="color: #000000;">kwargs)
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> (IndexError, KeyError):
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> Maybe the user has added some of the formating strings</span>
+                <span style="color: #008000;">#</span><span style="color: #008000;"> unintentionally in the docstring. Do not raise an exception</span>
+                <span style="color: #008000;">#</span><span style="color: #008000;"> as it could be that user is not aware of the</span>
+                <span style="color: #008000;">#</span><span style="color: #008000;"> formating feature.</span>
+                <span style="color: #0000ff;">pass</span>
+    <span style="color: #0000ff;">return</span><span style="color: #000000;"> wrapper
+
+
+</span><span style="color: #0000ff;">def</span> add_test(cls, test_name, test_docstring, func, *args, **<span style="color: #000000;">kwargs):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Add a test case to this class.
+
+    The test will be based on an existing function but will give it a new
+    name.
+
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    setattr(cls, test_name, feed_data(func, test_name, test_docstring,
+            </span>*args, **<span style="color: #000000;">kwargs))
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> process_file_data(cls, name, func, file_attr):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Process the parameter in the `file_data` decorator.
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    cls_path </span>=<span style="color: #000000;"> os.path.abspath(inspect.getsourcefile(cls))
+    data_file_path </span>=<span style="color: #000000;"> os.path.join(os.path.dirname(cls_path), file_attr)
+
+    </span><span style="color: #0000ff;">def</span> create_error_func(message):  <span style="color: #008000;">#</span><span style="color: #008000;"> pylint: disable-msg=W0613</span>
+        <span style="color: #0000ff;">def</span> func(*<span style="color: #000000;">args):
+            </span><span style="color: #0000ff;">raise</span> ValueError(message %<span style="color: #000000;"> file_attr)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> func
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> If file does not exist, provide an error function instead</span>
+    <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> os.path.exists(data_file_path):
+        test_name </span>= mk_test_name(name, <span style="color: #800000;">"</span><span style="color: #800000;">error</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        test_docstring </span>= <span style="color: #800000;">"""</span><span style="color: #800000;">Error!</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        add_test(cls, test_name, test_docstring,
+                 create_error_func(</span><span style="color: #800000;">"</span><span style="color: #800000;">%s does not exist</span><span style="color: #800000;">"</span><span style="color: #000000;">), None)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;">
+
+    _is_yaml_file </span>= data_file_path.endswith((<span style="color: #800000;">"</span><span style="color: #800000;">.yml</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">.yaml</span><span style="color: #800000;">"</span><span style="color: #000000;">))
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> Don't have YAML but want to use YAML file.</span>
+    <span style="color: #0000ff;">if</span> _is_yaml_file <span style="color: #0000ff;">and</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> _have_yaml:
+        test_name </span>= mk_test_name(name, <span style="color: #800000;">"</span><span style="color: #800000;">error</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        test_docstring </span>= <span style="color: #800000;">"""</span><span style="color: #800000;">Error!</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        add_test(
+            cls,
+            test_name,
+            test_docstring,
+            create_error_func(</span><span style="color: #800000;">"</span><span style="color: #800000;">%s is a YAML file, please install PyYAML</span><span style="color: #800000;">"</span><span style="color: #000000;">),
+            None
+        )
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;">
+
+    with codecs.open(data_file_path, </span><span style="color: #800000;">'</span><span style="color: #800000;">r</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Load the data from YAML or JSON</span>
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> _is_yaml_file:
+            data </span>=<span style="color: #000000;"> yaml.safe_load(f)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            data </span>=<span style="color: #000000;"> json.load(f)
+
+    _add_tests_from_data(cls, name, func, data)
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> _add_tests_from_data(cls, name, func, data):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Add tests from data loaded from the data file into the class
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">for</span> i, elem <span style="color: #0000ff;">in</span><span style="color: #000000;"> enumerate(data):
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> isinstance(data, dict):
+            key, value </span>=<span style="color: #000000;"> elem, data[elem]
+            test_name </span>=<span style="color: #000000;"> mk_test_name(name, key, i)
+        </span><span style="color: #0000ff;">elif</span><span style="color: #000000;"> isinstance(data, list):
+            value </span>=<span style="color: #000000;"> elem
+            test_name </span>=<span style="color: #000000;"> mk_test_name(name, value, i)
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> isinstance(value, dict):
+            add_test(cls, test_name, test_name, func, </span>**<span style="color: #000000;">value)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            add_test(cls, test_name, test_name, func, value)
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> _is_primitive(obj):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">Finds out if the obj is a "primitive". It is somewhat hacky but it works.
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">not</span> hasattr(obj, <span style="color: #800000;">'</span><span style="color: #800000;">__dict__</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> _get_test_data_docstring(func, value):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">Returns a docstring based on the following resolution strategy:
+    1. Passed value is not a "primitive" and has a docstring, then use it.
+    2. In all other cases return None, i.e the test name is used.
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span> _is_primitive(value) <span style="color: #0000ff;">and</span> value.<span style="color: #800080;">__doc__</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span> value.<span style="color: #800080;">__doc__</span>
+    <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> None
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> ddt(cls):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Class decorator for subclasses of ``unittest.TestCase``.
+
+    Apply this decorator to the test case class, and then
+    decorate test methods with ``@data``.
+
+    For each method decorated with ``@data``, this will effectively create as
+    many methods as data items are passed as parameters to ``@data``.
+
+    The names of the test methods follow the pattern
+    ``original_test_name_{ordinal}_{data}``. ``ordinal`` is the position of the
+    data argument, starting with 1.
+
+    For data we use a string representation of the data value converted into a
+    valid python identifier.  If ``data.__name__`` exists, we use that instead.
+
+    For each method decorated with ``@file_data('test_data.json')``, the
+    decorator will try to load the test_data.json file located relative
+    to the python file containing the method that is decorated. It will,
+    for each ``test_name`` key create as many methods in the list of values
+    from the ``data`` key.
+
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">for</span> name, func <span style="color: #0000ff;">in</span> list(cls.<span style="color: #800080;">__dict__</span><span style="color: #000000;">.items()):
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(func, DATA_ATTR):
+            </span><span style="color: #0000ff;">for</span> i, v <span style="color: #0000ff;">in</span><span style="color: #000000;"> enumerate(getattr(func, DATA_ATTR)):
+                test_name </span>= mk_test_name(name, getattr(v, <span style="color: #800000;">"</span><span style="color: #800000;">__name__</span><span style="color: #800000;">"</span><span style="color: #000000;">, v), i)
+                test_data_docstring </span>=<span style="color: #000000;"> _get_test_data_docstring(func, v)
+                </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(func, UNPACK_ATTR):
+                    </span><span style="color: #0000ff;">if</span> isinstance(v, tuple) <span style="color: #0000ff;">or</span><span style="color: #000000;"> isinstance(v, list):
+                        add_test(
+                            cls,
+                            test_name,
+                            test_data_docstring,
+                            func,
+                            </span>*<span style="color: #000000;">v
+                        )
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        </span><span style="color: #008000;">#</span><span style="color: #008000;"> unpack dictionary</span>
+<span style="color: #000000;">                        add_test(
+                            cls,
+                            test_name,
+                            test_data_docstring,
+                            func,
+                            </span>**<span style="color: #000000;">v
+                        )
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    add_test(cls, test_name, test_data_docstring, func, v)
+            delattr(cls, name)
+        </span><span style="color: #0000ff;">elif</span><span style="color: #000000;"> hasattr(func, FILE_ATTR):
+            file_attr </span>=<span style="color: #000000;"> getattr(func, FILE_ATTR)
+            process_file_data(cls, name, func, file_attr)
+            delattr(cls, name)
+    </span><span style="color: #0000ff;">return</span> cls</pre>
+</div>
+<span class="cnblogs_code_collapse">ddt源码</span></div>
+<h3>　　通过源码的说明，基本可以了解个大概了，其核心用法就是利用装饰器来实现功能的复用及扩展延续，以此来实现数据驱动，现在简单介绍下其主要函数的基本使用场景。</h3>
+<p>1.&nbsp;<strong>@ddt(cls)</strong>，其服务于unittest类装饰器，主要功能是判断该类中是否具有相应<strong>ddt</strong>装饰的方法，如有则利用自省机制，实现测试用例命名<strong>mk_test_name、</strong>数据回填<strong><strong>_add_tests_from_data</strong></strong>并通过<strong>add_test</strong>添加至unittest的容器TestSuite中去，然后执行得到testResult，流程非常清晰。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> ddt(cls):
+
+    </span><span style="color: #0000ff;">for</span> name, func <span style="color: #0000ff;">in</span> list(cls.<span style="color: #800080;">__dict__</span><span style="color: #000000;">.items()):
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(func, DATA_ATTR):
+            </span><span style="color: #0000ff;">for</span> i, v <span style="color: #0000ff;">in</span><span style="color: #000000;"> enumerate(getattr(func, DATA_ATTR)):
+                test_name </span>= mk_test_name(name, getattr(v, <span style="color: #800000;">"</span><span style="color: #800000;">__name__</span><span style="color: #800000;">"</span><span style="color: #000000;">, v), i)
+                test_data_docstring </span>=<span style="color: #000000;"> _get_test_data_docstring(func, v)
+                </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(func, UNPACK_ATTR):
+                    </span><span style="color: #0000ff;">if</span> isinstance(v, tuple) <span style="color: #0000ff;">or</span><span style="color: #000000;"> isinstance(v, list):
+                        add_test(
+                            cls,
+                            test_name,
+                            test_data_docstring,
+                            func,
+                            </span>*<span style="color: #000000;">v
+                        )
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        </span><span style="color: #008000;">#</span><span style="color: #008000;"> unpack dictionary</span>
+<span style="color: #000000;">                        add_test(
+                            cls,
+                            test_name,
+                            test_data_docstring,
+                            func,
+                            </span>**<span style="color: #000000;">v
+                        )
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    add_test(cls, test_name, test_data_docstring, func, v)
+            delattr(cls, name)
+        </span><span style="color: #0000ff;">elif</span><span style="color: #000000;"> hasattr(func, FILE_ATTR):
+            file_attr </span>=<span style="color: #000000;"> getattr(func, FILE_ATTR)
+            process_file_data(cls, name, func, file_attr)
+            delattr(cls, name)
+    </span><span style="color: #0000ff;">return</span> cls</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;2.&nbsp;<strong>@file_data(PATH)</strong>，其主要是通过<strong>process_file_data</strong>方法实现数据解析，这里通过<strong>_add_tests_from_data</strong>实现测试数据回填，通过源码可以得知目前文件只支持<strong>Yaml</strong>和<strong>JSON</strong>数据文件，想扩展其它文件比如<strong>xml</strong>等直接改源码就行</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> process_file_data(cls, name, func, file_attr):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Process the parameter in the `file_data` decorator.
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    cls_path </span>=<span style="color: #000000;"> os.path.abspath(inspect.getsourcefile(cls))
+    data_file_path </span>=<span style="color: #000000;"> os.path.join(os.path.dirname(cls_path), file_attr)
+
+    </span><span style="color: #0000ff;">def</span> create_error_func(message):  <span style="color: #008000;">#</span><span style="color: #008000;"> pylint: disable-msg=W0613</span>
+        <span style="color: #0000ff;">def</span> func(*<span style="color: #000000;">args):
+            </span><span style="color: #0000ff;">raise</span> ValueError(message %<span style="color: #000000;"> file_attr)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> func
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> If file does not exist, provide an error function instead</span>
+    <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> os.path.exists(data_file_path):
+        test_name </span>= mk_test_name(name, <span style="color: #800000;">"</span><span style="color: #800000;">error</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        test_docstring </span>= <span style="color: #800000;">"""</span><span style="color: #800000;">Error!</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        add_test(cls, test_name, test_docstring,
+                 create_error_func(</span><span style="color: #800000;">"</span><span style="color: #800000;">%s does not exist</span><span style="color: #800000;">"</span><span style="color: #000000;">), None)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;">
+
+    _is_yaml_file </span>= data_file_path.endswith((<span style="color: #800000;">"</span><span style="color: #800000;">.yml</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">.yaml</span><span style="color: #800000;">"</span><span style="color: #000000;">))
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> Don't have YAML but want to use YAML file.</span>
+    <span style="color: #0000ff;">if</span> _is_yaml_file <span style="color: #0000ff;">and</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> _have_yaml:
+        test_name </span>= mk_test_name(name, <span style="color: #800000;">"</span><span style="color: #800000;">error</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        test_docstring </span>= <span style="color: #800000;">"""</span><span style="color: #800000;">Error!</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        add_test(
+            cls,
+            test_name,
+            test_docstring,
+            create_error_func(</span><span style="color: #800000;">"</span><span style="color: #800000;">%s is a YAML file, please install PyYAML</span><span style="color: #800000;">"</span><span style="color: #000000;">),
+            None
+        )
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;">
+
+    with codecs.open(data_file_path, </span><span style="color: #800000;">'</span><span style="color: #800000;">r</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Load the data from YAML or JSON</span>
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> _is_yaml_file:
+            data </span>=<span style="color: #000000;"> yaml.safe_load(f)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            data </span>=<span style="color: #000000;"> json.load(f)
+
+    _add_tests_from_data(cls, name, func, data)</span></pre>
+</div>
+<p>3. @date(*<strong>value</strong>)，简单粗暴的直观实现数据驱动，直接将可迭代对象传参，进行数据传递，数据之间用逗号&ldquo;<strong>,</strong>&rdquo;隔离，代表一组数据，此时如果实现<strong>unpack，</strong>则更加细化的实现数据驱动，切记每组数据对应相应的形参。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> unpack(func):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Method decorator to add unpack feature.
+
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    setattr(func, UNPACK_ATTR, True)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> func
+
+
+</span><span style="color: #0000ff;">def</span> data(*<span style="color: #000000;">values):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Method decorator to add to your test methods.
+
+    Should be added to methods of instances of ``unittest.TestCase``.
+
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">global</span><span style="color: #000000;"> index_len
+    index_len </span>=<span style="color: #000000;"> len(str(len(values)))
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> idata(values)
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> idata(iterable):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    Method decorator to add to your test methods.
+
+    Should be added to methods of instances of ``unittest.TestCase``.
+
+    </span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> wrapper(func):
+        setattr(func, DATA_ATTR, iterable)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> func
+    </span><span style="color: #0000ff;">return</span> wrapper</pre>
+</div>
+<p>4. 实例</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding: utf-8 -*-</span>
+<span style="color: #800080;">__author__</span> = <span style="color: #800000;">'</span><span style="color: #800000;">暮辞</span><span style="color: #800000;">'</span>
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> time,random
+</span><span style="color: #0000ff;">from</span> ddt <span style="color: #0000ff;">import</span><span style="color: #000000;"> ddt, data, file_data, unpack
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> unittest
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #0000ff;">from</span> HTMLTestRunner <span style="color: #0000ff;">import</span><span style="color: #000000;"> HTMLTestRunner
+@ddt
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Demo(unittest.TestCase):
+
+    @file_data(</span><span style="color: #800000;">"</span><span style="color: #800000;">./migrations/test.json</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">def</span> test_hello(self, a, **<span style="color: #000000;">b):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">
+        测试hello
+       </span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">print</span><span style="color: #000000;"> a
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;"> b
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">print "hello", a, type(a)</span>
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> isinstance(a, list):
+            self.assertTrue(True, </span><span style="color: #800000;">"</span><span style="color: #800000;">2</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            self.assertTrue(True, </span><span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    @data([</span>1, 2, 3, 4<span style="color: #000000;">])
+    </span><span style="color: #0000ff;">def</span> test_world(self, *<span style="color: #000000;">b):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">
+        测试world
+       </span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">print</span><span style="color: #000000;"> b
+        self.assertTrue(True)
+
+    @data({</span><span style="color: #800000;">"</span><span style="color: #800000;">test1</span><span style="color: #800000;">"</span>:[1, 2], <span style="color: #800000;">"</span><span style="color: #800000;">test2</span><span style="color: #800000;">"</span>:[3, 4]}, {<span style="color: #800000;">"</span><span style="color: #800000;">test1</span><span style="color: #800000;">"</span>:[1, 2],<span style="color: #800000;">"</span><span style="color: #800000;">test2</span><span style="color: #800000;">"</span>:[3, 4<span style="color: #000000;">]})
+    @unpack
+    </span><span style="color: #0000ff;">def</span> test_unpack(self, **<span style="color: #000000;">a):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">
+        测试unpack
+       </span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">print</span><span style="color: #000000;"> a
+        self.assertTrue(True)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    suit </span>=<span style="color: #000000;"> unittest.TestSuite()
+    test </span>=<span style="color: #000000;"> unittest.TestLoader().loadTestsFromTestCase(Demo)
+    suit.addTests(test)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">suit.addTests(test)</span>
+    with open(<span style="color: #800000;">"</span><span style="color: #800000;">./migrations/Demo.html</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">w</span><span style="color: #800000;">"</span><span style="color: #000000;">) as f:
+        result </span>= HTMLTestRunner(stream=f, description=u<span style="color: #800000;">"</span><span style="color: #800000;">Demo测试报告</span><span style="color: #800000;">"</span>, title=u<span style="color: #800000;">"</span><span style="color: #800000;">Demo测试报告</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        result.run(suit)</span></pre>
+</div>
+<p>测试结果：</p>
+<p><img src="./images/python自动化测试之DDT数据驱动2.png" alt="" /></p>
+<h3><strong>至此关于ddt的数据驱动暂时告一段落了，后面还会介绍基于excel、sql等相关的数据驱动内容，并进行对比总结，拭目以待~</strong></h3>
+<p>&nbsp;</p>
+<p>　　</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

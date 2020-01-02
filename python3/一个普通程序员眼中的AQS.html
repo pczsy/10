@@ -1,0 +1,326 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修一个普通程序员眼中的AQS' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>一个普通程序员眼中的AQS</center></div><div class='banquan'>原文出处:本文由博客园博主张小云的博客提供。<br/>
+原文连接:https://www.cnblogs.com/zhangweicheng/p/12000213.html</div><br>
+    <blockquote>
+<p>AQS是JUC包中许多类的实现根基，这篇文章只是个人理解的产物，不免有误，若阅读过程中有发现不对的，希望帮忙指出[赞]!</p>
+</blockquote>
+<h1 id="aqs内脏图">1 AQS内脏图</h1>
+<p>​  在开始了解<code>AQS</code>之前，我们先从上帝视角看看<code>AQS</code>是由几个部分组成的。</p>
+<p><img src="./images/一个普通程序员眼中的AQS0.png" alt="1575639520339" /></p>
+<p>​  <code>AQS</code>内部维护了一个<code>volatile</code>修饰的<strong>资源变量</strong>，里面的所有操作都可以说跟这个变量有关系，因为它代表的就是资源，这是一点；另外内部还有为公平争夺资源而准备的<strong>同步队列</strong>，说是同步队列，实质上存放在<code>AQS</code>的也就<code>head</code>节点和<code>tail</code>节点；此外还有一个<strong>等待队列</strong>，等待队列是为了实现唤醒指定组线程争夺资源而出现的，通过内部类<code>ConditionObject</code>的<code>firstWaiter</code>和<code>lastWaiter</code>实现，两个队列的概念图如下。</p>
+<p><img src="./images/一个普通程序员眼中的AQS1.png" alt="1575905757547" /></p>
+<p>​​  除去这些还有两个内部类<code>Node</code>和<code>ConditionObject</code>，<code>Node</code>是队列的实现根基，里面存放了许多重要的信息，如操作的线程、线程竞争的状态等；而<code>ConditionObject</code>则是<code>Condition</code>接口的实现类，用来实现唤醒指定线程组的(<strong>等待队列</strong>)。</p>
+<blockquote>
+<p><code>state</code>：资源变量，<code>AQS</code>重要组成成分，其内部的操作大多数都是对此资源的竞争。</p>
+<p><code>head</code>和<code>tail</code>节点：这两个<code>Node</code>节点其实就是<code>AQS中</code>的同步队列，而<code>Node</code>是<code>AQS</code>的内部类，整个资源争夺的过程就是<code>Node</code>同步队列节点的调整和状态变更的过程。</p>
+<p><code>Node</code>内部类：<code>AQS</code>两个队列的实现节点。</p>
+<ul>
+<li><code>waitStatus</code> :节点状态，取值为<code>-3~1</code>(整数)。</li>
+</ul>
+<p>​​  ​  <code>0</code>：初始状态或者不代表任何意义时的取值。</p>
+<p>​​  ​  <code>-1</code>：<code>SIGNAL</code>状态，个人理解是处于这个状态的节点后方还有可用的节点，所以当其释放资源 时要提醒后方节点参与竞争。</p>
+<p>​​  ​  <code>-2</code>：<code>CONDITION</code>状态，这个状态标识当前节点处于等待队列中，等待队列中的节点不会参与 竞争，必须从等待队列出来后重新加入同步队列才能参与竞争。</p>
+<p>​  ​  <code>-3</code>：<code>PROPAGATE</code>，表示处于<strong>共享模式</strong>，此时不仅只是唤醒下个节点，还可能唤醒下下个节 点。</p>
+<p>​​  ​  <code>1</code>：<code>CANCELLED</code>，废弃节点，表示当前节点没用了，处于该状态的节点不会再改变，所以 <code>AQS</code>中经常会判断节点状态是否大于<code>0</code>来检查节点是否还有用。</p>
+<ul>
+<li><code>thread</code>：争夺资源的线程，存放在节点当中。</li>
+<li><code>prev</code>：同步队列中的上一个节点。</li>
+<li><code>next</code>：同步队列的下一个节点。</li>
+<li><code>nextWaiter</code>：下一个等待节点。<code>AQS</code>中的等待队列，可以有多个等待队列。</li>
+</ul>
+<p><code>ConditionObject</code>：<code>AQS</code>内部类，实现<code>Condition</code>接口，定义了两个变量<code>firstWaiter</code>和<code>lastWaiter</code>，这 两个变量 组成<strong>等待队列</strong>。可以简单的理解为<code>Condition</code>接口的功能是​能让一定数量的线程一起等待某个条件，这个条件就是<code>condition</code>，当<code>condition</code>唤醒的时候，那么这些等待的线程就会被其唤醒，反之线程则一直等待其唤醒条件。而在<code>AQS</code>​中，<code>ConditionObject</code>可以维护多个等待队列，当同步队列中的节点使用了<code>await()</code>方法则将其移除同步队列放入相应的等待队列，在等待队列中使用<code>signal</code>方法则从等待队列​中移除放入同步队列队尾。</p>
+</blockquote>
+<p>​</p>
+<h1 id="aqs的开放方法">2 AQS的开放方法</h1>
+<p>​  现在我们对<code>AQS</code>的组成有了大概的了解，接下来看看其内部资源的竞争、获取和释放的实现。<code>AQS</code>采用模板设计模式实现，其定义了许多顶级方法例如<code>acquire</code>、<code>release</code>等，这些方法子类不能重写但是可以调用，而如果想让其正确的调用则需要<strong>根据其规则实现</strong>开放出来的接口如<code>tryAcquire</code>等（<strong>顶级方法内部调用了开放方法</strong>）。</p>
+<p>​  其开放的方法有<code>tryAcquire</code>、<code>tryRelease</code>、<code>tryAcquireShared</code>、<code>tryReleaseShared</code>、<code>isHeldExclusively</code>共五种，每个方法里面没有具体的实现，反而是直接抛出了异常，如下，所以子类需要重写用到的方法。</p>
+<pre><code><code>protected boolean tryAcquire(int arg) {
+    throw new UnsupportedOperationException();
+}</code></pre>
+<p>​  这些方法表示尝试去获取资源或者释放资源，其实现必须要跟<code>state</code>资源状态相关，举个例子，<code>tryAcquire</code>方法表示以独占的方式尝试获取资源，如果获取到了那么其他线程<strong>不得操作其资源</strong>，其中入参的<code>arg</code>则表示想要获取到的资源数量，例如我<code>tryAcquire(5)</code>成功了，那么状态变量<code>state</code>变量则增加<code>5</code>，如果<code>tryRelease(5)</code>成功则<code>state</code>状态变量减少<code>5</code>，等到<code>state==0</code>的时候则表示资源被释放，即可以理解为锁被释放。</p>
+<p>​  如果只是使用<code>AQS</code>的话，再加上几个变更状态的方法就可以了，我们不需要了解更多的东西，如同<code>AQS</code>的文档给出的案例一般，简单的重写几个方法便可以实现一种锁，如下，一个<strong>不可重入锁</strong>的简单实现。</p>
+<pre><code><code>class Mutex implements Lock, java.io.Serializable {
+
+   // 同步内部类，锁的真正操作都是通过该类的操作 
+   private static class Sync extends AbstractQueuedSynchronizer {
+     // 检查当前是否已经处于锁定的状态
+     protected boolean isHeldExclusively() {
+       return getState() == 1;
+     }
+
+     // 如果资源变量为0，则获取锁（资源）
+     public boolean tryAcquire(int acquires) {
+       // acquires的值只能是1，否则的话不进入下面代码
+       assert acquires == 1;
+       if (compareAndSetState(0, 1)) {
+         // 设置持有当前锁的线程
+         setExclusiveOwnerThread(Thread.currentThread());
+         return true;
+       }
+       return false;
+     }
+
+     // 通过将状态变量state设定为0来表示锁的释放
+     protected boolean tryRelease(int releases) {
+       // 传入的参数只能是1，否则是无效操作
+       assert releases == 1; 
+       // 如果状态状态等于0，说明不是锁定状态
+       if (getState() == 0) throw new IllegalMonitorStateException();
+       setExclusiveOwnerThread(null);
+       setState(0);
+       return true;
+     }
+
+     // 提供Condition，返回其AQS内部类ConditionObject
+     Condition newCondition() { return new ConditionObject(); }
+
+     // 反序列化
+     private void readObject(ObjectInputStream s)
+         throws IOException, ClassNotFoundException {
+       s.defaultReadObject();
+       setState(0); // reset to unlocked state
+     }
+   }
+
+   // 内部类已经实现了所有需要的方法，我们只要封装一层就行
+   private final Sync sync = new Sync();
+
+   public void lock()                { sync.acquire(1); }
+   public boolean tryLock()          { return sync.tryAcquire(1); }
+   public void unlock()              { sync.release(1); }
+   public Condition newCondition()   { return sync.newCondition(); }
+   public boolean isLocked()         { return sync.isHeldExclusively(); }
+   public boolean hasQueuedThreads() { return sync.hasQueuedThreads(); }
+   public void lockInterruptibly() throws InterruptedException {
+     sync.acquireInterruptibly(1);
+   }
+   public boolean tryLock(long timeout, TimeUnit unit)
+       throws InterruptedException {
+     return sync.tryAcquireNanos(1, unit.toNanos(timeout));
+   }
+ }</code></pre>
+<p>进行一个小测试</p>
+<pre><code><code>public static void main(String[] args) {
+    Lock lock = new Mutex();
+    new Thread(() -&gt; {
+        lock.lock();
+        try {
+            System.err.println(&quot;获得锁线程名：&quot; + Thread.currentThread().getName());
+            TimeUnit.SECONDS.sleep(3);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
+            System.err.println(Thread.currentThread().getName() + &quot;释放锁&quot;);
+        }
+    }).start();
+
+    new Thread(() -&gt; {
+        lock.lock();
+        try {
+            System.err.println(&quot;获得锁线程名：&quot; + Thread.currentThread().getName());
+            TimeUnit.SECONDS.sleep(3);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
+            System.err.println(Thread.currentThread().getName() + &quot;释放锁&quot;);
+        }
+    }).start();
+}</code></pre>
+<p>最终的结果图如下</p>
+<p><img src="./images/一个普通程序员眼中的AQS2.png" alt="1575643000409" /></p>
+<p>​  这样就实现了一个不可重入锁，是不是看起来很简单？</p>
+<h1 id="aqs的那些顶级方法">AQS的那些顶级方法</h1>
+<p>首先来看<code>acquire</code>方法：</p>
+<pre><code><code>// 代码逻辑不复杂，首先尝试获取资源，如果失败了则将封装节点放入同步队列中直到获取到资源
+public final void acquire(int arg) {
+    // 尝试获得锁，如果失败了则增加节点放入等待队列中
+    if (!tryAcquire(arg) &amp;&amp;
+        acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+        selfInterrupt();
+}</code></pre>
+<p>​  其中<code>addWaiter</code>将当前线程封装成一个节点放入等待队列中，而<code>acquireQueued</code>方法则是在一个循环中尝试获取资源，<strong>如果获取资源的过程中被线程被打断不会进行任何形式的相应，只是记录一下当前节点被打断过，在获取到资源后再把被打断的逻辑补上。</strong></p>
+<p>​  我们看看<code>addWaiter</code>做了什么。</p>
+<pre><code><code>private Node addWaiter(Node mode) {
+    // 将当前线程封装入一个节点之中
+    Node node = new Node(Thread.currentThread(), mode);
+    
+    // 首先尝试一次快速的入队，如果失败的话则采用正常方式入队
+    Node pred = tail;
+    if (pred != null) {
+        node.prev = pred;
+        if (compareAndSetTail(pred, node)) {
+            pred.next = node;
+            return node;
+        }
+    }
+    // 入队操作
+    enq(node);
+    return node;
+}</code></pre>
+<p>再看下入队操作的实现</p>
+<pre><code><code>private Node enq(final Node node) {
+    // 循环直到将节点放入同步队列中
+    for (;;) {
+        Node t = tail;
+        // 如果同步队列是空的话则进行队列的初始化
+        if (t == null) { 
+            // 这里注意初始化的时候head是一个新增的Node，其waitStatus为0
+            if (compareAndSetHead(new Node()))
+                tail = head;
+        } else {
+            // 否则的话尝试设置尾节点，失败的话重新循环
+            node.prev = t;
+            if (compareAndSetTail(t, node)) {
+                t.next = node;
+                return t;
+            }
+        }
+    }
+}</code></pre>
+<p>​  到这里我们可以知道<code>addWaiter</code>方法首先将当前线程封装为节点，然后尝试快速的将节点放入队列尾，如果失败的话则进行正常的入队操作，而入队操作的则是不断的循环将当前节点设置为尾节点，其中如果一开始队列为空的话则进行队列的初始化。</p>
+<p>​  再回到<code>acquire</code>方法中这一段代码中</p>
+<pre><code><code>if (!tryAcquire(arg) &amp;&amp;
+    acquireQueued(addWaiter(Node.EXCLUSIVE), arg))</code></pre>
+<p>​​  节点入队之后还有一个<code>acquireQueued</code>操作，这个方法就是线程不断<strong>自旋</strong>的去获取资源的过程，在一定尝试后<strong>进入阻塞</strong>。我们进入此方法</p>
+<pre><code><code>final boolean acquireQueued(final Node node, int arg) {
+    // 默认获取失败
+    boolean failed = true;
+    try {
+        /*
+         * 线程打断标识，我们知道使用interrupt()方法只是改变了线程中的打断标识变量，
+         * 并不能打断正在运行的线程，而对于这个打断变量的处理一般有两种方式，
+         * 一种是记录下来，一种是抛出异常，这里选择前者，而可打断的acquire则是选择后者
+         */
+        boolean interrupted = false;
+        // 这里就是自旋的过程了
+        for (;;) {
+            // 拿到前一个节点
+            final Node p = node.predecessor();
+            // 如果前节点为头节点则尝试一次获取
+            if (p == head &amp;&amp; tryAcquire(arg)) {
+                setHead(node);
+                p.next = null; // help GC
+                failed = false;
+                return interrupted;
+            }
+            // 没有拿到资源，根据前节点决定线程是否进入阻塞状态，两个方法解释在下方
+            if (shouldParkAfterFailedAcquire(p, node) &amp;&amp;
+                parkAndCheckInterrupt())
+                // 如上方所说，记录打断标识
+                interrupted = true;
+        }
+    } finally {
+        if (failed)
+            cancelAcquire(node);
+    }
+}
+
+// 检查是否需要阻塞线程
+private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
+        // 前节点的状态
+        int ws = pred.waitStatus;
+        // 如果前节点状态为SIGNAL，我对这个状态的理解是其后续还有处于同步队列中的节点
+        if (ws == Node.SIGNAL)
+            // 表示下方代码已经执行过一次了，所以直接返回
+            return true;
+        if (ws &gt; 0) {
+            // 状态大于0，则表示节点已经取消作废，那么需要一直往前找直到找到有效的节点
+            // 在AQS中经常使用状态&gt;0来表示无效，&lt;0表示有效
+            do {
+                node.prev = pred = pred.prev;
+            } while (pred.waitStatus &gt; 0);
+            pred.next = node;
+        } else {
+            /*
+             * 剩下的状态只能是0或者PROPAGATE(CONDITION(-2)状态不会出现在同步队列中)
+             * 这里并没有返回true，说明还要进行一次循环
+             */
+            compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
+        }
+        return false;
+}
+
+// 在上方方法判断需要挂起线程之后，调用parkAndCheckInterrupt方法将线程挂起
+private final boolean parkAndCheckInterrupt() {
+        // 使用park方法将线程挂起
+        LockSupport.park(this);
+        // 在上面我们提到线程的打断标识，interrupted()方法返回后会重置这个标识
+        return Thread.interrupted();
+}</code></pre>
+<p>​  独占式获取资源的主要方法差不多就是这样，还有可打断的独占式获取方法<code>acquireInterruptibly</code>，代码如下，其实现基本相同，只是对于我们方才说的<strong>打断标识的处理从记录改成了抛出异常，所以才是可打断的</strong>，有兴趣可以自己再看下，基本逻辑相同，看起来也就耗费不了多少时间。</p>
+<pre><code><code>public final void acquireInterruptibly(int arg)
+        throws InterruptedException {
+    if (Thread.interrupted())
+        // 抛出异常处理
+        throw new InterruptedException();
+    if (!tryAcquire(arg))
+        doAcquireInterruptibly(arg);
+}</code></pre>
+<p>​  了解完获取资源自然知道释放资源的过程，相对来说释放资源要相对容易一些，大致逻辑为尝试释放资源，如果成功了，则改变节点的状态并且唤醒下一个可用节点（一般是下一个，但是可能出现下一个节点已经被取消的情况）</p>
+<pre><code><code>public final boolean release(int arg) {
+    if (tryRelease(arg)) {
+        Node h = head;
+        if (h != null &amp;&amp; h.waitStatus != 0)
+            // 修改线程的状态，并且唤醒下一个节点进行资源竞争
+            unparkSuccessor(h);
+        return true;
+    }
+    return false;
+}
+
+
+private void unparkSuccessor(Node node) {
+    // 改变节点状态
+    int ws = node.waitStatus;
+    if (ws &lt; 0)
+        compareAndSetWaitStatus(node, ws, 0);
+
+    /*
+     * 唤醒下一个可用节点，一般来说是下一个节点，但是可能出现下个节点被取消
+     * 或者为空的情况，这个时候就要从尾结点向前遍历直到找到有效的节点（从尾节点向前遍历
+     * 是因为无论下个节点是空还是取消的节点，正向遍历都不可能走得通了，取消的节点的next
+     * 就是其本身，所以只能从后面开始往前遍历）
+     */
+    Node s = node.next;
+    if (s == null || s.waitStatus &gt; 0) {
+        s = null;
+        for (Node t = tail; t != null &amp;&amp; t != node; t = t.prev)
+            if (t.waitStatus &lt;= 0)
+                s = t;
+    }
+    // 找到下个节点之后将其唤醒
+    if (s != null)
+        LockSupport.unpark(s.thread);
+}</code></pre>
+<p>​  到这里<code>AQS</code>独占式的获取释放资源的过程大致就结束了，虽然只是简单的将其获取和释放过程过了一遍，但是知道这些脑子里对<code>AQS</code>也有了大概的框架模型，在这个模型中继续去理解其他方法相信也不会太难，总之先记录到这里。</p>
+<h1 id="总结">总结</h1>
+<p>​  首先从一开始我们用一张图了解了<code>AQS</code>的大致构造，接下来又了解了组成成分的作用，其中主要围绕两个队列（<strong>同步队列</strong>和<strong>等待队列</strong>）和两个同步类（<code>Node</code>和<code>ConditionObject</code>）说明了其实现。</p>
+<p>​  接着进入资源获取和释放，用独占式的<code>acquire</code>和<code>release</code>方法来说明整个过程，<code>acquire</code>方法包含了尝试获取资源、入队和休眠等操作，而<code>release</code>方法相对简易的改变了状态，并且唤醒后方节点，从而分别表示锁的获取和释放，到这里就算过了一遍<code>AQS</code>的独占式流程。</p>
+<blockquote>
+<p><em>I wish I could write better.</em></p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

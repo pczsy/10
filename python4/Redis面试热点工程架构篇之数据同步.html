@@ -1,0 +1,126 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Redis面试热点工程架构篇之数据同步' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Redis面试热点工程架构篇之数据同步</center></div><div class='banquan'>原文出处:本文由博客园博主后端技术指南针提供。<br/>
+原文连接:https://www.cnblogs.com/backnullptr/p/12072501.html</div><br>
+    <h3>温馨提示 更佳阅读体验：<a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s/CpiNqePf9x5VQZSc7MakQA" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">【决战西二旗】|Redis面试热点之工程架构篇[2]</a></h3>
+<h3>前言</h3>
+<p>前面用了3篇文章介绍了一些底层实现和工程架构相关的问题，鉴于Redis的热点问题还是比较多的，因此今天继续来看工程架构相关的问题，感兴趣的可以先回顾一下之前的3篇文章，如下：<br /><a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s%3F__biz%3DMzI1MzYzMTI2Ng%3D%3D%26mid%3D2247484120%26idx%3D1%26sn%3D2536d36812b46594712a9dab65918398%26scene%3D21%23wechat_redirect" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">【决战西二旗】|Redis面试热点之底层实现篇</a><br /><a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s%3F__biz%3DMzI1MzYzMTI2Ng%3D%3D%26mid%3D2247484134%26idx%3D1%26sn%3Daa2ac7c6fc3c702ec3ea8fc22cff88b9%26scene%3D21%23wechat_redirect" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">【决战西二旗】|Redis面试热点之底层实现篇(续)</a><br /><a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s%3F__biz%3DMzI1MzYzMTI2Ng%3D%3D%26mid%3D2247484148%26idx%3D1%26sn%3Dba1a92eb313b5bedf6ce05777a3a3f2c%26scene%3D21%23wechat_redirect" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">【决战西二旗】|Redis面试热点之工程架构篇</a></p>
+<p>通过本文你将了解到以下内容：</p>
+<ul>
+<li><strong>Redis的数据同步机制</strong><br /><span style="color: #ff0000;">持久化和数据同步的关系、Redis分布式存储的CAP选择、Redis数据同步复制和异步复制、全量复制和增量复制的原理、无盘复制等。</span></li>
+</ul>
+<p><span style="color: #ff0000; font-size: 18px;"><strong>Q:谈谈你对Redis数据同步(复制)的理解吧！</strong></span></p>
+<h3>持久化和数据同步的关系</h3>
+<p>理解持久化和数据同步的关系，需要从单点故障和高可用两个角度来分析：</p>
+<h3>单点宕机故障</h3>
+<p>假如我们现在只有一台作为缓存的Redis机器，通过持久化将热点数据写到磁盘，某时刻该Redis单点机器发生故障宕机，此期间缓存失效，主存储服务将承受所有的请求压力倍增，监控程序将宕机Redis机器拉起。</p>
+<p>重启之后，该机器可以Load磁盘RDB数据进行快速恢复，恢复的时间取决于数据量的多少，一般秒级到分钟级不等，恢复完成保证之前的热点数据还在，这样存储系统的CacheMiss就会降低，有效降低了缓存击穿的影响。</p>
+<p>在单点Redis中持久化机制非常有用，只写<strong>文字容易让大家睡着，我画了张图</strong>：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步0.png" alt="" width="700" height="374" data-caption="" data-size="normal" data-rawwidth="1022" data-rawheight="547" data-original="https://pic4.zhimg.com/v2-5d13bee6a6275689a3302eaa90ff088b_r.jpg" data-actualsrc="https://pic4.zhimg.com/v2-5d13bee6a6275689a3302eaa90ff088b_b.jpg" data-lazy-status="ok" /></p>
+<h3>高可用的Redis系统</h3>
+<p>作为一个高可用的缓存系统单点宕机是不允许的，因此就出现了主从架构，对主节点的数据进行多个备份，如果主节点挂点，可以立刻切换状态最好的从节点为主节点，对外提供写服务，并且其他从节点向新主节点同步数据，确保整个Redis缓存系统的高可用。</p>
+<p>如图展示了一个一主两从读写分离的Redis系统主节点故障迁移的过程，整个过程并没有停止正常工作，大大提高了系统的高可用：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步1.png" alt="" width="704" height="272" data-caption="" data-size="normal" data-rawwidth="1149" data-rawheight="443" data-original="https://pic4.zhimg.com/v2-4dab16e889a16849b593491cb48068a3_r.jpg" data-actualsrc="https://pic4.zhimg.com/v2-4dab16e889a16849b593491cb48068a3_b.jpg" data-lazy-status="ok" /></p>
+<p>从上面的两点分析可以得出个小结论【划重点】：<br /><span style="color: #ff0000;"><strong>持久化让单点故障不再可怕，数据同步为高可用插上翅膀。</strong></span></p>
+<p>我们理解了数据同步对Redis的重要作用，接下来继续看数据同步的实现原理和过程、重难点等细节问题吧！</p>
+<h3>Redis系统中的CAP理论</h3>
+<p>对分布式存储有了解的读者一定知道CAP理论，说来惭愧笔者在2018年3月份换工作的时候，去Face++旷视科技面后端开发岗位时就遇到了CAP理论，除了CAP理论问题之外其他问题都在射程内，所以最终还是拿了Offer。</p>
+<p>但是印象很深T大毕业的面试官说前面的问题答得都不错，为啥CAP问题答得这么菜&hellip;其实我当时只知道CAP理论就像高富帅一样，不那么容易达到...细节不清楚...各位吃瓜读者，笔者前面说这个小事情的目的是想表达：CAP理论对于理解分布式存储非常重要，下回你们面试被问到CAP别怪我没提醒。</p>
+<p>&nbsp;</p>
+<p>在理论计算机科学中，CAP定理又被称作<strong>布鲁尔定理Brewer's theorem</strong>，这个定理起源于加州大学伯克利分校的计算机科学家埃里克&middot;布鲁尔在2000年的分布式计算原理研讨会PODC上提出的一个<strong>猜想</strong>。</p>
+<p>在2002年麻省理工学院的赛斯&middot;吉尔伯特和南希&middot;林奇发表了布鲁尔<strong>猜想的证明</strong>，使之成为一个<strong>定理</strong>。它指出对于一个分布式计算系统来说，不可能同时满足以下三点：</p>
+<ol>
+<li><strong>C Consistent 一致性 连贯性</strong></li>
+<li><strong>A Availability 可用性</strong></li>
+<li><strong>P Partition Tolerance 分区容忍性</strong></li>
+</ol>
+<p>来看一张阮一峰大佬画的图：</p>
+<p>
+<img class="content_image lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步2.png" alt="" width="359" data-caption="" data-size="normal" data-rawwidth="359" data-rawheight="336" data-actualsrc="https://pic1.zhimg.com/v2-e93323c87123e6c759348451eef219e8_b.jpg" data-lazy-status="ok" /></p>
+<p>举个简单的例子，说明一下CP和AP的兼容性：<br /><strong>CP和AP问题</strong><br />理解CP和AP的关键在于分区容忍性P，网络分区在分布式存储中再平常不过了，即使机器在一个机房，也不可能全都在一个机架或一台交换机。</p>
+<p>这样在局域网就会出现网络抖动，笔者做过1年多DPI对于网络传输中最深刻的三个名词：<strong><span style="color: #ff0000;">丢包、乱序、重传</span></strong>。所以<span style="color: #ff0000;"><strong>我们看来风平浪静的网络，在服务器来说可能是风大浪急</strong></span>，一不小心就不通了，所以当网络出现断开时，这时就出现了网络分区问题。</p>
+<p><br />对于Redis数据同步而言，假设从结点和主结点在两个机架上，某时刻发生网络断开，如果此时Redis读写分离，那么从结点的数据必然无法与主继续同步数据。在这种情况下，如果继续在从结点读取数据就造成数据不一致问题，如果强制保证数据一致从结点就无法提供服务造成不可用问题，从而看出在P的影响下C和A无法兼顾。</p>
+<p>其他几种情况就不深入了，从上面我们可以得出结论：<strong>当Redis多台机器分布在不同的网络中，如果出现网络故障，那么数据一致性和服务可用性无法兼顾，Redis系统对此必须做出选择，事实上Redis选择了可用性，或者说Redis选择了另外一种最终一致性。</strong></p>
+<p><strong>最终一致性</strong><br />Redis选择了最终一致性，也就是不保证主从数据在任何时刻都是一致的，并且Redis主从同步默认是异步的，亲爱的盆友们不要晕！不要蒙圈！</p>
+<p>我来一下解释<strong>同步复制和异步复制(注意：考虑读者的感受 我并没有写成同步同步和异步同步 哈哈)</strong>：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步3.png" alt="" width="502" height="509" data-caption="" data-size="normal" data-rawwidth="658" data-rawheight="667" data-original="https://pic3.zhimg.com/v2-3c81e89b98b458817f811bda14244b36_r.jpg" data-actualsrc="https://pic3.zhimg.com/v2-3c81e89b98b458817f811bda14244b36_b.jpg" data-lazy-status="ok" /></p>
+<p>一图胜千言，看红色的数字就知道同步复制和异步复制的区别了：</p>
+<ul>
+<li><strong>异步复制</strong>：当客户端向主结点写了hello world，主节点写成功之后就向客户端回复OK，这样主节点和客户端的交互就完成了，之后主节点向从结点同步hello world，从结点完成之后向主节点回复OK，整个过程客户端不需要等待从结点同步完成，因此整个过程是异步实现的。</li>
+<li><strong>同步复制</strong>：当客户端向主结点写了hello world，主节点向从结点同步hello world，从结点完成之后向主节点回复OK，之后主节点向客户端回复OK，整个过程客户端需要等待从结点同步完成，因此整个过程是同步实现的。</li>
+
+</ul>
+<p>Redis选择异步复制可以避免客户端的等待，更符合现实要求，不过这个复制方式可以修改，根据自己需求而定吧。</p>
+<p><span style="font-size: 16px;"><strong>从从复制</strong></span><br />假如Redis高可用系统中有一主四从，如果四个从同时向主节点进行数据同步，主节点的压力会比较大，考虑到Redis的最终一致性，因此Redis后续推出了从从复制，从而将单层复制结构演进为多层复制结构，笔者画了个图看下：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步4.png" alt="" width="525" height="346" data-caption="" data-size="normal" data-rawwidth="899" data-rawheight="593" data-original="https://pic4.zhimg.com/v2-e05ac7a962f08d0cb6bfa8bc86e944f3_r.jpg" data-actualsrc="https://pic4.zhimg.com/v2-e05ac7a962f08d0cb6bfa8bc86e944f3_b.jpg" data-lazy-status="ok" /></p>
+<h3>全量复制和增量复制</h3>
+<p>全量复制是从结点因为故障恢复或者新添加从结点时出现的初始化阶段的数据复制，这种复制是将主节点的数据全部同步到从结点来完成的，所以成本大但又不可避免。</p>
+<p>增量复制是主从结点正常工作之后的每个时刻进行的数据复制方式，涓涓细流同步数据，这种同步方式又轻又快，优点确实不少，不过如果没有全量复制打下基础增量复制也没戏，所以二者不是矛盾存在而是相互依存的。</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步5.png" alt="" width="491" height="237" data-caption="" data-size="normal" data-rawwidth="676" data-rawheight="326" data-original="https://pic1.zhimg.com/v2-72925ab16f026585de3c3b9252da45a4_r.jpg" data-actualsrc="https://pic1.zhimg.com/v2-72925ab16f026585de3c3b9252da45a4_b.jpg" data-lazy-status="ok" /></p>
+<h3>全量复制过程分析</h3>
+<p>Redis的全量复制过程主要分三个阶段：</p>
+<ul>
+<li>快照阶段：从结点向主结点发起SYNC全量复制命令，主节点执行bgsave将内存中全部数据生成快照并发送给从结点，从结点释放旧内存载入并解析新快照，主节点同时将此阶段所产生的新的写命令存储到缓冲区。</li>
+<li>缓冲阶段：主节点向从节点同步存储在缓冲区的操作命令，这部分命令主节点是bgsave之后到从结点载入快照这个时间段内的新增命令，需要记录要不然就出现数据丢失。</li>
+<li>增量阶段：缓冲区同步完成之后，主节点正常向从结点同步增量操作命令，至此主从保持基本一致的步调。</li>
+
+</ul>
+<p>借鉴参考1的一张图表，写的很好，我就不再重复画图了：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步6.png" alt="" width="761" height="426" data-caption="" data-size="normal" data-rawwidth="915" data-rawheight="512" data-original="https://pic4.zhimg.com/v2-202d612c563cfa71dbdfd1246615795f_r.jpg" data-actualsrc="https://pic4.zhimg.com/v2-202d612c563cfa71dbdfd1246615795f_b.jpg" data-lazy-status="ok" /></p>
+<p><strong>考虑一个多从<span style="color: #ff0000;">并发全量复制问题</span>：</strong><br /><strong>如果此时有多个从结点同时向主结点发起全量同步请求会怎样？</strong><br />Redis主结点是个聪明又诚实的家伙，比如现在有3个从结点A/B/C陆续向主节点发起SYNC全量同步请求。</p>
+<ol>
+<li>主节点在对A进行bgsave的同时，B和C的SYNC命令到来了，那么主节点就一锅烩，把针对A的快照数据和缓冲区数据同时同步给ABC，这样提高了效率又保证了正确性。</li>
+<li>主节点对A的快照已经完成并且现在正在进行缓冲区同步，那么只能等A完成之后，再对B和C进行和A一样的操作过程，来实现新节点的全量同步，所以主节点并没有偷懒而是重复了这个过程，虽然繁琐但是保证了正确性。</li>
+</ol>
+<p><strong>再考虑一个<span style="color: #ff0000;">快照复制循环问题</span>：</strong><br />主节点执行bgsave是比较耗时且耗内存的操作，期间从结点也经历装载旧数据-&gt;释放内存-&gt;装载新数据的过程，内存先升后降再升的动态过程，从而知道无论主节点执行快照还是从结点装载数据都是需要时间和资源的。</p>
+<p>抛开对性能的影响，试想如果主节点快照时间是1分钟，在期间有1w条新命令到来，这些新命令都将写到缓冲区，如果缓冲区比较小只有8k，那么在快照完成之后，主节点缓冲区也只有8k命令丢失了2k命令，那么此时从结点进行全量同步就缺失了数据，是一次错误的全量同步。</p>
+<p>无奈之下，从结点会再次发起SYNC命令，从而陷入循环，因此缓冲区大小的设置很重要，二话不说再来一张图：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步7.png" alt="" width="574" height="461" data-caption="" data-size="normal" data-rawwidth="727" data-rawheight="584" data-original="https://pic4.zhimg.com/v2-9aff4f3ae111464afa7554c6d6f45453_r.jpg" data-actualsrc="https://pic4.zhimg.com/v2-9aff4f3ae111464afa7554c6d6f45453_b.jpg" data-lazy-status="ok" /></p>
+<h3>增量复制过程分析</h3>
+<p><strong>增量复制</strong>过程稍微简单一些，但是非常有用，试想复杂的网络环境下，并不是每次断开都无法恢复，如果每次断开恢复后就要进行全量复制，那岂不是要把主节点搞死，所以增量复制算是对复杂网络环境下数据复制过程的一个优化，允许一段时间的落后，最终追上就行。</p>
+<p><strong>增量复制</strong>是个<strong>典型的生产者-消费者模型</strong>，使用定长环形数组(队列)来实现，如果buffer满了那么新数据将覆盖老数据，因此从结点在复制数据的同时向主节点反馈自己的偏移量，从而确保数据不缺失。</p>
+<p>这个过程非常好理解，kakfa这种MQ也是这样的，所以在合理设置buffer大小的前提下，理论上从的消费能力是大于主的生产能力的，大部分只有在网络断开时间过长时会出现buffer被覆盖，从结点消费滞后的情况，此时只能进行全量复制了。</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步8.png" alt="" width="470" height="419" data-caption="" data-size="normal" data-rawwidth="703" data-rawheight="627" data-original="https://pic3.zhimg.com/v2-ddeddd072567a9d68dcfcbcf9a59d302_r.jpg" data-actualsrc="https://pic3.zhimg.com/v2-ddeddd072567a9d68dcfcbcf9a59d302_b.jpg" data-lazy-status="ok" /></p>
+<h3>无盘复制</h3>
+<p>理解无盘复制之前先看下什么是有盘复制呢？<br />所谓盘是指磁盘，可能是机械磁盘或者SSD，但是无论哪一种相比内存都更慢，我们都知道IO操作在服务端的耗时是占大头的，因此对于全量复制这种高IO耗时的操作来说，尤其当服务并发比较大且还在进行其他操作时对Redis服务本身的影响是比较大大，之前的模式时这样的：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/Redis面试热点工程架构篇之数据同步9.png" alt="" width="722" height="310" data-caption="" data-size="normal" data-rawwidth="941" data-rawheight="404" data-original="https://pic3.zhimg.com/v2-e2678d7c2907d64ddc5ab002963423da_r.jpg" data-actualsrc="https://pic3.zhimg.com/v2-e2678d7c2907d64ddc5ab002963423da_b.jpg" data-lazy-status="ok" /></p>
+<p>在Redis2.8.18版本之后，开发了无盘复制，也就是避免了生成的RDB文件落盘再加载再网络传输的过程，而是流式的遍历发送过程，主节点一边遍历内存数据，一边将数据序列化发送给从结点，从结点没有变化，仍然将数据依次存储到本地磁盘，完成传输之后进行内存加载，可见无盘复制是对IO更友好。</p>
+<h3>小结</h3>
+<p>时间原因只能写这么多了，<strong>和大家一起学习不是把桶填满而是把火点燃</strong>。</p>
+<p><strong>回顾一下</strong>：本文主要讲述了持久化和数据同步的关系、Redis分布式存储的CAP选择、Redis数据同步复制和异步复制、全量复制和增量复制的原理、无盘复制等，相信耐心的读者一定会有所收获的。</p>
+<p><strong>最后可以思考一个问题：</strong><br />Redis的数据同步仍然会出现数据丢失的情况，比如主节点往缓冲区写了10k条操作命令，此时主挂掉了，从结点只消费了9k操作命令，那么切主之后从结点的数据就丢失了1k，即使旧主节点恢复也只能作为从节点向新主节点发起全量复制，那么我们该如何优化这种情况呢？</p>
+<h3>巨人的肩膀</h3>
+<ol><ol>
+<li><a class=" external" href="https://link.zhihu.com/?target=https%3A//segmentfault.com/a/1190000012390817" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043"><span class="invisible">https://<span class="visible">segmentfault.com/a/1190<span class="invisible">000012390817</span></span></span></a></li>
+<li>钱文品-《Redis深度历险核心原理和应用实践》</li>
+</ol></ol>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,153 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Gradle+Groovy提高篇' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Gradle+Groovy提高篇</center></div><div class='banquan'>原文出处:本文由博客园博主FunTester提供。<br/>
+原文连接:https://www.cnblogs.com/FunTester/p/12033537.html</div><br>
+    <h2 id="创建自定义任务">创建自定义任务</h2>
+<p>打开<code>build.gradle</code>文件，并在末尾添加以下内容：</p>
+<pre><code><code>println &quot;1&quot; 
+   
+task howdy {  
+    println &quot;2&quot; 
+    doLast {  
+        println &quot;Howdy&quot; 
+    }  
+}  
+   
+println &quot;3&quot;</code></pre>
+<p>这将演示有关Gradle脚本如何工作的一些信息。使用以下命令运行它：</p>
+<p><code>./gradlew howdy</code></p>
+<p>您将看到（省略了一些多余的行）：</p>
+<pre><code><code>&gt; Configure project :
+1
+2
+3
+ 
+&gt; Task :howdy
+Howdy</code></pre>
+<p>在这里，<code>Configure project</code>任务将生成并运行生成脚本。在Gradle执行<code>Configure project</code>任务时，它会执行以下操作：</p>
+<p>它打第一个<code>println</code>并打印“1”<br />
+它找到要执行的<code>howdy</code>任务定义块，一个闭包，并显示“2”。请注意，它不会执行<code>doLast</code>关闭操作，因此尚未打印“Howdy”。<br />
+它继续执行脚本，直到第四个<code>println</code>，然后打印“3”。<br />
+至此，构建脚本本身已完成对构建环境的配置。下一步是执行命令行中指定的所有任务，在本例中为<code>howdy</code>任务。</p>
+<p>这是<code>task.doLast{}</code>执行块的地方，因此您会在输出中看到“Howdy”字样。</p>
+<p><code>doLast</code>是该块的别称；它的真正含义是类似于“任务操作”，而外部块是任务配置。</p>
+<pre><code><code>task howdy {  
+    // 始终在初始构建脚本配置期间执行
+    doLast {  
+        // 仅在任务本身被调用时执行 
+    }
+    // 始终在初始构建脚本配置期间执行
+} </code></pre>
+<p>使用Graovy DSL根据Gradle文档定义任务的各种方法如下：</p>
+<pre><code><code>task taskName
+task taskName { configure closure }
+task taskName(type: SomeType)
+task taskName(type: SomeType) { configure closure }</code></pre>
+<p>只是为了锤炼，在运行构建脚本时立即执行“配置闭包”，而在<code>doLast</code>专门执行任务时执行在配置闭包中定义的闭包。</p>
+<p>将第二个自定义任务添加到<code>build.gradle</code>文件：</p>
+<pre><code><code>task partner {  
+    println &quot;4&quot; 
+    doLast {  
+        println &quot;Partner&quot; 
+    }  
+}  
+println &quot;5&quot;</code></pre>
+<p>如果您<code>./gradlew partner</code>看到的是：</p>
+<pre><code><code>&gt; Configure project :
+1
+2
+3
+4
+5
+ 
+&gt; Task :partner
+Partner</code></pre>
+<p>如果您希望一个自定义任务依赖另一个任务怎么办？这简单。<code>build.gradle</code> 在定义两个自定义任务之后，将以下行添加到文件中的某处。</p>
+<p><code>partner.dependsOn howdy</code></p>
+<p>并运行：<code>./gradlew partner</code></p>
+<pre><code><code>...
+&gt; Task :howdy
+Howdy
+ 
+&gt; Task :partner
+Partner</code></pre>
+<p>您也可以使用task属性表示类似的关系finalizedBy。如果将dependsOn行替换为：</p>
+<p><code>howdy.finalizedBy partner</code></p>
+<p>并运行：<code>/gradlew howdy</code>。</p>
+<pre><code><code>...
+&gt; Task :howdy
+Howdy
+ 
+&gt; Task :partner
+Partner</code></pre>
+<p>您得到相同的输出。当然，他们表达不同的关系。</p>
+<p>关于任务的最后一点：在实践中，您很少编写自定义任务来说诸如“Howdy Partner”之类的东西（我很难相信，我知道）。实际上，通常您会覆盖已经定义的任务类型。例如，Gradle定义了Copy一个将文件从一个位置复制到另一个位置的任务。</p>
+<p>这是一个将文档复制到构建目标的示例：</p>
+<pre><code><code>task copyDocs(type: Copy) {
+    from &#39;src/main/doc&#39;
+    into &#39;build/target/doc&#39;
+}</code></pre>
+<p>当您意识到<code>build.gradle</code>文件实际上是一个Groovy脚本时，就可以使用Groovy和Gradle的真正功能，如果需要，您可以执行任意代码来过滤和转换这些文件。</p>
+<p>下面的任务转换每个副本文件并排除<code>.DS_Store</code>文件。DSL非常灵活。您可以使用<code>from</code>和多个块<code>excludes</code>，也可以执行诸如重命名文件或专门包含文件之类的操作。再次查看“复制”任务的文档以获取更完整的想法。</p>
+<pre><code><code>task copyDocs(type: Copy) {
+    from &#39;src/main/doc&#39;
+    into &#39;build/target/doc&#39;
+    eachFile { file -&gt;
+        doSomething(file);
+    }
+    exclude &#39;**/.DS_Store&#39;
+}</code></pre>
+<p>我在Gradle Jar或中最重视War的任务是负责打包<code>.jar</code>和<code>.war</code>文件以进行最终分发的任务。像<code>Copy</code>任务一样，他们具有定制过程的非常开放的能力，这对于需要定制最终产品的项目可能是巨大的帮助。实际上，您可以使用Gradle DSL来完全控制打包过程的各个方面。</p>
+<p>Spring Boot插件的<code>bootJar</code>和<code>bootWar</code>任务继承自<code>Jar</code>和<code>War</code>任务，因此它们包括所有配置选项，包括复制，过滤和修改文件的能力以及自定义清单的能力。</p>
+<p>提高篇到此结束，大家要是有兴趣欢迎去Gradle官网查看API文档，非常有帮助。</p>
+<hr />
+<ul>
+<li><strong>郑重声明</strong>：文章禁止第三方（腾讯云除外）转载、发表，事情原委<a href="https://mp.weixin.qq.com/s/ke5avkknkDMCLMAOGT7wiQ">测试窝，首页抄我七篇原创还拉黑，你们的良心不会痛吗？</a></li>
+</ul>
+<h2 id="技术类文章精选">技术类文章精选</h2>
+<ul>
+<li><a href="https://mp.weixin.qq.com/s/QPSryoSbViVURpSa9QXtpg">java一行代码打印心形</a></li>
+<li><a href="https://mp.weixin.qq.com/s/fdXtK-5WwKnxjLZdyg6-nA">Linux性能监控软件netdata中文汉化版</a></li>
+<li><a href="https://mp.weixin.qq.com/s/D73Sq6NLjeRKN8aCpGLOjQ">接口测试代码覆盖率（jacoco）方案分享</a></li>
+<li><a href="https://mp.weixin.qq.com/s/JPyGQ2DRC6EVBmZkxAoVWA">性能测试框架第二版</a></li>
+<li><a href="https://mp.weixin.qq.com/s/fwGqBe1SpA2V0lPfAOd04Q">如何在Linux命令行界面愉快进行性能测试</a></li>
+<li><a href="https://mp.weixin.qq.com/s/100Vm8FVEuXs0x6rDGTipw">图解HTTP脑图</a></li>
+<li><a href="https://mp.weixin.qq.com/s/SY8mVenj0zMe5b47GS9VSQ">将swagger文档自动变成测试代码</a></li>
+<li><a href="https://mp.weixin.qq.com/s/hZnimJOg5OqxRSDyFvuiiQ">五行代码构建静态博客</a></li>
+<li><a href="https://mp.weixin.qq.com/s/xhg4exdb1G18-nG5E7exkQ">基于java的直线型接口测试框架初探</a></li>
+</ul>
+<h2 id="非技术文章精选">非技术文章精选</h2>
+<ul>
+<li><a href="https://mp.weixin.qq.com/s/o83wYvFUvy17kBPLDO609A">为什么选择软件测试作为职业道路?</a></li>
+<li><a href="https://mp.weixin.qq.com/s/Oj33UCnYfbUgzsBzEm2GPQ">写给所有人的编程思维</a></li>
+<li><a href="https://mp.weixin.qq.com/s/wdw1l4AZnPpdPBZZueCcnw">成为优秀自动化测试工程师的7个步骤</a></li>
+<li><a href="https://mp.weixin.qq.com/s/e-HAGMO0JLR7VBBWLvk0dQ">成为自动化测试的7种技能</a></li>
+<li><a href="https://mp.weixin.qq.com/s/SH-vb2RagYQ3sfCY8QM5ew">自动化测试生命周期</a></li>
+<li><a href="https://mp.weixin.qq.com/s/MclK3VvMN1dsiXXJO8g7ig">如何在DevOps引入自动化测试</a></li>
+<li><a href="https://mp.weixin.qq.com/s/qzFth-Q9e8MTms1M8L5TyA">Web端自动化测试失败原因汇总</a></li>
+<li><a href="https://mp.weixin.qq.com/s/MclK3VvMN1dsiXXJO8g7ig">如何在DevOps引入自动化测试</a></li>
+<li><a href="https://mp.weixin.qq.com/s/0nTZHBOuKG0rewKAeyIqwA">测试人员如何成为变革的推动者</a></li>
+<li><a href="https://mp.weixin.qq.com/s/zZAh_XXXGOyhlm6ebzs06Q">编写测试用例的技巧</a></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

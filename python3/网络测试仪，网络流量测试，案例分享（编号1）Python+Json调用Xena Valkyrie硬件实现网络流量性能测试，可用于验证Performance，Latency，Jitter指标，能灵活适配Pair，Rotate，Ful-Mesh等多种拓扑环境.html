@@ -1,0 +1,300 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修网络测试仪，网络流量测试，案例分享（编号1）Python+Json调用Xena Valkyrie硬件实现网络流量性能测试，可用于验证Performance，Latency，Jitter指标，能灵活适配Pair，Rotate，Ful-Mesh等多种拓扑环境' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>网络测试仪，网络流量测试，案例分享（编号1）Python+Json调用Xena Valkyrie硬件实现网络流量性能测试，可用于验证Performance，Latency，Jitter指标，能灵活适配Pair，Rotate，Ful-Mesh等多种拓扑环境</center></div><div class='banquan'>原文出处:本文由博客园博主Evan_丹麦信雅纳网络提供。<br/>
+原文连接:https://www.cnblogs.com/xena/p/11579033.html</div><br>
+    <p><strong>硬件：</strong>XENA Valkyrie 或 Vantage主机，测试板卡不限，本方法适用于其100M~400G所有速率端口</p>
+<p><strong>环境配置：</strong>Python 3</p>
+<p><strong>实现功能：</strong></p>
+<p>1.控制流量仪进行流量测试，预定配置的流量发送，报文统计，丢包率，延迟等信息的统计</p>
+<p>2.单个Python脚本配合不同的JSON对象文件，来实现不同端口数量，不同拓扑模型下的流量测试</p>
+<p>3.在发包测试前及运行过程中都对发包端口的链路状态进行监控100M/1G/2.5G/5G/10G</p>
+<p>4.嵌入ARP探测，获取DUT的MAC信息，并记录在测试日志中</p>
+<p>5.统计端口流量的Tx,Rx信息，丢包率，延迟信息</p>
+<p><strong>设计思路：</strong>main文件控制主流程，嵌入Statistics模块进行数据统计，CreateClass模块进行命令预定义</p>
+<p><strong>运行效果：</strong></p>
+<p><strong><img src="./images/网络测试仪，网络流量测试，案例分享（编号1）Python+Json调用Xena Valkyrie硬件实现网络流量性能测试，可用于验证Performance，Latency，Jitter指标，能灵活适配Pair，Rotate，Ful-Mesh等多种拓扑环境0.png" alt="" width="619" height="307" /></strong></p>
+<p>&nbsp;</p>
+<p>&nbsp;<img src="./images/网络测试仪，网络流量测试，案例分享（编号1）Python+Json调用Xena Valkyrie硬件实现网络流量性能测试，可用于验证Performance，Latency，Jitter指标，能灵活适配Pair，Rotate，Ful-Mesh等多种拓扑环境1.png" alt="" width="611" height="356" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><strong>主要实现代码：</strong></p>
+<div class="cnblogs_code">
+<pre><code>  1 import<span> threading, time, json, random, queue, types, sys, socket
+  2 from binascii import<span> hexlify
+  3 from TestUtilsL23 import<span> XenaScriptTools
+  4 from CreateClass import<span> StreamCreate
+  5 from Statistics import<span> CollectTestresult
+  6 
+  7 def<span> BuildDict(ports, configvalue, watching, watching_2):
+  8     #Generate ports Dictionary
+  9     a = 1 
+ 10     for port in<span> ports:
+ 11         ip_address_b = configvalue['IP'][0:10<span>]
+ 12         ip_address_c = ip_address_b +<span> str(a)
+ 13         mac_a = configvalue['mac'][0:10<span>]
+ 14         if a &gt; 9<span>:
+ 15             mac_address = mac_a +<span> str(a)
+ 16         else<span>:
+ 17             mac_address = mac_a + '0' +<span> str(a)
+ 18         ip_address_a =<span> hexlify(socket.inet_aton(ip_address_c)).decode()
+ 19         mac_ip =<span> [str(mac_address), str(ip_address_a)]
+ 20         watching[port] =<span> mac_ip
+ 21         a += 1
+ 22 
+ 23     watching_2['type_eth'] = 'FFFF'<span>,
+ 24     watching_2['type_vlan'] = '8100'<span>,
+ 25     watching_2['type_ip'] = '08004500006A000000007F11BA2D'<span>,
+ 26     watching_2['type_udp'] = '00000000'<span>,
+ 27     watching_2['type_tcp'] = '000000000000000050000000E5A40000'<span>,
+ 28     watching_2['tcpid'] = [hex(int(configvalue['tcpPort'][0]))[2:].zfill(4) + hex(int(configvalue['tcpPort'][1]))[2:].zfill(4<span>)]
+ 29 
+ 30 
+ 31 def<span> PrintMes(ports, configvalue, ip_address):
+ 32     localtime =<span> time.asctime( time.localtime(time.time()) )
+ 33     print("\n##############################################"<span>)
+ 34     print("                   测试配置                   "<span>)
+ 35     print("##############################################\n"<span>)
+ 36     print("测试时间     :  " +<span> str(localtime))
+ 37     print("设备IP地址   :  " +<span> ip_address)
+ 38     print("测试端口     :  " +<span> str(ports))
+ 39     print("测试模式     :  " + configvalue['Stype'<span>])
+ 40     print("持续时间     :  " + configvalue['testtime'<span>])
+ 41     print("报文类型     :  " + configvalue['header_type'<span>])
+ 42     print("报文长度     :  " + configvalue['packet'<span>])
+ 43     if configvalue['Stype'] == 'Aggregation'<span>:
+ 44         print("上行VLAN     :  " + str(configvalue['uvlan'<span>]))
+ 45         print("下行VLAN     :  " + str(configvalue['uvlan'<span>]))
+ 46         print("WAN速率      :  " + str(configvalue['wanrate'<span>]))
+ 47         print("LAN速率      :  " + str(configvalue['lanrate'<span>]))
+ 48     else<span>:
+ 49         print("VLAN         :  " + str(configvalue['uvlan'<span>]))
+ 50         print("速率设置     :  " + str(configvalue['wanrate'<span>]))
+ 51     print("端口速率     :  " + str(configvalue['portrate'<span>]))
+ 52     print("学习时间     :  " + configvalue['learntime'<span>])
+ 53     print("丢包率设置   :  " + configvalue['threshold'<span>])
+ 54     if configvalue['snlearnenable'] == '1'<span>:
+ 55         print("自动学习SN   :  Enable"<span>)
+ 56     else<span>:
+ 57         print("自动学习SN   :  Disable"<span>)
+ 58     if configvalue['portspeedcheck'] == '1'<span>:
+ 59         print("端口速率检测 :  Enable"<span> )
+ 60     else<span>:
+ 61         print("端口速率检测 :  Disable"<span> )
+ 62 
+ 63 
+ 64 def<span> Maclearning(xm, ports, configvalue):
+ 65     if configvalue['snlearnenable'] == '1'<span>:
+ 66         xm.SendExpectOK(ports [1] + " PS_CREATE [0]"<span>)
+ 67         xm.SendExpectOK(ports [1] + " ps_tpldid [0] 0"<span>)
+ 68         xm.SendExpectOK(ports [1] + " PS_PACKETLENGTH [0] FIXED 70 1518"<span>)
+ 69         xm.SendExpectOK(ports [1] + " PS_HEADERPROTOCOL [0] ETHERNET ARP"<span>)
+ 70         learnIP_hex = hexlify(socket.inet_aton(configvalue['learnIP'<span>])).decode()
+ 71         xm.SendExpectOK(ports [1] + " PS_PACKETHEADER [0] 0xFFFFFFFFFFFF00000000000108060001080006040001000000000001C0A80164FFFFFFFFFFFF" +<span> learnIP_hex)
+ 72         xm.SendExpectOK(ports [1] + " PS_RATEPPS [0] 2"<span>)
+ 73         xm.SendExpectOK(ports [1] + " PS_ENABLE [0] on"<span>)
+ 74         xm.SendExpectOK(ports [1] + " P_TRAFFIC ON"<span>)
+ 75         xm.SendExpectOK(ports [1] + " P_CAPTURE ON"<span>)
+ 76         time.sleep(1<span>)
+ 77         xm.SendExpectOK(ports [1] + " P_CAPTURE OFF"<span>)
+ 78         xm.SendExpectOK(ports [1] + " P_TRAFFIC OFF"<span>)
+ 79         SN = xm.Send(ports[1] + " PC_PACKET [0] ?"<span>)
+ 80         SN = SN.split('  ')[-1<span>]
+ 81         xm.SendExpectOK(ports [1] + " PS_DELETE [0]"<span>)
+ 82         Serial =<span> str(SN)
+ 83         if SN == '&lt;BADINDEX&gt;'<span>:
+ 84             print ("\nTest result :Failed;[ARP learning failed!!]"<span>)
+ 85 <span>            sys.exit()
+ 86         print ("DUT SN       :  " + str(Serial[16:28<span>]))
+ 87 
+ 88 
+ 89 def<span> PortSpeed(xm, ports, PSC, configvalue):
+ 90     if configvalue['PRcheck'] == '1'<span>:
+ 91 <span>        xm.PortSyncCheck(ports)
+ 92     i =<span> 0
+ 93     for port in<span> ports:
+ 94         PS = xm.Send(port + ' p_speed ?'<span>)
+ 95         PS = PS.split('  ')[-1<span>]
+ 96 <span>        PSC.append(str(PS))
+ 97         if configvalue['portspeedcheck'] == '1'<span>:
+ 98             if str(PS) != configvalue['portrate'<span>][i]:
+ 99                 print ('Test Result:Failed;[' + port + ' 端口速率不匹配，请检查配置...]'<span>)
+100 <span>                sys.exit()
+101         i += 1
+102 
+103 
+104 def<span> runtest(xm, ports, configvalue):
+105 <span>    xm.PortTrafficStart(ports)
+106     time.sleep(float(configvalue['learntime'<span>]))
+107 <span>    xm.PortTrafficStop(ports)
+108     time.sleep(0.5<span>)
+109 <span>    xm.Statisticsclear(ports)
+110     time.sleep(0.5<span>)
+111     xm.Porttimelimit(ports, configvalue['testtime'<span>])
+112     time.sleep(0.2<span>)
+113 <span>    xm.PortTrafficStart(ports)
+114     count =<span> 0
+115     print ("\n开始打流，请耐心等候, 测试时间约为" + configvalue['testtime'] + "秒......\n"<span>)
+116     while<span> True:
+117         print ("&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;", end=''<span>)
+118         xm.Send(ports[0] + " P_TRAFFIC ?"<span>)
+119 <span>        sys.stdout.flush()
+120         count += 1
+121         time.sleep(1<span>)
+122         if count &gt; int(configvalue['testtime'<span>]):
+123             print ('\n\n测试结束，正在收集测试数据......'<span>)
+124             break
+125     print<span>()
+126 <span>    xm.PortTrafficStop(ports)
+127     time.sleep(1<span>)
+128 
+129 
+130 def<span> main(argv):
+131     a =<span> sys.argv
+132     configvalue =<span> {}
+133     filename = str(a[1<span>])
+134     with open(filename,'rb'<span>) as f:
+135         configs=<span>json.loads(f.read())
+136 
+137         ip_address = configs.get('ip_address'<span>)
+138         ports = configs.get('ports', ''<span>)
+139         configvalue['uvlan'] = configs.get('uvlan', ''<span>)
+140         configvalue['dvlan'] = configs.get('dvlan', ''<span>)
+141         configvalue['tcpPort'] = configs.get('tcpUdpPort', ''<span>)
+142         configvalue['packet'] = configs.get('packet', ''<span>)
+143         configvalue['testtime'] = configs.get('testtime', ''<span>)
+144         configvalue['threshold'] = configs.get('threshold', ''<span>)
+145         configvalue['header_type'] = configs.get('headertype', ''<span>)
+146         configvalue['learntime'] = configs.get('learntime', ''<span>)
+147         configvalue['payload'] = configs.get('payload', ''<span>)
+148         configvalue['wanrate'] = configs.get('wanrate', ''<span>)
+149         configvalue['lanrate'] = configs.get('lanrate', ''<span>)
+150         configvalue['portrate'] = configs.get('portrate', ''<span>)
+151         configvalue['PRcheck'] = configs.get('PRcheck', ''<span>)
+152         configvalue['IP'] = configs.get('IP', ''<span>)
+153         configvalue['mac'] = configs.get('mac', ''<span>)
+154         configvalue['snlearnenable'] = configs.get('snlernenable', ''<span>)
+155         configvalue['learnIP'] = configs.get('learnIP', ''<span>)
+156         configvalue['Stype'] = configs.get('Stype', ''<span>)
+157         configvalue['portspeedcheck'] = configs.get('PScheck', ''<span>)
+158 
+159     PSC =<span> []
+160     FCS =<span> []
+161     watching =<span> {}
+162     watching_2 =<span> {}
+163     testresult =<span> {}
+164 
+165 <span>    PrintMes(ports, configvalue, ip_address)
+166 
+167     xm =<span> XenaScriptTools(ip_address)
+168     xm.LogonSetOwner("xena", "python_test_1"<span>)
+169 <span>    xm.PortRelinquish(ports)
+170 <span>    xm.PortReserve(ports)
+171 <span>    xm.PortTrafficStop(ports)
+172 <span>    xm.StreamsDelete(ports)
+173     sc =<span> StreamCreate(xm, ports, watching, watching_2, configvalue)
+174     cr =<span> CollectTestresult(xm, ports, PSC, configvalue, testresult, FCS)
+175 
+176     
+177 <span>    BuildDict(ports, configvalue, watching, watching_2)
+178 <span>    PortSpeed(xm, ports, PSC, configvalue)
+179     if configvalue['snlearnenable'] == '1'<span>:
+180 <span>        Maclearning(xm, ports, configvalue)
+181     if configvalue['Stype'] == 'Loopback'<span>:
+182 <span>        sc.Loopback(xm, ports, watching, watching_2, configvalue)
+183 <span>        runtest(xm, ports, configvalue)
+184 <span>        cr.LoopbackStatistics(xm, ports, testresult)
+185     if configvalue['Stype'] == 'Eachother'<span>:
+186 <span>        sc.Eachother(xm, ports, watching, watching_2, configvalue)
+187 <span>        runtest(xm, ports, configvalue)
+188 <span>        cr.EachotherStatistics(xm, ports, testresult)
+189     if configvalue['Stype'] == 'Aggregation'<span>:
+190 <span>        sc.Aggregation(xm, ports, watching, watching_2, configvalue)
+191 <span>        runtest(xm, ports, configvalue)
+192 <span>        cr.AggregationStatistics(xm, ports, testresult)
+193 <span>    cr.FCSGetValue(xm, ports, FCS)
+194 <span>    cr.OutputStatistics(ports, PSC, configvalue, testresult, FCS)
+195 <span>    xm.PortRelease(ports)
+196 
+197 if __name__ == '__main__'<span>:
+198     sys.exit(main(sys.argv))</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>JSON对象配置文件</strong></p>
+<div class="cnblogs_code">
+<pre><code><span>{
+"##常用配置修改":""<span>,
+
+"ports": ["0/0","0/1","0/2","0/3","0/4","0/5"<span>],
+"packet": "FIXED 64 1518"<span>,
+"testtime": "10"<span>,
+
+"##注意：dvlan和lanrate只有在Aggregation模式生效，其他模式仅需uvlan和wanrate":""<span>,
+"##其中vlan设置为-1则表示不添加vlan":""<span>,
+"uvlan": "-1"<span>,
+"dvlan": "-1"<span>,
+"wanrate": ["100", "100", "100","100", "100", "100"<span>],
+"lanrate": ["21", "22", "23","24"<span>],
+
+"portrate": ["1000","1000","1000","1000","1000","1000"<span>],
+
+"##Stype为测试模式，分别可以配置为：Loopback, Eachother, Aggregation":""<span>,
+"##其中Loopback为环回测试，Eachother为两两互打测试，Aggregation为汇聚测试":""<span>,
+"Stype":"Eachother"<span>,
+
+"##headertype为报文类型，分别可以配置为：TCP, UDP, IP, Ethernet":""<span>,
+"headertype": "Ethernet"<span>,
+
+"##threshold为丢包率设置":""<span>,
+"threshold": "0"<span>,
+
+
+
+
+"##不常用配置修改":""<span>,
+
+"##发送学习报文的时间":""<span>,
+"learntime": "3"<span>,
+
+"##payload类型分别有: Pattern, Random":""<span>,
+"payload": "Pattern"<span>,
+
+"##PRcheck为使能端口状态检测，1为开启，0为关闭；使能后端口为连接的时候会报错":""<span>,
+"PRcheck": "1"<span>,
+
+"##PScheck为检测端口速率是否匹配，1为开启，0为关闭":""<span>,
+"PScheck":"1"<span>,
+
+"tcpUdpPort": ["1024", "2048"<span>],
+"IP": "192.168.163.1"<span>,
+"mac": "000000033333"<span>,
+
+"##学习DUT的MAC地址":""<span>,
+"snlernenable": "0"<span>,
+"learnIP": "192.168.2.1"<span>,
+
+"##测试仪IP地址":""<span>,
+"ip_address": "192.168.1.200"<span>
+}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre>
+</div>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

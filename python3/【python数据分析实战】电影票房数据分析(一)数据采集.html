@@ -1,0 +1,215 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【python数据分析实战】电影票房数据分析(一)数据采集' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【python数据分析实战】电影票房数据分析(一)数据采集</center></div><div class='banquan'>原文出处:本文由博客园博主cbowen提供。<br/>
+原文连接:https://www.cnblogs.com/cbowen/p/11725859.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#获取url">1、获取url</a></li>
+        <li><a href="#开始采集">2、开始采集</a></li>
+        <li><a href="#存入mysql">3、存入mysql</a></li>
+        </ul>
+    </div>
+</div>
+<p>本文是爬虫及可视化的练习项目，目标是爬取猫眼票房的全部数据并做可视化分析。</p>
+<h2 id="获取url">1、获取url</h2>
+<p>我们先打开猫眼票房http://piaofang.maoyan.com/dashboard?date=2019-10-22 ，查看当日票房信息，<br />
+但是在通过xpath对该url进行解析时发现获取不到数据。<br />
+于是按F12打开Chrome DevTool，按照如下步骤抓包<br />
+<img src="./images/【python数据分析实战】电影票房数据分析(一)数据采集0.png" /><br />
+再打开获取到的url:<a href="http://pf.maoyan.com/second-box?beginDate=20191022" class="uri">http://pf.maoyan.com/second-box?beginDate=20191022</a><br />
+<img src="./images/【python数据分析实战】电影票房数据分析(一)数据采集1.png" /><br />
+可以看到是json数据，并且url是以日期结尾的，也就是每日的票房数据都保存在对应日期的url中，这样我们就可以通过构造url来爬取每天的票房数据。</p>
+<h2 id="开始采集">2、开始采集</h2>
+<p>先创建了两个函数，<br />
+一个用来获取制定年份的所有日期，例如，传入2019，返回['20190101', '20190102'...'20191230', '20191231']。<br />
+当然也可以传入多个年份的列表，如[2016,2017,2018']，返回 ['20160101','20160102', ...'20170101',...'20180101',...'20181231']<br />
+这里没有使用任何库，用笨方法手动构造了全年的日期列表。</p>
+<pre><code><code>def get_calendar(years):
+    &quot;&quot;&quot;
+    传入年份(可用list传入多个年份)，得到年份中的所有日期
+    :param years: 可传入list、int、str
+    :return:  年份中全部日期的list，日期格式: &quot;2019-09-30&quot;
+    &quot;&quot;&quot;
+    mmdd = []
+    # 判断传入参数的格式，如果是list则排序，如果是str或int则转为list
+    if isinstance(years, list):
+        years.sort()
+    else:
+        years = [int(years)]
+
+    # 先为每个月都加入31天，然后删掉2，4，6，9，11的31日和2月的30日，再判断闰年来删掉2月29日
+    for year in years:
+        for m in range(1, 13):
+            for d in range(1, 32):
+                mmdd.append(str(year) + str(m).zfill(2) + str(d).zfill(2))
+        for i in [2, 4, 6, 9, 11]:
+            mmdd.remove(str(year) + str(i).zfill(2) + &quot;31&quot;)
+        mmdd.remove(str(year) + &quot;0230&quot;)
+        if not calendar.isleap(year):
+            mmdd.remove(str(year) + &quot;0229&quot;)
+
+    return mmdd</code></pre>
+<p>第二个函数很简单，传入上一个函数得到的日期列表，返回对应日期的url列表。</p>
+<pre><code><code>def get_urls(datas):
+    &quot;&quot;&quot;
+    通过日历函数得到的每年全部日期，构造出全部日期的url
+    :param datas: 全部日期
+    :return: 全部url
+    &quot;&quot;&quot;
+    urls = []
+    for date in datas:
+        url = &quot;http://pf.maoyan.com/second-box?beginDate={}&quot;.format(date)
+        urls.append(url)
+    return urls
+</code></pre>
+<h2 id="存入mysql">3、存入mysql</h2>
+<p>对于将数据存到mysql还是excel中，差别只在于写入的方法不同，前面对url的解析以及对数据的处理和获取都基本相同，<br />
+所以这里直接把存入mysql和存入excel写到了一个函数中，和后面的两个函数分别配合完成数据储存操作。</p>
+<p>参数说明和判断储存方式在函数注释里写的很详细，这里简单说一下函数逻辑，<br />
+因json里的数据项很多，并且都以英文作为key，所有我们这里先手动创建要获取的数据项的中英文对照表，放到dict中，并根据这个dict来匹配主要的数据项。<br />
+最终返回一个由字典组成的list，返回的list其实没什么用，因为后面可视化的数据来源是直接通过sql取自mysql的，所以返回的list主要是调试时用着方便。</p>
+<pre><code><code>
+def get_movie_data(url, excel_or_db):
+    &quot;&quot;&quot;
+    采集一个页面，并将数据写入excel或数据库，
+    需要在函数外创建excel工作薄和工作表或连接好数据库，将worksheet或Connection类作为参数传入本函数
+    如果传入的是worksheet类，函数会把数据保存到已创建excel中；
+    如果传入的是Connection类，函数会把数据保存在已连接的数据库的movies_data表中，数据库表名手动在sql中调整，本函数内1处、get_data_save_db()函数内两处。
+    :param url: 要采集的页面
+    :param excel_or_db: openxl的worksheet类 或 pymysql的Connection类
+    :return: 返回页面的全部数据
+    &quot;&quot;&quot;
+    headers = {&#39;user-agent&#39;: &#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit&#39;
+                             &#39;/537.36 (KHTML, like Gecko) Chrome/67.0.3396.62 Safari/537.36&#39;}
+    main_key = {&quot;avgSeatView&quot;: &quot;上座率&quot;,
+                &quot;avgShowView&quot;: &quot;场均人次&quot;,
+                &quot;boxInfo&quot;: &quot;综合票房&quot;,
+                &quot;boxRate&quot;: &quot;票房占比&quot;,
+                &quot;movieId&quot;: &quot;影片ID&quot;,
+                &quot;movieName&quot;: &quot;影片名称&quot;,
+                &quot;releaseInfo&quot;: &quot;上映天数&quot;,
+                &quot;showInfo&quot;: &quot;当日排片场次&quot;,
+                &quot;showRate&quot;: &quot;排片占比&quot;,
+                &quot;sumBoxInfo&quot;: &quot;综合票房总收入&quot;}  # 用于数据分析的主要属性
+
+    html = requests.get(url, headers=headers).text  # 获取页面信息，得到json对象
+    result = json.loads(html, encoding=&quot;utf-8&quot;)  # 将json对象转为python对象
+
+    main_data = []
+    try:
+        page_data = result[&quot;data&quot;][&quot;list&quot;]  # 获取其中可用的数据部分，得到 [{电影1数据}, {电影2数据}, ...]
+        if isinstance(excel_or_db, openpyxl.worksheet.worksheet.Worksheet):
+            for dt in page_data:  # 对页面数据进行循环，匹配main_key中的主要属性，将数据放到main_data中，
+                one_movie_data = {&quot;日期&quot;: url[-8:]}  # 先把日期放入字典中
+                for key in main_key.keys():
+                    one_movie_data[main_key[key]] = dt[key]  # 将原数据的英文属性名，对照main_key转成中文
+                excel_or_db.append(list(one_movie_data.values()))
+                main_data.append(one_movie_data)
+
+        elif isinstance(excel_or_db, pymysql.connections.Connection):
+            for dt in page_data:  # 对页面数据进行循环，匹配main_key中的主要属性，将数据放到main_data中，
+                one_movie_data = {&quot;日期&quot;: url[-8:]}  # 先把日期放入字典中
+                for key in main_key.keys():
+                    one_movie_data[main_key[key]] = dt[key]  # 将原数据的英文属性名，对照main_key转成中文
+
+                cursor = excel_or_db.cursor()
+                sql_insert = &#39;&#39;&#39;insert into movies_data15 values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);&#39;&#39;&#39;
+                cursor.execute(sql_insert, list(one_movie_data.values()))
+                excel_or_db.commit()
+                cursor.close()
+                main_data.append(one_movie_data)
+    except:
+        pass
+
+    return main_data</code></pre>
+<p>因为目标网站数据量较大，为了测试方便，这里写了个函数来限制采集数量：达到设定值则结束采集。</p>
+<pre><code><code>def go_limit(year, *, ws, max_line=float(&quot;inf&quot;)):  # float(&quot;inf&quot;)为无穷大
+    &quot;&quot;&quot;
+    测试时用于限制爬取条数
+    :return:
+    &quot;&quot;&quot;
+    num = 1
+    for url in get_urls(get_calendar(year)):
+        if num &lt;= max_line:
+            print(num, get_movie_data(url, ws))
+            time.sleep(1)
+            num += 1
+        else:
+            break</code></pre>
+<p>下面是写入excel和写入mysql的函数，写成函数主要是为了看着简洁。</p>
+<pre><code><code>def get_data_and_save_excel():
+    tittles = [&#39;日期&#39;, &#39;上座率&#39;, &#39;场均人次&#39;, &#39;综合票房&#39;, &#39;票房占比&#39;, &#39;影片ID&#39;, &#39;影片名称&#39;, &#39;上映天数&#39;, &#39;当日排片场次&#39;, &#39;排片占比&#39;, &#39;综合票房总收入&#39;]
+    workbook = openpyxl.Workbook()  # 创建工作簿
+    worsheet = workbook.active  # 获取活跃工作表，即当前默认工作表
+    worsheet.append(tittles)
+
+    print(go_limit(2011, ws=worsheet, max_line=20)) # 限制输出行数，用于测试
+
+    # 配置列宽
+    for index in range(1, len(tittles) + 1):    # 将所有列列宽均设为20
+        worsheet.column_dimensions[get_column_letter(index)].width = 20
+    workbook.save(&quot;data.xlsx&quot;)</code></pre>
+<p>连接数据库，开始采集，写入数据库<br />
+这个函数里有一个逻辑错误，能找到问题的小伙伴可以在留言里指出。<br />
+还有就是sql里边包含表名称，本函数、get_movie_data()采集函数、以及后面的可视化函数，都用到相同的表名称，如有变动要分别修改，很麻烦，<br />
+如果把表名称作为参数传递也很麻烦，每个函数都要传一次，<br />
+可以把表名称作为全局变量，用外部耦合解决，用增加耦合度来换省事。</p>
+<pre><code><code>def get_data_save_db(years):
+    &quot;&quot;&quot;
+    数据库表名需要手动在sql中调整，本函数内2处，get_movie_data()函数内1处，3处表名需要保持一致。
+    &quot;&quot;&quot;
+    config = {&#39;host&#39;: &#39;localhost&#39;,
+              &#39;port&#39;: 3306,
+              &#39;user&#39;: &#39;***&#39;,
+              &#39;password&#39;: &#39;***&#39;,
+              &#39;database&#39;: &#39;***&#39;,
+              &#39;charset&#39;: &#39;utf8&#39;}
+    conn = pymysql.connect(**config)  # **config是将config字典拆开传入
+    cursor = conn.cursor()
+    sql_check = &#39;&#39;&#39;drop table if exists movies_data15;&#39;&#39;&#39;  # 判断movies_data表是否存在，存在则drop
+    sql_create = &#39;&#39;&#39;create table movies_data15(date varchar(8),
+                                        avgSeatView varchar(8),
+                                        avgShowView varchar(8),
+                                        boxInfo varchar(10),
+                                        boxRate varchar(8),
+                                        movieId varchar(10),
+                                        movieName varchar(30),
+                                        releaseInfo varchar(8),
+                                        showInfo varchar(8),
+                                        showRate varchar(8),
+                                        sumBoxInfo varchar(8),
+                                        primary key (date, movieID)) DEFAULT CHARSET=utf8;&#39;&#39;&#39;  # 创建movies_data表
+    cursor.execute(sql_check)
+    cursor.execute(sql_create)
+    conn.commit()
+    cursor.close()
+    print(go_limit(years, ws=conn))
+    # print(get_movie_data(&#39;http://pf.maoyan.com/second-box?beginDate=20110403&#39;, conn))
+    conn.close()
+
+get_data_save_db([i for i in range(2011,2020)])    # 采集2011年至今的所有数据</code></pre>
+<p>至此电影票房的数据采集工作已完成，接下来要进行数据可视化，<br />
+请看<a href="https://www.cnblogs.com/cbowen/p/11727726.html">《【python数据分析实战】电影票房数据分析(二)数据可视化》</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

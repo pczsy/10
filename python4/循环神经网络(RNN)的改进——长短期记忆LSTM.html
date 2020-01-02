@@ -1,0 +1,85 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修循环神经网络(RNN)的改进——长短期记忆LSTM' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>循环神经网络(RNN)的改进——长短期记忆LSTM</center></div><div class='banquan'>原文出处:本文由博客园博主dynmi提供。<br/>
+原文连接:https://www.cnblogs.com/dynmi/p/11969504.html</div><br>
+    <p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2><span style="background-color: #ffffff; color: #ff0000;"><strong><span style="font-family: 仿宋;">&nbsp;<span style="text-decoration: underline;"><span style="font-size: 18pt;">一：vanilla RNN</span></span></span></strong></span></h2>
+<p>　　　<span style="font-size: 18px;">使用机器学习技术处理输入为<strong>基于时间的序列或者可以转化为基于时间的序列</strong>的问题时，我们可以对每个时间步采用递归公式，如下，We can process a sequence of vector x by applying a recurrence formula at every time step：</span><span style="font-size: 18px;">&nbsp; &nbsp;</span></p>
+<p><span style="font-size: 18px;">　　　　　　　　　　　　　　　　　　h<sub>t&nbsp;</sub>= f<sub>W</sub>( h<sub>t-1</sub>，x<sub>t&nbsp;</sub>)</span></p>
+<p><span style="font-size: 18px;">&nbsp;　　其中x<sub>t </sub>是在第t个时间步的输入(input vector at time step t)；h<sub>t&nbsp;</sub>是新状态量(new state)，蕴含着前t个时间步的信息，在处理完x<sub>t</sub>后产生；h<sub>t-1&nbsp;</sub>是前一个状态量(old state)，蕴含着前t-1个时间步的信息，在处理完x<sub>t-1</sub>后产生；f<sub>W&nbsp;</sub>是参数为W的从输入到输出的连接，在每个时间步都相同，反向传播对它的参数W进行优化。</span></p>
+<p><span style="font-size: 18px;">　　original的RNN是这样的(以下简称vanilla RNN)：</span></p>
+<p><span style="font-size: 18px;">　　对于每个时间步：</span></p>
+<p><span style="font-size: 18px;">　　　　h<sub>t</sub> = tanh(W<sub>hh</sub> &bull; h<sub>t-1</sub> + W<sub>xh</sub> &bull; x<sub>t</sub>)&nbsp; 或者用矩阵表示&mdash;&mdash;h<sub>t</sub> = tanh( W &bull; [h<sub>t-1</sub>，x<sub>t</sub>]<sup>T&nbsp;</sup>)<br /></span></p>
+<p><span style="font-size: 18px;">　　　　y<sub>t</sub>= W<sub>hy</sub> &bull; h<sub>t</sub></span></p>
+<p><span style="font-size: 18px;">　　　　图示：（当然描述它的图有很多，我自己画的这个比较直观易懂）</span></p>
+<p><span style="font-size: 18px;"><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/循环神经网络(RNN)的改进——长短期记忆LSTM0.png" alt="" width="255" height="337" /></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>　　<span style="font-size: 18px;">训练模型优化参数的时候通过基于时间的反向传播(BPTT)进行优化，这里不废话了，一个图就说明白了：(来自斯坦福Lecture 10 | Recurrent Neural Networks)</span></p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/循环神经网络(RNN)的改进——长短期记忆LSTM1.png" alt="" /></p>
+<p><span style="font-size: 18px;">　　当时间步数大的时候也就是时间步数多的时候，vanillaRNN便不可避免的遇到了梯度爆炸(gradient exploding)与梯度消失(gradient vanishing)。如果参数大于1，backprop累乘下去，就会导致梯度很大&mdash;&mdash;&gt;+&infin;；如果参数小于1，backprop累乘下去，就会导致梯度很小&mdash;&mdash;&gt;0。为了对付这个问题，有人基于vanillaRNN设计了新的结构，LSTM与GRU相继被提出来。</span></p>
+<p>&nbsp;</p>
+<h2><span style="color: #ff0000;"><strong>&nbsp;<span style="text-decoration: underline;">二：LSTM</span></strong></span></h2>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">　　先看LSTM，vanillaRNN只有一个时序状态h，而LSTM有两个分别是h和c。LSTM将vanillaRNN的每个时序块改成一个cell，对于每个cell输入分别是x<sub>t</sub>，h<sub>t-1</sub>，c<sub>t-1</sub>，输出是c<sub>t</sub>和h<sub>t&nbsp;</sub>。结构图如下：</span></p>
+<p><span style="font-size: 18px;"><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/循环神经网络(RNN)的改进——长短期记忆LSTM2.png" alt="" width="612" height="382" /></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">　　在LSTM的cell内部有四个门(gate)分别是f，i，g，o，</span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;"><span style="font-size: 18px;">　　　　f：whether to erase cell</span></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;"><span style="font-size: 18px;"><span style="font-size: 18px;">　　　　i：whether to write to cell</span></span></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;"><span style="font-size: 18px;"><span style="font-size: 18px;"><span style="font-size: 18px;">　　　　g：how much to write to cell</span></span></span></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;"><span style="font-size: 18px;"><span style="font-size: 18px;"><span style="font-size: 18px;"><span style="font-size: 18px;">　　　　o：how much to reveal cell</span></span></span></span></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">　　数学表达是这样的：</span></p>
+<p>　　　　　<img style="font-size: 18px;" src="./images/循环神经网络(RNN)的改进——长短期记忆LSTM3.png" alt="" width="253" height="182" /></p>
+<p style="text-align: left;"><span style="font-size: 18px;"><span style="font-size: 14pt;">　　　　c<sub>t</sub> = fꙨ&nbsp;</span></span><span style="font-size: 14pt;">c<sub>t-1</sub> + i Ꙩ g</span></p>
+<p><span style="font-size: 14pt;">　　　　h<sub>t</sub> = o Ꙩ&nbsp;&nbsp;tan(c<sub>t</sub>)&nbsp;</span></p>
+<p><span style="font-size: 14pt;">　　反正让我看一眼结构图就记住LSTM结构，呃，悬，但是这个矩阵式子一扔立马就印刻在脑子里了。</span></p>
+<p><span style="font-size: 14pt;">　　前向传播弄明白了，那反向传播呢？</span></p>
+<p><span style="font-size: 14pt;">　　xxxxxxxxxxxxxxxxxxxxx</span></p>
+<h2><span style="text-decoration: underline;"><strong><span style="color: #ff0000; text-decoration: underline;">&nbsp;三：读论文《long short term memory》</span></strong></span></h2>
+<p><strong><span style="font-size: 14pt; color: #993366; font-family: 'Microsoft YaHei';">&gt;&gt;hochriter做了六个实验，分别是：(不好意思我只看了其中1，2，4三个实验QAQ)</span></strong></p>
+<p><span style="font-size: 14pt;">　　实验1，the embedded Reber grammar。聚焦于递归单元的标准基准测试(a standard benchmark test&nbsp;for recurrent nets)。Reber&nbsp;grammar是字符串生成器，实验要用LSTM来学习它。如果不知道什么是Reber&nbsp;grammar可以看这里：<a href="https://willamette.edu/~gorr/classes/cs449/reber.html">https://willamette.edu/~gorr/classes/cs449/reber.html</a>，实验使用了7 input&nbsp;units &amp; 7 output&nbsp;units，除了h门[-1,1]和g门[-2，2]，其他的sigmoid激活后都在[0,1]的范围。除了output门的bias分别初始成-1，-2，-3，其他权重初始都是[-0.2,0.2]。学习率尝试了0.1，0.2，0.5。训练集和测试集分别有256个字符串样本，均是随机生成且免重。实验使用了三组不同的训练测试集。该实验说明了output门的重要性。Learning to store the first T or P should not perturb activations representing the more easily learnable transitions of the original Reber grammar。</span></p>
+<p><span style="font-size: 14pt;">　　实验2，noise-free and noisy sequences。</span></p>
+<p><span style="font-size: 14pt;">&mdash;&mdash;"noise-free sequences with long time lags".有p+1个可能的输入符号，我们用a<sub>1</sub>,......,a<sub>p-1</sub>,a<sub>p</sub>=x,a<sub>p+1</sub>=y来表示。每个元素用p+1维的one_hot向量表示。有着p+1个输入单元和p+1个输出单元的网络模型序列地每个时间步读一个符号，并预测下一个符号。每个时间步都产生误差信号error signal。训练集仅由两个非常相似的序列(y , a<sub>1</sub>,......,a<sub>p-1&nbsp;</sub>, y)和(x ,&nbsp;a<sub>1</sub>,......,a<sub>p-1&nbsp;</sub>, x)组成，每个序列被选择的概率相等。为了预测出最后一个元素，网络模型必须学会经过p个时间步依旧存储着第一个元素的信息。作者把LSTM与RTRL和BPTT以及Neural Sequence Chunker作比较，权重初始化[-0.2,0.2]，训练使用了5百万个sequence presentations。训练好之后，当序列很长时，BPTT和RTRL都失败了，只有LSTM和CH成功。p=100的时候，2 -net sequence chunker成功了三分之一的尝试，而LSTM完美通过测试。</span></p>
+<p><span style="font-size: 14pt;">&mdash;&mdash;"no local regularities"，作者说，上面的实验中chunker有时成功预测了序列的最后元素，是因为学到了一些可预测的局部规则。那我给换个更难的训练集，看看谁还能继续牛逼。We remove compressibility by replacing the deterministic subsequence() by a random subsequence of length p-1 over the alphabet a1,a2,...,ap-1. We obtain 2 sets of sequences {(y ,&nbsp;a<sub>i1</sub>,......,a<sub>ip-1&nbsp;</sub>,&nbsp;y)|1&lt;=i1,i2,...,ip-1&lt;=p-1} and {(x ,&nbsp;a<sub>i1</sub>,......,a<sub>ip-1&nbsp;</sub>,&nbsp;x)|1&lt;=i1,i2,...,ip-1&lt;=p-1}&nbsp;。 结果chunker败下阵来，LSTM笑到了最后(此处滑稽脸.jpg)。说明了LSTM的成功根本就不需要local regularities。</span></p>
+<p><span style="font-size: 14pt;">&mdash;&mdash;"very long time lags&mdash;&mdash;no local regularities".这个是实验2的极限测试了。在LSTM出现之前还没有循环神经网络的模型能完美通过这个测试。有p+4个可能的输入符号，分别为a<sub>1</sub>,......,a<sub>p</sub>&nbsp;,a<sub>p+1</sub>=e,a<sub>p+2</sub>=b,a<sub>p+3</sub>=x,a<sub>p+4</sub>=y。我们把a<sub>1</sub>,......,a<sub>p&nbsp;</sub>称为"distractor symbols"。网络模型有p+4个输入，2个输出。训练样本序列从</span><img style="font-size: 14pt;" src="./images/循环神经网络(RNN)的改进——长短期记忆LSTM4.png" alt="" width="354" height="34" /><img style="font-size: 14pt;" src="./images/循环神经网络(RNN)的改进——长短期记忆LSTM5.png" alt="" /><span style="font-size: 14pt;">这两个集合中随机选取。随机生成长度q+2的序列前缀，后续元素有9/10的可能性随机生成(不包括b,e,x,y)，1/10的可能性为e。误差信号只在序列末尾产生。为了预测最后一个元素，网络模型必须要学会存储第二个符号经过至少q+1个时间步，直到它遇到trigger symbol e。如果训练好的模型在处理10000个连续的随机选择的输入序列时，两个输出单元对于最后元素的预测偏差都小于0.2，那么就认为成功通过测试。模型权重初始化[-0.2,0.2]。参数无bias。h和g门的sigmoid输出分别归一到[-1,1]和[-2,2]。学习率为0.01。</span><em id="__mceDel"><span style="font-size: 14pt;">最</span></em><span style="font-size: 14pt;">小的time lag设为q+1，因为短的训练序列对长的测试序列的归类无益。</span><span style="font-size: 14pt;">当然实验结果肯定是nice，要不也不拿来吹逼了。实验总结时说了"干扰因素的影响&ldquo;&mdash;&mdash;increasing this frequency decreases learning speed, an effect due to weight oscillations caused by frequently observed input symbols。</span></p>
+<p><span style="font-size: 14pt;">　　实验3，noise and signal on same channel。</span></p>
+<p><span style="font-size: 14pt;">　　实验4，adding problem。处理离散表示的连续值的时延问题。</span></p>
+<p><span style="font-size: 14pt;">　　　　</span></p>
+<p><span style="font-size: 14pt;">　　实验5，multiplication problem</span></p>
+<p><span style="font-size: 14pt;">　　实验6，temporal order</span></p>
+<p>&nbsp;</p>
+<p><strong><span style="font-size: 14pt; color: #993366; font-family: 'Microsoft YaHei';">&gt;&gt;作者本人所阐述的LSTM的局限性：</span></strong></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><em><span style="font-size: 18px;">Reference：</span></em></p>
+<p><em><span style="font-size: 18px;">1.《long short term memory》，Hochreiter&amp;Schmidhuber，1997</span></em></p>
+<p><em><span style="font-size: 18px;">2.&nbsp; Stanford&nbsp; CS231n</span></em></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

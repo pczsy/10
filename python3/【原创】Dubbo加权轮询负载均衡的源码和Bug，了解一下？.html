@@ -1,0 +1,222 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？</center></div><div class='banquan'>原文出处:本文由博客园博主why技术提供。<br/>
+原文连接:https://www.cnblogs.com/thisiswhy/p/12048507.html</div><br>
+    <p data-pm-slice="0 0 []">​持续输出原创文章，关注我吧</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？0.png" alt="" data-ic="false" data-width="595" data-height="152" data-ic-uri="" /></div>
+<p>本文是对于Dubbo负载均衡策略之一的加权随机算法的详细分析。从<strong>2.6.4版本</strong>聊起，该版本在某些情况下存在着<strong>比较严重的性能问题</strong>。由问题入手，层层深入，了解该算法在Dubbo中的演变过程，读懂它的前世今生。</p>
+<h1 class="pgc-h-arrow-right">本文目录</h1>
+<p><strong>第一节：什么是轮询？</strong></p>
+<p>本小节主要是介绍轮询算法和其对应的优缺点。引出加权轮询算法。</p>
+<p><strong>第二节：什么是加权轮询？</strong></p>
+<p>本小节主要是介绍加权轮询的概率，并和加权随机算法做对比。区分两者之间的关系。</p>
+<p><strong>第三节：Dubbo 2.6.4版本的实现</strong></p>
+<p>本小节主要分析了Dubbo 2.6.4版本的源码，以及对调用过程进行了详细的分析。并引出该版本的性能问题。</p>
+<p><strong>第四节：推翻，重建</strong></p>
+<p>针对Dubbo 2.6.4版本的性能问题，在对应的issue中进行了激烈的讨论。并提出了第一版优化意见，时间复杂度优化到了常量级。但不久之后，又有人发现了该版本的其他问题，计算过程不够平滑。</p>
+<p><strong>第五节：再推翻，再重建，平滑加权。</strong></p>
+<p>针对改进后的算法还是不够平滑的问题，最终借助Nginx的思想，融入了平滑加权的过程，形成最终版。</p>
+<h1 class="pgc-h-arrow-right">什么是轮询？</h1>
+<p>在描述加权轮询之前，先解释一下什么是轮询算法，如下图所示：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？1.png" alt="" data-ic="false" data-width="623" data-height="369" data-ic-uri="" /></div>
+<p>假设我们有A、B、C三台服务器，共计处理6个请求，服务处理请求的情况如下:</p>
+<blockquote class="js_blockquote_wrap">
+<p>第一个请求发送给了A服务器</p>
+<p>第二个请求发送给了B服务器</p>
+<p>第三个请求发送给了C服务器</p>
+<p>第四个请求发送给了A服务器</p>
+<p>第五个请求发送给了B服务器</p>
+<p>第六个请求发送给了C服务器</p>
+<p>......</p>
+</blockquote>
+<p>上面这个例子演示的过程就叫做轮询。可以看出，<strong>所谓轮询就是将请求轮流分配给每台服务器</strong>。</p>
+<p>轮询的<strong>优点</strong>是无需记录当前所有服务器的链接状态，所以它一种无状态负载均衡算法，实现简单，适用于每台服务器性能相近的场景下。</p>
+<p>轮询的<strong>缺点</strong>也是显而易见的，它的应用场景要求所有服务器的性能都相同，非常的局限。</p>
+<p>大多数实际情况下，服务器性能是各有差异，针对性能好的服务器，我们需要让它承担更多的请求，即需要给它配上更高的权重。</p>
+<p>所以加权轮询，应运而生。</p>
+<h1 class="pgc-h-arrow-right">什么是加权轮询？</h1>
+<p>为了解决轮询算法应用场景的局限性。当遇到每台服务器的性能不一致的情况，我们需要对轮询过程进行加权，以调控每台服务器的负载。</p>
+<p>经过加权后，每台服务器能够得到的请求数比例，<strong>接近或等于他们的权重比。</strong>比如服务器 A、B、C 权重比为 5:3:2。那么在10次请求中，服务器 A 将收到其中的5次请求，服务器 B 会收到其中的3次请求，服务器 C 则收到其中的2次请求。</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？2.png" alt="" data-ic="false" data-width="683" data-height="583" data-ic-uri="" /></div>
+<p><strong>这里要和加权随机算法做区分哦</strong>。加权随机我在《一文讲透Dubbo负载均衡之最小活跃数算法》中介绍过，直接把画的图拿过来：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？3.png" alt="" data-ic="false" data-width="660" data-height="293" data-ic-uri="" /></div>
+<p>上面这图是按照比例画的，可以直观的看到，对于某一个请求，区间(权重)越大的服务器，就越可能会承担这个请求。所以，<strong>当请求足够多的时候</strong>，各个服务器承担的请求数，应该就是区间，即权重的比值。</p>
+<p>假设有A、B、C三台服务器，权重之比为5:3:2，一共处理10个请求。</p>
+<p>那么负载均衡采用<strong>加权随机算法</strong>时，<strong>很有可能</strong>A、B服务就处理完了这10个请求，因为它是随机调用。</p>
+<p>采用负载均衡采用<strong>轮询加权算法</strong>时，A、B、C服务<strong>一定是</strong>分别承担5、3、2个请求。</p>
+<h1 class="pgc-h-arrow-right">Dubbo2.6.4版本的实现</h1>
+<p>对于Dubbo2.6.4版本的实现分析，可以看下图，我加了很多注释，其中的输出语句都是我加的：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？4.png" alt="" data-ic="false" data-width="987" data-height="1601" data-ic-uri="" /></div>
+<p>示例代码还是沿用之前文章中的Demo，不了解的可以查看《一文讲透Dubbo负载均衡之最小活跃数算法》，本文分别在20881、20882、20883端口启动三个服务，各自的权重分别为1,2,3。</p>
+<p>客户端调用8次：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？5.png" alt="" data-ic="false" data-width="638" data-height="147" data-ic-uri="" /></div>
+<p>输出结果如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？6.png" alt="" data-ic="false" data-width="726" data-height="445" data-ic-uri="" /></div>
+<p>可以看到第七次调用后mod=0，回到了第一次调用的状态。<strong>形成了一个闭环。</strong></p>
+<p>再看看判断的条件是什么：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？7.png" alt="" data-ic="false" data-width="788" data-height="374" data-ic-uri="" /></div>
+<p>其中<strong>mod在代码中扮演了极其重要的角色</strong>，mod根据一个方法的调用次数不同而不同，<strong>取值范围是[0，weightSum)。</strong></p>
+<p>因为weightSum=6，所以列举mod不同值时，最终的选择结果和权重变化：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？8.png" alt="" data-ic="false" data-width="361" data-height="130" data-ic-uri="" /></div>
+<p>可以看到20881,20882,20883承担的请求数量比值为1:2:3。同时我们可以看出，当<strong> mod &gt;= 1 后，20881端口的服务就不会被选中了</strong>，因为它的权重被减为0了。当<strong> mod &gt;= 4 后，20882端口的服务就不会被选中了</strong>，因为它的权重被减为0了。</p>
+<p>结合判断条件和输出结果，我们详细分析一下(下面内容稍微有点绕，如果看不懂，多结合上面的图片看几次):</p>
+<ul>
+<li>第一次调用</li>
+</ul>
+<p>mod=0，<strong>第一次循环</strong>就满足代码块①的条件，直接返回当前循环的invoker，即20881端口的服务。此时各端口的权重情况如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？9.png" alt="" data-ic="false" data-width="565" data-height="39" data-ic-uri="" /></div>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？10.png" alt="" data-ic="false" data-width="363" data-height="130" data-ic-uri="" /></div>
+<ul>
+<li>第二次调用</li>
+</ul>
+<p>mod=1，需要进入代码块②，对mod进行一次递减。</p>
+<p><strong>第一次循环</strong>对20881端口的服务权重减一，mod-1=0。</p>
+<p><strong>第二次循环</strong>，mod=0，循环对象是20882端口的服务，权重为2，满足代码块①，返回当前循环的20882端口的服务，此时各端口的权重情况如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？11.png" alt="" data-ic="false" data-width="571" data-height="41" data-ic-uri="" /></div>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？12.png" alt="" data-ic="false" data-width="363" data-height="129" data-ic-uri="" /></div>
+<ul>
+<li>第三次调用</li>
+</ul>
+<p>mod=2，需要进入代码块②，对mod进行两次递减。</p>
+<p><strong>第一次循环</strong>对20881端口的服务权重减一，mod-1=1；</p>
+<p><strong>第二次循环</strong>对20882端口的服务权重减一，mod-1=0；</p>
+<p><strong>第三次循环</strong>时，mod已经为0，当前循环的是20883端口的服务，权重为3，满足代码块①，返回当前循环的20883端口的服务，此时各端口的权重情况如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？13.png" alt="" data-ic="false" data-width="569" data-height="39" data-ic-uri="" /></div>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？14.png" alt="" data-ic="false" data-width="363" data-height="129" data-ic-uri="" /></div>
+<ul>
+<li>第四次调用</li>
+</ul>
+<p>mod=3，需要进入代码块②，对mod进行三次递减。</p>
+<p><strong>第一次循环</strong>对20881端口的服务权重减一，从1变为0，mod-1=2；</p>
+<p><strong>第二次循环</strong>对20882端口的服务权重减一，从2变为1，mod-1=1；</p>
+<p><strong>第三次循环</strong>对20883端口的服务权重减一，从3变为2，mod-1=0；</p>
+<p><strong>第四次循环</strong>的是20881端口的服务，此时mod已经为0，但是20881端口的服务的权重已经变为0了，不满足代码块①和代码块②，进入第五次循环。</p>
+<p><strong>第五次循环</strong>的是20882端口的服务，当前权重为1，mod=0，满足代码块①，返回20882端口的服务，此时各端口的权重情况如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？15.png" alt="" data-ic="false" data-width="568" data-height="40" data-ic-uri="" /></div>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？16.png" alt="" data-ic="false" data-width="363" data-height="129" data-ic-uri="" /></div>
+<ul>
+<li>第五次调用</li>
+</ul>
+<p>mod=4，需要进入代码块②，对mod进行四次递减。</p>
+<p><strong>第一次循环</strong>对20881端口的服务权重减一，从1变为0，mod-1=3；</p>
+<p><strong>第二次循环</strong>对20882端口的服务权重减一，从2变为1，mod-1=2；</p>
+<p><strong>第三次循环</strong>对20883端口的服务权重减一，从3变为2，mod-1=1；</p>
+<p><strong>第四次循环</strong>的是20881端口的服务，此时mod为1，但是20881端口的服务的权重已经变为0了，不满足代码块②，mod不变，进入第五次循环。</p>
+<p><strong>第五次循环</strong>时，mod为1，循环对象是20882端口的服务，权重为1，满足代码块②，权重从1变为0，mod从1变为0，进入第六次循环。</p>
+<p><strong>第六次循环</strong>时，mod为0，循环对象是20883端口的服务，权重为2，满足条件①，返回当前20883端口的服务，此时各端口的权重情况如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？17.png" alt="" data-ic="false" data-width="570" data-height="40" data-ic-uri="" /></div>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？18.png" alt="" data-ic="false" data-width="363" data-height="129" data-ic-uri="" /></div>
+<ul>
+<li>第六次调用</li>
+</ul>
+<p>第六次调用，mod=5，会<strong>循环九次</strong>，最终选择20883端口的服务，读者可以自行分析一波，分析出来了，就了解的透透的了。</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？19.png" alt="" data-ic="false" data-width="562" data-height="40" data-ic-uri="" /></div>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？20.png" alt="" data-ic="false" data-width="363" data-height="129" data-ic-uri="" /></div>
+<ul>
+<li>第七次调用</li>
+</ul>
+<p>第七次调用，又回到mod=0的状态：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？21.png" alt="" data-ic="false" data-width="722" data-height="47" data-ic-uri="" /></div>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？10.png" alt="" data-ic="false" data-width="363" data-height="130" data-ic-uri="" /></div>
+<p>2.6.4版本的加权轮询就分析完了，但是事情并没有这么简单。这个版本的加权轮询是有性能问题的。</p>
+<p>该问题对应的issue地址如下:</p>
+<blockquote class="js_blockquote_wrap">
+<p>https://github.com/apache/dubbo/issues/2578</p>
+</blockquote>
+<p>问题出现在invoker返回的时机上：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？23.png" alt="" data-ic="false" data-width="830" data-height="418" data-ic-uri="" /></div>
+<p>截取issue里面的一个回答：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？24.png" alt="" data-ic="false" data-width="454" data-height="230" data-ic-uri="" /></div>
+<p>10分钟才选出一个invoker，还怎么玩？</p>
+<p>有时间可以读一读这个issue，里面各路大神针对该问题进行了激烈的讨论，第一种改造方案被接受后，很快就被推翻，被第二种方案代替，可以说优化思路十分值得学习，很精彩，接下来的行文路线就是按照该issue展开的。</p>
+<h1 class="pgc-h-arrow-right">推翻，重建。</h1>
+<p><strong>上面的代码时间复杂度是O(mod)</strong>，而第一次修复之后时间<strong>复杂度降低到了常量级别</strong>。可以说是一次非常优秀的优化，值得我们学习，看一下优化之后的代码，我加了很多注释：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？25.png" alt="" data-ic="false" data-width="868" data-height="1209" data-ic-uri="" /></div>
+<p>其关键优化的点是这段代码，我加入输出语句，便于分析。</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？26.png" alt="" data-ic="false" data-width="1070" data-height="608" data-ic-uri="" /></div>
+<p>输出日志如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？27.png" alt="" data-ic="false" data-width="789" data-height="596" data-ic-uri="" /></div>
+<p>把上面的输出转化到表格中去，7次请求的选择过程如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？28.png" alt="" data-ic="false" data-width="814" data-height="309" data-ic-uri="" /></div>
+<p>该算法的原理是：</p>
+<p>把服务端都放到集合中(invokerToWeightList)，然后获取服务端个数(length)，并计算出服务端权重最大的值(maxWeight)。</p>
+<p>index表示本次请求到来时，处理该请求的服务端下标，初始值为0，取值范围是[0,length)。</p>
+<p>currentWeight表示当前调度的权重，初始值为0，取值范围是[0,maxWeight)。</p>
+<p>当请求到来时，从index(就是0)开始轮询服务端集合(invokerToWeightList)，如果是一轮循环的开始(index=0)时，则对currentWeight进行加一操作（不会超过maxWeight），在循环中找出第一个权重大于currentWeight的服务并返回。</p>
+<p>这里说的<strong>一轮循环是指index再次变为0所经历过的循环</strong>，这里可以把<strong>index=0看做是一轮循环的开始</strong>。每一轮循环的次数与Invoker的数量有关，Invoker数量通常不会太多，所以我们可以认为上面代码的时间复杂度为常数级。</p>
+<p>从issue上看出，这个算法最终被merged了。</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？29.png" alt="" data-ic="false" data-width="692" data-height="196" data-ic-uri="" /></div>
+<p>但是很快又被推翻了：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？30.png" alt="" data-ic="false" data-width="700" data-height="259" data-ic-uri="" /></div>
+<p><strong>这个算法不够平滑。</strong>什么意思呢？</p>
+<p>翻译一下上面的内容就是：服务器[A, B, C]对应权重[5, 1, 1]。进行7次负载均衡后，选择出来的序列为[A, A, A, A, A, B, C]。前5个请求全部都落在了服务器A上，这将会使服务器A短时间内接收大量的请求，压力陡增。而B和C此时无请求，处于空闲状态。而我们期望的结果是这样的[A, A, B, A, C, A, A]，不同服务器可以穿插获取请求。</p>
+<p>我们设置20881端口的权重为5，20882、20883端口的权重均为1。</p>
+<p>进行实验，发现确实如此：可以看到一共进行7次请求，第1次到5次请求都分发给了权重为5的20881端口的服务，前五次请求，20881和20882都处于空闲状态：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？31.png" alt="" data-ic="false" data-width="651" data-height="131" data-ic-uri="" /></div>
+<p>转化为表格如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？32.png" alt="" data-ic="false" data-width="791" data-height="399" data-ic-uri="" /></div>
+<p>从表格的最终结果一栏也可以直观的看出，七次请求对应的服务器端口为：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？33.png" alt="" data-ic="false" data-width="402" data-height="39" data-ic-uri="" /></div>
+<p>分布确实不够均匀。</p>
+<h1 class="pgc-h-arrow-right">再推翻，再重建，平滑加权。</h1>
+<p>从issue中可以看到，再次重构的加权算法的<strong>灵感来源是Nginx的平滑加权轮询负载均衡：</strong></p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？34.png" alt="" data-ic="false" data-width="688" data-height="231" data-ic-uri="" /></div>
+<p>看代码之前，先介绍其计算过程。</p>
+<p>假设每个服务器有两个权重，一个是配置的weight,不会变化，一个是currentWeight会动态调整，初始值为0。当有新的请求进来时，遍历服务器列表，让它的currentWeight加上自身权重。遍历完成后，找到最大的currentWeight，并将其减去权重总和，然后返回相应的服务器即可。</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？35.png" alt="" data-ic="false" data-width="490" data-height="229" data-ic-uri="" /></div>
+<p>如果你还是不知道上面的表格是如何算出来的，我再给你详细的分析一下第1、2个请求的计算过程：</p>
+<p>第一个请求计算过程如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？36.png" alt="" data-ic="false" data-width="490" data-height="170" data-ic-uri="" /></div>
+<p>第二个请求计算过程如下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？37.png" alt="" data-ic="false" data-width="492" data-height="259" data-ic-uri="" /></div>
+<p>后面的请求你就可以自己分析了。</p>
+<p>从表格的最终结果一栏也可以直观的看出，七次请求对应的服务器端口为：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？38.png" alt="" data-ic="false" data-width="432" data-height="39" data-ic-uri="" /></div>
+<p>可以看到，权重之比同样是5:1:1，但是最终的请求分发的就比较的"平滑"。对比一下：</p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？39.png" alt="" data-ic="false" data-width="520" data-height="95" data-ic-uri="" /></div>
+<p>对于平滑加权算法，我想多说一句。我觉得这个算法非常的神奇，我是彻底的明白了它每一步的计算过程，知道它最终会形成一个闭环，但是我想了很久，我还是不知道背后的数学原理是什么，<strong>不明白为什么会形成一个闭环</strong>，非常的神奇。</p>
+<p>但是我们只要能够理解我前面所表达的平滑加权轮询算法的计算过程，知道其最终会形成闭环，就能理解下面的代码。配合代码中的注释食用，效果更佳。以下代码以及注释来源官网：</p>
+<blockquote class="js_blockquote_wrap">
+<p>http://dubbo.apache.org/zh-cn/docs/source_code_guide/loadbalance.html</p>
+</blockquote>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？40.png" alt="" data-ic="false" data-width="886" data-height="2560" data-ic-uri="" /></div>
+<p><strong>最后说一句</strong></p>
+<p>Dubbo官方提供了四种负载均衡算法，分别是：</p>
+<blockquote class="js_blockquote_wrap">
+<p>ConsistentHashLoadBalance 一致性哈希算法</p>
+<p>LeastActiveLoadBalance 最小活跃数算法</p>
+<p>RandomLoadBalance 加权随机算法</p>
+<p>RoundRobinLoadBalance 加权轮询算法</p>
+</blockquote>
+<p>对于官方提供的加权随机算法，原理十分简单。所以在《一文讲透Dubbo负载均衡之最小活跃数算法》中也提到过。</p>
+<p>本文是Dubbo负载均衡算法的最后一篇。前两篇为：</p>
+<p>《一文讲透Dubbo负载均衡之最小活跃数算法》</p>
+<p>《Dubbo一致性哈希负载均衡的源码和Bug，了解一下？》</p>
+<p>至此，Dubbo的负载均衡算法都已分享完成。</p>
+<p>才疏学浅，难免会有纰漏，如果你发现了错误的地方，还请你留言给我指出来，我对其加以修改。</p>
+<p>如果你觉得文章还不错，你的转发、分享、赞赏、点赞、留言就是对我最大的鼓励。</p>
+<p>以上。<br />谢谢您的阅读，感谢您的关注。</p>
+<p><br />再推销一下我公众号：对于写文章，其实想到写什么内容并不难，难的是你对内容的把控。关于技术性的语言，我是反复推敲，查阅大量文章来进行证伪，总之<strong>慎言慎言再慎言，</strong>毕竟做技术，我认为是一件非常严谨的事情，我常常想象自己就是在故宫修文物的工匠，在工匠精神的认知上，目前我可能和他们还差的有点远，但是我时常以工匠精神要求自己。就像我之前表达的：对于技术文章（因为我偶尔也会荒腔走板的聊一聊生活，写一写书评，影评），我尽量保证周推，全力保证质量。<strong>坚持输出原创。</strong></p>
+<div class="pgc-img"><img src="./images/【原创】Dubbo加权轮询负载均衡的源码和Bug，了解一下？41.png" alt="" data-ic="false" data-width="258" data-height="258" data-ic-uri="" /></div>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

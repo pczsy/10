@@ -1,0 +1,559 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修django分页' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>django分页</center></div><div class='banquan'>原文出处:本文由博客园博主changxin7提供。<br/>
+原文连接:https://www.cnblogs.com/changxin7/p/11655175.html</div><br>
+    <h1 id="一django的内置分页器paginator">一、Django的内置分页器（paginator）</h1>
+<h2 id="view">view</h2>
+<pre><code><code>from django.shortcuts import render,HttpResponse
+
+# Create your views here.
+from app01.models import *
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+def index(request):
+
+    &#39;&#39;&#39;
+    批量导入数据:
+
+    Booklist=[]
+    for i in range(100):
+        Booklist.append(Book(title=&quot;book&quot;+str(i),price=30+i*i))
+    Book.objects.bulk_create(Booklist)
+    &#39;&#39;&#39;
+
+    &#39;&#39;&#39;
+分页器的使用:
+
+    book_list=Book.objects.all()
+
+    paginator = Paginator(book_list, 10)
+
+    print(&quot;count:&quot;,paginator.count)           #数据总数
+    print(&quot;num_pages&quot;,paginator.num_pages)    #总页数
+    print(&quot;page_range&quot;,paginator.page_range)  #页码的列表
+
+
+
+    page1=paginator.page(1) #第1页的page对象
+    for i in page1:         #遍历第1页的所有数据对象
+        print(i)
+
+    print(page1.object_list) #第1页的所有数据
+
+
+    page2=paginator.page(2)
+
+    print(page2.has_next())            #是否有下一页
+    print(page2.next_page_number())    #下一页的页码
+    print(page2.has_previous())        #是否有上一页
+    print(page2.previous_page_number()) #上一页的页码
+
+
+
+    # 抛错
+    #page=paginator.page(12)   # error:EmptyPage 超过页码范围
+
+    #page=paginator.page(&quot;z&quot;)   # error:PageNotAnInteger 非法页码值
+　　
+    #page = page_obj.page(-1)  #That page number is less than 1 ，也是EmptyPage的错误，页码不能为负数，最少也是1
+    &#39;&#39;&#39;
+
+
+    book_list=Book.objects.all()
+
+    paginator = Paginator(book_list, 10) #按照每页显示10条来计算
+    page = request.GET.get(&#39;page&#39;,1)  #将来访问的url是这样的 http://127.0.0.1:8000/路径/?page=1
+    currentPage=int(page)
+
+
+    try:
+        print(page)
+        book_list = paginator.page(page)
+    except PageNotAnInteger:
+        book_list = paginator.page(1)
+    except EmptyPage:
+        book_list = paginator.page(paginator.num_pages)
+
+
+    return render(request,&quot;index.html&quot;,{&quot;book_list&quot;:book_list,&quot;paginator&quot;:paginator,&quot;currentPage&quot;:currentPage})</code></pre>
+<h2 id="index.html">index.html:</h2>
+<pre><code><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css&quot;     integrity=&quot;sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u&quot; crossorigin=&quot;anonymous&quot;&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;div class=&quot;container&quot;&gt;
+
+    &lt;h4&gt;分页器&lt;/h4&gt;
+    &lt;ul&gt;
+
+        {% for book in book_list %}
+             &lt;li&gt;{{ book.title }} -----{{ book.price }}&lt;/li&gt;
+        {% endfor %}
+
+     &lt;/ul&gt;
+
+
+    &lt;ul class=&quot;pagination&quot; id=&quot;pager&quot;&gt;
+
+                 {% if book_list.has_previous %}
+                    &lt;li class=&quot;previous&quot;&gt;&lt;a href=&quot;/index/?page={{ book_list.previous_page_number }}&quot;&gt;上一页&lt;/a&gt;&lt;/li&gt;
+                 {% else %}
+                    &lt;li class=&quot;previous disabled&quot;&gt;&lt;a href=&quot;#&quot;&gt;上一页&lt;/a&gt;&lt;/li&gt;
+                 {% endif %}
+
+
+                 {% for num in paginator.page_range %}
+
+                     {% if num == currentPage %}
+                       &lt;li class=&quot;item active&quot;&gt;&lt;a href=&quot;/index/?page={{ num }}&quot;&gt;{{ num }}&lt;/a&gt;&lt;/li&gt;
+                     {% else %}
+                       &lt;li class=&quot;item&quot;&gt;&lt;a href=&quot;/index/?page={{ num }}&quot;&gt;{{ num }}&lt;/a&gt;&lt;/li&gt;
+
+                     {% endif %}
+                 {% endfor %}
+
+
+
+                 {% if book_list.has_next %}
+                    &lt;li class=&quot;next&quot;&gt;&lt;a href=&quot;/index/?page={{ book_list.next_page_number }}&quot;&gt;下一页&lt;/a&gt;&lt;/li&gt;
+                 {% else %}
+                    &lt;li class=&quot;next disabled&quot;&gt;&lt;a href=&quot;#&quot;&gt;下一页&lt;/a&gt;&lt;/li&gt;
+                 {% endif %}
+
+            &lt;/ul&gt;
+&lt;/div&gt;
+
+
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<h2 id="扩展">扩展</h2>
+<pre><code><code>from django.core.paginator import Paginator,PageNotAnInteger,EmptyPage
+def show(request):
+
+    book_objs = models.Book.objects.all()
+    page_obj = Paginator(book_objs,1)
+    print(&#39;数据总数&#39;,page_obj.count)
+    print(&#39;总页数&#39;,page_obj.num_pages)
+    print(&#39;页码列表&#39;,page_obj.page_range)
+
+    page1 = page_obj.page(1)
+    for i in page1:
+        print(i)
+    print(page1.object_list)
+    page2 = page_obj.page(2)
+
+    print(page2.has_previous())
+    print(page2.has_next())
+    print(page2.next_page_number())
+    print(page2.previous_page_number())
+    # page = page_obj.page(-1)
+    page_num = request.GET.get(&#39;page&#39;,1)
+
+    try:
+        current_page_num = int(page_num)
+        page_num_data = page_obj.page(current_page_num)
+    except PageNotAnInteger:
+        current_page_num = 1
+        page_num_data = page_obj.page(current_page_num)
+    except EmptyPage:
+        current_page_num = page_obj.num_pages
+        page_num_data = page_obj.page(current_page_num)
+    except Exception:
+        current_page_num = 1
+        page_num_data = page_obj.page(current_page_num)
+    if page_obj.num_pages &gt; 11:  #扩展，如果总的页码数大于了11，我们就不把所有的页码数显示出来了，只显示其中11个页面，当前页左边5个，右边5个
+        if current_page_num - 5 &lt; 1:  
+            pageRange = range(1,12)
+        elif current_page_num + 5 &gt; page_obj.num_pages:
+            pageRange = range(page_obj.num_pages-10,page_obj.num_pages+1)
+        else:
+            pageRange = range(current_page_num - 5,current_page_num + 6)
+
+    else:
+        pageRange = page_obj.page_range
+
+    book_objs = page_num_data
+    return render(request,&#39;show.html&#39;,{&#39;book_objs&#39;:book_objs,&#39;current_page_num&#39;:current_page_num,&#39;page_obj&#39;:page_obj,&#39;pageRange&#39;:pageRange})</code></pre>
+<p>　　show.html</p>
+<pre><code><code>{% load static %}
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;{% static &#39;bootstrap-3.3.0-dist/dist/css/bootstrap.min.css&#39; %}&quot;&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;h1&gt;数据展示&lt;/h1&gt;
+&lt;div class=&quot;container-fluid&quot;&gt;
+    &lt;div class=&quot;row&quot;&gt;
+        &lt;div class=&quot;col-md-6 col-md-offset-3&quot;&gt;
+            &lt;table class=&quot;table&quot;&gt;
+                &lt;thead&gt;
+                    &lt;tr&gt;
+                        &lt;th&gt;id&lt;/th&gt;
+                        &lt;th&gt;title&lt;/th&gt;
+                        &lt;th&gt;价格&lt;/th&gt;
+                        &lt;th&gt;性别&lt;/th&gt;
+                        &lt;th&gt;出版日期&lt;/th&gt;
+                        &lt;th&gt;出版社&lt;/th&gt;
+                        &lt;th&gt;作者&lt;/th&gt;
+                        &lt;th&gt;操作&lt;/th&gt;
+                    &lt;/tr&gt;
+                &lt;/thead&gt;
+                &lt;tbody&gt;
+                    {% for book_obj in book_objs %}
+                         &lt;tr&gt;
+                            &lt;td&gt;{{ book_obj.pk }}&lt;/td&gt;
+                            &lt;td&gt;{{ book_obj.title }}&lt;/td&gt;
+                            &lt;td&gt;{{ book_obj.price }}&lt;/td&gt;
+                            &lt;td&gt;{{ book_obj.get_sex_display }}&lt;/td&gt;
+                            &lt;td&gt;{{ book_obj.publishDate|date:&#39;Y-d-m&#39; }}&lt;/td&gt;
+                            &lt;td&gt;{{ book_obj.publish.name }}&lt;/td&gt;
+                            &lt;td&gt;
+                                {% for author in book_obj.authors.all %}
+                                    {{ author.name }}
+                                {% endfor %}
+
+                            &lt;/td&gt;
+                            &lt;td&gt;
+                                &lt;a class=&quot;btn btn-warning&quot; href=&quot;{% url &#39;edit_book&#39; book_obj.pk  %}&quot;&gt;编辑&lt;/a&gt;
+                                &lt;a class=&quot;btn btn-danger&quot; href=&quot;{% url &#39;delete_book&#39; book_obj.pk  %}&quot;&gt;删除&lt;/a&gt;
+                            &lt;/td&gt;
+                         &lt;/tr&gt;
+                    {% endfor %}
+                &lt;/tbody&gt;
+            &lt;/table&gt;
+            &lt;ul class=&quot;pagination&quot; id=&quot;pager&quot;&gt;
+                {% if book_objs.has_previous %}
+                &lt;li class=&quot;previous&quot;&gt;&lt;a href=&quot;/show/?page={{ book_objs.previous_page_number }}&quot;&gt;上一页&lt;/a&gt;&lt;/li&gt;
+                {% else %}
+                &lt;li class=&quot;previous disabled&quot;&gt;&lt;a href=&quot;javascript:void(0)&quot;&gt;上一页&lt;/a&gt;&lt;/li&gt;
+                {% endif %}
+                &lt;!--{% for num in page_obj.page_range %}--&gt;
+                {% for num in pageRange %}
+                    {% if num == current_page_num %}
+                     &lt;li class=&quot;item active&quot;&gt;&lt;a href=&quot;/show/?page={{ num }}&quot;&gt;{{ num }}&lt;/a&gt;&lt;/li&gt;
+                    {% else %}
+                       &lt;li class=&quot;item&quot;&gt;&lt;a href=&quot;/show/?page={{ num }}&quot;&gt;{{ num }}&lt;/a&gt;&lt;/li&gt;
+
+                     {% endif %}
+
+                {% endfor %}
+                {% if book_objs.has_next %}
+                    &lt;li class=&quot;next&quot;&gt;&lt;a href=&quot;/show/?page={{ book_objs.next_page_number }}&quot;&gt;下一页&lt;/a&gt;&lt;/li&gt;
+                 {% else %}
+                    &lt;li class=&quot;next disabled&quot;&gt;&lt;a href=&quot;#&quot;&gt;下一页&lt;/a&gt;&lt;/li&gt;
+                 {% endif %}
+
+            &lt;/ul&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;script src=&quot;{% static &#39;bootstrap-3.3.0-dist/dist/jQuery/jquery-3.1.1.js&#39; %}&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;{% static &#39;bootstrap-3.3.0-dist/dist/js/bootstrap.min.js&#39; %}&quot;&gt;&lt;/script&gt;
+&lt;/html&gt;</code></pre>
+<p>　　model.py文件内容：</p>
+<pre><code><code>from django.db import models
+
+# Create your models here.
+
+
+class Author(models.Model):
+    nid = models.AutoField(primary_key=True)
+    name=models.CharField( max_length=32)
+    age=models.IntegerField()
+    authorDetail=models.OneToOneField(to=&quot;AuthorDetail&quot;,to_field=&quot;nid&quot;)
+    def __str__(self):
+        return self.name
+class AuthorDetail(models.Model):
+
+    nid = models.AutoField(primary_key=True)
+    birthday=models.DateField()
+    telephone=models.BigIntegerField()
+    addr=models.CharField( max_length=64)
+
+class Publish(models.Model):
+    nid = models.AutoField(primary_key=True)
+    name=models.CharField( max_length=32)
+    city=models.CharField( max_length=32)
+    email=models.EmailField()
+    def __str__(self):
+        return self.name
+
+class Book(models.Model):
+
+    nid = models.AutoField(primary_key=True)
+    title = models.CharField( max_length=32)
+
+    publishDate=models.DateField()
+    price=models.DecimalField(max_digits=5,decimal_places=2)
+    publish=models.ForeignKey(to=&quot;Publish&quot;,to_field=&quot;nid&quot;)
+    authors=models.ManyToManyField(to=&#39;Author&#39;,)
+    def __str__(self):
+        return self.title</code></pre>
+<h1 id="二自定义分页">二、自定义分页</h1>
+<p>　　当数据库中数据有很多，我们通常会在前端页面做分页展示。</p>
+<p>　　分页的数据可以在前端页面实现，也可以在后端实现分页。</p>
+<p>　　后端实现分页的原理就是每次只请求一页数据。</p>
+<p>　　准备工作</p>
+<p>　　我们使用脚本批量创建一些测试数据（将下面的代码保存到bulk_create.py文件中放到Django项目的根目录，直接执行即可。）：</p>
+<pre><code><code>import os
+
+if __name__ == &quot;__main__&quot;:
+    os.environ.setdefault(&quot;DJANGO_SETTINGS_MODULE&quot;, &quot;about_orm.settings&quot;)
+
+    import django
+    django.setup()
+
+    from app01 import models
+    bulk_obj = (models.Publisher(name=&#39;第{}出版社&#39;.format(i)) for i in range(300))
+    models.Publisher.objects.bulk_create(bulk_obj) #批量添加，注意写法</code></pre>
+<p>　　看下面几个版本的分页：</p>
+<pre><code><code>def publisher_list(request):
+    # 从URL中取当前访问的页码数
+    try:
+        current_page = int(request.GET.get(&#39;page&#39;))
+    except Exception as e:
+        # 取不到或者页码数不是数字都默认展示第1页
+        current_page = 1
+    # 总数据量
+    total_count = models.Publisher.objects.count()
+    # 定义每页显示多少条数据
+    per_page = 10
+    # 计算出总页码数
+    total_page, more = divmod(total_count, per_page)
+    if more:
+        total_page += 1
+    # 定义页面上最多显示多少页码(为了左右对称，一般设为奇数)
+    max_show = 11
+    half_show = max_show // 2
+    # 计算一下页面显示的页码范围
+    if total_page &lt;= max_show:  # 总页码数小于最大显示页码数
+        page_start = 1
+        page_end = total_page
+    elif current_page + half_show &gt;= total_page:  # 右边越界
+        page_end = total_page
+        page_start = total_page - max_show
+    elif current_page - half_show &lt;= 1:  # 左边越界
+        page_start = 1
+        page_end = max_show
+    else:  # 正常页码区间
+        page_start = current_page - half_show
+        page_end = current_page + half_show
+    # 数据索引起始位置
+    data_start = (current_page-1) * per_page
+    data_end = current_page * per_page
+
+    publisher_list = models.Publisher.objects.all()[data_start:data_end]
+
+    # 生成页面上显示的页码
+    page_html_list = []
+    page_html_list.append(&#39;&lt;nav aria-label=&quot;Page navigation&quot;&gt;&lt;ul class=&quot;pagination&quot;&gt;&#39;)
+    # 加首页
+    first_li = &#39;&lt;li&gt;&lt;a href=&quot;/publisher_list/?page=1&quot;&gt;首页&lt;/a&gt;&lt;/li&gt;&#39;
+    page_html_list.append(first_li)
+    # 加上一页
+    if current_page == 1:
+        prev_li = &#39;&lt;li&gt;&lt;a href=&quot;#&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;laquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;
+    else:
+        prev_li = &#39;&lt;li&gt;&lt;a href=&quot;/publisher_list/?page={}&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;laquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;.format(current_page - 1)
+    page_html_list.append(prev_li)
+    for i in range(page_start, page_end + 1):
+        if i == current_page:
+            li_tag = &#39;&lt;li class=&quot;active&quot;&gt;&lt;a href=&quot;/publisher_list/?page={0}&quot;&gt;{0}&lt;/a&gt;&lt;/li&gt;&#39;.format(i)
+        else:
+            li_tag = &#39;&lt;li&gt;&lt;a href=&quot;/publisher_list/?page={0}&quot;&gt;{0}&lt;/a&gt;&lt;/li&gt;&#39;.format(i)
+        page_html_list.append(li_tag)
+    # 加下一页
+    if current_page == total_page:
+        next_li = &#39;&lt;li&gt;&lt;a href=&quot;#&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;raquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;
+    else:
+        next_li = &#39;&lt;li&gt;&lt;a href=&quot;/publisher_list/?page={}&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;raquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;.format(current_page + 1)
+    page_html_list.append(next_li)
+    # 加尾页
+    page_end_li = &#39;&lt;li&gt;&lt;a href=&quot;/publisher_list/?page={}&quot;&gt;尾页&lt;/a&gt;&lt;/li&gt;&#39;.format(total_page)
+    page_html_list.append(page_end_li)
+    page_html_list.append(&#39;&lt;/ul&gt;&lt;/nav&gt;&#39;)
+    page_html = &quot;&quot;.join(page_html_list)
+    return render(request, &quot;publisher_list.html&quot;, {&quot;publisher_list&quot;: publisher_list, &quot;page_html&quot;: page_html})</code></pre>
+<pre><code><code>class Pagination(object):
+    &quot;&quot;&quot;自定义分页（Bootstrap版）&quot;&quot;&quot;
+    def __init__(self, current_page, total_count, base_url, per_page=10, max_show=11):
+        &quot;&quot;&quot;
+        :param current_page: 当前请求的页码
+        :param total_count: 总数据量
+        :param base_url: 请求的URL
+        :param per_page: 每页显示的数据量，默认值为10
+        :param max_show: 页面上最多显示多少个页码，默认值为11
+        &quot;&quot;&quot;
+        try:
+            self.current_page = int(current_page)
+        except Exception as e:
+            # 取不到或者页码数不是数字都默认展示第1页
+            self.current_page = 1
+        # 定义每页显示多少条数据
+        self.per_page = per_page
+        # 计算出总页码数
+        total_page, more = divmod(total_count, per_page)
+        if more:
+            total_page += 1
+        self.total_page = total_page
+        # 定义页面上最多显示多少页码(为了左右对称，一般设为奇数)
+        self.max_show = max_show
+        self.half_show = max_show // 2
+        self.base_url = base_url
+
+    @property
+    def start(self):
+        return (self.current_page-1) * self.per_page
+
+    @property
+    def end(self):
+        return self.current_page * self.per_page
+
+    def page_html(self):
+        # 计算一下页面显示的页码范围
+        if self.total_page &lt;= self.max_show:  # 总页码数小于最大显示页码数
+            page_start = 1
+            page_end = self.total_page
+        elif self.current_page + self.half_show &gt;= self.total_page:  # 右边越界
+            page_end = self.total_page
+            page_start = self.total_page - self.max_show
+        elif self.current_page - self.half_show &lt;= 1:  # 左边越界
+            page_start = 1
+            page_end = self.max_show
+        else:  # 正常页码区间
+            page_start = self.current_page - self.half_show
+            page_end = self.current_page + self.half_show
+        # 生成页面上显示的页码
+        page_html_list = []
+        page_html_list.append(&#39;&lt;nav aria-label=&quot;Page navigation&quot;&gt;&lt;ul class=&quot;pagination&quot;&gt;&#39;)
+        # 加首页
+        first_li = &#39;&lt;li&gt;&lt;a href=&quot;{}?page=1&quot;&gt;首页&lt;/a&gt;&lt;/li&gt;&#39;.format(self.base_url)
+        page_html_list.append(first_li)
+        # 加上一页
+        if self.current_page == 1:
+            prev_li = &#39;&lt;li&gt;&lt;a href=&quot;#&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;laquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;
+        else:
+            prev_li = &#39;&lt;li&gt;&lt;a href=&quot;{}?page={}&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;laquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;.format(
+                self.base_url, self.current_page - 1)
+        page_html_list.append(prev_li)
+        for i in range(page_start, page_end + 1):
+            if i == self.current_page:
+                li_tag = &#39;&lt;li class=&quot;active&quot;&gt;&lt;a href=&quot;{0}?page={1}&quot;&gt;{1}&lt;/a&gt;&lt;/li&gt;&#39;.format(self.base_url, i)
+            else:
+                li_tag = &#39;&lt;li&gt;&lt;a href=&quot;{0}?page={1}&quot;&gt;{1}&lt;/a&gt;&lt;/li&gt;&#39;.format(self.base_url, i)
+            page_html_list.append(li_tag)
+        # 加下一页
+        if self.current_page == self.total_page:
+            next_li = &#39;&lt;li&gt;&lt;a href=&quot;#&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;raquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;
+        else:
+            next_li = &#39;&lt;li&gt;&lt;a href=&quot;{}?page={}&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;&amp;raquo;&lt;/span&gt;&lt;/a&gt;&lt;/li&gt;&#39;.format(
+                self.base_url, self.current_page + 1)
+        page_html_list.append(next_li)
+        # 加尾页
+        page_end_li = &#39;&lt;li&gt;&lt;a href=&quot;{}?page={}&quot;&gt;尾页&lt;/a&gt;&lt;/li&gt;&#39;.format(self.base_url, self.total_page)
+        page_html_list.append(page_end_li)
+        page_html_list.append(&#39;&lt;/ul&gt;&lt;/nav&gt;&#39;)
+        return &quot;&quot;.join(page_html_list)</code></pre>
+<pre><code><code>def publisher_list(request):
+    # 从URL中取当前访问的页码数
+    current_page = int(request.GET.get(&#39;page&#39;))
+    # 比len(models.Publisher.objects.all())更高效
+    total_count = models.Publisher.objects.count()
+    page_obj = Pagination(current_page, total_count, request.path_info)
+    data = models.Publisher.objects.all()[page_obj.start:page_obj.end]
+    page_html = page_obj.page_html()
+    return render(request, &quot;publisher_list.html&quot;, {&quot;publisher_list&quot;: data, &quot;page_html&quot;: page_html})</code></pre>
+<p>　　再来一版django内置分页器的分页</p>
+<pre><code><code>from django.shortcuts import render
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+L = []
+for i in range(999):
+    L.append(i)
+
+def index(request):
+    current_page = request.GET.get(&#39;p&#39;)
+
+    paginator = Paginator(L, 10)
+    # per_page: 每页显示条目数量
+    # count:    数据总个数
+    # num_pages:总页数
+    # page_range:总页数的索引范围，如: (1,10),(1,200)
+    # page:     page对象
+    try:
+        posts = paginator.page(current_page)
+        # has_next              是否有下一页
+        # next_page_number      下一页页码
+        # has_previous          是否有上一页
+        # previous_page_number  上一页页码
+        # object_list           分页之后的数据列表
+        # number                当前页
+        # paginator             paginator对象
+    except PageNotAnInteger:
+        posts = paginator.page(1)
+    except EmptyPage:
+        posts = paginator.page(paginator.num_pages)
+    return render(request, &#39;index.html&#39;, {&#39;posts&#39;: posts})</code></pre>
+<pre><code><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head lang=&quot;en&quot;&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;ul&gt;
+    {% for item in posts %}
+        &lt;li&gt;{{ item }}&lt;/li&gt;
+    {% endfor %}
+&lt;/ul&gt;
+
+&lt;div class=&quot;pagination&quot;&gt;
+      &lt;span class=&quot;step-links&quot;&gt;
+        {% if posts.has_previous %}
+            &lt;a href=&quot;?p={{ posts.previous_page_number }}&quot;&gt;Previous&lt;/a&gt;
+        {% endif %}
+          &lt;span class=&quot;current&quot;&gt;
+            Page {{ posts.number }} of {{ posts.paginator.num_pages }}.
+          &lt;/span&gt;
+          {% if posts.has_next %}
+              &lt;a href=&quot;?p={{ posts.next_page_number }}&quot;&gt;Next&lt;/a&gt;
+          {% endif %}
+      &lt;/span&gt;
+
+&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

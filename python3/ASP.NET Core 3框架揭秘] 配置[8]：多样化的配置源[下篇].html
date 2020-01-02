@@ -1,0 +1,138 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修ASP.NET Core 3框架揭秘] 配置[8]：多样化的配置源[下篇]' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>ASP.NET Core 3框架揭秘] 配置[8]：多样化的配置源[下篇]</center></div><div class='banquan'>原文出处:本文由博客园博主Artech提供。<br/>
+原文连接:https://www.cnblogs.com/artech/p/inside-asp-net-core-05-08.html</div><br>
+    <p>XML也是一种常用的配置定义形式，它对数据的表达能力甚至强于JSON，几乎所有类型的数据结构都可以通过XML表示出来。当我们通过一个XML元素表示一个复杂对象的时候，对象的数据成员定义成当前XML元素的子元素。虽然XML对数据结构的表达能力总体要强于JSON，但是作为配置模型的数据来源却有自己的局限性，比如它们对集合的表现形式有点不尽如人意。</p><h1><font size="4">一、XML在针对集合表达上的缺陷</font></h1><p>举个简单的例子，对于一个元素类型为Profile的集合，我们可以采用具有如下结构的XML来表现。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Profiles</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Profile </span><span style="color: #ff0000;">Gender</span><span style="color: #0000ff;">="Male"</span><span style="color: #ff0000;"> Age</span><span style="color: #0000ff;">="18"</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">ContactInfo </span><span style="color: #ff0000;">EmailAddress </span><span style="color: #0000ff;">="foo@outlook.com"</span><span style="color: #ff0000;"> PhoneNo</span><span style="color: #0000ff;">="123"</span><span style="color: #0000ff;">/&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">Profile</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Profile </span><span style="color: #ff0000;">Gender</span><span style="color: #0000ff;">="Male"</span><span style="color: #ff0000;"> Age</span><span style="color: #0000ff;">="25"</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">ContactInfo </span><span style="color: #ff0000;">EmailAddress </span><span style="color: #0000ff;">="bar@outlook.com"</span><span style="color: #ff0000;"> PhoneNo</span><span style="color: #0000ff;">="456"</span><span style="color: #0000ff;">/&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">Profile</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Profile </span><span style="color: #ff0000;">Gender</span><span style="color: #0000ff;">="Male"</span><span style="color: #ff0000;"> Age</span><span style="color: #0000ff;">="36"</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">ContactInfo </span><span style="color: #ff0000;">EmailAddress </span><span style="color: #0000ff;">="baz@outlook.com"</span><span style="color: #ff0000;"> PhoneNo</span><span style="color: #0000ff;">="789"</span><span style="color: #0000ff;">/&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">Profile</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">Profiles</span><span style="color: #0000ff;">&gt;</span></pre></div><p>但是这段XML却不能正确地转换成配置字典，原因很简单，因为<font color="#ff0000">字典的Key必须是唯一</font>的，这必然要求最终构成配置树的每个节点必须具有不同的路径。上面这段XML很明显不满足这个基本的要求，因为<font color="#ff0000">表示一个Profile对象的三个XML元素（&lt;Profile&gt;...&lt;/Profile&gt;）是&#8220;同质&#8221;的</font>，对于由它们表示的三个Profile对象来说，分别表示性别、年龄、电子邮箱地址和电话号码的四个叶子节点的路径是完全一样的，所以根本无法作为配置字典的Key。通过前面针对配置绑定的介绍我们知道，如果需要通过配置字典来表示一个Profile对象的集合，我们需要按照如下的方式为每个集合元素加上相应的索引（&#8220;foo&#8221;、&#8220;bar&#8221;和&#8220;baz&#8221;）。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #000000;">foo:Gender
+foo:Age
+foo:ContactInfo:EmailAddress
+foo:ContactInfo:PhoneNo
+
+bar:Gender
+bar:Age
+bar:ContactInfo:EmailAddress
+bar:ContactInfo:PhoneNo
+
+baz:Gender
+baz:Age
+baz:ContactInfo:EmailAddress
+baz:ContactInfo:PhoneNo</span></pre></div><h1><font size="4">二、通过自定义IConfigurationSource解决问题</font></h1><p>之所以XML不能像JSON格式那样可以以一种很自然的形式表示集合或者数组，是因为后者对这两种数据类型提供了明确的定义方式（采用中括号定义），但是XML只有子元素的概念，我们不能确定它的子元素是否是一个集合。如果做这样一个假设：<font color="#ff0000">如果同一个XML元素下的所有子元素都具有相同的名称，那么我们可以将其视为集合</font>。根据这么一个假设，我们对XmlConfigurationSource略加改造就可以解决XML难以表示集合数据结构的问题。</p><p>我们通过派生XmlConfigurationSource创建一个新的IConfigurationSource实现类型，姑且将其命名为ExtendedXmlConfigurationSource。XmlConfigurationSource提供的ConfigurationProvdier类型为ExtendedXmlConfigurationProvider，它派生于XmlConfigurationProvider。在重写的Load方法中，ExtendedXmlConfigurationProvider通过对原始的XML结构进行相应的改动，从而让原本不合法的XML（XML元素具有相同的名称）可以转换成一个针对集合的配置字典 。下图展示了XML结构转换采用的规则和步骤。</p><p><a href="https://img2018.cnblogs.com/blog/19327/201912/19327-20191223085318985-1070015519.png"><img width="449" height="73" title="6-18" style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" alt="6-18" src="./images/ASP.NET Core 3框架揭秘] 配置[8]：多样化的配置源[下篇]0.png" border="0" /></a></p><p>如上图所示，针对集合对原始XML所作的结构转换由两个步骤组成。第一步为表示集合元素的XML元素添加一个名为&#8220;<font color="#ff0000">append_index</font>&#8221;的属性（Attribute），我们采用零基索引作为该属性的值。第二步会根据第一步转换的结果创建一个新的XML，同名的集合元素（比如&lt;profile&gt;）将会根据添加的索引值重新命名（比如&lt;<font color="#ff0000">profile_index_0</font>&gt;）。毫无疑问，转换后的这个XML可以很好地表示一个集合对象。如下所示的是ExtendedXmlConfigurationProvider<strong>对象</strong>的定义，上述的这个转换逻辑体现在重写的Load方法中。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ExtendedXmlConfigurationProvider : XmlConfigurationProvider
+{
+    </span><span style="color: #0000ff;">public</span> ExtendedXmlConfigurationProvider(XmlConfigurationSource source) :  <span style="color: #0000ff;">base</span><span style="color: #000000;">(source)
+    {}
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> Load(Stream stream)
+    {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">加载源文件并创建一个XmlDocument        </span>
+        <span style="color: #0000ff;">var</span> sourceDoc = <span style="color: #0000ff;">new</span><span style="color: #000000;"> XmlDocument();
+        sourceDoc.Load(stream);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">添加索引</span>
+<span style="color: #000000;">        AddIndexes(sourceDoc.DocumentElement);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">根据添加的索引创建一个新的XmlDocument</span>
+        <span style="color: #0000ff;">var</span> newDoc = <span style="color: #0000ff;">new</span><span style="color: #000000;"> XmlDocument();
+        </span><span style="color: #0000ff;">var</span> documentElement =<span style="color: #000000;">  newDoc.CreateElement(sourceDoc.DocumentElement.Name);
+        newDoc.AppendChild(documentElement);
+
+        </span><span style="color: #0000ff;">foreach</span> (XmlElement element <span style="color: #0000ff;">in</span><span style="color: #000000;"> sourceDoc.DocumentElement.ChildNodes)
+        {
+            Rebuild(element, documentElement, name </span>=&gt;<span style="color: #000000;"> newDoc.CreateElement(name));
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">根据新的XmlDocument初始化配置字典</span>
+        <span style="color: #0000ff;">using</span> (Stream newStream = <span style="color: #0000ff;">new</span><span style="color: #000000;"> MemoryStream())
+        {
+            </span><span style="color: #0000ff;">using</span> (XmlWriter writer =<span style="color: #000000;"> XmlWriter.Create(newStream))
+            {
+                newDoc.WriteTo(writer);
+            }
+            newStream.Position </span>= <span style="color: #800080;">0</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">base</span><span style="color: #000000;">.Load(newStream);
+        }
+    }
+
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> AddIndexes(XmlElement element)
+    {
+        </span><span style="color: #0000ff;">if</span> (element.ChildNodes.OfType&lt;XmlElement&gt;().Count() &gt; <span style="color: #800080;">1</span><span style="color: #000000;">)
+        {
+            </span><span style="color: #0000ff;">if</span> (element.ChildNodes.OfType&lt;XmlElement&gt;().GroupBy(it =&gt; it.Name).Count() == <span style="color: #800080;">1</span><span style="color: #000000;">)
+            {
+                </span><span style="color: #0000ff;">var</span> index = <span style="color: #800080;">0</span><span style="color: #000000;">;
+                </span><span style="color: #0000ff;">foreach</span> (XmlElement subElement <span style="color: #0000ff;">in</span><span style="color: #000000;"> element.ChildNodes)
+                {
+                    subElement.SetAttribute(</span><span style="color: #800000;">"</span><span style="color: #800000;">append_index</span><span style="color: #800000;">"</span>, (index++<span style="color: #000000;">).ToString());
+                    AddIndexes(subElement);
+                }
+            }
+        }
+    }
+
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span> Rebuild(XmlElement source, XmlElement destParent, Func&lt;<span style="color: #0000ff;">string</span>, XmlElement&gt;<span style="color: #000000;"> creator)
+    {
+        </span><span style="color: #0000ff;">var</span> index = source.GetAttribute(<span style="color: #800000;">"</span><span style="color: #800000;">append_index</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+        </span><span style="color: #0000ff;">var</span> elementName = <span style="color: #0000ff;">string</span>.IsNullOrEmpty(index)  ? source.Name : $<span style="color: #800000;">"</span><span style="color: #800000;">{source.Name}_index_{index}</span><span style="color: #800000;">"</span><span style="color: #000000;">;
+        </span><span style="color: #0000ff;">var</span> element =<span style="color: #000000;"> creator(elementName);
+        destParent.AppendChild(element);
+        </span><span style="color: #0000ff;">foreach</span> (XmlAttribute attribute <span style="color: #0000ff;">in</span><span style="color: #000000;"> source.Attributes)
+        {
+            </span><span style="color: #0000ff;">if</span> (attribute.Name != <span style="color: #800000;">"</span><span style="color: #800000;">append_index</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+            {
+                element.SetAttribute(attribute.Name, attribute.Value);
+            }
+        }
+
+        </span><span style="color: #0000ff;">foreach</span> (XmlElement subElement <span style="color: #0000ff;">in</span><span style="color: #000000;"> source.ChildNodes)
+        {
+            Rebuild(subElement, element, creator);
+        }
+    }
+}</span></pre></div><p>为了能够将上面这个XmlConfigurationProvider对象应用到我们的程序中，我们需要为它定义相应的IConfigurationSource对象，为此我们定义了如下这个ExtendedXmlConfigurationSource类型。它直接继承自XmlConfigurationSource对象，并在重写的Build方法中提供上面这个ExtendedXmlConfigurationProvider对象。为了方便将这个ExtendedXmlConfigurationSource对象注册到IConfigurationBuilder对象上，我们也可以进一步定义如下这些扩展方法。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ExtendedXmlConfigurationSource : XmlConfigurationSource
+{
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> IConfigurationProvider Build(IConfigurationBuilder builder)
+    {
+        EnsureDefaults(builder);
+        </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span> ExtendedXmlConfigurationProvider(<span style="color: #0000ff;">this</span><span style="color: #000000;">);
+    }
+}
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ExtendedXmlConfigurationExtensions
+{
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> IConfigurationBuilder AddExtendedXmlFile( <span style="color: #0000ff;">this</span> IConfigurationBuilder builder, <span style="color: #0000ff;">string</span> path)=&gt; builder.AddExtendedXmlFile(path, <span style="color: #0000ff;">false</span>, <span style="color: #0000ff;">false</span><span style="color: #000000;">);
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> IConfigurationBuilder AddExtendedXmlFile( <span style="color: #0000ff;">this</span> IConfigurationBuilder builder, <span style="color: #0000ff;">string</span> path, <span style="color: #0000ff;">bool</span> optional) =&gt; builder.AddExtendedXmlFile(path, optional, <span style="color: #0000ff;">false</span><span style="color: #000000;">);
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> IConfigurationBuilder AddExtendedXmlFile(tthis IConfigurationBuilder builder, <span style="color: #0000ff;">string</span> path, <span style="color: #0000ff;">bool</span> optional, <span style="color: #0000ff;">bool</span><span style="color: #000000;"> reloadOnChange)
+    {
+        builder.Add(</span><span style="color: #0000ff;">new</span> ExtendedXmlConfigurationSource  { Path = path, Optional = optional, ReloadOnChange =<span style="color: #000000;"> reloadOnChange });
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> builder;
+    }
+}</span></pre></div><p><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-01.html">[ASP.NET Core 3框架揭秘] 配置[1]：读取配置数据[上篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-02.html">[ASP.NET Core 3框架揭秘] 配置[2]：读取配置数据[下篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-03.html">[ASP.NET Core 3框架揭秘] 配置[3]：配置模型总体设计</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-04.html">[ASP.NET Core 3框架揭秘] 配置[4]：将配置绑定为对象</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-05.html">[ASP.NET Core 3框架揭秘] 配置[5]：配置数据与数据源的实时同步</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-06.html">[ASP.NET Core 3框架揭秘] 配置[6]：多样化的配置源[上篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-07.html">[ASP.NET Core 3框架揭秘] 配置[7]：多样化的配置源[中篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-08.html">[ASP.NET Core 3框架揭秘] 配置[8]：多样化的配置源[下篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-09.html">[ASP.NET Core 3框架揭秘] 配置[9]：自定义配置源</a> </p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

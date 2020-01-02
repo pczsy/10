@@ -1,0 +1,142 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修深入探索Java设计模式（三）之装饰器模式' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>深入探索Java设计模式（三）之装饰器模式</center></div><div class='banquan'>原文出处:本文由博客园博主Absolutely-提供。<br/>
+原文连接:https://www.cnblogs.com/youruike-/p/12065939.html</div><br>
+    <p>抽丝剥茧 细说架构那些事&mdash;&mdash;【优锐课】</p>
+<p>装饰器模式使你可以在运行时使用类似于对象组成的技术来装饰类。这在我们希望实例化具有新职责的对象而无需对基础类进行任何代码更改的情况下尤其有用。本文是在学习完优锐课JAVA架构VIP课程&mdash;【框架源码专题】中《学习源码中的优秀设计模式》后写下的学习感悟。探讨了这种模式，并向你展示了如何使用提供的Java代码示例来实现它。</p>
+<p><a class="link-post-title" href="https://www.cnblogs.com/youruike-/p/12058312.html" target="_blank">深入探索Java设计模式（一）之单例模式</a></p>
+<p><a id="cb_post_title_url" class="postTitle2" href="https://www.cnblogs.com/youruike-/p/12060947.html" target="_blank">深入探索Java设计模式（二）之策略模式</a></p>
+<h2>&nbsp;</h2>
+<h2>总览</h2>
+<p>装饰器模式是&ldquo;四人帮&rdquo;（Erich Gamma，Richard Helm，Ralph Johnson，John Vlissides）建立的结构设计模式之一。 通过解决在运行时向对象添加新状态或行为的反复出现的问题，它在面向对象的设计中利用了可重用性和灵活性。尽管这种想法与面向对象原理（称为继承）押韵，但简单继承在这种情况下不适用，因为它是静态的并且考虑到整个类。这为新方法铺平了道路，因为它着重于提供灵活的替代方法来扩展子类功能，因此可以动态地向对象施加新的责任。</p>
+<h2>&nbsp;</h2>
+<h2>装饰器模式</h2>
+<p>顾名思义，装饰器模式可配置特定对象的功能。这是Java原始IO类中的一种常见模式，用于对JVM之外的源进行读写。例如，InputStream和OutputStream类及其子类在其读取和写入操作中广泛使用此模式。可以链接这些类的实现，以有效地从不同的源（例如本机文件系统）读取和写入数据。</p>
+<p>例如，请注意抽象类OutputStream。它有一个称为read的抽象方法，该方法必须由子类定义。可以重写该方法以扩展其行为，以更改或增强其效率。在将职责委派给另一个OutputStream之前，OutputStream实现会执行所需的工作。实现链将另一个OutputStream用作构造函数参数。具体的子类，例如OutputStream的FileOutputStream或SocketOutputStream，是管道的末尾，最终写入数据，而没有将写入责任委托给另一个流。因此，在其构造函数参数中不需要另一个OutputStream对象。</p>
+<p>让我们看看在Java IO类的OutputStream类中使用装饰器模式如何导致在将字节数组写入磁盘之前将多个操作链接在一起。</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #000000;">@Test
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> testingDecoratorPattern() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> IOException {
+</span><span style="color: #008080;"> 3</span>    <span style="color: #0000ff;">final</span> File file = <span style="color: #0000ff;">new</span> File("myfile.dat"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 4</span>    <span style="color: #0000ff;">final</span> FileOutputStream fileOutputStream = <span style="color: #0000ff;">new</span>
+<span style="color: #008080;"> 5</span> <span style="color: #000000;">      FileOutputStream(f);
+</span><span style="color: #008080;"> 6</span>    <span style="color: #0000ff;">final</span> BufferedOutputStream bufferedOutputStream = <span style="color: #0000ff;">new</span>
+<span style="color: #008080;"> 7</span> <span style="color: #000000;">      BufferedOutputStream(fileOutputStream);
+</span><span style="color: #008080;"> 8</span>    <span style="color: #0000ff;">final</span> ObjectOutputStream objectOutputStream = <span style="color: #0000ff;">new</span>
+<span style="color: #008080;"> 9</span> <span style="color: #000000;">      ObjectOutputStream(fileOutputStream);
+</span><span style="color: #008080;">10</span>    objectOutputStream.writeBoolean(<span style="color: #0000ff;">true</span><span style="color: #000000;">);
+</span><span style="color: #008080;">11</span>    objectOutputStream.writeInt(12<span style="color: #000000;">);
+</span><span style="color: #008080;">12</span>    objectOutputStream.writeObject(<span style="color: #0000ff;">new</span> ArrayList&lt;Integer&gt;<span style="color: #000000;">());
+</span><span style="color: #008080;">13</span> <span style="color: #000000;">   objectOutputStream.flush();
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">   objectOutputStream.close();
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">   bufferedOutputStream.close();
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">   fileOutputStream.close();
+</span><span style="color: #008080;">17</span> <span style="color: #000000;">   assertTrue(file.exists());
+</span><span style="color: #008080;">18</span> }</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>FileOutputStream对象用于将文件写入磁盘。 BufferedOutputStream对象缓存对写操作的所有调用，并一次写入几个字节。 这可以提高效率，特别是在写入磁盘时。ObjectOutputStream中的对象序列化的内置机制将对象和原始类型写入流中。但是，ObjectOutputStream不知道将文件写入何处。这主要用于将责任委托给另一个OutputStream。</p>
+<h2>&nbsp;</h2>
+<h2>装饰器模式的使用</h2>
+<p>假设我们要创建一个类设计，但要增加新功能。 在这种情况下，装饰器模式可为客户端提供所需的功能组合，以增强进一步的实现，如图1所示。</p>
+<p><img src="./images/深入探索Java设计模式（三）之装饰器模式0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;<strong>图</strong><strong>1</strong><strong>：装饰器模式</strong></p>
+<p>在这里，茶是一个抽象类，由产品的所有类别或变体子类化。在包含有关其类型的特定信息的每个子类中都设置了detailsinstance变量。<em>getDetails()</em>方法返回有关其类型的信息。父类将<em>price()</em>&nbsp;方法声明为抽象，子类将定义其自己的实现。除了可用的茶类型以外，我们还可以通过多种变体和组合实现任意数量的茶。这是装饰器模式的关键。</p>
+<h2>&nbsp;</h2>
+<h2>实现装饰器模式</h2>
+<p>现在，让我们看看如何实现装饰器模式。该示例非常简单，不言自明。这些类的布局如下。</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> org.mano.example;
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span><span style="color: #000000;"> Car {
+</span><span style="color: #008080;"> 3</span>    <span style="color: #0000ff;">void</span><span style="color: #000000;"> paint();
+</span><span style="color: #008080;"> 4</span> <span style="color: #000000;">}
+</span><span style="color: #008080;"> 5</span>  
+<span style="color: #008080;"> 6</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> org.mano.example;
+</span><span style="color: #008080;"> 7</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> ElectricCar <span style="color: #0000ff;">implements</span><span style="color: #000000;"> Car {
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">   @Override
+</span><span style="color: #008080;"> 9</span>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> paint() {
+</span><span style="color: #008080;">10</span>       <span style="color: #008000;">//</span><span style="color: #008000;"> ...</span>
+<span style="color: #008080;">11</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">}
+</span><span style="color: #008080;">13</span>  
+<span style="color: #008080;">14</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> org.mano.example;
+</span><span style="color: #008080;">15</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> HybridCar <span style="color: #0000ff;">implements</span><span style="color: #000000;"> Car {
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">   @Override
+</span><span style="color: #008080;">17</span>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> paint() {
+</span><span style="color: #008080;">18</span>       <span style="color: #008000;">//</span><span style="color: #008000;"> ...</span>
+<span style="color: #008080;">19</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">}
+</span><span style="color: #008080;">21</span>  
+<span style="color: #008080;">22</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> org.mano.example;
+</span><span style="color: #008080;">23</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">abstract</span> <span style="color: #0000ff;">class</span> CarDecorator <span style="color: #0000ff;">implements</span><span style="color: #000000;"> Car {
+</span><span style="color: #008080;">24</span>    <span style="color: #0000ff;">protected</span><span style="color: #000000;"> Car decoratedCar;
+</span><span style="color: #008080;">25</span>    <span style="color: #0000ff;">public</span><span style="color: #000000;"> CarDecorator(Car car){
+</span><span style="color: #008080;">26</span>       decoratedCar =<span style="color: #000000;"> car;
+</span><span style="color: #008080;">27</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">28</span>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> paint(){
+</span><span style="color: #008080;">29</span> <span style="color: #000000;">      decoratedCar.paint();
+</span><span style="color: #008080;">30</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">31</span> <span style="color: #000000;">}
+</span><span style="color: #008080;">32</span>  
+<span style="color: #008080;">33</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> org.mano.example;
+</span><span style="color: #008080;">34</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> CarColorDecorator <span style="color: #0000ff;">extends</span><span style="color: #000000;"> CarDecorator {
+</span><span style="color: #008080;">35</span>    <span style="color: #0000ff;">public</span><span style="color: #000000;"> CarColorDecorator(Car car) {
+</span><span style="color: #008080;">36</span>       <span style="color: #0000ff;">super</span><span style="color: #000000;"> (car);
+</span><span style="color: #008080;">37</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">38</span> <span style="color: #000000;">   @Override
+</span><span style="color: #008080;">39</span>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> paint(){
+</span><span style="color: #008080;">40</span> <span style="color: #000000;">      decoratedCar.paint();
+</span><span style="color: #008080;">41</span> <span style="color: #000000;">      setTheme(decoratedCar);
+</span><span style="color: #008080;">42</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">43</span>    <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setTheme(Car car){
+</span><span style="color: #008080;">44</span>       <span style="color: #008000;">//</span><span style="color: #008000;"> ...</span>
+<span style="color: #008080;">45</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">46</span>  
+<span style="color: #008080;">47</span> <span style="color: #000000;">}
+</span><span style="color: #008080;">48</span>  
+<span style="color: #008080;">49</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> org.mano.example;
+</span><span style="color: #008080;">50</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> DPApp {
+</span><span style="color: #008080;">51</span>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args) {
+</span><span style="color: #008080;">52</span>       Car defaultHybridCar = <span style="color: #0000ff;">new</span><span style="color: #000000;"> HybridCar();
+</span><span style="color: #008080;">53</span>       Car redHybridCar = <span style="color: #0000ff;">new</span> CarColorDecorator(<span style="color: #0000ff;">new</span>
+<span style="color: #008080;">54</span> <span style="color: #000000;">         HybridCar());
+</span><span style="color: #008080;">55</span>       Car blueElectricCar = <span style="color: #0000ff;">new</span> CarColorDecorator(<span style="color: #0000ff;">new</span>
+<span style="color: #008080;">56</span> <span style="color: #000000;">         ElectricCar());
+</span><span style="color: #008080;">57</span> <span style="color: #000000;">      defaultHybridCar.paint();
+</span><span style="color: #008080;">58</span> <span style="color: #000000;">      redHybridCar.paint();
+</span><span style="color: #008080;">59</span> <span style="color: #000000;">      blueElectricCar.paint();
+</span><span style="color: #008080;">60</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">61</span> }</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<h2>结论</h2>
+<p>这是OOP中最常用的模式之一。这种模式的强大之处在于将对象组合在一起，例如ObjectOutputStream，BufferedOutputStream和FileOutputStream扩展了抽象超类OutputStream。每个子类构造函数都将OutputStream对象作为参数。没有装饰器模式，这将是不可能的。否则，我们必须创建许多类来获取本质，这将是一个糟糕的设计。</p>
+<p>感谢阅读！欢迎留言。想更深入探讨学习也欢迎私信我。下篇继续~</p>
+<p><a class="link-post-title" href="https://www.cnblogs.com/youruike-/p/12072935.html" target="_blank">深入探索Java设计模式（四）之享元模式</a></p>
+<p><a id="cb_post_title_url" class="postTitle2" href="https://www.cnblogs.com/youruike-/p/12076008.html" target="_blank">深入探索Java设计模式（五）之构建器模式</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

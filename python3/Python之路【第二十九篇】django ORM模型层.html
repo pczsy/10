@@ -1,0 +1,569 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python之路【第二十九篇】django ORM模型层' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python之路【第二十九篇】django ORM模型层</center></div><div class='banquan'>原文出处:本文由博客园博主Simon92提供。<br/>
+原文连接:https://www.cnblogs.com/hackerer/p/11751948.html</div><br>
+    <h1>&nbsp;ORM简介</h1>
+<ul>
+<li>MVC或者MVC框架中包括一个重要的部分，就是ORM，它实现了数据模型与数据库的解耦，即数据模型的设计不需要依赖于特定的数据库，通过简单的配置就可以轻松更换数据库，这极大的减轻了开发人员的工作量，不需要面对因数据库变更而导致的无效劳动</li>
+<li>ORM是&ldquo;对象-关系-映射&rdquo;的简称。</li>
+</ul>
+<p>&nbsp;如果进行数据库迁移，不同数据库的sql语句是有差别的，而ORM是上层封装，只需按照指定的数据库引擎就可以翻译为相对应的sql语句，便于数据库迁移。但是它的效率不高。</p>
+<p>不需要调用sqmysql，django的上层封装；它只能做到表这一层</p>
+<p>&nbsp;</p>
+<p>sql表-----&gt;python的 类</p>
+<p>字段------&gt;类的属性</p>
+<p>表记录----&gt;python类对象</p>
+<p><img src="./images/Python之路【第二十九篇】django ORM模型层0.png" alt="" width="1169" height="483" /></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">sql中的表                                                      </span>
+
+ <span style="color: #008000;">#</span><span style="color: #008000;">创建表:</span>
+<span style="color: #000000;">     CREATE TABLE employee(                                     
+                id INT PRIMARY KEY auto_increment ,                    
+                name VARCHAR (</span>20<span style="color: #000000;">),                                      
+                gender BIT default </span>1<span style="color: #000000;">,                                  
+                birthday DATA ,                                         
+                department VARCHAR (</span>20<span style="color: #000000;">),                                
+                salary DECIMAL (</span>8,2<span style="color: #000000;">) unsigned,                          
+              );
+
+
+  </span><span style="color: #008000;">#</span><span style="color: #008000;">sql中的表纪录                                                  </span>
+
+  <span style="color: #008000;">#</span><span style="color: #008000;">添加一条表纪录:                                                          </span>
+<span style="color: #000000;">      INSERT employee (name,gender,birthday,salary,department)            
+             VALUES   (</span><span style="color: #800000;">"</span><span style="color: #800000;">alex</span><span style="color: #800000;">"</span>,1,<span style="color: #800000;">"</span><span style="color: #800000;">1985-12-12</span><span style="color: #800000;">"</span>,8000,<span style="color: #800000;">"</span><span style="color: #800000;">保洁部</span><span style="color: #800000;">"</span><span style="color: #000000;">);               
+
+  </span><span style="color: #008000;">#</span><span style="color: #008000;">查询一条表纪录:                                                           </span>
+      SELECT * FROM employee WHERE age=24<span style="color: #000000;">;                               
+
+  </span><span style="color: #008000;">#</span><span style="color: #008000;">更新一条表纪录:                                                           </span>
+      UPDATE employee SET birthday=<span style="color: #800000;">"</span><span style="color: #800000;">1989-10-24</span><span style="color: #800000;">"</span> WHERE id=1<span style="color: #000000;">;              
+
+  </span><span style="color: #008000;">#</span><span style="color: #008000;">删除一条表纪录:                                                          </span>
+      DELETE FROM employee WHERE name=<span style="color: #800000;">"</span><span style="color: #800000;">alex</span><span style="color: #800000;">"</span>                             
+
+
+
+
+
+<span style="color: #008000;">#</span><span style="color: #008000;">python的类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> Employee(models.Model):
+     id</span>=models.AutoField(primary_key=<span style="color: #000000;">True)
+     name</span>=models.CharField(max_length=32<span style="color: #000000;">)
+     gender</span>=<span style="color: #000000;">models.BooleanField()
+     birthday</span>=<span style="color: #000000;">models.DateField()
+     department</span>=models.CharField(max_length=32<span style="color: #000000;">)
+     salary</span>=models.DecimalField(max_digits=8,decimal_places=2<span style="color: #000000;">)
+
+
+ </span><span style="color: #008000;">#</span><span style="color: #008000;">python的类对象</span>
+      <span style="color: #008000;">#</span><span style="color: #008000;">添加一条表纪录:</span>
+          emp=Employee(name=<span style="color: #800000;">"</span><span style="color: #800000;">alex</span><span style="color: #800000;">"</span>,gender=True,birthday=<span style="color: #800000;">"</span><span style="color: #800000;">1985-12-12</span><span style="color: #800000;">"</span>,epartment=<span style="color: #800000;">"</span><span style="color: #800000;">保洁部</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+          emp.save()
+      </span><span style="color: #008000;">#</span><span style="color: #008000;">查询一条表纪录:</span>
+          Employee.objects.filter(age=24<span style="color: #000000;">)
+      </span><span style="color: #008000;">#</span><span style="color: #008000;">更新一条表纪录:</span>
+          Employee.objects.filter(id=1).update(birthday=<span style="color: #800000;">"</span><span style="color: #800000;">1989-10-24</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+      </span><span style="color: #008000;">#</span><span style="color: #008000;">删除一条表纪录:</span>
+          Employee.objects.filter(name=<span style="color: #800000;">"</span><span style="color: #800000;">alex</span><span style="color: #800000;">"</span>).delete()</pre>
+</div>
+<p>&nbsp;</p>
+<p>在mysql中：</p>
+<div class="cnblogs_code">
+<pre><code>mysql&gt; create database orm;
+Query OK, 1 row affected (0.06 sec)
+
+mysql&gt; use orm
+Database changed
+mysql&gt; show tables;
+Empty set (0.17 sec)
+
+mysql&gt;
+mysql&gt; show tables;
++----------------------------+
+| Tables_in_orm              |
++----------------------------+
+| app01_book  #我们自己添加的                |
+| auth_group                 |
+| auth_group_permissions     |
+| auth_permission            |
+| auth_user                  |
+| auth_user_groups           |
+| auth_user_user_permissions |
+| django_admin_log           |
+| django_content_type        |
+| django_migrations          |
+| django_session             |
++----------------------------+
+11 rows in set (0.00 sec)
+
+mysql&gt; desc app01_book;
++----------+--------------+------+-----+---------+----------------+
+| Field    | Type         | Null | Key | Default | Extra          |
++----------+--------------+------+-----+---------+----------------+
+| id       | int(11)      | NO   | PRI | NULL    | auto_increment |
+| title    | varchar(32)  | NO   |     | NULL    |                |
+| pub_date | date         | NO   |     | NULL    |                |
+| price    | decimal(8,2) | NO   |     | NULL    |                |
+| publish  | varchar(32)  | NO   |     | NULL    |                |
++----------+--------------+------+-----+---------+----------------+
+5 rows in set (0.04 sec)</pre>
+</div>
+<p>&nbsp;</p>
+<p><img src="./images/Python之路【第二十九篇】django ORM模型层1.png" alt="" /></p>
+<p><img src="./images/Python之路【第二十九篇】django ORM模型层2.png" alt="" /></p>
+<p><strong>&nbsp;文件为ORM&nbsp;</strong></p>
+<p>&nbsp;类对应表，类对象对应表记录</p>
+<p>&nbsp;创建名为book的app，在book下的models.py中创建模型：&nbsp;</p>
+<p>django里边的<strong>File、Class、Field、QuerySet</strong>等分别对应mysql里边的<strong>库、表、字段、记录</strong>，也就是相当于excel里边的<strong>Excel、Sheet、Column、Line；</strong>它们之间是互相联系的。</p>
+<div class="cnblogs_code">
+<pre><code>from django.db import models
+
+# Create your models here.
+
+
+class Book(models.Model):
+     id=models.AutoField(primary_key=True)  #自增、参数
+     title=models.CharField(max_length=32) #
+     state=models.BooleanField()
+     pub_date=models.DateField()
+     price=models.DecimalField(max_digits=8,decimal_places=2) #浮点数，最大位8，得有2位是小数 123456.78
+     publish=models.CharField(max_length=32)</pre>
+</div>
+<p>每个字段有一些特有的参数，例如，CharField需要max_length参数来指定<code>VARCHAR</code>数据库字段的大小。还有一些适用于所有字段的通用参数。&nbsp;这些参数在文档中有详细定义，这里我们只简单介绍一些最常用的：</p>
+<p>更多字段：</p>
+<div class="cnblogs_code">
+<pre><code>&lt;1&gt;<span style="color: #000000;"> CharField
+        字符串字段, 用于较短的字符串.
+        CharField 要求必须有一个参数 maxlength, 用于从数据库层和Django校验层限制该字段所允许的最大字符数.
+ 
+</span>&lt;2&gt;<span style="color: #000000;"> IntegerField
+       </span><span style="color: #008000;">#</span><span style="color: #008000;">用于保存一个整数.</span>
+ 
+&lt;3&gt;<span style="color: #000000;"> FloatField
+        一个浮点数. 必须 提供两个参数:
+         
+        参数    描述
+        max_digits    总位数(不包括小数点和符号)
+        decimal_places    小数位数
+                举例来说, 要保存最大值为 </span>999<span style="color: #000000;"> (小数点后保存2位),你要这样定义字段:
+                 
+                models.FloatField(..., max_digits</span>=5, decimal_places=2<span style="color: #000000;">)
+                要保存最大值一百万(小数点后保存10位)的话,你要这样定义:
+                 
+                models.FloatField(..., max_digits</span>=19, decimal_places=10<span style="color: #000000;">)
+                admin 用一个文本框(</span>&lt;input type=<span style="color: #800000;">"</span><span style="color: #800000;">text</span><span style="color: #800000;">"</span>&gt;<span style="color: #000000;">)表示该字段保存的数据.
+ 
+</span>&lt;4&gt;<span style="color: #000000;"> AutoField
+        一个 IntegerField, 添加记录时它会自动增长. 你通常不需要直接使用这个字段;
+        自定义一个主键：my_id</span>=models.AutoField(primary_key=<span style="color: #000000;">True)
+        如果你不指定主键的话,系统会自动添加一个主键字段到你的 model.
+ 
+</span>&lt;5&gt;<span style="color: #000000;"> BooleanField
+        A true</span>/<span style="color: #000000;">false field. admin 用 checkbox 来表示此类字段.
+ 
+</span>&lt;6&gt;<span style="color: #000000;"> TextField
+        一个容量很大的文本字段.
+        admin 用一个 </span>&lt;textarea&gt;<span style="color: #000000;"> (文本区域)表示该字段数据.(一个多行编辑框).
+ 
+</span>&lt;7&gt;<span style="color: #000000;"> EmailField
+        一个带有检查Email合法性的 CharField,不接受 maxlength 参数.
+ 
+</span>&lt;8&gt;<span style="color: #000000;"> DateField
+        一个日期字段. 共有下列额外的可选参数:
+        Argument    描述
+        auto_now    当对象被保存时,自动将该字段的值设置为当前时间.通常用于表示 </span><span style="color: #800000;">"</span><span style="color: #800000;">last-modified</span><span style="color: #800000;">"</span><span style="color: #000000;"> 时间戳.
+        auto_now_add    当对象首次被创建时,自动将该字段的值设置为当前时间.通常用于表示对象创建时间.
+        （仅仅在admin中有意义...)
+ 
+</span>&lt;9&gt;<span style="color: #000000;"> DateTimeField
+         一个日期时间字段. 类似 DateField 支持同样的附加选项.
+ 
+</span>&lt;10&gt;<span style="color: #000000;"> ImageField
+        类似 FileField, 不过要校验上传对象是否是一个合法图片.</span><span style="color: #008000;">#</span><span style="color: #008000;">它有两个可选参数:height_field和width_field,</span>
+<span style="color: #000000;">        如果提供这两个参数,则图片将按提供的高度和宽度规格保存.    
+</span>&lt;11&gt;<span style="color: #000000;"> FileField
+     一个文件上传字段.
+     要求一个必须有的参数: upload_to, 一个用于保存上载文件的本地文件系统路径. 这个路径必须包含 strftime </span><span style="color: #008000;">#</span><span style="color: #008000;">formatting,</span>
+     该格式将被上载文件的 date/<span style="color: #000000;">time
+     替换(so that uploaded files don</span><span style="color: #800000;">'</span><span style="color: #800000;">t fill up the given directory).</span>
+     admin 用一个&lt;input type=<span style="color: #800000;">"</span><span style="color: #800000;">file</span><span style="color: #800000;">"</span>&gt;<span style="color: #000000;">部件表示该字段保存的数据(一个文件上传部件) .
+ 
+     注意：在一个 model 中使用 FileField 或 ImageField 需要以下步骤:
+            （</span>1<span style="color: #000000;">）在你的 settings 文件中, 定义一个完整路径给 MEDIA_ROOT 以便让 Django在此处保存上传文件.
+            (出于性能考虑,这些文件并不保存到数据库.) 定义MEDIA_URL 作为该目录的公共 URL. 要确保该目录对
+             WEB服务器用户帐号是可写的.
+            （</span>2<span style="color: #000000;">） 在你的 model 中添加 FileField 或 ImageField, 并确保定义了 upload_to 选项,以告诉 Django
+             使用 MEDIA_ROOT 的哪个子目录保存上传文件.你的数据库中要保存的只是文件的路径(相对于 MEDIA_ROOT).
+             出于习惯你一定很想使用 Django 提供的 get_</span>&lt;<span style="color: #008000;">#</span><span style="color: #008000;">fieldname&gt;_url 函数.举例来说,如果你的 ImageField</span>
+             叫作 mug_shot, 你就可以在模板中以 {{ object.<span style="color: #008000;">#</span><span style="color: #008000;">get_mug_shot_url }} 这样的方式得到图像的绝对路径.</span>
+ 
+&lt;12&gt;<span style="color: #000000;"> URLField
+      用于保存 URL. 若 verify_exists 参数为 True (默认), 给定的 URL 会预先检查是否存在( 即URL是否被有效装入且
+      没有返回404响应).
+      admin 用一个 </span>&lt;input type=<span style="color: #800000;">"</span><span style="color: #800000;">text</span><span style="color: #800000;">"</span>&gt;<span style="color: #000000;"> 文本框表示该字段保存的数据(一个单行编辑框)
+ 
+</span>&lt;13&gt;<span style="color: #000000;"> NullBooleanField
+       类似 BooleanField, 不过允许 NULL 作为其中一个选项. 推荐使用这个字段而不要用 BooleanField 加 null</span>=<span style="color: #000000;">True 选项
+       admin 用一个选择框 </span>&lt;select&gt; (三个可选择的值: <span style="color: #800000;">"</span><span style="color: #800000;">Unknown</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">Yes</span><span style="color: #800000;">"</span> 和 <span style="color: #800000;">"</span><span style="color: #800000;">No</span><span style="color: #800000;">"</span><span style="color: #000000;"> ) 来表示这种字段数据.
+ 
+</span>&lt;14&gt;<span style="color: #000000;"> SlugField
+       </span><span style="color: #800000;">"</span><span style="color: #800000;">Slug</span><span style="color: #800000;">"</span> 是一个报纸术语. slug 是某个东西的小小标记(短签), 只包含字母,数字,下划线和连字符.<span style="color: #008000;">#</span><span style="color: #008000;">它们通常用于URLs</span>
+       若你使用 Django 开发版本,你可以指定 maxlength. 若 maxlength 未指定, Django 会使用默认长度: 50.  <span style="color: #008000;">#</span><span style="color: #008000;">在</span>
+<span style="color: #000000;">       以前的 Django 版本,没有任何办法改变50 这个长度.
+       这暗示了 db_index</span>=<span style="color: #000000;">True.
+       它接受一个额外的参数: prepopulate_from, which </span><span style="color: #0000ff;">is</span> a list of fields <span style="color: #0000ff;">from</span> which to auto-<span style="color: #008000;">#</span><span style="color: #008000;">populate</span>
+       the slug, via JavaScript,<span style="color: #0000ff;">in</span> the object<span style="color: #800000;">'</span><span style="color: #800000;">s admin form: models.SlugField</span>
+       (prepopulate_from=(<span style="color: #800000;">"</span><span style="color: #800000;">pre_name</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">name</span><span style="color: #800000;">"</span><span style="color: #000000;">))prepopulate_from 不接受 DateTimeFields.
+ 
+</span>&lt;13&gt;<span style="color: #000000;"> XMLField
+        一个校验值是否为合法XML的 TextField,必须提供参数: schema_path, 它是一个用来校验文本的 RelaxNG schema </span><span style="color: #008000;">#</span><span style="color: #008000;">的文件系统路径.</span>
+ 
+&lt;14&gt;<span style="color: #000000;"> FilePathField
+        可选项目为某个特定目录下的文件名. 支持三个特殊的参数, 其中第一个是必须提供的.
+        参数    描述
+        path    必需参数. 一个目录的绝对文件系统路径. FilePathField 据此得到可选项目.
+        Example: </span><span style="color: #800000;">"</span><span style="color: #800000;">/home/images</span><span style="color: #800000;">"</span><span style="color: #000000;">.
+        match    可选参数. 一个正则表达式, 作为一个字符串, FilePathField 将使用它过滤文件名. 
+        注意这个正则表达式只会应用到 base filename 而不是
+        路径全名. Example: </span><span style="color: #800000;">"</span><span style="color: #800000;">foo.*\.txt^</span><span style="color: #800000;">"</span><span style="color: #000000;">, 将匹配文件 foo23.txt 却不匹配 bar.txt 或 foo23.gif.
+        recursive可选参数.要么 True 要么 False. 默认值是 False. 是否包括 path 下面的全部子目录.
+        这三个参数可以同时使用.
+        match 仅应用于 base filename, 而不是路径全名. 那么,这个例子:
+        FilePathField(path</span>=<span style="color: #800000;">"</span><span style="color: #800000;">/home/images</span><span style="color: #800000;">"</span>, match=<span style="color: #800000;">"</span><span style="color: #800000;">foo.*</span><span style="color: #800000;">"</span>, recursive=<span style="color: #000000;">True)
+        ...会匹配 </span>/home/images/foo.gif 而不匹配 /home/images/foo/<span style="color: #000000;">bar.gif
+ 
+</span>&lt;15&gt;<span style="color: #000000;"> IPAddressField
+        一个字符串形式的 IP 地址, (i.e. </span><span style="color: #800000;">"</span><span style="color: #800000;">24.124.1.30</span><span style="color: #800000;">"</span><span style="color: #000000;">).
+</span>&lt;16&gt;<span style="color: #000000;"> CommaSeparatedIntegerField
+        用于存放逗号分隔的整数值. 类似 CharField, 必须要有maxlength参数.
+ 
+ 
+ 
+</span><span style="color: #800000;">'''</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>更多参数：</p>
+<div class="cnblogs_code">
+<pre><code>(1<span style="color: #000000;">)null
+ 
+如果为True，Django 将用NULL 来在数据库中存储空值。 默认值是 False.
+ 
+(</span>1<span style="color: #000000;">)blank
+ 
+如果为True，该字段允许不填。默认为False。
+要注意，这与 null 不同。null纯粹是数据库范畴的，而 blank 是数据验证范畴的。
+如果一个字段的blank</span>=True，表单的验证将允许该字段是空值。如果字段的blank=<span style="color: #000000;">False，该字段就是必填的。
+ 
+(</span>2<span style="color: #000000;">)default
+ 
+字段的默认值。可以是一个值或者可调用对象。如果可调用 ，每有新对象被创建它都会被调用。
+ 
+(</span>3<span style="color: #000000;">)primary_key
+ 
+如果为True，那么这个字段就是模型的主键。如果你没有指定任何一个字段的primary_key</span>=<span style="color: #000000;">True，
+Django 就会自动添加一个IntegerField字段做为主键，所以除非你想覆盖默认的主键行为，
+否则没必要设置任何一个字段的primary_key</span>=<span style="color: #000000;">True。
+ 
+(</span>4<span style="color: #000000;">)unique
+ 
+如果该值设置为 True, 这个数据字段的值在整张表中必须是唯一的
+ 
+(</span>5<span style="color: #000000;">)choices
+由二元组组成的一个可迭代对象（例如，列表或元组），用来给字段提供选择项。 如果设置了choices ，默认的表单将是一个选择框而不是标准的文本框，</span>&lt;br&gt;而且这个选择框的选项就是choices 中的选项。</pre>
+</div>
+<p>&nbsp;</p>
+<h3>settings配置</h3>
+<p>若想将模型转为mysql数据库中的表，需要在settings中配置：</p>
+<div class="cnblogs_code">
+<pre><code>DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME':'bms',     　　 　  # 要连接的数据库，连接前需要创建好
+        'USER':'root',　　　　　　  # 连接数据库的用户名
+        'PASSWORD':'',　　　　　　  # 连接数据库的密码
+        'HOST':'127.0.0.1',       # 连接主机，默认本级
+        'PORT'：3306    　　　     #  端口 默认3306
+    }
+}</pre>
+</div>
+<p>　　注意1：NAME即数据库的名字，在mysql连接前该数据库必须已经创建，而上面的sqlite数据库下的db.sqlite3则是项目自动创建&nbsp;USER和PASSWORD分别是数据库的用户名和密码。设置完后，再启动我们的Django项目前，我们需要激活我们的mysql。然后，启动项目，会报错：no module named&nbsp;MySQLdb 。这是因为django默认你导入的驱动是MySQLdb，可是MySQLdb&nbsp;对于py3有很大问题，所以我们需要的驱动是PyMySQL&nbsp;所以，我们只需要找到项目名文件下的__init__,在里面写入：</p>
+<div class="cnblogs_code">
+<pre><code>1 import pymysql
+2 pymysql.install_as_MySQLdb()</pre>
+</div>
+<p>最后通过两条数据库迁移命令即可在指定的数据库中创建表 ：</p>
+<div class="cnblogs_code">
+<pre><code>1 python manage.py makemigrations<br />
+2 python manage.py migrate</pre>
+</div>
+<p>注意2:确保配置文件中的INSTALLED_APPS中写入我们创建的app名称</p>
+<p>注意3:如果报错如下：</p>
+<div class="cnblogs_code">
+<pre><code>django.core.exceptions.ImproperlyConfigured: mysqlclient 1.3.3 or newer is required; you have 0.7.11.None</pre>
+</div>
+<p>MySQLclient目前只支持到python3.4，因此如果使用的更高版本的python，需要修改如下：</p>
+<p>通过查找路径C:\Programs\Python\Python36-32\Lib\site-packages\Django-2.0-py3.6.egg\django\db\backends\mysql<br />这个路径里的文件把</p>
+<div class="cnblogs_code">
+<pre><code>if version &lt; (1, 3, 3):
+     raise ImproperlyConfigured("mysqlclient 1.3.3 or newer is required; you have %s" % Database.__version__)</pre>
+</div>
+<p>注释掉 就OK了。</p>
+<p>注意4: 如果想打印orm转换过程中的sql，需要在settings中进行如下配置：</p>
+<div class="cnblogs_code">
+<pre><code>LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console':{
+            'level':'DEBUG',
+            'class':'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['console'],
+            'propagate': True,
+            'level':'DEBUG',
+        },
+    }
+}　　</pre>
+</div>
+<p>&nbsp;<img src="./images/Python之路【第二十九篇】django ORM模型层3.png" alt="" /></p>
+<p>&nbsp;</p>
+<h1>单表操作之添加表记录（有两种方法）</h1>
+<h2><strong>增加</strong></h2>
+<p>views</p>
+<div class="cnblogs_code">
+<pre><code>from django.shortcuts import render, HttpResponse
+
+# Create your views here.
+from app01.models import Book #把Book类导出来
+def index(request):
+    #添加表结构
+    ##############################添加
+    #方式一（直接实例化一个实例对象，book_obj为实例对象）
+    #book_obj = Book(id=1, title="python红宝书", price=100, pub_date="2012-10-08", publish="人民出版社")
+    #book_obj.save() #只有这样这条表记录才会生成。
+
+    #方式二：create返回值就是当前生成的对象记录；每个表下面都有一个object管理器，可以对其进行增删改查
+    book_obj = Book.objects.create(title="php", price=100, pub_date="2018-01-01", publish="北京大学出版社" )#id不能重，刚刚设置自增了
+    print(book_obj.title) #对象下面的title属性
+    print(book_obj.price)
+    print(book_obj.pub_date)
+
+    return HttpResponse('OK')</pre>
+</div>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code>(0.000) SELECT @@SQL_AUTO_IS_NULL; args=None
+(0.000) SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED; args=None
+(0.000) INSERT INTO `app01_book` (`title`, `pub_date`, `price`, `publish`) VALUES ('php', '2018-01-01', '100.00', '北京大学出版社'); args=['php', '2018-01-01', '100.00', '北京大学出版社']
+[27/May/2018 10:47:36] "GET /index/ HTTP/1.1" 200 2
+php
+100
+2018-01-01</pre>
+</div>
+<p>&nbsp;</p>
+<h2>单表操作之查询API &nbsp;表记录</h2>
+<p>查询API</p>
+<div class="cnblogs_code">
+<pre><code>&lt;1&gt;<span style="color: #000000;"> all():                  查询所有结果
+  
+</span>&lt;2&gt; filter(**<span style="color: #000000;">kwargs):       它包含了与所给筛选条件相匹配的对象
+  
+</span>&lt;3&gt; get(**<span style="color: #000000;">kwargs):          返回与所给筛选条件相匹配的对象，返回结果有且只有一个，
+                            如果符合筛选条件的对象超过一个或者没有都会抛出错误。
+  
+</span>&lt;4&gt; exclude(**<span style="color: #000000;">kwargs):      它包含了与所给筛选条件不匹配的对象
+ 
+</span>&lt;5&gt; order_by(*<span style="color: #000000;">field):       对查询结果排序
+  
+</span>&lt;6&gt;<span style="color: #000000;"> reverse():              对查询结果反向排序
+  
+</span>&lt;8&gt;<span style="color: #000000;"> count():                返回数据库中匹配查询(QuerySet)的对象数量。
+  
+</span>&lt;9&gt;<span style="color: #000000;"> first():                返回第一条记录
+  
+</span>&lt;10&gt;<span style="color: #000000;"> last():                返回最后一条记录
+  
+</span>&lt;11&gt;<span style="color: #000000;"> exists():              如果QuerySet包含数据，就返回True，否则返回False
+ 
+</span>&lt;12&gt; values(*<span style="color: #000000;">field):        返回一个ValueQuerySet&mdash;&mdash;一个特殊的QuerySet，运行后得到的并不是一系列
+                            model的实例化对象，而是一个可迭代的字典序列
+</span>&lt;13&gt; values_list(*<span style="color: #000000;">field):   它与values()非常相似，它返回的是一个元组序列，values返回的是一个字典序列
+ 
+</span>&lt;14&gt; distinct():            从返回结果中剔除重复纪录</pre>
+</div>
+<p>views</p>
+<div class="cnblogs_code">
+<pre><code>from django.shortcuts import render, HttpResponse
+
+# Create your views here.
+from app01.models import Book
+def index(request):
+    #添加表结构              
+    ##############################添加
+    #方式一
+    #book_obj = Book(id=1, title="python红宝书", price=100, pub_date="2012-10-08", publish="人民出版社")
+    #book_obj.save()
+
+    #方式二：create返回值就是当前生成的对象记录
+    # book_obj = Book.objects.create(title="php", price=100, pub_date="2018-01-01", publish="北京大学出版社" )
+    # print(book_obj.title)
+    # print(book_obj.price)
+    # print(book_obj.pub_date)
+
+    ##############################查询表记录API####################
+    '''
+    1.<strong>要知道方法的返回值；2方法的调用值（谁能调用）</strong>
+    :param request:
+    :return:
+    '''
+    #(1)all方法，查出所有结果。返回值是一个queryset对象，支持序列对象。
+    #book_list = Book.objects.all()
+    #print(book_list)  #[obj,obj1,obj2，，，] #直接打印类的对象是一个object的一个结果如下，你可以在类里边加一个def __str__(self)<br />　　　　　　　　　　　　#&lt;QuerySet [&lt;Book: Book object (1)&gt;,Book:Book object (2)&gt;]&gt;　　　　　   #　　　    return self.title #这时候它就会打印它的title属性了<br />                     #&lt;QyertSet [&lt;Book: python&gt;, &lt;Book: php&gt;]&gt;
+ 
+    # for obj in book_list:   #支持for循环
+    #     print(obj.title, obj.price)
+    #print(book_list[1].title) #支持索引、切片。
+
+    #（2）first,last;调用者为queryset对象，返回值为models对象 （&lt;class &lsquo;app01.models.Book&rsquo;&gt;）
+    #book = Book.objects.all().first() #拿到第一个models模型对象
+    #book = Book.objects.all()[0] #跟上边是一个意思。
+
+    #（3）filter() 返回值queryset对象  对比下filter和all；filter是拿到筛选条件的结果，all是拿到所有的结果。
+    # book_list = Book.objects.filter(price=100) #[obj,obj1,obj2...]
+    # print(book_list) #&lt;QuerySet [&lt;Book: python红宝书&gt;, &lt;Book: php&gt;]&gt;
+    # book_obj = Book.objects.filter(price=100).first()
+　　#SQL---&gt; SELECT `app01_book`.`id`, `app01_book`.`title`, `app01_book`.`pub_date`, `app01_book`.`price`, `app01_book`.`publish` FROM `app01_book` WHERE `app01_book`.`price` = 100 LIMIT 21;<br />
+    # ret = Book.objects.filter(title="go", price=200) #filter也可以加多个查询条件，这两个条件缺一不可。
+    # print(ret) #&lt;QuerySet []&gt;
+    #(4)get() 有且只有<strong>一个查询结果</strong>时才会拿出来，才会有意义，否则会报错  返回值：model对象
+    # book_obj = Book.objects.get(title="go") 
+    # book_obj = Book.objects.get(title="price")  #会报错哦
+    # print(book_obj.price)
+    SQL---&gt; SELECT `app01_book`.`id`, `app01_book`.`title`, `app01_book`.`pub_date`, `app01_book`.`price`, `app01_book`.`publish` FROM `app01_book` WHERE `app01_book`.`title` = 'php';<br />
+    #(5)exclude()  返回值：queryset对象
+    #ret = Book.objects.exclude(title="go") #除了title="go"的书籍全部给过滤出来。 排除条件过滤，filter是按照条件过滤
+    #print(ret) #&lt;QuerySet [&lt;Book: python红宝书&gt;, &lt;Book: php&gt;]&gt;<br />　　SQL---&gt; SELECT `app01_book`.`id`, `app01_book`.`title`, `app01_book`.`pub_date`, `app01_book`.`price`, `app01_book`.`publish` FROM `app01_book` WHERE NOT (`app01_book`.`title` = 'go') LIMIT 21;
+
+    #(6)order_by()  调用者queryset对象； 返回值queryset对象
+    #ret = Book.objects.all().order_by("id")  #从小到大
+    #ret = Book.objects.all().order_by("-id") #从大到小<br />　 　#ret = Book.objects.all().order_by("price")#按照价格大小排序
+    #ret = Book.objects.all().order_by("price", "id") #组合，当价格一样了就用id排序
+    #print(ret)
+
+    #（7）count()  调用者queryset对象，返回值int
+    # ret = Book.objects.all().count()       #SQL---&gt;&gt; <strong>SELECT COUNT(*) AS `__count` FROM `app01_book`;</strong>
+    # print(ret) #3
+
+    #（8）exist() 问是否存在
+    # ret = Book.objects.all().exists() 不要把所有数据都取出来，这样效率很慢。.exists下其实是取的是LIMIT 1（对应的sql语句）
+    # if ret:
+    #     print("ok")
+
+    #(9)values方法  调用者queryset对象，返回值queryset
+    # ret = Book.objects.all() #想拿到所有书籍的名称。
+    # for i in ret:
+    #     print(i.tittle)     #并不想拿对象，想拿对象里的某个字段
+    #ret = Book.objects.all().values("price", "title")  #values（）你想拿的字段。去掉all（）也是一样的,.values就是.all（）了；可以只加一个price的值。
+    '''
+    values的原理:
+    temp=[]
+    for obj in Book.objects.all()
+        temp.append({
+            "price"=obj.price
+            "title"=obj.title
+        })
+    return temp
+    '''
+    #print(ret) #列表里边放字典
+    #&lt;QuerySet [{'price': Decimal('100.00')}, {'price': Decimal('100.00')}, {'price': Decimal('250.00')}]&gt; #跟之前的QuerySet有区别，；列表里边放的不是一个个对象了而是个字典，把对象取出来的值作为键值对放在字典里；查询到几个对象就有几个字典。
+    #print(ret[0].get("price")) #100.00
+
+    #(10)values_list方法  调用者queryset对象，返回值queryset
+    #ret = Book.objects.all().values_list("price", "title")
+    #print(ret)  #一个字典被换成元组了，列表里边放元组了，把字典的值去掉了，元组光有值。
+    #&lt;QuerySet [(Decimal('100.00'), 'python红宝书'), (Decimal('100.00'), 'php'), (Decimal('250.00'),'go')]&gt;
+
+    '''values_list和values的区别：一个是字典、一个是元组；
+    values:     &lt;QuerySet [{'price': Decimal('100.00'), 'title': 'python红宝书'}, {'price': Decimal('100.00'), 'title': 'php'}, {'price': Decimal('250.00'), 'title': 'go'}]&gt;
+    values_list &lt;QuerySet [(Decimal('100.00'),'python红宝书'), (Decimal('100.00'), 'php'), (Decimal('250.00'), 'go')]&gt;
+    '''
+    #(11) distinct（去重）
+    #ret = Book.objects.all().distinct()  #这样写没有意义，把它们都distinct了，distinct一个有重复的字段才会有意义
+    #print(ret)
+
+    #ret = Book.objects.all().values("price")   <strong># SQL ---&gt; &nbsp;SELECT `app01_book`.`price` FROM `app01_book` LIMIT 21;</strong>
+    #print(ret) #&lt;QuerySet [{'price': Decimal('100.00')}, {'price':Decimal('100.00')}, {'price': Decimal('250.00')}]&gt;</pre>
+<pre><code>　　ret = Book.objects.all().values("price").distinct() <strong> #SQL---&gt; SELECT DISTINCT `app01_book`.`price` FROM `app01_book` LIMIT 21;</strong>
+    print(ret) #&lt;QuerySet [{'price': Decimal('100.00')}, {'price': Decimal('250.00')}]&gt;</pre>
+<pre><code>return HttpResponse('OK')</pre>
+</div>
+<h2>&nbsp;单表查询之双下划线的模糊查询</h2>
+<div class="cnblogs_code">
+<pre><code>###########################查询表记录之模糊查询######################
+    # ret = Book.objects.filter(price__gt=10, price__lt=200) #大于10小于200
+    # print(ret)  #&lt;QuerySet [&lt;Book: python红宝书&gt;, &lt;Book: php&gt;]&gt;
+
+    # ret = Book.objects.filter(title__startswith="py") #以py开头的
+    # print(ret) #&lt;QuerySet [&lt;Book: python红宝书&gt;]&gt;
+
+    #ret = Book.objects.filter(title__contains="h")   #只要包含h就可以给你查出来
+    # ret = Book.objects.filter(title__icontains="h") #不管大小写，只要包含就可以 <strong>#SQL---&gt; SELECT `app01_book`.`id`, `app01_book`.`title`, `app01_book`.`pub_date`, `app01_book`.`price`, `app01_book`.`publish` FROM `app01_book` WHERE `app01_book`.`title` LIKE '%h%' LIMIT 21;</strong>
+    # print(ret)
+
+    # ret = Book.objects.filter(price__in=[100, 200, 300])#在这个区间100-200-300的就会打印出 <strong>#WHERE `app01_book`.`price` IN (200, 100, 300) LIMIT 21;</strong>
+    # print(ret) #&lt;QuerySet [&lt;Book: python红宝书&gt;, &lt;Book: php&gt;]&gt;
+
+    ret = Book.objects.filter(pub_date__year=2018, pub_date__month=5) #也可以不写后边的
+    print(ret)#&lt;QuerySet [&lt;Book: go&gt;]&gt; #SQL--&gt; <strong>&nbsp;WHERE (`app01_book`.`pub_date` BETWEEN '2018-01-01' AND '2018-12-31' AND EXTRACT(MONTH FROM `app01_book`.`pub_date`) = 5) LIMIT 21;</strong>
+    return HttpResponse('OK')</pre>
+</div>
+<h2>删除和修改</h2>
+<div class="cnblogs_code">
+<pre><code>###########################删除记录和修改记录######################
+
+    #delete:调用者为queryset对象  model对象
+    #ret = Book.objects.filter(price=250).delete() #没有返回值也可以删
+    #ret = Book.objects.filter(price=100).delete() #把两个都给删掉了
+    #print(ret)  #(1, {'app01.Book': 1})   (2, {'app01.Book': 2})
+
+    #Book.objects.filter(price=100).first().delete() #只删除了一个
+<br />
+    #update的调用者只能为queryset对象
+    ret = Book.objects.filter(title="php").update(title="python")</pre>
+<pre><code>　　 return HttpResponse('OK')</pre>
+</div>
+<p>删除方法就是 delete()。它运行时立即删除对象而不返回任何值。</p>
+<p>你也可以一次性删除多个对象。每个 QuerySet 都有一个 delete() 方法，它一次性删除 QuerySet 中所有的对象。</p>
+<p>在 Django 删除对象时，会模仿 SQL 约束 ON DELETE CASCADE 的行为，换句话说，删除一个对象时也会删除与它相关联的外键对象。</p>
+<p>要注意的是： delete() 方法是 QuerySet 上的方法，但并不适用于 Manager 本身。这是一种保护机制，是为了避免意外地调用 Entry.objects.delete() 方法导致 所有的 记录被误删除。如果你确认要删除所有的对象，那么你必须显式地调用：</p>
+<p>如果不想级联删除，可以设置为:</p>
+<div class="cnblogs_code">
+<pre><code>pubHouse = models.ForeignKey(to='Publisher', on_delete=models.SET_NULL, blank=True, null=True)</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

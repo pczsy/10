@@ -1,0 +1,356 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【权限管理系统】Spring security（三）---认证过程（原理解析，demo）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【权限管理系统】Spring security（三）---认证过程（原理解析，demo）</center></div><div class='banquan'>原文出处:本文由博客园博主Ccww笔记提供。<br/>
+原文连接:https://www.cnblogs.com/Ccwwlx/p/12033546.html</div><br>
+    <p class="md-end-block md-p"><span class="md-entity md-expand" data-content="&emsp;">&emsp;<span class="md-entity" data-content="&emsp;">&emsp;<span class="md-plain">在前面两节<span class=" md-link"><a href="https://www.cnblogs.com/Ccwwlx/p/11970392.html"><span class="md-plain">Spring security （一）架构框架-Component、Service、Filter分析</span></a><span class="md-plain">和<span class="md-link"><a href="https://www.cnblogs.com/Ccwwlx/p/11978429.html"><span class="md-plain">Spring Security（二）--WebSecurityConfigurer配置以及filter顺序</span></a><span class="md-plain">为Spring Security认证作好了准备，可以让我们更好的理解认证过程以及项目代码编写。</span></span></span></span></span></span></span></p>
+<h2 class="md-end-block md-heading md-focus"><span class="md-plain md-expand">1.认证过程工作流程</span></h2>
+<p class="md-end-block md-p"><span class="md-plain">认证工作流程：</span>&nbsp;&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"> AbstractAuthenticationProcessingFilter
+    doFilter()(attemptAuthentication()获取Authentication实体)
+        </span>-&gt;<span style="color: #000000;">UsernamePasswordAuthenticationFilter（AbstractAuthenticationProcessingFilter的子类）
+            attemptAuthentication() （在UsernamePasswordAuthenticationToken()中将username 和 password 生成 UsernamePasswordAuthenticationToken对象,getAuthenticationManager().authenticate进行认证以及返回获取Authentication实体）
+                </span>-&gt;<span style="color: #000000;">AuthenticationManager   
+             </span>-&gt;<span style="color: #000000;">ProviderManager()（AuthenticationManager接口实现）
+                     authenticate()(AuthenticationProvider.authenticate()进行认证并获取Authentication实体)
+                        </span>-&gt;<span style="color: #000000;">AbstractUserDetailsAuthenticationProvider(内置缓存机制，如果缓存中没有用户信息就调用retrieveUser()获取用户)
+                            authenticate()  (获取Authentication实体需要userDetails，在缓存中或者retrieveUser()获取userDetails；验证additionalAuthenticationChecks()；     createSuccessAuthentication()生成Authentication实体)
+                </span>-&gt;<span style="color: #000000;">DaoAuthenticationProvider
+                    retrieveUser()  (调用自定义UserDetailsService中loadUserByUsername()加载userDetails)
+                    </span>-&gt;<span style="color: #000000;">UserDetailsService   
+                        loadUserByUsername()（获取userDetails）</span></pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">具体流程请看下面小节。</span></p>
+<h3 class="md-end-block md-heading"><span class="md-plain">1.1：请求首先经过过滤器AbstractAuthenticationProcessingFilter以及UsernamePasswordAuthenticationFilter进行处理</span></h3>
+<p class="md-end-block md-p"><span class="md-entity" data-content="&emsp;">&emsp;<span class="md-entity" data-content="&emsp;">&emsp;<span class="md-plain">当请求来临时，在默认情况下，请求先经过AbstractAuthenticationProcessingFilter的子类UsernamePasswordAuthenticationFilter过滤器。在UsernamePasswordAuthenticationFilter过滤器调用attemptAuthentication()方法现实主要的两步过程：</span></span></span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">创建拥有用户的详情信息的Authentication对象，在默认的UsernamePasswordAuthenticationFilter中将创建UsernamePasswordAuthenticationToken的Authentication对象；</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">AuthenticationManager调用authenticate()方法进行认证过程，在默认情况，使用ProviderManager类进行认证。 </span></p>
+</li>
+</ol>
+<p class="md-end-block md-p"><span class="md-plain">UsernamePasswordAuthenticationFilter源码分析：</span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> UsernamePasswordAuthenticationFilter <span style="color: #0000ff;">extends</span><span style="color: #000000;">
+        AbstractAuthenticationProcessingFilter {
+        ....
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Authentication attemptAuthentication(HttpServletRequest request,
+            HttpServletResponse response) </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+            .....
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">1.创建拥有用户的详情信息的Authentication对象</span>
+        UsernamePasswordAuthenticationToken authRequest = <span style="color: #0000ff;">new</span><span style="color: #000000;"> UsernamePasswordAuthenticationToken(
+                username, password);
+​
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> Allow subclasses to set the "details" property</span>
+<span style="color: #000000;">        setDetails(request, authRequest);
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">2.AuthenticationManager进行认证</span>
+        <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">this</span><span style="color: #000000;">.getAuthenticationManager().authenticate(authRequest);
+    }
+    ...
+   } </span><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab"><span class="cm-tab">&nbsp;</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre>
+</div>
+<h3 class="md-end-block md-heading"><span class="md-plain">1.2请求经过过滤器处理之后，在AuthenticationManager以及ProviderManager认证</span></h3>
+<p class="md-end-block md-p"><span class="md-entity" data-content="&emsp;">&emsp;<span class="md-entity" data-content="&emsp;">&emsp;<span class="md-plain">在UsernamePasswordAuthenticationFilter中看出，将调用AuthenticationManager接口的authenticate()方法进行详细认证。默认情况将使用AuthenticationManager子类ProviderManager的authenticate()进行认证，可以分成三个主要过程：</span></span></span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">AuthenticationProvide.authenticate()进行认证，默认下，将使用AbstractUserDetailsAuthenticationProvider进行认证；</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">认证成功后，从authentication中删除凭据和其他机密数据，否则抛出异常或者认证失败；</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">发布认证成功事件，并将Authentication对象保存到security context中。</span></p>
+</li>
+</ol>
+<p class="md-end-block md-p"><span class="md-plain">ProviderManager源码分析： </span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> ProviderManager <span style="color: #0000ff;">implements</span><span style="color: #000000;"> AuthenticationManager, MessageSourceAware,
+    InitializingBean {
+    ...
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Authentication authenticate(Authentication authentication)
+            </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+                ...
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">AuthenticationProvider依次进行认证</span>
+        <span style="color: #0000ff;">for</span><span style="color: #000000;"> (AuthenticationProvider provider : getProviders()) {
+                ...
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                    </span><span style="color: #008000;">//</span><span style="color: #008000;">1.1进行认证，并返回Authentication对象</span>
+                result =<span style="color: #000000;"> provider.authenticate(authentication);
+​
+                </span><span style="color: #0000ff;">if</span> (result != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                    copyDetails(authentication, result);
+                    </span><span style="color: #0000ff;">break</span><span style="color: #000000;">;
+                }
+            }
+                ...
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (AuthenticationException e) {
+                lastException </span>=<span style="color: #000000;"> e;
+            }
+        }
+        </span><span style="color: #0000ff;">if</span> (result == <span style="color: #0000ff;">null</span> &amp;&amp; parent != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Allow the parent to try.</span>
+            <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                    </span><span style="color: #008000;">//</span><span style="color: #008000;">1.2如果1.1认证中没有一个验证通过，则使用父类型AuthenticationManager进行验证</span>
+                result =<span style="color: #000000;"> parent.authenticate(authentication);
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (ProviderNotFoundException e) {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> ignore as we will throw below if no other exception occurred prior to
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> calling parent and the parent
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> may throw ProviderNotFound even though a provider in the child already
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> handled the request</span>
+<span style="color: #000000;">            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (AuthenticationException e) {
+                lastException </span>=<span style="color: #000000;"> e;
+            }
+        }
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">2.从authentication中删除凭据和其他机密数据</span>
+        <span style="color: #0000ff;">if</span> (result != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (eraseCredentialsAfterAuthentication
+                    </span>&amp;&amp; (result <span style="color: #0000ff;">instanceof</span><span style="color: #000000;"> CredentialsContainer)) {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> Authentication is complete. Remove credentials and other secret data
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> from authentication</span>
+<span style="color: #000000;">                ((CredentialsContainer) result).eraseCredentials();
+            }
+              </span><span style="color: #008000;">//</span><span style="color: #008000;">3.发布认证成功事件，并将Authentication对象保存到security context中</span>
+<span style="color: #000000;">            eventPublisher.publishAuthenticationSuccess(result);
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> result;
+        }
+    }</span></pre>
+</div>
+<h3 class="md-end-block md-heading"><span class="md-plain">1.3 认证过程详细处理：AuthenticationProvider、AbstractUserDetailsAuthenticationProvider以及DaoAuthenticationProvider</span></h3>
+<p class="md-end-block md-p"><span class="md-entity" data-content="&emsp;">&emsp;<span class="md-entity" data-content="&emsp;">&emsp;<span class="md-plain">在默认认证详细处理过程中，AuthenticationProvider认证由AbstractUserDetailsAuthenticationProvider抽象类以及AbstractUserDetailsAuthenticationProvider的子类DaoAuthenticationProvider进行方法重写协助共同工作进行认证的。主要可以分成以下步骤： </span></span></span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">获取用户信息UserDetails，首先从缓存中读取信息，如果缓存中没有的化，在UserDetailsService中加载，其最主要可以从我们自定义的UserDetailsService进行读取用户信息UserDetails；</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">验证三步走：<span class="md-linebreak"> <span class="md-linebreak-mark"> <span class="md-plain">1). preAuthenticationChecks </span></span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">2). additionalAuthenticationChecks：使用PasswordEncoder.matches()方法进行认证，其验证方式中验证数据已经过PasswordEncoder算法加密，可以通过实现PasswordEncoder接口来定义算法加密方式。 </span></p>
+<p class="md-end-block md-p"><span class="md-plain">3). postAuthenticationChecks</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">将已通过验证的用户信息封装成 UsernamePasswordAuthenticationToken对象并返回；该对象封装了用户的身份信息，以及相应的权限信息。 </span></p>
+</li>
+</ol>
+<p class="md-end-block md-p"><span class="md-entity" data-content="&emsp;">&emsp;<span class="md-entity" data-content="&emsp;">&emsp;<span class="md-plain">AbstractUserDetailsAuthenticationProvider主要功能提供authenticate()认证方法以及给DaoAuthenticationProvider重写方法源码分析：</span></span></span></p>
+<pre class="md-fences md-end-block ty-contain-cm modeLoaded"><span> &nbsp;</span></pre>
+<div class="cnblogs_code">
+<pre><code> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">abstract</span> <span style="color: #0000ff;">class</span> AbstractUserDetailsAuthenticationProvider <span style="color: #0000ff;">implements</span><span style="color: #000000;">
+        AuthenticationProvider, InitializingBean, MessageSourceAware {
+        ...
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Authentication authenticate(Authentication authentication)
+        </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+                   ...
+            </span><span style="color: #0000ff;">boolean</span> cacheWasUsed = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">1.1获取缓存中UserDetails信息</span>
+            UserDetails user = <span style="color: #0000ff;">this</span><span style="color: #000000;">.userCache.getUserFromCache(username);
+                  </span><span style="color: #008000;">//</span><span style="color: #008000;">1.2 如果缓存中没有信息，从UserDetailsService中获取</span>
+            <span style="color: #0000ff;">if</span> (user == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                cacheWasUsed </span>= <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+    
+                </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                        </span><span style="color: #008000;">//</span><span style="color: #008000;">使用DaoAuthenticationProvider中重写的方法去获取信息</span>
+                    user =<span style="color: #000000;"> retrieveUser(username,
+                            (UsernamePasswordAuthenticationToken) authentication);
+                }</span><span style="color: #0000ff;">catch</span><span style="color: #000000;">{
+                ...
+                }
+                ...
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                    </span><span style="color: #008000;">//</span><span style="color: #008000;">进行检验认证</span>
+<span style="color: #000000;">                preAuthenticationChecks.check(user);
+                additionalAuthenticationChecks(user,
+                        (UsernamePasswordAuthenticationToken) authentication);
+            }</span><span style="color: #0000ff;">catch</span><span style="color: #000000;">{
+            ...
+            }
+                ...
+            postAuthenticationChecks.check(user);
+                   ....
+                   </span><span style="color: #008000;">//</span><span style="color: #008000;"> 将已通过验证的用户信息封装成 UsernamePasswordAuthenticationToken对象并返回</span>
+            <span style="color: #0000ff;">return</span><span style="color: #000000;"> createSuccessAuthentication(principalToReturn, authentication, user);
+    }</span></pre>
+</div>
+<p>&nbsp;</p>
+<p class="md-end-block md-p"><span class="md-entity" data-content="&emsp;">&emsp;<span class="md-entity" data-content="&emsp;">&emsp;<span class="md-plain">DaoAuthenticationProvider功能主要为认证凭证加密PasswordEncoder，以及重写AbstractUserDetailsAuthenticationProvider抽象类的retrieveUser、additionalAuthenticationChecks方法，其中retrieveUser主要是获取UserDetails信息，源码分析</span></span></span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span><span style="color: #000000;"> UserDetails retrieveUser(String username,
+        UsernamePasswordAuthenticationToken authentication)
+        </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+    prepareTimingAttackProtection();
+    </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">根据UserDetailsService获取UserDetails信息，从自定义的UserDetailsService获取</span>
+        UserDetails loadedUser = <span style="color: #0000ff;">this</span><span style="color: #000000;">.getUserDetailsService().loadUserByUsername(username);
+        </span><span style="color: #0000ff;">if</span> (loadedUser == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> InternalAuthenticationServiceException(
+                    </span>"UserDetailsService returned null, which is an interface contract violation"<span style="color: #000000;">);
+        }
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> loadedUser;
+    }
+    </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (UsernameNotFoundException ex) {
+        mitigateAgainstTimingAttack(authentication);
+        </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> ex;
+    }
+    </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (InternalAuthenticationServiceException ex) {
+        </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> ex;
+    }
+    </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Exception ex) {
+        </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> InternalAuthenticationServiceException(ex.getMessage(), ex);
+    }
+}</span></pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">additionalAuthenticationChecks主要使用PasswordEncoder进行密码验证，源码分析：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> additionalAuthenticationChecks(UserDetails userDetails,
+        UsernamePasswordAuthenticationToken authentication)
+        </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+    </span><span style="color: #0000ff;">if</span> (authentication.getCredentials() == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+        logger.debug(</span>"Authentication failed: no credentials provided"<span style="color: #000000;">);
+​
+        </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                </span>"AbstractUserDetailsAuthenticationProvider.badCredentials"<span style="color: #000000;">,
+                </span>"Bad credentials"<span style="color: #000000;">));
+    }
+​
+    String presentedPassword </span>=<span style="color: #000000;"> authentication.getCredentials().toString();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">进行密码验证</span>
+    <span style="color: #0000ff;">if</span> (!<span style="color: #000000;">passwordEncoder.matches(presentedPassword, userDetails.getPassword())) {
+        logger.debug(</span>"Authentication failed: password does not match stored value"<span style="color: #000000;">);
+​
+        </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                </span>"AbstractUserDetailsAuthenticationProvider.badCredentials"<span style="color: #000000;">,
+                </span>"Bad credentials"<span style="color: #000000;">));
+    }
+}</span></pre>
+</div>
+<p>&nbsp;</p>
+<h3 class="md-end-block md-heading"><span class="md-plain">1.4 认证中所需的认证凭证获取：UserDetailsService</span></h3>
+<p class="md-end-block md-p"><span class="md-entity" data-content="&emsp;">&emsp;<span class="md-entity" data-content="&emsp;">&emsp;<span class="md-plain">在认证中必须获取认证凭证，从UserDetailsService获取到认证凭证，UserDetailsService接口只有一个方法：</span></span></span></p>
+<pre class="md-fences md-end-block ty-contain-cm modeLoaded"><span>UserDetails loadUserByUsername(String username) throws UsernameNotFoundException;</span></pre>
+<p class="md-end-block md-p"><span class="md-plain">通过用户名 username 调用方法 loadUserByUsername 返回了一个UserDetails接口对象：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span> UserDetails <span style="color: #0000ff;">extends</span><span style="color: #000000;"> Serializable {
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">1.权限集合</span>
+    Collection&lt;? <span style="color: #0000ff;">extends</span> GrantedAuthority&gt;<span style="color: #000000;"> getAuthorities();
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">2.密码  </span>
+<span style="color: #000000;">    String getPassword();
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">3.用户名</span>
+<span style="color: #000000;">    String getUsername();
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">4.用户是否过期</span>
+    <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> isAccountNonExpired();
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">5.是否锁定    </span>
+    <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> isAccountNonLocked();
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">6.用户密码是否过期    </span>
+    <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> isCredentialsNonExpired();
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">7.账号是否可用（可理解为是否删除）</span>
+    <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> isEnabled();
+}</span></pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">我们通过实现UserDetailsService自定义获取UserDetails类，可以从不同数据源中获取认证凭证。</span></p>
+<h3 class="md-end-block md-heading"><span class="md-plain">1.5 总结</span></h3>
+<p class="md-end-block md-p"><span class="md-plain">总结<span class="md-link"><a href="https://www.cnblogs.com/Ccwwlx/p/11978429.html"><span class="md-plain">Spring Security（二）--WebSecurityConfigurer配置以及filter顺序</span></a><span class="md-plain">和本节Spring security（三）想要实现简单认证过程： </span></span></span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">第一步：配置WebSecurityConfig</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">第二步： 实现自定义UserDetailsService，自定义从数据源码获取认证凭证。</span></p>
+</li>
+</ol>
+<h2 class="md-end-block md-heading"><span class="md-plain">2 Spring boot与Spring security整合 </span></h2>
+<h3 class="md-end-block md-heading"><span class="md-plain">2.1配置WebSecurityConfig</span></h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">@Configuration
+@EnableWebSecurity
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> SecurityConfig <span style="color: #0000ff;">extends</span><span style="color: #000000;"> WebSecurityConfigurerAdapter {
+  @Override
+  </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span> configure(HttpSecurity http) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">super.configure(http);</span>
+<span style="color: #000000;">        http .csrf().disable()
+             .authorizeRequests()
+             .anyRequest().authenticated()
+              .and()
+             .formLogin()
+                .loginPage(</span>"/login"<span style="color: #000000;">)
+                .loginProcessingUrl(</span>"/login/form"<span style="color: #000000;">)
+                .failureUrl(</span>"/login-error"<span style="color: #000000;">)
+                .permitAll()  </span><span style="color: #008000;">//</span><span style="color: #008000;">表单登录，permitAll()表示这个不需要验证 登录页面，登录失败页面</span>
+<span style="color: #000000;">              .and()
+                .logout().permitAll();
+        }
+}</span></pre>
+</div>
+<h3 class="md-end-block md-heading"><span class="md-plain">2.2 UserDetailsService实现</span></h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">@service
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> CustomUserService <span style="color: #0000ff;">implements</span><span style="color: #000000;"> UserDetailsService {
+ @Autowired
+ </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> UserInfoMapper userInfoMapper;
+ @Autowired
+ </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> PermissionInfoMapper permissionInfoMapper;
+ @Autowired
+ </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> BCryptPasswordEncoderService bCryptPasswordEncoderService;
+  @Override
+  </span><span style="color: #0000ff;">public</span> UserDetails loadUserByUsername(String username) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> UsernameNotFoundException {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">这里可以可以通过username（登录时输入的用户名）然后到数据库中找到对应的用户信息，并构建成我们自己的UserInfo来返回。</span>
+        UserInfoDTO user =<span style="color: #000000;"> userInfoMapper.getUserInfoByUserName(username);
+         </span><span style="color: #0000ff;">if</span> (user != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+        List</span>&lt;PermissionInfoDTO&gt; permissionInfoDTOS =<span style="color: #000000;"> permissionInfoMapper.findByAdminUserId(userInfo.getId());
+        List</span>&lt;GrantedAuthority&gt; grantedAuthorityList = <span style="color: #0000ff;">new</span> ArrayList&lt;&gt;<span style="color: #000000;">();
+        </span><span style="color: #0000ff;">for</span><span style="color: #000000;"> (PermissionInfoDTO permissionInfoDTO : permissionInfoDTOS) {
+            </span><span style="color: #0000ff;">if</span> (permissionInfoDTO != <span style="color: #0000ff;">null</span> &amp;&amp; permissionInfoDTO.getPermissionName() != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                GrantedAuthority grantedAuthority </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> SimpleGrantedAuthority(
+                        permissionInfoDTO.getPermissionName());
+                grantedAuthorityList.add(grantedAuthority);
+                 }
+            }
+             </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> User(userInfo.getUserName(), bCryptPasswordEncoderService.encode(userInfo.getPasswaord()), grantedAuthorityList);
+         }</span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+        </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> UsernameNotFoundException("admin" + username + "do not exist"<span style="color: #000000;">);
+         }
+    }
+}</span></pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">往期文章:</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-link"><a href="https://www.cnblogs.com/Ccwwlx/p/11970392.html"><span class="md-plain">Spring security （一）架构框架-Component、Service、Filter分析</span></a></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-link"><a href="https://www.cnblogs.com/Ccwwlx/p/11978429.html"><span class="md-plain">Spring Security（二）--WebSecurityConfigurer配置以及filter顺序</span></a></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">...</span></p>
+</li>
+</ul>
+<blockquote>
+<p class="md-end-block md-p"><span class="md-plain">各位看官还可以吗？喜欢的话，动动手指点个赞💗，点个关注呗！！谢谢支持！</span></p>
+<p class="md-end-block md-p"><span class="md-plain">也欢迎关注公众号【<span><strong>Ccww笔记</strong><span class="md-plain">】，原创技术文章第一时间推出</span></span></span></p>
+<p class="md-end-block md-p">&nbsp;<img src="./images/【权限管理系统】Spring security（三）---认证过程（原理解析，demo）0.png" alt="" /></p>
+</blockquote>
+<pre><code><span>getAuthenticationManager().authenticate进行认证以及返回获取Authentication实体）</span></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

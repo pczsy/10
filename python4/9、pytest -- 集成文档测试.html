@@ -1,0 +1,231 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修9、pytest -- 集成文档测试' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>9、pytest -- 集成文档测试</center></div><div class='banquan'>原文出处:本文由博客园博主luizyao提供。<br/>
+原文连接:https://www.cnblogs.com/luizyao/p/11796892.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#集成doctest模块">1. 集成<code>doctest</code>模块</a><ul>
+        <li><a href="#通过指定文本文件的方式">1.1. 通过指定文本文件的方式</a></li>
+        <li><a href="#通过编写文档字符串的方式">1.2. 通过编写文档字符串的方式</a></li>
+        <li><a href="#指定额外的选项">1.3. 指定额外的选项</a></li>
+        </ul></li>
+        <li><a href="#失败时继续执行">2. 失败时继续执行</a></li>
+        <li><a href="#指定输出的格式">3. 指定输出的格式</a></li>
+        <li><a href="#文档测试中使用fixture">4. 文档测试中使用<code>fixture</code></a></li>
+        <li><a href="#文档测试的命名空间">5. 文档测试的命名空间</a></li>
+        <li><a href="#跳过文档测试">6. 跳过文档测试</a></li>
+        </ul>
+    </div>
+</div>
+<h2 id="集成doctest模块">1. 集成<code>doctest</code>模块</h2>
+<p><a href="https://docs.python.org/3.7/library/doctest.html">doctest</a>是<code>python</code>内置的一个标准库，它可以查找代码中类似交互式会话形式的注释，并检查它们是否正确；</p>
+<h3 id="通过指定文本文件的方式">1.1. 通过指定文本文件的方式</h3>
+<p>默认情况下，<code>pytest</code>会自动收集所有名称匹配<code>test*.txt</code>规则的文件，并调用<code>doctest</code>执行它们；</p>
+<p>下面，我们来看一个简单的例子：</p>
+<pre><code><code># src/chapter-9/test_example.txt
+
+&gt;&gt;&gt; x = 3
+&gt;&gt;&gt; x
+3</code></pre>
+<p>直接使用<code>pytest</code>命令就可以执行它：</p>
+<pre class="shell"><code>λ pipenv run pytest src/chapter-9/test_example.txt
+====================== test session starts ======================= 
+platform win32 -- Python 3.7.3, pytest-5.1.3, py-1.8.0, pluggy-0.13.0
+rootdir: D:\Personal Files\Projects\pytest-chinese-doc
+collected 1 item
+
+src\chapter-9\test_example.txt .                            [100%]
+
+======================= 1 passed in 0.03s ========================</code></pre>
+<p>我们也可以使用命令行选项<code>--doctest-glob</code>添加文件名称的匹配规则；</p>
+<p>例如，匹配<code>rst</code>格式的文件：</p>
+<pre class="shell"><code>pytest --doctest-glob=&#39;*.rst&#39;</code></pre>
+<blockquote>
+<p>注意：<code>--doctest-glob</code>可以多次指定，它们之间是<strong>或者</strong>的关系，并且依旧支持默认的<code>test*.txt</code>规则；</p>
+</blockquote>
+<h4 id="文本文件的编码">1.1.1. 文本文件的编码</h4>
+<p><code>doctest</code>文件的默认编码是<strong>UTF-8</strong>，你可以在<code>pytest.ini</code>中使用<code>doctest_encoding</code>选项指定新的编码；例如，使用<code>latin1</code>编码：</p>
+<pre class="ini"><code>[pytest]
+doctest_encoding = latin1</code></pre>
+<h3 id="通过编写文档字符串的方式">1.2. 通过编写文档字符串的方式</h3>
+<p>除了文本文件外，<code>pytest</code>还支持检查文档字符串中的注释；例如：</p>
+<pre><code><code># src/chapter-9/test_module.py
+
+def something():
+    &#39;&#39;&#39;文档字符串示例
+    
+    &gt;&gt;&gt; something()
+    42
+    &#39;&#39;&#39;
+    return 42
+
+
+def test_module():
+    assert something() == 42</code></pre>
+<p>执行时，需要添加<code>--doctest-modules</code>命令行选项：</p>
+<pre class="shell"><code>λ pipenv run pytest --doctest-modules src/chapter-9/test_module.py
+====================== test session starts ======================= 
+platform win32 -- Python 3.7.3, pytest-5.1.3, py-1.8.0, pluggy-0.13.0
+rootdir: D:\Personal Files\Projects\pytest-chinese-doc
+collected 2 items
+
+src\chapter-9\test_module.py ..                             [100%]
+
+======================= 2 passed in 0.03s ========================</code></pre>
+<p><code>--doctest-modules</code>会查找所有名称匹配<code>*.py</code>的文件，收集文档字符串中类似交互式会话形式的注释，并把每一个文档字符串作为一个用例来执行，所以上面我们执行了两个测试，其中一个是文档测试；</p>
+<p>如果想让<code>pytest --doctest-modules</code>正确收集到相关注释，需满足以下条件：</p>
+<ul>
+<li>文件名称符合<code>*.py</code>规则，但无需满足<code>test_*.py</code>或者<code>*_test.py</code>规则；</li>
+<li>文档字符串中的注释必须是类似<code>python</code>交互式会话形式的注释；</li>
+</ul>
+<p>如果你不想每次执行都指定<code>--doctest-modules</code>选项，可以考虑在<code>pytest.ini</code>中添加如下配置：</p>
+<pre class="ini"><code>[pytest]
+addopts = --doctest-modules</code></pre>
+<blockquote>
+<p>文档字符串是一个多行字符串，使用<code>'''</code>或者<code>&quot;&quot;&quot;</code>包裹；一般推荐形式为，第一行简述功能，第二行空行，第三行具体描述；</p>
+<p>并且，可以通过<code>__doc__</code>属性访问它；例如，上面例子的<code>__doc__</code>属性为：</p>
+<pre class="shell"><code>&gt;&gt;&gt; print(something.__doc__)
+文档字符串示例
+
+    &gt;&gt;&gt; something()
+    42</code></pre>
+</blockquote>
+<h3 id="指定额外的选项">1.3. 指定额外的选项</h3>
+<h4 id="doctest标准库自带的选项">1.3.1. <code>doctest</code>标准库自带的选项</h4>
+<p><code>python</code>的<code>doctest</code>标准库自带一些选项，用于定义文档测试的模式，我们同样可以在<code>pytest.ini</code>中使用这些功能；例如，忽略尾随的空格：</p>
+<pre class="ini"><code># src/chapter-9/pytest.ini
+
+doctest_optionflags = NORMALIZE_WHITESPACE</code></pre>
+<p>另外，你也可以在行注释中使能这些选项；</p>
+<p>例如，使用<code># doctest: +NORMALIZE_WHITESPACE</code>同样能忽略尾随的空格：</p>
+<pre><code><code>def something():
+    &#39;&#39;&#39;文档字符串示例
+    
+    &gt;&gt;&gt; something()  # doctest: +NORMALIZE_WHITESPACE
+    42 
+    &#39;&#39;&#39;
+    return 42</code></pre>
+<p>更多细节可以参考：<a href="https://docs.python.org/3/library/doctest.html#option-flags" class="uri">https://docs.python.org/3/library/doctest.html#option-flags</a></p>
+<h4 id="pytest自有的选项">1.3.2. <code>pytest</code>自有的选项</h4>
+<p><code>ALLOW_BYTES</code>：在输出时，剔除字符串的<code>b</code>前缀；例如，以下文档测试是成功的：</p>
+<pre><code><code># src/chapter-9/options.py
+
+def str_bytes():
+    &#39;&#39;&#39;返回字节编码
+
+    &gt;&gt;&gt; str_bytes()  # doctest: +ALLOW_BYTES
+    &#39;bytes&#39;
+    &#39;&#39;&#39; 
+    return b&#39;bytes&#39;</code></pre>
+<p><code>ALLOW_UNICODE</code>：相似的，在输出时，剔除字符串的<code>u</code>前缀；</p>
+<p><code>NUMBER</code>：为了避免出现以下导致测试失败的情况：</p>
+<pre class="shell"><code>Expected:
+    3.14
+Got:
+    3.141592653589793</code></pre>
+<p>我们可以通过配置<code>NUMBER</code>选项，只比较列出的精度：</p>
+<pre><code><code># src/chapter-9/options.py
+
+def number():
+    &#39;&#39;&#39;浮点数的精度
+
+    &gt;&gt;&gt; import math
+    &gt;&gt;&gt; math.pi  # doctest: +NUMBER
+    3.14 
+    &#39;&#39;&#39;
+    return 1</code></pre>
+<blockquote>
+<p>注意：我们并不建议在全局使能<code>NUMBER</code>选项，因为它会修改输出中所有的浮点数的精度，甚至是在字符串或者列表中；</p>
+<p>例如，以下文档测试也是成功的：</p>
+<pre><code><code># src/chapter-9/options.py
+
+def str_number():
+    &#39;&#39;&#39;浮点数字符串的精度
+
+    &gt;&gt;&gt; str_number()  # doctest: +NUMBER
+    &#39;3.14&#39; 
+    &#39;&#39;&#39;
+    return &#39;3.1415&#39;</code></pre>
+</blockquote>
+<h2 id="失败时继续执行">2. 失败时继续执行</h2>
+<p>默认情况下，对于一个给定的文档测试，<code>pytest</code>在遇到第一个失败点时退出执行；但是，我们可以通过<code>--doctest-continue-on-failure</code>命令行选项，让其继续执行；</p>
+<p>例如，对于以下文档字符串，包含两个测试点，<code>pytest --doctest-continue-on-failure</code>会报告两个错误（默认只会报告第一个错误）：</p>
+<pre><code><code>def str_bytes():
+    &#39;&#39;&#39;返回字节编码
+
+    &gt;&gt;&gt; str_bytes()  
+    &#39;bytes&#39; 
+    &gt;&gt;&gt; import math
+    &gt;&gt;&gt; math.pi  
+    3.14 
+    &#39;&#39;&#39; 
+    return b&#39;bytes&#39;</code></pre>
+<h2 id="指定输出的格式">3. 指定输出的格式</h2>
+<p>文档测试失败时，你可以通过以下方式更改测试输出的格式：</p>
+<pre class="shell"><code>pytest --doctest-modules --doctest-report none
+pytest --doctest-modules --doctest-report udiff
+pytest --doctest-modules --doctest-report cdiff
+pytest --doctest-modules --doctest-report ndiff
+pytest --doctest-modules --doctest-report only_first_failure</code></pre>
+<p>更多细节可以参考：<a href="https://docs.python.org/3/library/doctest.html#doctest.REPORT_UDIFF" class="uri">https://docs.python.org/3/library/doctest.html#doctest.REPORT_UDIFF</a></p>
+<h2 id="文档测试中使用fixture">4. 文档测试中使用<code>fixture</code></h2>
+<p>通过<code>getfixture</code>可以让你在文档字符串中使用<code>fixture</code>：</p>
+<pre><code><code>&gt;&gt;&gt; tmp = getfixture(&#39;tmpdir&#39;)
+&gt;&gt;&gt; ...
+&gt;&gt;&gt;</code></pre>
+<h2 id="文档测试的命名空间">5. 文档测试的命名空间</h2>
+<p><code>doctest_namespace fixture</code>可以用于向运行<code>doctest</code>测试的命名空间中注入一些信息，它是一个标准的字典对象；</p>
+<p>例如，我们在<code>conftest.py</code>中定义一个方法，注入到<code>doctest</code>的命名空间中：</p>
+<pre><code><code># src/chapter-9/conftest.py
+
+import pytest
+
+
+def func():
+    return 42
+
+
+@pytest.fixture(autouse=True)
+def add_func(doctest_namespace):
+    doctest_namespace[&#39;function&#39;] = func</code></pre>
+<p>可以在文档字符串中直接使用它：</p>
+<pre><code><code># src/chapter-9/func.txt
+
+&gt;&gt;&gt; function()
+42</code></pre>
+<h2 id="跳过文档测试">6. 跳过文档测试</h2>
+<blockquote>
+<p><code>pytest 4.4</code>版本新增功能</p>
+</blockquote>
+<p>我们可以通过<code>pytest.skip</code>跳过文档测试；例如，跳过<code>Windows</code>系统上的文档测试：</p>
+<pre><code><code>&gt;&gt;&gt; import sys, pytest
+&gt;&gt;&gt; if sys.platform.startswith(&#39;win&#39;):
+...     pytest.skip(&#39;this doctest does not work on Windows&#39;)
+&gt;&gt;&gt; function()
+42</code></pre>
+<blockquote>
+<p>GitHub仓库地址：<a href="https://github.com/luizyao/pytest-chinese-doc" class="uri">https://github.com/luizyao/pytest-chinese-doc</a></p>
+</blockquote>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

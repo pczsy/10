@@ -1,0 +1,181 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【Python爬虫案例学习2】python多线程爬取youtube视频' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【Python爬虫案例学习2】python多线程爬取youtube视频</center></div><div class='banquan'>原文出处:本文由博客园博主嗨学编程提供。<br/>
+原文连接:https://www.cnblogs.com/Pythonmiss/p/11298141.html</div><br>
+    <p>转载：<a href="https://www.cnblogs.com/binglansky/p/8534544.html" class="uri">https://www.cnblogs.com/binglansky/p/8534544.html</a><br />
+开发环境：</p>
+<ul>
+<li>python2.7 + win10</li>
+</ul>
+<p>开始先说一下，访问youtube需要那啥的，请自行解决，最好是全局代理。</p>
+<p><img src="./images/【Python爬虫案例学习2】python多线程爬取youtube视频0.png" alt="image.png" /></p>
+<p>实现代码：</p>
+<pre><code><code># -*-coding:utf-8-*-
+# author : Corleone
+from bs4 import BeautifulSoup
+import lxml
+import Queue
+import requests
+import re,os,sys,random
+import threading
+import logging
+import json,hashlib,urllib
+from requests.exceptions import ConnectTimeout,ConnectionError,ReadTimeout,SSLError,MissingSchema,ChunkedEncodingError
+import random
+&#39;&#39;&#39;
+遇到不懂的问题？Python学习交流群：821460695满足你的需求，资料都已经上传群文件，可以自行下载！
+&#39;&#39;&#39;
+reload(sys)
+sys.setdefaultencoding(&#39;gbk&#39;)
+
+# 日志模块
+logger = logging.getLogger(&quot;AppName&quot;)
+formatter = logging.Formatter(&#39;%(asctime)s %(levelname)-5s: %(message)s&#39;)
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.formatter = formatter
+logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
+
+q = Queue.Queue()   # url队列
+page_q = Queue.Queue()  # 页面
+
+def downlaod(q,x,path):
+    urlhash = &quot;https://weibomiaopai.com/&quot;
+    try:
+        html = requests.get(urlhash).text
+    except SSLError:
+        logger.info(u&quot;网络不稳定 正在重试&quot;)
+        html = requests.get(urlhash).text
+    reg = re.compile(r&#39;var hash=&quot;(.*?)&quot;&#39;, re.S)
+    result = reg.findall(html)
+    hash_v = result[0]
+    while True:
+        data = q.get()
+        url, name = data[0], data[1].strip().replace(&quot;|&quot;, &quot;&quot;)
+        file = os.path.join(path, &#39;%s&#39; + &quot;.mp4&quot;) % name
+        api = &quot;https://steakovercooked.com/api/video/?cached&amp;hash=&quot; + hash_v + &quot;&amp;video=&quot; + url
+        api2 = &quot;https://helloacm.com/api/video/?cached&amp;hash=&quot; + hash_v + &quot;&amp;video=&quot; + url
+        try:
+            res = requests.get(api)
+            result = json.loads(res.text)
+        except (ValueError,SSLError):
+            try:
+                res = requests.get(api2)
+                result = json.loads(res.text)
+            except (ValueError,SSLError):
+                q.task_done()
+                return False
+        vurl = result[&#39;url&#39;]
+        logger.info(u&quot;正在下载：%s&quot; %name)
+        try:
+            r = requests.get(vurl)
+        except SSLError:
+            r = requests.get(vurl)
+        except MissingSchema:
+            q.task_done()
+            continue
+        try:
+            with open(file,&#39;wb&#39;) as f:
+                f.write(r.content)
+        except IOError:
+            name = u&#39;好开心么么哒 %s&#39; % random.randint(1,9999)
+            file = os.path.join(path, &#39;%s&#39; + &quot;.mp4&quot;) % name
+            with open(file,&#39;wb&#39;) as f:
+                f.write(r.content)
+        logger.info(u&quot;下载完成：%s&quot; %name)
+        q.task_done()
+
+def get_page(keyword,page_q):
+    while True:
+        headers = {
+            &#39;user-agent&#39;: &#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0&#39;
+        }
+        page = page_q.get()
+        url = &quot;https://www.youtube.com/results?sp=EgIIAg%253D%253D&amp;search_query=&quot; + keyword + &quot;&amp;page=&quot; + str(page)
+        try:
+            html = requests.get(url, headers=headers).text
+        except (ConnectTimeout,ConnectionError):
+            print u&quot;不能访问youtube 检查是否已FQ&quot;
+            os._exit(0)
+        reg = re.compile(r&#39;&quot;url&quot;:&quot;/watch\?v=(.*?)&quot;,&quot;webPageType&quot;&#39;, re.S)
+        result = reg.findall(html)
+        logger.info(u&quot;第 %s 页&quot; % page)
+        for x in result:
+            vurl = &quot;https://www.youtube.com/watch?v=&quot; + x
+            try:
+                res = requests.get(vurl).text
+            except (ConnectionError,ChunkedEncodingError):
+                logger.info(u&quot;网络不稳定 正在重试&quot;)
+                try:
+                    res = requests.get(vurl).text
+                except SSLError:
+                    continue
+            reg2 = re.compile(r&quot;&lt;title&gt;(.*?)YouTube&quot;,re.S)
+            name = reg2.findall(res)[0].replace(&quot;-&quot;,&quot;&quot;)
+            if u&#39;\u4e00&#39; &lt;= keyword &lt;= u&#39;\u9fff&#39;:
+                q.put([vurl, name])
+            else:
+                # 调用金山词霸
+                logger.info(u&quot;正在翻译&quot;)
+                url_js = &quot;http://www.iciba.com/&quot; + name
+                html2 = requests.get(url_js).text
+                soup = BeautifulSoup(html2, &quot;lxml&quot;)
+                try:
+                    res2 = soup.select(&#39;.clearfix&#39;)[0].get_text()
+                    title = res2.split(&quot;\n&quot;)[2]
+                except IndexError:
+                    title = u&#39;好开心么么哒 %s&#39; % random.randint(1, 9999)
+                q.put([vurl, title])
+        page_q.task_done()
+
+
+def main():
+    # 使用帮助
+    keyword = raw_input(u&quot;请输入关键字：&quot;).decode(&quot;gbk&quot;)
+    threads = int(raw_input(u&quot;请输入线程数量(建议1-10): &quot;))
+    # 判断目录
+    path = &#39;D:\youtube\%s&#39; % keyword
+    if os.path.exists(path) == False:
+        os.makedirs(path)
+    # 解析网页
+    logger.info(u&quot;开始解析网页&quot;)
+    for page in range(1,26):
+        page_q.put(page)
+    for y in range(threads):
+        t = threading.Thread(target=get_page,args=(keyword,page_q))
+        t.setDaemon(True)
+        t.start()
+    page_q.join()
+    logger.info(u&quot;共 %s 视频&quot; % q.qsize())
+    # 多线程下载
+    logger.info(u&quot;开始下载视频&quot;)
+    for x in range(threads):
+        t = threading.Thread(target=downlaod,args=(q,x,path))
+        t.setDaemon(True)
+        t.start()
+    q.join()
+    logger.info(u&quot;全部视频下载完成！&quot;)
+
+main()</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

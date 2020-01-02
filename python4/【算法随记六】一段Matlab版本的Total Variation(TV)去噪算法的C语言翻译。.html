@@ -1,0 +1,250 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。</center></div><div class='banquan'>原文出处:本文由博客园博主Imageshop提供。<br/>
+原文连接:https://www.cnblogs.com/Imageshop/p/12051536.html</div><br>
+    <p><span style="font-size: 13px;">　　最近看到一篇文章讲IMAGE DECOMPOSITION，里面提到了将图像分为Texture layer和Structure layer，测试了很多方法，对于那些具有非常强烈纹理的图像，总觉得用TV去燥的方法分离的结果都比其他的方法都要好（比如导向、双边），比如下图：</span></p>
+<p><span style="font-size: 13px;"><img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。0.png" alt="" width="500" />&nbsp; &nbsp;</span></p>
+<p><span style="font-size: 13px;"><img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。1.png" alt="" width="900" /></span></p>
+<p><span style="font-size: 13px;">&nbsp;　　再比如：</span></p>
+<p><span style="font-size: 13px;"><img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。2.png" alt="" />&nbsp;<img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。3.png" alt="" width="600" /></span></p>
+<p><span style="font-size: 13px;">&nbsp;　　可见TV可以把纹理很好的提取出来。</span></p>
+<p><span style="font-size: 13px;">　　现在应该能找到很多的TV代码，比如IPOL上就有，详见<a href="%20http://www.ipol.im/pub/art/2013/61/" target="_blank">&nbsp;http://www.ipol.im/pub/art/2013/61/</a>。</span></p>
+<p><span style="font-size: 13px;">　　我在其他地方也见过一些，比如这里：&nbsp;<a href="http://yu-li.github.io/paper/li_eccv14_jpeg.zip" target="_blank">http://yu-li.github.io/paper/li_eccv14_jpeg.zip</a>，他是借助于FFT实现的，当然少不了多次迭代，速度也是比较慢的。</span></p>
+<p><span style="font-size: 13px;">　　我还收藏了很久前一位朋友写的M代码，但是现在我不知道把他QQ或者微信弄到哪里去了，也不知道他会不会介意我把他的代码分享出来。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 13px;"><span style="color: #000000;">function dualROF()
+clc
+
+f0</span>=imread(<span style="color: #800000;">'</span><span style="color: #800000;">rr.bmp</span><span style="color: #800000;">'</span><span style="color: #000000;">);
+f0</span>=f0(:,:,<span style="color: #800080;">1</span><span style="color: #000000;">);
+[m,n]</span>=<span style="color: #000000;">size(f0);
+f0</span>=<span style="color: #0000ff;">double</span><span style="color: #000000;">(f0);
+
+lamda</span>=<span style="color: #800080;">30</span>; %<span style="color: #000000;"> smoothness paramter, the larger the smoother
+tao</span>=.<span style="color: #800080;">125</span>; % <span style="color: #0000ff;">fixed</span> <span style="color: #0000ff;">do</span><span style="color: #000000;"> not change it.
+
+p1</span>=<span style="color: #000000;">zeros(m,n);
+p2</span>=<span style="color: #000000;">zeros(m,n);
+
+tic
+</span><span style="color: #0000ff;">for</span> step=<span style="color: #800080;">1</span>:<span style="color: #800080;">100</span>
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%<span style="color: #000000;">
+    div_p</span>=<span style="color: #000000;">div(p1,p2);
+    cx</span>=Fx(div_p-f0/<span style="color: #000000;">lamda);
+    cy</span>=Fy(div_p-f0/<span style="color: #000000;">lamda);</span></span></pre>
+<p><span style="font-size: 13px;"> 　　　　abs_c=sqrt(cx.^2+cy.^2);</span><br /><span style="font-size: 13px;">         　　　　p1=(p1+tao*cx)./(1+tao*abs_c);</span><br /><span style="font-size: 13px;">         　　　　p2=(p2+tao*cy)./(1+tao*abs_c);</span></p>
+<pre><code><span style="font-size: 13px;"><span style="color: #000000;">end
+
+u</span>=f0-lamda*<span style="color: #000000;">div_p;
+toc
+figure; imagesc(f0); colormap(gray); axis off; axis equal;
+figure; imagesc(u); colormap(gray); axis off; axis equal;
+
+</span>% Compute divergence <span style="color: #0000ff;">using</span><span style="color: #000000;"> backward derivative
+function f </span>=<span style="color: #000000;"> div(a,b)
+f </span>= Bx(a)+<span style="color: #000000;">By(b);
+
+</span>% Forward derivative <span style="color: #0000ff;">operator</span> on x with boundary condition u(:,:,<span style="color: #800080;">1</span>)=u(:,:,<span style="color: #800080;">1</span><span style="color: #000000;">)
+function Fxu </span>=<span style="color: #000000;"> Fx(u)
+[m,n] </span>=<span style="color: #000000;"> size(u);
+Fxu </span>= circshift(u,[<span style="color: #800080;">0</span> -<span style="color: #800080;">1</span>])-<span style="color: #000000;">u;
+Fxu(:,n) </span>= zeros(m,<span style="color: #800080;">1</span><span style="color: #000000;">);
+
+</span>% Forward derivative <span style="color: #0000ff;">operator</span> on y with boundary condition u(<span style="color: #800080;">1</span>,:,:)=<span style="color: #000000;">u(m,:,:)
+function Fyu </span>=<span style="color: #000000;"> Fy(u)
+[m,n] </span>=<span style="color: #000000;"> size(u);
+Fyu </span>= circshift(u,[-<span style="color: #800080;">1</span> <span style="color: #800080;">0</span>])-<span style="color: #000000;">u;
+Fyu(m,:) </span>= zeros(<span style="color: #800080;">1</span><span style="color: #000000;">,n);
+
+</span>% Backward derivative <span style="color: #0000ff;">operator</span> on x with boundary condition Bxu(:,<span style="color: #800080;">1</span>)=u(:,<span style="color: #800080;">1</span><span style="color: #000000;">)
+function Bxu </span>=<span style="color: #000000;"> Bx(u)
+[</span>~,n] =<span style="color: #000000;"> size(u);
+Bxu </span>= u - circshift(u,[<span style="color: #800080;">0</span> <span style="color: #800080;">1</span><span style="color: #000000;">]);
+Bxu(:,</span><span style="color: #800080;">1</span>) = u(:,<span style="color: #800080;">1</span><span style="color: #000000;">);
+Bxu(:,n) </span>= -u(:,n-<span style="color: #800080;">1</span><span style="color: #000000;">);
+
+</span>% Backward derivative <span style="color: #0000ff;">operator</span> on y with boundary condition Bxu(<span style="color: #800080;">1</span>,:)=u(<span style="color: #800080;">1</span><span style="color: #000000;">,:)
+function Byu </span>=<span style="color: #000000;"> By(u)
+[m,</span>~] =<span style="color: #000000;"> size(u);
+Byu </span>= u - circshift(u,[<span style="color: #800080;">1</span> <span style="color: #800080;">0</span><span style="color: #000000;">]);
+Byu(</span><span style="color: #800080;">1</span>,:) = u(<span style="color: #800080;">1</span><span style="color: #000000;">,:);
+Byu(m,:) </span>= -u(m-<span style="color: #800080;">1</span>,:);</span></pre>
+</div>
+<p><span style="font-size: 13px;">　　M的代码，代码量不大，那是因为Matlab的向量化确实很厉害，但是这个代码还是很慢的，256*256的灰度图迭代100次都要700ms了。</span></p>
+<p><span style="font-size: 13px;">　　这里抛开一些优化不说，用这个circshift会造成很大的性能损失，我们稍微分析下就能看到用这个地方其实就是简单的水平或者垂直方向的差分，完全没有必要这样写。</span></p>
+<p><span style="font-size: 13px;">　　直接按照代码的意思用C语言把他们展开并不做其他的优化可得到大概下面这种不怎么好的代码：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 13px;"><span style="color: #0000ff;">int</span> IM_DualTVDenoising(unsigned <span style="color: #0000ff;">char</span> *Src, unsigned <span style="color: #0000ff;">char</span> *Dest, <span style="color: #0000ff;">int</span> Width, <span style="color: #0000ff;">int</span> Height, <span style="color: #0000ff;">int</span> Stride,  <span style="color: #0000ff;">float</span> Lamda = <span style="color: #800080;">20</span> , <span style="color: #0000ff;">int</span> Iter = <span style="color: #800080;">20</span><span style="color: #000000;">)
+{
+    </span><span style="color: #0000ff;">int</span> Channel = Stride /<span style="color: #000000;"> Width;
+    </span><span style="color: #0000ff;">if</span> ((Src == NULL) || (Dest == NULL))                        <span style="color: #0000ff;">return</span><span style="color: #000000;"> IM_STATUS_NULLREFRENCE;
+    </span><span style="color: #0000ff;">if</span> ((Width &lt;= <span style="color: #800080;">0</span>) || (Height &lt;= <span style="color: #800080;">0</span>))                            <span style="color: #0000ff;">return</span><span style="color: #000000;"> IM_STATUS_INVALIDPARAMETER;
+    </span><span style="color: #0000ff;">if</span> ((Channel != <span style="color: #800080;">1</span>) &amp;&amp; (Channel != <span style="color: #800080;">3</span>) &amp;&amp; (Channel != <span style="color: #800080;">4</span>))        <span style="color: #0000ff;">return</span><span style="color: #000000;"> IM_STATUS_INVALIDPARAMETER;
+
+    </span><span style="color: #0000ff;">if</span> (Channel == <span style="color: #800080;">1</span><span style="color: #000000;">)
+    {
+        </span><span style="color: #0000ff;">float</span> tao = <span style="color: #800080;">0.125</span>; <span style="color: #008000;">//</span><span style="color: #008000;"> fixed do not change it.</span>
+        <span style="color: #0000ff;">float</span> InvLamda = <span style="color: #800080;">1.0</span> /<span style="color: #000000;"> Lamda;
+    
+        </span><span style="color: #0000ff;">float</span> *p1 = (<span style="color: #0000ff;">float</span> *)<span style="color: #0000ff;">malloc</span>(Width * Height * <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+        </span><span style="color: #0000ff;">float</span> *p2 = (<span style="color: #0000ff;">float</span> *)<span style="color: #0000ff;">malloc</span>(Width * Height * <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+        </span><span style="color: #0000ff;">float</span> *div_p = (<span style="color: #0000ff;">float</span> *)<span style="color: #0000ff;">malloc</span>(Width * Height * <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+        </span><span style="color: #0000ff;">float</span> *cx = (<span style="color: #0000ff;">float</span> *)<span style="color: #0000ff;">malloc</span>(Width * Height * <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+        </span><span style="color: #0000ff;">float</span> *cy = (<span style="color: #0000ff;">float</span> *)<span style="color: #0000ff;">malloc</span>(Width * Height * <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+        </span><span style="color: #0000ff;">float</span> *Temp = (<span style="color: #0000ff;">float</span> *)<span style="color: #0000ff;">malloc</span>(Width * Height * <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+
+        </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> X, Y;
+        </span><span style="color: #0000ff;">float</span><span style="color: #000000;"> q1, q2, q, abs_c;
+        </span><span style="color: #0000ff;">float</span> *LineP1, *LineP2, *LineP3, *<span style="color: #000000;">LineP4;
+        unsigned </span><span style="color: #0000ff;">char</span> *LinePS, *<span style="color: #000000;">LinePD;
+        </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> Z = <span style="color: #800080;">0</span>; Z &lt; Iter; Z++<span style="color: #000000;">)
+        {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">Div(p1, p2, div_p);</span>
+
+            <span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">0</span>; Y &lt; Height; Y++<span style="color: #000000;">)
+            {
+                LineP1 </span>= p1 + Y * Width;                        <span style="color: #008000;">//</span><span style="color: #008000;">Fx(Temp, cx);</span>
+                LineP2 = cx + Y *<span style="color: #000000;"> Width;
+                LineP2[</span><span style="color: #800080;">0</span>] = LineP1[<span style="color: #800080;">0</span><span style="color: #000000;">];
+                </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">1</span>; X &lt; Width; X++<span style="color: #000000;">)
+                {
+                    LineP2[X] </span>= LineP1[X] - LineP1[X - <span style="color: #800080;">1</span><span style="color: #000000;">];
+                }
+                LineP2[Width </span>- <span style="color: #800080;">1</span>] = -LineP1[Width - <span style="color: #800080;">2</span><span style="color: #000000;">];
+            }
+
+            memcpy(cy, p2, Width </span>* <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+            </span><span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">1</span>; Y &lt; Height; Y++<span style="color: #000000;">)
+            {
+                LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(p2 + (Y - <span style="color: #800080;">1</span>)*<span style="color: #000000;"> Width);
+                LineP2 </span>= (<span style="color: #0000ff;">float</span> *)(p2 + Y * Width);            <span style="color: #008000;">//</span><span style="color: #008000;">Fy(Temp, cy);</span>
+                LineP3 = (<span style="color: #0000ff;">float</span> *)(cy + Y *<span style="color: #000000;"> Width);
+                </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width; X++<span style="color: #000000;">)
+                {
+                    LineP3[X] </span>= LineP2[X] -<span style="color: #000000;"> LineP1[X];
+                }
+            }
+            LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(p2 + (Height - <span style="color: #800080;">2</span>) *<span style="color: #000000;"> Width);
+            LineP2 </span>= (<span style="color: #0000ff;">float</span> *)(cy + (Height - <span style="color: #800080;">1</span>) *<span style="color: #000000;"> Width);
+            </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width; X++<span style="color: #000000;">)
+            {
+                LineP2[X] </span>= -<span style="color: #000000;">LineP1[X];
+            }
+
+            </span><span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">0</span>; Y &lt; Height; Y++<span style="color: #000000;">)
+            {
+                LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(cx + Y *<span style="color: #000000;"> Width);
+                LineP2 </span>= (<span style="color: #0000ff;">float</span> *)(cy + Y * Width);            <span style="color: #008000;">//</span><span style="color: #008000;">Fy(Temp, cy);</span>
+                LineP3 = (<span style="color: #0000ff;">float</span> *)(div_p + Y *<span style="color: #000000;"> Width);
+                </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width; X++<span style="color: #000000;">)
+                {
+                    LineP3[X] </span>= LineP1[X] +<span style="color: #000000;"> LineP2[X];
+                }
+            }
+
+            </span><span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">0</span>; Y &lt; Height; Y++<span style="color: #000000;">)
+            {
+                LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(div_p + Y *<span style="color: #000000;"> Width);
+                LineP2 </span>= (<span style="color: #0000ff;">float</span> *)(Temp + Y *<span style="color: #000000;"> Width);
+                LinePS </span>= Src + Y *<span style="color: #000000;"> Stride;
+
+                </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width; X++<span style="color: #000000;">)
+                {
+                    LineP2[X] </span>= LineP1[X] - LinePS[X] *<span style="color: #000000;"> InvLamda;
+                }
+            }
+
+
+            </span><span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">0</span>; Y &lt; Height; Y++<span style="color: #000000;">)
+            {
+                LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(Temp + Y * Width);                        <span style="color: #008000;">//</span><span style="color: #008000;">Fx(Temp, cx);</span>
+                LineP2 = (<span style="color: #0000ff;">float</span> *)(cx + Y *<span style="color: #000000;"> Width);
+                </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width - <span style="color: #800080;">1</span>; X++<span style="color: #000000;">)
+                {
+                    LineP2[X] </span>= LineP1[X + <span style="color: #800080;">1</span>] -<span style="color: #000000;"> LineP1[X];
+                }
+                LineP2[Width </span>- <span style="color: #800080;">1</span>] = <span style="color: #800080;">0</span><span style="color: #000000;">;
+            }
+
+            </span><span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">0</span>; Y &lt; Height - <span style="color: #800080;">1</span>; Y++<span style="color: #000000;">)
+            {
+                LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(Temp + Y *<span style="color: #000000;"> Width);
+                LineP2 </span>= (<span style="color: #0000ff;">float</span> *)(Temp + (Y + <span style="color: #800080;">1</span>) * Width);            <span style="color: #008000;">//</span><span style="color: #008000;">Fy(Temp, cy);</span>
+                LineP3 = (<span style="color: #0000ff;">float</span> *)(cy + Y *<span style="color: #000000;"> Width);
+                </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width; X++<span style="color: #000000;">)
+                {
+                    LineP3[X] </span>= LineP2[X] -<span style="color: #000000;"> LineP1[X];
+                }
+            }
+            memset(Temp </span>+ (Height - <span style="color: #800080;">1</span>) * Width, <span style="color: #800080;">0</span>, Width * <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">float</span><span style="color: #000000;">));
+
+            </span><span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">0</span>; Y &lt; Height; Y++<span style="color: #000000;">)
+            {
+                LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(p1 + Y *<span style="color: #000000;"> Width);
+                LineP2 </span>= (<span style="color: #0000ff;">float</span> *)(p2 + Y *<span style="color: #000000;"> Width);
+                LineP3 </span>= (<span style="color: #0000ff;">float</span> *)(cx + Y *<span style="color: #000000;"> Width);
+                LineP4 </span>= (<span style="color: #0000ff;">float</span> *)(cy + Y *<span style="color: #000000;"> Width);
+
+                </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width; X++<span style="color: #000000;">)
+                {
+                    abs_c </span>= sqrt(LineP3[X] * LineP3[X] + LineP4[X] *<span style="color: #000000;"> LineP4[X]);
+                    abs_c </span>= <span style="color: #800080;">1</span> / (<span style="color: #800080;">1</span> + tao *<span style="color: #000000;"> abs_c);
+                    LineP1[X] </span>= (LineP1[X] + tao * LineP3[X]) *<span style="color: #000000;"> abs_c;
+                    LineP2[X] </span>= (LineP2[X] + tao * LineP4[X]) *<span style="color: #000000;"> abs_c;
+                }
+            }
+        }
+        </span><span style="color: #0000ff;">for</span> (Y = <span style="color: #800080;">0</span>; Y &lt; Height; Y++<span style="color: #000000;">)
+        {
+            LineP1 </span>= (<span style="color: #0000ff;">float</span> *)(div_p + Y *<span style="color: #000000;"> Width);
+            LinePS </span>= Src + Y *<span style="color: #000000;"> Stride;
+            LinePD </span>= Dest + Y *<span style="color: #000000;"> Stride;
+            </span><span style="color: #0000ff;">for</span> (X = <span style="color: #800080;">0</span>; X &lt; Width; X++<span style="color: #000000;">)
+            {
+                LinePD[X] </span>= IM_ClampToByte((<span style="color: #0000ff;">int</span>)(LinePS[X] - Lamda *<span style="color: #000000;"> LineP1[X]));
+            }
+        }
+
+        </span><span style="color: #0000ff;">free</span><span style="color: #000000;">(p1);
+        </span><span style="color: #0000ff;">free</span><span style="color: #000000;">(p2);
+        </span><span style="color: #0000ff;">free</span><span style="color: #000000;">(div_p);
+        </span><span style="color: #0000ff;">free</span><span style="color: #000000;">(cx);
+        </span><span style="color: #0000ff;">free</span><span style="color: #000000;">(cy);
+        </span><span style="color: #0000ff;">free</span><span style="color: #000000;">(Temp);
+    }
+    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">
+    {
+        
+
+    }
+
+}</span></span></pre>
+</div>
+<p><span style="font-size: 13px;">　　算法明显占用很大的内存，而且看起来别扭，不过速度还是杠杠的，256*256的灰度图迭代100次都要30ms了。反编译看了下代码，编译器对代码做了很好的SIMD指令优化。</span></p>
+<p><span style="font-size: 13px;">　　上面的C语言还是可以继续优化的，这就需要大家自己的认真的去研读代码深层次的逻辑关系了，实际上可以只要上面的一半的临时内存的，而且很多计算可以集中在一个循环里完成，可以手动内嵌SIMD指令，或者直接使用编译器的优化能力，基本上这样的简单的算法逻辑编译器编译后的速度不会比我们手写的SIMD指令慢，有的时候还是会快一些，不得不佩服那些写编译器的大牛。优化后的速度大概在14ms左右。</span></p>
+<p><span style="font-size: 13px;">　　研究TV算法需要很好的数学功底，以前朋友曾经给我寄过一本书，里面都是微分方面的数学公式，看的我吓死了，不过TV算法似乎有很多很好的应用，也曾经流行过一段时间，可惜现在深度学习一出来，很多人都喜欢这种直接从海量数据中建造黑盒模型，而对那些有着很明显的数学逻辑的算法嗤之以鼻了，真有点可惜。</span></p>
+<p><span style="font-size: 13px;">　　以前在<a id="cb_post_title_url" class="postTitle2" href="https://www.cnblogs.com/Imageshop/p/3365517.html">基于总变差模型的纹理图像中图像主结构的提取方法</a>&nbsp;一文中曾提到那个论文附带的Matlab代码没有什么意义，因为他很难转换成C的代码，即时转换成功了，也处理不了大图，但是本文这里的TV算法总的来说在内存占用或者速度方面都还令人满意。</span></p>
+<p><span style="font-size: 13px;">　　在去噪效果上，这个算法还算可以：</span></p>
+<p><span style="font-size: 13px;">&nbsp;<img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。4.png" alt="" />&nbsp;&nbsp;<img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。5.png" alt="" />&nbsp; &nbsp;<img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。6.png" alt="" />&nbsp; &nbsp;&nbsp;<img src="./images/【算法随记六】一段Matlab版本的Total Variation(TV)去噪算法的C语言翻译。7.png" alt="" /></span></p>
+<p>　　本文Demo下载地址： &nbsp;<a href="http://files.cnblogs.com/files/Imageshop/SSE_Optimization_Demo.rar" target="_blank">http://files.cnblogs.com/files/Imageshop/SSE_Optimization_Demo.rar</a>， 算法位于Denoise --&gt; TV Denoising下。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

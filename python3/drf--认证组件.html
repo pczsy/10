@@ -1,0 +1,273 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修drf--认证组件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>drf--认证组件</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11714727.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#认证简介">认证简介</a><ul>
+        <li><a href="#用户认证rbacrole-based-access-control">用户认证RBAC（Role-Based Access Control）</a></li>
+        </ul></li>
+        <li><a href="#局部使用">局部使用</a></li>
+        <li><a href="#全局使用">全局使用</a></li>
+        <li><a href="#源码分析">源码分析</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="认证简介">认证简介</h1>
+<p>使用场景：有些接口在进行访问时，需要确认用户是否已经登录，比如：用户需要购买物品时，在结账的时候，就需要进行登录验证的。</p>
+<h2 id="用户认证rbacrole-based-access-control">用户认证RBAC（Role-Based Access Control）</h2>
+<p>一般用户认证都是基于角色认证：</p>
+<ul>
+<li><p><strong>三表机制</strong>：</p>
+<ul>
+<li>用户表（User）</li>
+<li>角色表（Group）</li>
+<li>权限表（Permission）</li>
+</ul>
+<p>用户表关联角色表，角色表关联权限表</p></li>
+<li><p><strong>五表机制</strong>：</p>
+<ul>
+<li>用户表（User）</li>
+<li>用户角色关系表（User-Group）</li>
+<li>角色表（Group）</li>
+<li>角色权限表（Group-Permission）</li>
+<li>权限表（Permission）</li>
+</ul>
+<p>用户表与角色表多对多、角色表与权限表多对多</p></li>
+<li><p><strong>Django采用六表机制</strong>：</p>
+<ul>
+<li>用户表（User）</li>
+<li>用户角色关系表（User-Group）</li>
+<li>角色表（Group）</li>
+<li>角色权限表（Group-Permission）</li>
+<li>权限表（Permission）</li>
+<li>角色权限表（User-Permission）</li>
+</ul>
+<p>用户表与角色表多对多、角色表与权限表多对多、用户表和权限表多对多</p></li>
+</ul>
+<h1 id="局部使用">局部使用</h1>
+<ul>
+<li><strong>models.py</strong></li>
+</ul>
+<pre><code><code>from django.contrib.auth import models
+
+class User(models.Model):
+    username=models.CharField(max_length=32)
+    password=models.CharField(max_length=32)
+    user_type=models.IntegerField(choices=((1,&#39;超级用户&#39;),(2,&#39;普通用户&#39;),(3,&#39;二B用户&#39;)))
+
+class UserToken(models.Model):
+    user=models.OneToOneField(to=&#39;User&#39;)
+    token=models.CharField(max_length=64)</code></pre>
+<ul>
+<li><strong>自定义认证类</strong></li>
+</ul>
+<pre><code><code>from rest_framework.authentication import BaseAuthentication
+
+class TokenAuth():
+    def authenticate(self, request):
+        token = request.GET.get(&#39;token&#39;)
+        token_obj = models.UserToken.objects.filter(token=token).first()
+        if token_obj:
+            return
+        else:
+            raise AuthenticationFailed(&#39;认证失败&#39;)
+            
+    def authenticate_header(self,request):
+        pass</code></pre>
+<ul>
+<li><strong>views.py</strong></li>
+</ul>
+<pre><code><code>def get_random(name):
+    import hashlib
+    import time
+    md=hashlib.md5()
+    md.update(bytes(str(time.time()),encoding=&#39;utf-8&#39;))
+    md.update(bytes(name,encoding=&#39;utf-8&#39;))
+    return md.hexdigest()
+
+
+class Login(APIView):
+    def post(self,reuquest):
+        back_msg={&#39;status&#39;:1001,&#39;msg&#39;:None}
+        try:
+            name=reuquest.data.get(&#39;name&#39;)
+            pwd=reuquest.data.get(&#39;pwd&#39;)
+            user=models.User.objects.filter(username=name,password=pwd).first()
+            if user:
+                token=get_random(name)
+                models.UserToken.objects.update_or_create(user=user,defaults={&#39;token&#39;:token})
+                back_msg[&#39;status&#39;]=&#39;1000&#39;
+                back_msg[&#39;msg&#39;]=&#39;登录成功&#39;
+                back_msg[&#39;token&#39;]=token
+            else:
+                back_msg[&#39;msg&#39;] = &#39;用户名或密码错误&#39;
+        except Exception as e:
+            back_msg[&#39;msg&#39;]=str(e)
+        return Response(back_msg)
+
+
+class Course(APIView):
+    authentication_classes = [TokenAuth, ]
+
+    def get(self, request):
+        return HttpResponse(&#39;get&#39;)
+
+    def post(self, request):
+        return HttpResponse(&#39;post&#39;)</code></pre>
+<ul>
+<li><p><strong>进阶：不存数据库的token验证</strong></p>
+<pre><code><code>def get_token(id,salt=&#39;123&#39;):
+    import hashlib
+    md=hashlib.md5()
+    md.update(bytes(str(id),encoding=&#39;utf-8&#39;))
+    md.update(bytes(salt,encoding=&#39;utf-8&#39;))
+    return md.hexdigest()+&#39;|&#39;+str(id)
+
+def check_token(token,salt=&#39;123&#39;):
+    ll=token.split(&#39;|&#39;)
+    import hashlib
+    md=hashlib.md5()
+    md.update(bytes(ll[-1],encoding=&#39;utf-8&#39;))
+    md.update(bytes(salt,encoding=&#39;utf-8&#39;))
+    if ll[0]==md.hexdigest():
+        return True
+    else:
+        return False
+
+class TokenAuth():
+    def authenticate(self, request):
+        token = request.GET.get(&#39;token&#39;)
+        success=check_token(token)
+        if success:
+            return
+        else:
+            raise AuthenticationFailed(&#39;认证失败&#39;)
+    def authenticate_header(self,request):
+        pass
+
+class Login(APIView):
+    def post(self,reuquest):
+        back_msg={&#39;status&#39;:1001,&#39;msg&#39;:None}
+        try:
+            name=reuquest.data.get(&#39;name&#39;)
+            pwd=reuquest.data.get(&#39;pwd&#39;)
+            user=models.User.objects.filter(username=name,password=pwd).first()
+            if user:
+                token=get_token(user.pk)
+                # models.UserToken.objects.update_or_create(user=user,defaults={&#39;token&#39;:token})
+                back_msg[&#39;status&#39;]=&#39;1000&#39;
+                back_msg[&#39;msg&#39;]=&#39;登录成功&#39;
+                back_msg[&#39;token&#39;]=token
+            else:
+                back_msg[&#39;msg&#39;] = &#39;用户名或密码错误&#39;
+        except Exception as e:
+            back_msg[&#39;msg&#39;]=str(e)
+        return Response(back_msg)
+
+
+from rest_framework.authentication import BaseAuthentication
+
+class TokenAuth():
+    def authenticate(self, request):
+        token = request.GET.get(&#39;token&#39;)
+        token_obj = models.UserToken.objects.filter(token=token).first()
+        if token_obj:
+            return
+        else:
+            raise AuthenticationFailed(&#39;认证失败&#39;)
+    def authenticate_header(self,request):
+        pass
+
+class Course(APIView):
+    authentication_classes = [TokenAuth, ]
+
+    def get(self, request):
+        return HttpResponse(&#39;get&#39;)
+
+    def post(self, request):
+        return HttpResponse(&#39;post&#39;)</code></pre></li>
+</ul>
+<p>总结：局部使用，只需要在视图类里加入：</p>
+<pre><code><code>authentication_classes = [TokenAuth, ]</code></pre>
+<h1 id="全局使用">全局使用</h1>
+<p>全局使用需要在setting.py中进行配置</p>
+<pre><code><code>REST_FRAMEWORK={
+    &quot;DEFAULT_AUTHENTICATION_CLASSES&quot;:[&quot;app01.service.auth.Authentication&quot;,]
+}</code></pre>
+<h1 id="源码分析">源码分析</h1>
+<pre><code><code># Request对象的user方法
+
+@property
+def user(self):
+    &quot;&quot;&quot;
+    Returns the user associated with the current request, as authenticated by the authentication classes provided to the request.
+    &quot;&quot;&quot;
+    if not hasattr(self, &#39;_user&#39;):
+        with wrap_attributeerrors():
+            self._authenticate()
+            return self._user
+
+def _authenticate(self):
+    &quot;&quot;&quot;
+    Attempt to authenticate the request using each authentication instance
+in turn.
+    &quot;&quot;&quot;
+    for authenticator in self.authenticators:
+        try:
+            user_auth_tuple = authenticator.authenticate(self)
+        except exceptions.APIException:
+            self._not_authenticated()
+            raise
+
+        if user_auth_tuple is not None:
+            self._authenticator = authenticator
+            self.user, self.auth = user_auth_tuple
+            return
+
+    self._not_authenticated()
+
+def _not_authenticated(self):
+    &quot;&quot;&quot;
+    Set authenticator, user &amp; authtoken representing an unauthenticated request.
+Defaults are None, AnonymousUser &amp; None.
+    &quot;&quot;&quot;
+    self._authenticator = None
+    if api_settings.UNAUTHENTICATED_USER:
+        self.user = api_settings.UNAUTHENTICATED_USER()
+    else:
+        self.user = None
+
+    if api_settings.UNAUTHENTICATED_TOKEN:
+        self.auth = api_settings.UNAUTHENTICATED_TOKEN
+        ()
+    else:
+        self.auth = None  
+  </code></pre>
+<pre><code><code># self.authenticators
+def get_authenticators(self):
+    return [auth() for auth in self.authentication_classes]</code></pre>
+<p><strong>认证类使用顺序：先用视图类中的验证类，再用settings里配置的验证类，最后用默认的验证类</strong></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

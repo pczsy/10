@@ -1,0 +1,850 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django--模板层' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django--模板层</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11704799.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#模板简介">模板简介</a></li>
+        <li><a href="#模板语法之变量">模板语法之变量</a></li>
+        <li><a href="#模板之过滤器">模板之过滤器</a><ul>
+        <li><a href="#语法">语法：</a><ul>
+        <li><a href="#default">default</a></li>
+        <li><a href="#length">length</a></li>
+        <li><a href="#filesizeformat">filesizeformat</a></li>
+        <li><a href="#date">date</a></li>
+        <li><a href="#slice">slice</a></li>
+        <li><a href="#truncatechars">truncatechars</a></li>
+        <li><a href="#safe">safe</a></li>
+        <li><a href="#其它过滤器">其它过滤器</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="#模板之标签">模板之标签</a><ul>
+        <li><a href="#for标签">for标签</a></li>
+        <li><a href="#for-...-empty">for ... empty</a></li>
+        <li><a href="#if-标签">if 标签</a></li>
+        <li><a href="#with">with</a></li>
+        <li><a href="#csrf_token">csrf_token</a></li>
+        </ul></li>
+        <li><a href="#自定义标签和过滤器">自定义标签和过滤器</a></li>
+        <li><a href="#模板导入和继承">模板导入和继承</a><ul>
+        <li><a href="#模版导入">模版导入：</a></li>
+        <li><a href="#模版继承">模版继承</a></li>
+        </ul></li>
+        <li><a href="#静态文件相关">静态文件相关</a><ul>
+        <li><a href="#使用get_static_prefix">使用get_static_prefix</a></li>
+        <li><a href="#inclusion_tag">inclusion_tag</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="模板简介">模板简介</h1>
+<p>废话不多说，先来一个例子：</p>
+<pre><code><code>def current_datetime(request):
+    now = datetime.datetime.now()
+    html = &quot;&lt;html&gt;&lt;body&gt;It is now %s.&lt;/body&gt;&lt;/html&gt;&quot; % now
+    return HttpResponse(html)</code></pre>
+<p>上述例子返回的文本有点特别，他是把HTML硬编码在python代码中的。</p>
+<p>这样可以很明了的解释视图是如何他工作的，但直接把HTML硬编码到你的视图里却并不是一个好主意。 让我们来看一下为什么：</p>
+<ul>
+<li><p>对页面设计进行的任何改变都必须对 Python 代码进行相应的修改。 站点设计的修改往往比底层 Python 代码的修改要频繁得多，因此如果可以在不进行 Python 代码修改的情况下变更设计，那将会方便得多。</p></li>
+<li><p>Python 代码编写和 HTML 设计是两项不同的工作，大多数专业的网站开发环境都将他们分配给不同的人员（甚至不同部门）来完成。 设计者和HTML/CSS的编码人员不应该被要求去编辑Python的代码来完成他们的工作。</p></li>
+<li><p>程序员编写 Python代码和设计人员制作模板两项工作同时进行的效率是最高的，远胜于让一个人等待另一个人完成对某个既包含 Python又包含 HTML 的文件的编辑工作。</p></li>
+</ul>
+<p><strong>基于这些原因，将页面的设计和Python的代码分离开会更干净简洁更容易维护。 我们可以使用 Django的 模板系统 (Template System)来实现这种模式，这就是本章要具体讨论的问题</strong></p>
+<p><strong>python的模板：HTML代码＋模板语法</strong></p>
+<pre><code><code>def current_time(req):
+    # ================================原始的视图函数
+    # import datetime
+    # now=datetime.datetime.now()
+    # html=&quot;&lt;html&gt;&lt;body&gt;现在时刻：&lt;h1&gt;%s.&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;&quot; %now
+
+
+    # ================================django模板修改的视图函数
+    # from django.template import Template,Context
+    # now=datetime.datetime.now()
+    # t=Template(&#39;&lt;html&gt;&lt;body&gt;现在时刻是:&lt;h1&gt;{{current_date}}&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;&#39;)
+    # #t=get_template(&#39;current_datetime.html&#39;)
+    # c=Context({&#39;current_date&#39;:str(now)})
+    # html=t.render(c)
+    #
+    # return HttpResponse(html)
+
+
+    #另一种写法(推荐)
+    import datetime
+    now=datetime.datetime.now()
+    return render(req, &#39;current_datetime.html&#39;, {&#39;current_date&#39;:str(now)[:19]})</code></pre>
+<p>模版语法重点：</p>
+<p>　　变量：{{ 变量名 }}</p>
+<p>　　　　1 深度查询 用句点符</p>
+<p>　　　　2 过滤器</p>
+<p>　　标签：｛｛% % ｝｝</p>
+<h1 id="模板语法之变量">模板语法之变量</h1>
+<p>在 Django 模板中遍历复杂数据结构的关键是句点字符, 语法：｛｛变量名｝｝</p>
+<p><strong>views.py</strong></p>
+<pre><code><code>def template_test(request):
+    name = &#39;Hades&#39;
+    li = [&#39;Hades&#39;, 1, &#39;18&#39;]
+    dic = {&#39;name&#39;:Hades&#39;, &#39;age&#39;: 18}
+    ll2 = [
+        {&#39;name&#39;: &#39;Hades&#39;, &#39;age&#39;: 18},
+        {&#39;name&#39;: &#39;Hades2&#39;, &#39;age&#39;: 19},
+        {&#39;name&#39;: &#39;Bonnie&#39;, &#39;age&#39;: 20},
+        {&#39;name&#39;: &#39;Bob&#39;, &#39;age&#39;: 23}
+    ]
+    ll3=[]
+    class Person:
+        def __init__(self, name):
+            self.name = name
+
+        def test(self):
+            print(&#39;test函数&#39;)
+            return 11
+
+        @classmethod
+        def test_classmethod(cls):
+            print(&#39;类方法&#39;)
+            return &#39;类方法&#39;
+
+        @staticmethod
+        def static_method():
+            print(&#39;静态方法&#39;)
+            return &#39;静态方法&#39;
+
+    hades = Person(&#39;Hades&#39;)
+    bonnie = Person(&#39;Bonnie&#39;)
+    person_list = [hades, bonnie]
+    bo = True
+    te = test()
+    import datetime
+    now=datetime.datetime.now()
+    link1=&#39;&lt;a href=&quot;https://www.baidu.com&quot;&gt;点我&lt;a&gt;&#39;
+    from django.utils import safestring
+    link=safestring.mark_safe(link1)
+    # html特殊符号对照表（http://tool.chinaz.com/Tools/htmlchar.aspx）
+    # 这样传到前台不会变成特殊字符，因为django给处理了
+    dot=&#39;&amp;spades;&#39;
+
+    # return render(request, &#39;template_index.html&#39;, {&#39;name&#39;:name,&#39;person_list&#39;:person_list})
+    return render(request, &#39;template_index.html&#39;, locals())</code></pre>
+<p><strong>html</strong></p>
+<pre class="html"><code>&lt;p&gt;{{ name }}&lt;/p&gt;
+&lt;p&gt;{{ li }}&lt;/p&gt;
+&lt;p&gt;{{ dic }}&lt;/p&gt;
+&lt;p&gt;{{ hades }}&lt;/p&gt;
+&lt;p&gt;{{ person_list }}&lt;/p&gt;
+&lt;p&gt;{{ bo }}&lt;/p&gt;
+&lt;p&gt;{{ te }}&lt;/p&gt;
+
+&lt;hr&gt;
+&lt;h3&gt;深度查询句点符&lt;/h3&gt;
+&lt;p&gt;{{ li.1 }}&lt;/p&gt;
+&lt;p&gt;{{ dic.name }}&lt;/p&gt;
+&lt;p&gt;{{ hades.test }}&lt;/p&gt;
+&lt;p&gt;{{ hades.name }}&lt;/p&gt;
+&lt;p&gt;{{ person_list.0 }}&lt;/p&gt;
+&lt;p&gt;{{ person_list.1.name }}&lt;/p&gt;
+
+&lt;hr&gt;
+&lt;h3&gt;过滤器&lt;/h3&gt;
+{#注意：冒号后面不能加空格#}
+&lt;p&gt;{{ now | date:&quot;Y-m-d H:i:s&quot; }}&lt;/p&gt;
+
+{#如果变量为空，设置默认值,空数据，None，变量不存在，都适用#}
+&lt;p&gt;{{ name |default:&#39;数据为空&#39; }}&lt;/p&gt;
+{#计算长度，只有一个参数#}
+&lt;p&gt;{{ person_list |length }}&lt;/p&gt;
+{#计算文件大小#}
+&lt;p&gt;{{ 1024 |filesizeformat }}&lt;/p&gt;
+
+{#字符串切片，前闭后开，前面取到，后面取不到#}
+&lt;p&gt;{{ &#39;hello world hades&#39; |slice:&quot;2:-1&quot; }}&lt;/p&gt;
+&lt;p&gt;{{ &#39;hello world hades&#39; |slice:&quot;2:5&quot; }}&lt;/p&gt;
+
+{#截断字符，至少三个起步，因为会有三个省略号（传负数，1，2，3都是三个省略号）#}
+&lt;p&gt;{{ &#39;朱竹平 world hades&#39; |truncatechars:&quot;4&quot; }}&lt;/p&gt;
+{#截断文字，以空格做区分，这个不算省略号#}
+&lt;p&gt;{{ &#39;朱竹平123 谢谢&#39; |truncatewords:&quot;1&quot; }}&lt;/p&gt;
+
+&lt;p&gt;{{ link1 }}&lt;/p&gt;
+&lt;p&gt;{{ link1|safe }}&lt;/p&gt;
+&lt;p&gt;{{ link }}&lt;/p&gt;
+
+&lt;p&gt;&amp;spades;&lt;/p&gt;
+&lt;p&gt;{{ dot }}&lt;/p&gt;
+
+{#add   可以加负数，传数字字符串都可以#}
+&lt;p&gt;{{ &quot;10&quot;|add:&quot;-2&quot; }}&lt;/p&gt;
+&lt;p&gt;{{ li.1|add:&quot;-2&quot; }}&lt;/p&gt;
+&lt;p&gt;{{ li.1|add:2 }}&lt;/p&gt;
+&lt;p&gt;{{ li.1|add:&quot;2&quot; }}&lt;/p&gt;
+&lt;p&gt;{{ li.1|add:&quot;-2e&quot; }}&lt;/p&gt;
+
+{#upper#}
+&lt;p&gt;{{ name|upper }}&lt;/p&gt;
+&lt;p&gt;{{ &#39;HADES&#39;|lower }}&lt;/p&gt;
+&lt;hr&gt;
+&lt;h3&gt;模版语法之标签&lt;/h3&gt;
+{#for 循环 循环列表，循环字典，循环列表对象#}
+&lt;ui&gt;
+    {% for foo in dic %}
+    {{ foo }}
+    {% endfor %}
+    {#也可以混用html标签#}
+    {% for foo in li %}
+    &lt;ul&gt;foo&lt;/ul&gt;
+
+    {% endfor %}
+&lt;/ui&gt;
+{#表格#}
+&lt;table border=&quot;1&quot;&gt;
+
+    {% for foo in ll2 %}
+    &lt;tr&gt;
+        &lt;td&gt;{{ foo.name }}&lt;/td&gt;
+        &lt;td&gt;{{ foo.age }}&lt;/td&gt;
+    &lt;/tr&gt;
+    {% endfor %}
+&lt;/table&gt;
+&lt;table border=&quot;1&quot;&gt;
+    {#&#39;parentloop&#39;: {}, &#39;counter0&#39;: 0, &#39;counter&#39;: 1, &#39;revcounter&#39;: 4, &#39;revcounter0&#39;: 3, &#39;first&#39;: True, &#39;last&#39;: False}#}
+    {% for foo in ll2 %}
+    &lt;tr&gt;
+        &lt;td&gt;{{ forloop.counter }}&lt;/td&gt;
+        &lt;td&gt;{{ foo.name }}&lt;/td&gt;
+        &lt;td&gt;{{ foo.age }}&lt;/td&gt;
+    &lt;/tr&gt;
+    {% endfor %}
+
+
+&lt;/table&gt;
+
+
+
+{% for foo in ll5 %}
+&lt;p&gt;foo.name&lt;/p&gt;
+{% empty %}
+&lt;p&gt;空的&lt;/p&gt;
+{% endfor %}
+
+&lt;hr&gt;
+&lt;h3&gt;if判断&lt;/h3&gt;
+{% if name %}
+&lt;a href=&quot;&quot;&gt;hi {{ name }}&lt;/a&gt;
+&lt;a href=&quot;&quot;&gt;注销&lt;/a&gt;
+{% else %}
+&lt;a href=&quot;&quot;&gt;请登录&lt;/a&gt;
+&lt;a href=&quot;&quot;&gt;注册&lt;/a&gt;
+{% endif %}
+{#还有elif#}
+&lt;hr&gt;
+&lt;h3&gt;with&lt;/h3&gt;
+{% with ll2.0.name as n %}
+{{ n }}
+{% endwith %}
+{{ n }}
+
+
+{% load my_tag_filter %}
+
+{{ 3|multi_filter:3 }}
+
+{#传参必须用空格区分#}
+{% multi_tag 3 9 10 %}
+
+{#可以跟if连用#}
+{% if 3|multi_filter:3 &gt; 9 %}
+&lt;p&gt;大于&lt;/p&gt;
+{% else %}
+&lt;p&gt;小于&lt;/p&gt;
+{% endif %}</code></pre>
+<p>注意：句点符也可以用来引用对象的方法(无参数方法):</p>
+<p><code>&lt;h4&gt;字典:{{ dic.name.upper }}&lt;/h4&gt;</code></p>
+<h1 id="模板之过滤器">模板之过滤器</h1>
+<h2 id="语法">语法：</h2>
+<pre class="html"><code>{{obj|filter__name:param}}  变量名字|过滤器名称：变量</code></pre>
+<h3 id="default">default</h3>
+<p>如果一个变量是false或者为空，使用给定的默认值。否则，使用变量的值。例如：</p>
+<pre class="html"><code>{{ value|default:&quot;nothing&quot; }}</code></pre>
+<h3 id="length">length</h3>
+<p>返回值的长度。它对字符串和列表都起作用。例如：</p>
+<pre class="html"><code>{{ value|length }}</code></pre>
+<p>如果 value 是 ['a', 'b', 'c', 'd']，那么输出是 4。</p>
+<h3 id="filesizeformat">filesizeformat</h3>
+<p>将值格式化为一个 “人类可读的” 文件尺寸 （例如 <code>13 KB</code>, <code>4.1 MB</code>, <code>102 bytes</code>, 等等）。例如：</p>
+<pre class="html"><code>{{ value|filesizeformat }}</code></pre>
+<p>如果 <code>value</code> 是 123456789，输出将会是 <code>117.7 MB</code>。</p>
+<h3 id="date">date</h3>
+<pre class="html"><code>如果 value=datetime.datetime.now()
+
+{{ value|date:&quot;Y-m-d&quot; }}　</code></pre>
+<h3 id="slice">slice</h3>
+<pre class="html"><code>如果 value=&quot;hello world&quot;
+
+{{ value|slice:&quot;2:-1&quot; }}</code></pre>
+<h3 id="truncatechars">truncatechars</h3>
+<p>如果字符串字符多于指定的字符数量，那么会被截断。截断的字符串将以可翻译的省略号序列（“...”）结尾。</p>
+<pre class="html"><code>{{ value|truncatechars:9 }}
+
+参数：要截断的字符数</code></pre>
+<h3 id="safe">safe</h3>
+<p>Django的模板中会对HTML标签和JS等语法标签进行自动转义，原因显而易见，这样是为了安全。但是有的时候我们可能不希望这些HTML元素被转义，比如我们做一个内容管理系统，后台添加的文章中是经过修饰的，这些修饰可能是通过一个类似于FCKeditor编辑加注了HTML修饰符的文本，如果自动转义的话显示的就是保护HTML标签的源文件。为了在Django中关闭HTML的自动转义有两种方式，如果是一个单独的变量我们可以通过过滤器“|safe”的方式告诉Django这段代码是安全的不必转义。比如：</p>
+<pre class="html"><code>value=&quot;&lt;a href=&quot;&quot;&gt;点击&lt;/a&gt;&quot;
+
+{{ value|safe}}</code></pre>
+<h3 id="其它过滤器">其它过滤器</h3>
+<table>
+<thead>
+<tr class="header">
+<th>过滤器</th>
+<th>描述</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>upper</td>
+<td>以大写方式输出</td>
+<td>{{ user.name | upper }}</td>
+</tr>
+<tr class="even">
+<td>add</td>
+<td>给value加上一个数值</td>
+<td>{{ user.age | add:”5” }}</td>
+</tr>
+<tr class="odd">
+<td>addslashes</td>
+<td>单引号加上转义号</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>capfirst</td>
+<td>第一个字母大写</td>
+<td>{{ ‘good’| capfirst }} 返回”Good”</td>
+</tr>
+<tr class="odd">
+<td>center</td>
+<td>输出指定长度的字符串，把变量居中</td>
+<td>{{ “abcd”| center:”50” }}</td>
+</tr>
+<tr class="even">
+<td>cut</td>
+<td>删除指定字符串</td>
+<td>{{ “You are not a Englishman” | cut:”not” }}</td>
+</tr>
+<tr class="odd">
+<td>date</td>
+<td>格式化日期</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>default</td>
+<td>如果值不存在，则使用默认值代替</td>
+<td>{{ value | default:”(N/A)” }}</td>
+</tr>
+<tr class="odd">
+<td>default_if_none</td>
+<td>如果值为None, 则使用默认值代替</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>dictsort</td>
+<td>按某字段排序，变量必须是一个dictionary</td>
+<td>{% for moment in moments | dictsort:”id” %}</td>
+</tr>
+<tr class="odd">
+<td>dictsortreversed</td>
+<td>按某字段倒序排序，变量必须是dictionary</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>divisibleby</td>
+<td>判断是否可以被数字整除</td>
+<td><code>{{ 224 | divisibleby:2 }}  返回 True</code></td>
+</tr>
+<tr class="odd">
+<td>escape</td>
+<td>按HTML转义，比如将”&lt;”转换为”&amp;lt”</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>filesizeformat</td>
+<td>增加数字的可读性，转换结果为13KB,89MB,3Bytes等</td>
+<td><code>{{ 1024 | filesizeformat }} 返回 1.0KB</code></td>
+</tr>
+<tr class="odd">
+<td>first</td>
+<td>返回列表的第1个元素，变量必须是一个列表</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>floatformat</td>
+<td>转换为指定精度的小数，默认保留1位小数</td>
+<td>{{ 3.1415926 | floatformat:3 }} 返回 3.142 四舍五入</td>
+</tr>
+<tr class="odd">
+<td>get_digit</td>
+<td>从个位数开始截取指定位置的数字</td>
+<td>{{ 123456 | get_digit:’1’}}</td>
+</tr>
+<tr class="even">
+<td>join</td>
+<td>用指定分隔符连接列表</td>
+<td>{{ [‘abc’,’45’] | join:’<em>’ }} 返回 abc</em>45</td>
+</tr>
+<tr class="odd">
+<td>length</td>
+<td>返回列表中元素的个数或字符串长度</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>length_is</td>
+<td>检查列表，字符串长度是否符合指定的值</td>
+<td>{{ ‘hello’| length_is:’3’ }}</td>
+</tr>
+<tr class="odd">
+<td>linebreaks</td>
+<td>用<p>或<br>标签包裹变量</td>
+<td>{{ “Hi\n\nDavid”|linebreaks }} 返回<p>Hi</p><p>David</p></td>
+</tr>
+<tr class="even">
+<td>linebreaksbr</td>
+<td>用<br/>标签代替换行符</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>linenumbers</td>
+<td>为变量中的每一行加上行号</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>ljust</td>
+<td>输出指定长度的字符串，变量左对齐</td>
+<td>{{‘ab’|ljust:5}}返回 ‘ab ’</td>
+</tr>
+<tr class="odd">
+<td>lower</td>
+<td>字符串变小写</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>make_list</td>
+<td>将字符串转换为列表</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>pluralize</td>
+<td>根据数字确定是否输出英文复数符号</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>random</td>
+<td>返回列表的随机一项</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>removetags</td>
+<td>删除字符串中指定的HTML标记</td>
+<td>{{value | removetags: “h1 h2”}}</td>
+</tr>
+<tr class="even">
+<td>rjust</td>
+<td>输出指定长度的字符串，变量右对齐</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>slice</td>
+<td>切片操作， 返回列表</td>
+<td>{{[3,9,1] | slice:’:2’}} 返回 [3,9] <code>{{ 'asdikfjhihgie' | slice:':5' }} 返回 ‘asdik’</code></td>
+</tr>
+<tr class="even">
+<td>slugify</td>
+<td>在字符串中留下减号和下划线，其它符号删除，空格用减号替换</td>
+<td><code>{{ '5-2=3and5 2=3' | slugify }} 返回 5-23and5-23</code></td>
+</tr>
+<tr class="odd">
+<td>stringformat</td>
+<td>字符串格式化，语法同python</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>time</td>
+<td>返回日期的时间部分</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>timesince</td>
+<td>以“到现在为止过了多长时间”显示时间变量</td>
+<td>结果可能为 45days, 3 hours</td>
+</tr>
+<tr class="even">
+<td>timeuntil</td>
+<td>以“从现在开始到时间变量”还有多长时间显示时间变量</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>title</td>
+<td>每个单词首字母大写</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>truncatewords</td>
+<td>将字符串转换为省略表达方式</td>
+<td><code>{{ 'This is a pen' | truncatewords:2 }}返回``This is ...</code></td>
+</tr>
+<tr class="odd">
+<td>truncatewords_html</td>
+<td>同上，但保留其中的HTML标签</td>
+<td><code>{{ '&lt;p&gt;This is a pen&lt;/p&gt;' | truncatewords:2 }}返回``&lt;p&gt;This is ...&lt;/p&gt;</code></td>
+</tr>
+<tr class="even">
+<td>urlencode</td>
+<td>将字符串中的特殊字符转换为url兼容表达方式</td>
+<td>{{ ‘http://www.aaa.com/foo?a=b&amp;b=c’ | urlencode}}</td>
+</tr>
+<tr class="odd">
+<td>urlize</td>
+<td>将变量字符串中的url由纯文本变为链接</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>wordcount</td>
+<td>返回变量字符串中的单词数</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>yesno</td>
+<td>将布尔变量转换为字符串yes, no 或maybe</td>
+<td><code>{{ True | yesno }}</code> <code>{{ False | yesno }}</code> <code>{{ None | yesno }}</code> <code>返回</code>yes<code>no</code>maybe`</td>
+</tr>
+</tbody>
+</table>
+<h1 id="模板之标签">模板之标签</h1>
+<p>标签看起来像是这样的： <code>{% tag %}</code>。标签比变量更加复杂：一些在输出中创建文本，一些通过循环或逻辑来控制流程，一些加载其后的变量将使用到的额外信息到模版中。一些标签需要开始和结束标签 （例如<code>{% tag %} ...</code>标签 内容 ... {% endtag %}）。</p>
+<h3 id="for标签">for标签</h3>
+<p>遍历每一个元素：</p>
+<pre class="html"><code>{% for person in person_list %}
+    &lt;p&gt;{{ person.name }}&lt;/p&gt;
+{% endfor %}</code></pre>
+<p>可以利用<code>{% for obj in list reversed %}</code>反向完成循环。</p>
+<p>遍历一个字典：</p>
+<pre class="html"><code>{% for key,val in dic.items %}
+    &lt;p&gt;{{ key }}:{{ val }}&lt;/p&gt;
+{% endfor %}</code></pre>
+<p>注：循环序号可以通过｛｛forloop｝｝显示　</p>
+<pre class="html"><code>forloop.counter            The current iteration of the loop (1-indexed) 当前循环的索引值（从1开始）
+forloop.counter0           The current iteration of the loop (0-indexed) 当前循环的索引值（从0开始）
+forloop.revcounter         The number of iterations from the end of the loop (1-indexed) 当前循环的倒序索引值（从1开始）
+forloop.revcounter0        The number of iterations from the end of the loop (0-indexed) 当前循环的倒序索引值（从0开始）
+forloop.first              True if this is the first time through the loop 当前循环是不是第一次循环（布尔值）
+forloop.last               True if this is the last time through the loop 当前循环是不是最后一次循环（布尔值）forloop.parentloop         本层循环的外层循环</code></pre>
+<h3 id="for-...-empty">for ... empty</h3>
+<p><code>for</code> 标签带有一个可选的<code>{% empty %}</code> 从句，以便在给出的组是空的或者没有被找到时，可以有所操作。</p>
+<pre class="html"><code>{% for person in person_list %}
+    &lt;p&gt;{{ person.name }}&lt;/p&gt;
+
+{% empty %}
+    &lt;p&gt;sorry,no person here&lt;/p&gt;
+{% endfor %}</code></pre>
+<h3 id="if-标签">if 标签</h3>
+<p><code>{% if %}</code>会对一个变量求值，如果它的值是“True”（存在、不为空、且不是boolean类型的false值），对应的内容块会输出。</p>
+<pre class="html"><code>{% if num &gt; 100 or num &lt; 0 %}
+    &lt;p&gt;无效&lt;/p&gt;
+{% elif num &gt; 80 and num &lt; 100 %}
+    &lt;p&gt;优秀&lt;/p&gt;
+{% else %}
+    &lt;p&gt;凑活吧&lt;/p&gt;
+{% endif %}</code></pre>
+<p><strong>if语句支持 and 、or、==、&gt;、&lt;、!=、&lt;=、&gt;=、in、not in、is、is not判断。</strong></p>
+<h3 id="with">with</h3>
+<p>使用一个简单地名字缓存一个复杂的变量，当你需要使用一个“昂贵的”方法（比如访问数据库）很多次的时候是非常有用的</p>
+<p>例如：</p>
+<pre class="html"><code>{% with total=business.employees.count %}
+    {{ total }} employee{{ total|pluralize }}
+{% endwith %}
+不要写成as</code></pre>
+<h3 id="csrf_token">csrf_token</h3>
+<pre class="html"><code>{% csrf_token%}</code></pre>
+<p>这个标签用于跨站请求伪造保护</p>
+<h1 id="自定义标签和过滤器">自定义标签和过滤器</h1>
+<ol>
+<li><p><strong>在settings中的INSTALLED_APPS配置当前app，不然django无法找到自定义的simple_tag.</strong></p></li>
+<li><p><strong>在app中创建templatetags模块(模块名只能是templatetags)</strong></p></li>
+<li><p><strong>创建任意 .py 文件，如：my_tags.py</strong></p></li>
+</ol>
+<pre><code><code>from django import template
+from django.utils.safestring import mark_safe
+ 
+register = template.Library()   #register的名字是固定的,不可改变
+ 
+ 
+@register.filter
+def filter_multi(v1,v2):
+    return  v1 * v2
+
+@register.simple_tag
+def simple_tag_multi(v1,v2):
+    return  v1 * v2
+
+@register.simple_tag
+def my_input(id,arg):
+    result = &quot;&lt;input type=&#39;text&#39; id=&#39;%s&#39; class=&#39;%s&#39; /&gt;&quot; %(id,arg,)
+    return mark_safe(result)</code></pre>
+<ol>
+<li><strong>在使用自定义simple_tag和filter的html文件中导入之前创建的 my_tags.py</strong></li>
+</ol>
+<pre class="html"><code>{% load my_tags %}　</code></pre>
+<ol>
+<li><strong>使用simple_tag和filter（如何调用）</strong></li>
+</ol>
+<pre class="html"><code>{% load xxx %}  
+      
+# num=12
+{{ num|filter_multi:2 }} #24
+ 
+{{ num|filter_multi:&quot;[22,333,4444]&quot; }}
+ 
+{% simple_tag_multi 2 5 %}  参数不限,但不能放在if for语句中
+{% simple_tag_multi num 5 %}</code></pre>
+<p><strong>注意：filter可以用在if等语句后，simple_tag不可以</strong></p>
+<pre class="html"><code>{% if num|filter_multi:30 &gt; 100 %}
+    {{ num|filter_multi:30 }}
+{% endif %}</code></pre>
+<h1 id="模板导入和继承">模板导入和继承</h1>
+<h3 id="模版导入">模版导入：</h3>
+<ul>
+<li><p>语法：{% include '模版名称' %}</p></li>
+<li><p>如：{% include 'adv.html' %}</p></li>
+</ul>
+<h4 id="adv.html">adv.html</h4>
+<pre class="html"><code>&lt;div class=&quot;adv&quot;&gt;
+    &lt;div class=&quot;panel panel-default&quot;&gt;
+        &lt;div class=&quot;panel-heading&quot;&gt;
+            &lt;h3 class=&quot;panel-title&quot;&gt;Panel title&lt;/h3&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot;&gt;
+            Panel content
+        &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;panel panel-danger&quot;&gt;
+        &lt;div class=&quot;panel-heading&quot;&gt;
+            &lt;h3 class=&quot;panel-title&quot;&gt;Panel title&lt;/h3&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot;&gt;
+            Panel content
+        &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;panel panel-warning&quot;&gt;
+        &lt;div class=&quot;panel-heading&quot;&gt;
+            &lt;h3 class=&quot;panel-title&quot;&gt;Panel title&lt;/h3&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;panel-body&quot;&gt;
+            Panel content
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+<h4 id="base.html">base.html</h4>
+<pre class="html"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;/static/bootstrap-3.3.7-dist/css/bootstrap.min.css&quot;&gt;
+    {#    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css&quot; integrity=&quot;sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u&quot; crossorigin=&quot;anonymous&quot;&gt;#}
+    &lt;style&gt;
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            height: 50px;
+            width: 100%;
+            background-color: #369;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div class=&quot;header&quot;&gt;&lt;/div&gt;
+
+&lt;div class=&quot;container&quot;&gt;
+    &lt;div class=&quot;row&quot;&gt;
+        &lt;div class=&quot;col-md-3&quot;&gt;
+            {% include &#39;adv.html&#39; %}
+
+
+        &lt;/div&gt;
+        &lt;div class=&quot;col-md-9&quot;&gt;
+            {% block conn %}
+                &lt;h1&gt;你好&lt;/h1&gt;
+            {% endblock %}
+
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+&lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<h4 id="order.html">order.html</h4>
+<pre class="html"><code>{% extends &#39;base.html&#39; %}
+
+{% block conn %}
+    {{ block.super }}
+是啊
+
+{% endblock conn%}</code></pre>
+<h3 id="模版继承">模版继承</h3>
+<p>Django模版引擎中最强大也是最复杂的部分就是模版继承了。模版继承可以让您创建一个基本的“骨架”模版，它包含您站点中的全部元素，并且可以定义能够被子模版覆盖的 blocks 。</p>
+<p>通过从下面这个例子开始，可以容易的理解模版继承：</p>
+<pre class="html"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;style.css&quot;/&gt;
+    &lt;title&gt;{% block title %}My amazing site{% endblock %}&lt;/title&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+&lt;div id=&quot;sidebar&quot;&gt;
+    {% block sidebar %}
+        &lt;ul&gt;
+            &lt;li&gt;&lt;a href=&quot;/&quot;&gt;Home&lt;/a&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;a href=&quot;/blog/&quot;&gt;Blog&lt;/a&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+    {% endblock %}
+&lt;/div&gt;
+
+&lt;div id=&quot;content&quot;&gt;
+    {% block content %}{% endblock %}
+&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p>这个模版，我们把它叫作 <code>base.html</code>， 它定义了一个可以用于两列排版页面的简单HTML骨架。“子模版”的工作是用它们的内容填充空的blocks。</p>
+<p>在这个例子中， <code>block</code> 标签定义了三个可以被子模版内容填充的block。 <code>block</code> 告诉模版引擎： 子模版可能会覆盖掉模版中的这些位置。</p>
+<p>子模版可能看起来是这样的：</p>
+<pre class="html"><code>{% extends &quot;base.html&quot; %}
+ 
+{% block title %}My amazing blog{% endblock %}
+ 
+{% block content %}
+{% for entry in blog_entries %}
+    &lt;h2&gt;{{ entry.title }}&lt;/h2&gt;
+    &lt;p&gt;{{ entry.body }}&lt;/p&gt;
+{% endfor %}
+{% endblock %}</code></pre>
+<p><code>extends</code> 标签是这里的关键。它告诉模版引擎，这个模版“继承”了另一个模版。当模版系统处理这个模版时，首先，它将定位父模版——在此例中，就是“base.html”。</p>
+<p>那时，模版引擎将注意到 <code>base.html</code> 中的三个 <code>block</code> 标签，并用子模版中的内容来替换这些block。根据 <code>blog_entries</code> 的值，输出可能看起来是这样的：</p>
+<pre class="html"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;style.css&quot; /&gt;
+    &lt;title&gt;My amazing blog&lt;/title&gt;
+&lt;/head&gt;
+ 
+&lt;body&gt;
+    &lt;div id=&quot;sidebar&quot;&gt;
+        &lt;ul&gt;
+            &lt;li&gt;&lt;a href=&quot;/&quot;&gt;Home&lt;/a&gt;&lt;/li&gt;
+            &lt;li&gt;&lt;a href=&quot;/blog/&quot;&gt;Blog&lt;/a&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+    &lt;/div&gt;
+ 
+    &lt;div id=&quot;content&quot;&gt;
+        &lt;h2&gt;Entry one&lt;/h2&gt;
+        &lt;p&gt;This is my first entry.&lt;/p&gt;
+ 
+        &lt;h2&gt;Entry two&lt;/h2&gt;
+        &lt;p&gt;This is my second entry.&lt;/p&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p>请注意，子模版并没有定义 <code>sidebar</code> block，所以系统使用了父模版中的值。父模版的 <code>{% block %}</code> 标签中的内容总是被用作备选内容（<code>fallback</code>）。</p>
+<p>这种方式使代码得到最大程度的复用，并且使得添加内容到共享的内容区域更加简单，例如，部分范围内的导航。</p>
+<p><strong>这里是使用继承的一些提示</strong>：</p>
+<ul>
+<li><p>如果你在模版中使用 <code>{% extends %}</code> 标签，它必须是模版中的第一个标签。其他的任何情况下，模版继承都将无法工作。</p></li>
+<li><p>在base模版中设置越多的 <code>{% block %}</code> 标签越好。请记住，子模版不必定义全部父模版中的blocks，所以，你可以在大多数blocks中填充合理的默认内容，然后，只定义你需要的那一个。多一点钩子总比少一点好。</p></li>
+<li><p>如果你发现你自己在大量的模版中复制内容，那可能意味着你应该把内容移动到父模版中的一个 <code>{% block %}</code> 中。</p></li>
+<li><p>If you need to get the content of the block from the parent template, the <code>{{ block.super }}</code> variable will do the trick. This is useful if you want to add to the contents of a parent block instead of completely overriding it. Data inserted using <code>{{ block.super }}</code> will not be automatically escaped (see the next section), since it was already escaped, if necessary, in the parent template.</p></li>
+<li><p>为了更好的可读性，你也可以给你的 <code>{% endblock %}</code> 标签一个 <em>名字</em> 。例如：</p>
+<p>在大型模版中，这个方法帮你清楚的看到哪一个　 <code>{% block %}</code> 标签被关闭了。</p></li>
+<li><p>不能在一个模版中定义多个相同名字的 <code>block</code> 标签。</p></li>
+</ul>
+<h1 id="静态文件相关">静态文件相关</h1>
+<pre class="html"><code>{% load static %}
+&lt;img src=&quot;{% static &quot;images/hi.jpg&quot; %}&quot; alt=&quot;Hi!&quot; /&gt;</code></pre>
+<p>引用JS文件时使用：</p>
+<pre class="html"><code>{% load static %}
+&lt;script src=&quot;{% static &quot;mytest.js&quot; %}&quot;&gt;&lt;/script&gt;</code></pre>
+<p>某个文件多处被用到可以存为一个变量</p>
+<pre class="html"><code>{% load static %}
+{% static &quot;images/hi.jpg&quot; as myphoto %}
+&lt;img src=&quot;{{ myphoto }}&quot;&gt;&lt;/img&gt;</code></pre>
+<h3 id="使用get_static_prefix">使用get_static_prefix</h3>
+<pre class="html"><code>{% load static %}
+&lt;img src=&quot;{% get_static_prefix %}images/hi.jpg&quot; alt=&quot;Hi!&quot; /&gt;</code></pre>
+<p>或者</p>
+<pre class="html"><code>{% load static %}
+{% get_static_prefix as STATIC_PREFIX %}
+
+&lt;img src=&quot;{{ STATIC_PREFIX }}images/hi.jpg&quot; alt=&quot;Hi!&quot; /&gt;
+&lt;img src=&quot;{{ STATIC_PREFIX }}images/hi2.jpg&quot; alt=&quot;Hello!&quot; /&gt;</code></pre>
+<h3 id="inclusion_tag">inclusion_tag</h3>
+<p>多用于返回html代码片段</p>
+<p>示例：</p>
+<p><strong>templatetags/my_inclusion.py</strong></p>
+<pre><code><code>from django import template
+
+register = template.Library()
+
+@register.inclusion_tag(&#39;result.html&#39;)
+def show_results(n):
+    n = 1 if n &lt; 1 else int(n)
+    data = [&quot;第{}项&quot;.format(i) for i in range(1, n+1)]
+    return {&quot;data&quot;: data}</code></pre>
+<p><strong>templates/snippets/result.html</strong></p>
+<pre class="html"><code>&lt;ul&gt;
+  {% for choice in data %}
+    &lt;li&gt;{{ choice }}&lt;/li&gt;
+  {% endfor %}
+&lt;/ul&gt;</code></pre>
+<p><strong>templates/index.html</strong></p>
+<pre class="html"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot;&gt;
+  &lt;meta http-equiv=&quot;x-ua-compatible&quot; content=&quot;IE=edge&quot;&gt;
+  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+  &lt;title&gt;inclusion_tag test&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+{% load inclusion_tag_test %}
+
+{% show_results 10 %}
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

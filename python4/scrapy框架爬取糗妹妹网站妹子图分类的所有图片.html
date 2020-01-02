@@ -1,0 +1,159 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修scrapy框架爬取糗妹妹网站妹子图分类的所有图片' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>scrapy框架爬取糗妹妹网站妹子图分类的所有图片</center></div><div class='banquan'>原文出处:本文由博客园博主记住我忘记我提供。<br/>
+原文连接:https://www.cnblogs.com/nmsghgnv/p/11359877.html</div><br>
+    <p>爬取所有图片，一个页面的图片建一个文件夹。难点，图片中有不少.gif图片，需要重写下载规则,</p>
+<p>创建scrapy项目</p>
+<div class="cnblogs_code">
+<pre><code>scrapy startproject qiumeimei</pre>
+</div>
+<p>创建爬虫应用</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">cd qiumeimei
+
+scrapy genspider </span>-t crawl qmm www.xxx.com</pre>
+</div>
+<p>items.py文件中定义下载字段</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> scrapy
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> QiumeimeiItem(scrapy.Item):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> define the fields for your item here like:</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> name = scrapy.Field()</span>
+    page =<span style="color: #000000;"> scrapy.Field()
+    image_url </span>= scrapy.Field()</pre>
+</div>
+<p>qmm.py文件中写爬虫主程序</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> scrapy
+</span><span style="color: #0000ff;">from</span> scrapy.linkextractors <span style="color: #0000ff;">import</span><span style="color: #000000;"> LinkExtractor
+</span><span style="color: #0000ff;">from</span> scrapy.spiders <span style="color: #0000ff;">import</span><span style="color: #000000;"> CrawlSpider, Rule
+</span><span style="color: #0000ff;">from</span> qiumeimei.items <span style="color: #0000ff;">import</span><span style="color: #000000;"> QiumeimeiItem
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> QmmSpider(CrawlSpider):
+    name </span>= <span style="color: #800000;">'</span><span style="color: #800000;">qmm</span><span style="color: #800000;">'</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> allowed_domains = ['www.xxx.com']</span>
+    start_urls = [<span style="color: #800000;">'</span><span style="color: #800000;">http://www.qiumeimei.com/image</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+
+    rules </span>=<span style="color: #000000;"> (
+        Rule(LinkExtractor(allow</span>=r<span style="color: #800000;">'</span><span style="color: #800000;">http://www.qiumeimei.com/image/page/\d+</span><span style="color: #800000;">'</span>), callback=<span style="color: #800000;">'</span><span style="color: #800000;">parse_item</span><span style="color: #800000;">'</span>, follow=<span style="color: #000000;">True),
+    )
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> parse_item(self, response):
+        page </span>= response.url.split(<span style="color: #800000;">'</span><span style="color: #800000;">/</span><span style="color: #800000;">'</span>)[-1<span style="color: #000000;">]
+        </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> page.isdigit():
+            page </span>= <span style="color: #800000;">'</span><span style="color: #800000;">1</span><span style="color: #800000;">'</span><span style="color: #000000;">
+        image_urls </span>= response.xpath(<span style="color: #800000;">'</span><span style="color: #800000;">//div[@class="main"]/p/img/@data-lazy-src</span><span style="color: #800000;">'</span><span style="color: #000000;">).extract()
+        </span><span style="color: #0000ff;">for</span> image_url <span style="color: #0000ff;">in</span><span style="color: #000000;"> image_urls:
+            item </span>=<span style="color: #000000;"> QiumeimeiItem()
+            item[</span><span style="color: #800000;">'</span><span style="color: #800000;">image_url</span><span style="color: #800000;">'</span>] =<span style="color: #000000;"> image_url
+            item[</span><span style="color: #800000;">'</span><span style="color: #800000;">page</span><span style="color: #800000;">'</span>] =<span style="color: #000000;"> page
+            </span><span style="color: #0000ff;">yield</span> item</pre>
+</div>
+<p>pipelines.py文件中定义下载规则</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> scrapy
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">from</span> scrapy.utils.misc <span style="color: #0000ff;">import</span><span style="color: #000000;"> md5sum
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 导入scrapy 框架里的 管道文件的里的图像 图像处理的专用管道文件</span>
+<span style="color: #0000ff;">from</span> scrapy.pipelines.images <span style="color: #0000ff;">import</span><span style="color: #000000;"> ImagesPipeline
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 导入图片路径名称</span>
+<span style="color: #0000ff;">from</span> qiumeimei.settings <span style="color: #0000ff;">import</span><span style="color: #000000;"> IMAGES_STORE as images_store
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 必须继承 ImagesPipeline</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> QiumeimeiPipeline(ImagesPipeline):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 定义返回文件名</span>
+    <span style="color: #0000ff;">def</span> file_path(self, request, response=None, info=<span style="color: #000000;">None):
+        file_name </span>= request.url.split(<span style="color: #800000;">'</span><span style="color: #800000;">/</span><span style="color: #800000;">'</span>)[-1<span style="color: #000000;">]
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> file_name
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 重写父类的 下载文件的 方法</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_media_requests(self, item, info):
+        </span><span style="color: #0000ff;">yield</span> scrapy.Request(url=item[<span style="color: #800000;">'</span><span style="color: #800000;">image_url</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">     完成图片存储的方法 名称</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> item_completed(self, results, item, info):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> print(results)</span>
+        page = item[<span style="color: #800000;">'</span><span style="color: #800000;">page</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">正在下载第</span><span style="color: #800000;">'</span>+page+<span style="color: #800000;">'</span><span style="color: #800000;">页图片</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        image_url </span>= item[<span style="color: #800000;">'</span><span style="color: #800000;">image_url</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        image_name </span>= image_url.split(<span style="color: #800000;">'</span><span style="color: #800000;">/</span><span style="color: #800000;">'</span>)[-1<span style="color: #000000;">]
+        old_name_list </span>= [x[<span style="color: #800000;">'</span><span style="color: #800000;">path</span><span style="color: #800000;">'</span>] <span style="color: #0000ff;">for</span> t, x <span style="color: #0000ff;">in</span> results <span style="color: #0000ff;">if</span><span style="color: #000000;"> t]
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 真正的原图片的存储路径</span>
+        old_name = images_store +<span style="color: #000000;"> old_name_list[0]
+        image_path </span>= images_store + page + <span style="color: #800000;">"</span><span style="color: #800000;">/</span><span style="color: #800000;">"</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 判断图片存放的目录是否存在</span>
+        <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> os.path.exists(image_path):
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 根据当前页码创建对应的目录</span>
+<span style="color: #000000;">            os.mkdir(image_path)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 新名称</span>
+        new_name = image_path +<span style="color: #000000;"> image_name
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 重命名</span>
+<span style="color: #000000;">        os.rename(old_name, new_name)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> item
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 重写下载规则</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> image_downloaded(self, response, request, info):
+        checksum </span>=<span style="color: #000000;"> None
+        </span><span style="color: #0000ff;">for</span> path, image, buf <span style="color: #0000ff;">in</span><span style="color: #000000;"> self.get_images(response, request, info):
+            </span><span style="color: #0000ff;">if</span> checksum <span style="color: #0000ff;">is</span><span style="color: #000000;"> None:
+                buf.seek(0)
+                checksum </span>=<span style="color: #000000;"> md5sum(buf)
+            width, height </span>=<span style="color: #000000;"> image.size
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> self.check_gif(image):
+                self.persist_gif(path, response.body, info)
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                self.store.persist_file(
+                    path, buf, info,
+                    meta</span>={<span style="color: #800000;">'</span><span style="color: #800000;">width</span><span style="color: #800000;">'</span>: width, <span style="color: #800000;">'</span><span style="color: #800000;">height</span><span style="color: #800000;">'</span><span style="color: #000000;">: height},
+                    headers</span>={<span style="color: #800000;">'</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">image/jpeg</span><span style="color: #800000;">'</span><span style="color: #000000;">})
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> checksum
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> check_gif(self, image):
+        </span><span style="color: #0000ff;">if</span> image.format <span style="color: #0000ff;">is</span><span style="color: #000000;"> None:
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> True
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> persist_gif(self, key, data, info):
+        root, ext </span>=<span style="color: #000000;"> os.path.splitext(key)
+        absolute_path </span>=<span style="color: #000000;"> self.store._get_filesystem_path(key)
+        self.store._mkdir(os.path.dirname(absolute_path), info)
+        f </span>= open(absolute_path, <span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> use 'b' to write binary data.</span>
+        f.write(data)</pre>
+</div>
+<p>settings.py文件中定义请求头和打开下载管道</p>
+<div class="cnblogs_code">
+<pre><code>USER_AGENT = <span style="color: #800000;">'</span><span style="color: #800000;">Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36</span><span style="color: #800000;">'</span><span style="color: #000000;">
+
+ITEM_PIPELINES </span>=<span style="color: #000000;"> {
+   </span><span style="color: #800000;">'</span><span style="color: #800000;">qiumeimei.pipelines.QiumeimeiPipeline</span><span style="color: #800000;">'</span>: 300<span style="color: #000000;">,
+}</span></pre>
+</div>
+<p>运行爬虫</p>
+<div class="cnblogs_code">
+<pre><code>scrapy crawl qmm --nolog</pre>
+</div>
+<p>查看文件夹是否下载成功</p>
+<p><img src="./images/scrapy框架爬取糗妹妹网站妹子图分类的所有图片0.png" alt="" /></p>
+<p><img src="./images/scrapy框架爬取糗妹妹网站妹子图分类的所有图片1.png" alt="" /></p>
+<p><img src="./images/scrapy框架爬取糗妹妹网站妹子图分类的所有图片2.png" alt="" /></p>
+<p>.gif为动态图。</p>
+<p>done。</p>
+<p><img src="E:\爬虫\0815qmm\15\707c5757gw1faant8ogc1g204w0chb29.gif" alt="" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

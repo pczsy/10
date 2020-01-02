@@ -1,0 +1,471 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修深入浅出的分析 Set集合' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>深入浅出的分析 Set集合</center></div><div class='banquan'>原文出处:本文由博客园博主炸鸡可乐提供。<br/>
+原文连接:https://www.cnblogs.com/dxflqm/p/12034846.html</div><br>
+    <blockquote>
+<p>作者：炸鸡可乐<br />
+原文出处：<a href="http://pzblog.cn">www.pzblog.cn</a></p>
+</blockquote>
+<h3 id="一摘要">一、摘要</h3>
+<blockquote>
+<p>关于 Set 接口，在实际开发中，其实很少用到，但是如果你出去面试，它可能依然是一个绕不开的话题。</p>
+</blockquote>
+<p>言归正传，废话咱们也不多说了，相信使用过 Set 集合类的朋友都知道，Set集合的特点主要有：<strong>元素不重复、存储无序</strong>的特点。</p>
+<p>啥意思呢？你可以理解为，向一个瓶子里面扔东西，这些东西没有记号是第几个放进去的，但是有一点就是这个瓶子里面不会有重样的东西。</p>
+<p>细细思考，你会发现， Set 集合的这些特性正处于 List 集合和 Map 集合之间，为什么这么说呢？之前的集合文章中，咱们了解到，List 集合的特点就是存取有序，<strong>本质是一个有序数组，每个元素依次按照顺序存储</strong>；Map 集合主要用于存放<strong>键值对</strong>，虽然底层也是用数组存放，但是元素在数组中的下标是通过哈希算法计算出来的，<strong>数组下标无序</strong>。</p>
+<p>而 Set 集合，在元素存储方面，注重<strong>独立无二</strong>的特性，如果某个元素在集合中已经存在，不会存储重复的元素，同时，集合存储的是元素，不像 Map 集合那样存储的是键值对。</p>
+<p>具体的分析，咱们慢慢道来，打开 Set 集合，主要实现类有 HashSet、LinkedHashSet 、TreeSet 、EnumSet（ RegularEnumSet、JumboEnumSet ）等等，总结 Set 接口实现类，图如下：</p>
+<p><img src="./images/深入浅出的分析 Set集合0.png" /></p>
+<p>由图中的继承关系，可以知道，Set 接口主要实现类有 AbstractSet、HashSet、LinkedHashSet 、TreeSet 、EnumSet（ RegularEnumSet、JumboEnumSet ），其中 AbstractSet、EnumSet 属于抽象类，EnumSet 是在 jdk1.5 中新增的，不同的是 EnumSet 集合元素必须是枚举类型。</p>
+<ul>
+<li>HashSet 是一个输入输出无序的集合，集合中的元素基于 HashMap 的 key 实现，元素不可重复；</li>
+<li>LinkedHashSet 是一个输入输出有序的集合，集合中的元素基于 LinkedHashMap 的 key 实现，元素也不可重复；</li>
+<li>TreeSet 是一个排序的集合，集合中的元素基于 TreeMap 的 key 实现，同样元素不可重复；</li>
+<li>EnumSet 是一个与枚举类型一起使用的专用 Set 集合，其中 RegularEnumSet 和 JumboEnumSet 不能单独实例化，只能由 EnumSet 来生成，同样元素不可重复；</li>
+</ul>
+<p>下面咱们来对各个主要实现类进行一一分析！</p>
+<h3 id="二hashset">二、HashSet</h3>
+<p>HashSet 是一个输入输出无序的集合，底层基于 HashMap 来实现，<strong>HashSet 利用 HashMap 中的<code>key</code>元素来存放元素</strong>，这一点我们可以从源码上看出来，阅读源码如下：</p>
+<pre><code><code>public class HashSet&lt;E&gt;
+    extends AbstractSet&lt;E&gt;
+    implements Set&lt;E&gt;, Cloneable, java.io.Serializable{
+    
+    // HashMap 变量
+    private transient HashMap&lt;E,Object&gt; map;
+    
+    /**HashSet 初始化*/
+    public HashSet() {
+        //默认实例化一个 HashMap
+        map = new HashMap&lt;&gt;();
+    }
+}</code></pre>
+<h4 id="add方法">2.1、add方法</h4>
+<p>打开<code>HashSet</code>的<code>add()</code>方法，源码如下：</p>
+<pre><code><code>public boolean add(E e) {
+        //向 HashMap 中添加元素
+        return map.put(e, PRESENT)==null;
+}</code></pre>
+<p>其中变量<code>PRESENT</code>，是一个非空对象，源码部分如下：</p>
+<pre><code><code>private static final Object PRESENT = new Object();</code></pre>
+<p>可以分析出，当进行<code>add()</code>的时候，等价于</p>
+<pre><code><code>HashMap map = new HashMap&lt;&gt;();
+map.put(e, new Object());//e 表示要添加的元素</code></pre>
+<p>在之前的集合文章中，咱们了解到 HashMap 在添加元素的时候 ，通过<code>equals()</code>和<code>hashCode()</code>方法来判断传入的<code>key</code>是否相同，如果相同，那么 HashMap 认为添加的是同一个元素，反之，则不是。</p>
+<p>从源码分析上可以看出，HashSet 正是使用了 HashMap 的这一特性，实现存储元素下标无序、元素不会重复的特点。</p>
+<h4 id="remove方法">2.2、remove方法</h4>
+<p>HashSet 的删除方法，同样如此，也是基于 HashMap 的底层实现，源码如下：</p>
+<pre><code><code>public boolean remove(Object o) {
+        //调用HashMap 的remove方法，移除元素
+        return map.remove(o)==PRESENT;
+}</code></pre>
+<h4 id="查询方法">2.3、查询方法</h4>
+<p>HashSet 没有像 List、Map 那样提供 get 方法，而是使用迭代器或者 for 循环来遍历元素，方法如下：</p>
+<pre><code><code>public static void main(String[] args) {
+        Set&lt;String&gt; hashSet = new HashSet&lt;String&gt;();
+        System.out.println(&quot;HashSet初始容量大小：&quot;+hashSet.size());
+        hashSet.add(&quot;1&quot;);
+        hashSet.add(&quot;2&quot;);
+        hashSet.add(&quot;3&quot;);
+        hashSet.add(&quot;3&quot;);
+        hashSet.add(&quot;2&quot;);
+        hashSet.add(null);
+
+        //相同元素会自动覆盖
+        System.out.println(&quot;HashSet容量大小：&quot;+hashSet.size());
+        //迭代器遍历
+        Iterator&lt;String&gt; iterator = hashSet.iterator();
+        while (iterator.hasNext()){
+            String str = iterator.next();
+            System.out.print(str + &quot;,&quot;);
+        }
+
+        System.out.println(&quot;\n===========&quot;);
+        //增强for循环
+        for (String str : hashSet) {
+            System.out.print(str + &quot;,&quot;);
+        }
+}</code></pre>
+<p>输出结果：</p>
+<pre><code><code>HashSet初始容量大小：0
+HashSet容量大小：4
+null,1,2,3,
+===========
+null,1,2,3,</code></pre>
+<p>需要注意的是，HashSet 允许添加为<code>null</code>的元素。</p>
+<h3 id="三linkedhashset">三、LinkedHashSet</h3>
+<p>LinkedHashSet 是一个输入输出有序的集合，继承自 HashSet，但是底层基于 LinkedHashMap 来实现。</p>
+<p>如果你之前了解过 LinkedHashMap，那么你一定知道，它也继承自 HashMap，唯一有区别的是，<strong>LinkedHashMap 底层数据结构基于循环链表实现，并且数组指定了头部和尾部，虽然数组的下标存储无序，但是却可以通过数组的头部和尾部，加上循环链表，依次可以查询到元素存储的过程，从而做到输入输出有序的特点</strong>。</p>
+<p>如果还不了解 LinkedHashMap 的实现过程，可以参阅集合系列中关于 LinkedHashMap 的实现过程文章。</p>
+<p>阅读 LinkedHashSet 的源码，类定义如下：</p>
+<pre><code><code>public class LinkedHashSet&lt;E&gt;
+    extends HashSet&lt;E&gt;
+    implements Set&lt;E&gt;, Cloneable, java.io.Serializable {
+
+    public LinkedHashSet() {
+        //调用 HashSet 的方法
+        super(16, .75f, true);
+    }
+}</code></pre>
+<p>查询源码，<code>super</code>调用的方法，源码如下：</p>
+<pre><code><code>HashSet(int initialCapacity, float loadFactor, boolean dummy) {
+        //初始化一个 LinkedHashMap
+        map = new LinkedHashMap&lt;&gt;(initialCapacity, loadFactor);
+}</code></pre>
+<h4 id="add方法-1">3.1、add方法</h4>
+<p><code>LinkedHashSet</code>没有重写<code>add</code>方法，而是直接调用<code>HashSet</code>的<code>add()</code>方法，因为<code>map</code>的实现类是<code>LinkedHashMap</code>，所以此处是向<code>LinkedHashMap</code>中添加元素，当进行<code>add()</code>的时候，等价于</p>
+<pre><code><code>HashMap map = new LinkedHashMap&lt;&gt;();
+map.put(e, new Object());//e 表示要添加的元素</code></pre>
+<h4 id="remove方法-1">3.2、remove方法</h4>
+<p><code>LinkedHashSet</code>也没有重写<code>remove</code>方法，而是直接调用<code>HashSet</code>的删除方法，因为<code>LinkedHashMap</code>没有重写<code>remove</code>方法，所以调用的也是<code>HashMap</code>的<code>remove</code>方法，源码如下：</p>
+<pre><code><code>public boolean remove(Object o) {
+        //调用HashMap 的remove方法，移除元素
+        return map.remove(o)==PRESENT;
+}</code></pre>
+<h4 id="查询方法-1">3.3、查询方法</h4>
+<p>同样的，LinkedHashSet 没有提供 get 方法，使用迭代器或者 for 循环来遍历元素，方法如下：</p>
+<pre><code><code>public static void main(String[] args) {
+        Set&lt;String&gt; linkedHashSet = new LinkedHashSet&lt;String&gt;();
+        System.out.println(&quot;linkedHashSet初始容量大小：&quot;+linkedHashSet.size());
+        linkedHashSet.add(&quot;1&quot;);
+        linkedHashSet.add(&quot;2&quot;);
+        linkedHashSet.add(&quot;3&quot;);
+        linkedHashSet.add(&quot;3&quot;);
+        linkedHashSet.add(&quot;2&quot;);
+        linkedHashSet.add(null);
+        linkedHashSet.add(null);
+
+        System.out.println(&quot;linkedHashSet容量大小：&quot;+linkedHashSet.size());
+        //迭代器遍历
+        Iterator&lt;String&gt; iterator = linkedHashSet.iterator();
+        while (iterator.hasNext()){
+            String str = iterator.next();
+            System.out.print(str + &quot;,&quot;);
+        }
+
+        System.out.println(&quot;\n===========&quot;);
+        //增强for循环
+        for (String str : linkedHashSet) {
+            System.out.print(str + &quot;,&quot;);
+        }
+}</code></pre>
+<p>输出结果：</p>
+<pre><code><code>linkedHashSet初始容量大小：0
+linkedHashSet容量大小：4
+1,2,3,null,
+===========
+1,2,3,null,</code></pre>
+<p>可见，LinkedHashSet 与 HashSet 相比，<strong>LinkedHashSet 输入输出有序。</strong></p>
+<h3 id="四treeset">四、TreeSet</h3>
+<p>TreeSet 是一个排序的集合，实现了<code>NavigableSet</code>、<code>SortedSet</code>、<code>Set</code>接口，底层基于 TreeMap 来实现。<strong>TreeSet 利用 TreeMap 中的<code>key</code>元素来存放元素</strong>，这一点我们也可以从源码上看出来，阅读源码，类定义如下：</p>
+<pre><code><code>public class TreeSet&lt;E&gt; extends AbstractSet&lt;E&gt;
+implements NavigableSet&lt;E&gt;, Cloneable, java.io.Serializable {
+    
+    //TreeSet 使用NavigableMap接口作为变量
+    private transient NavigableMap&lt;E,Object&gt; m;
+    
+    /**对象初始化*/
+    public TreeSet() {
+        //默认实例化一个 TreeMap 对象
+        this(new TreeMap&lt;E,Object&gt;());
+    }
+    
+    //对象初始化调用的方法
+    TreeSet(NavigableMap&lt;E,Object&gt; m) {
+        this.m = m;
+    }
+}</code></pre>
+<p><code>new TreeSet&lt;&gt;()</code>对象实例化的时候，表达的意思，可以简化为如下：</p>
+<pre><code><code>NavigableMap&lt;E,Object&gt; m = new TreeMap&lt;E,Object&gt;();</code></pre>
+<p>因为<code>TreeMap</code>实现了<code>NavigableMap</code>接口，所以没啥问题。</p>
+<pre><code><code>public class TreeMap&lt;K,V&gt;
+    extends AbstractMap&lt;K,V&gt;
+    implements NavigableMap&lt;K,V&gt;, Cloneable, java.io.Serializable{
+    ......
+}</code></pre>
+<h4 id="add方法-2">4.1、add方法</h4>
+<p>打开<code>TreeSet</code>的<code>add()</code>方法，源码如下：</p>
+<pre><code><code>public boolean add(E e) {
+        //向 TreeMap 中添加元素
+        return m.put(e, PRESENT)==null;
+}</code></pre>
+<p>其中变量<code>PRESENT</code>，也是是一个非空对象，源码部分如下：</p>
+<pre><code><code>private static final Object PRESENT = new Object();</code></pre>
+<p>可以分析出，当进行<code>add()</code>的时候，等价于</p>
+<pre><code><code>TreeMap map = new TreeMap&lt;&gt;();
+map.put(e, new Object());//e 表示要添加的元素</code></pre>
+<p>TreeMap 类主要功能在于，给添加的集合元素，按照一个的规则进行了排序，默认以自然顺序进行排序，当然也可以自定义排序，比如测试方法如下：</p>
+<pre><code><code>public static void main(String[] args) {
+        Map initMap = new TreeMap();
+        initMap.put(&quot;4&quot;, &quot;d&quot;);
+        initMap.put(&quot;3&quot;, &quot;c&quot;);
+        initMap.put(&quot;1&quot;, &quot;a&quot;);
+        initMap.put(&quot;2&quot;, &quot;b&quot;);
+        //默认自然排序，key为升序
+        System.out.println(&quot;默认 排序结果:&quot; + initMap.toString());
+        //自定义排序，在TreeMap初始化阶段传入Comparator 内部对象
+        Map comparatorMap = new TreeMap&lt;String, String&gt;(new Comparator&lt;String&gt;() {
+            @Override
+            public int compare(String o1, String o2){
+                //根据key比较大小，采用倒叙，以大到小排序
+                return o2.compareTo(o1);
+            }
+        });
+        comparatorMap.put(&quot;4&quot;, &quot;d&quot;);
+        comparatorMap.put(&quot;3&quot;, &quot;c&quot;);
+        comparatorMap.put(&quot;1&quot;, &quot;a&quot;);
+        comparatorMap.put(&quot;2&quot;, &quot;b&quot;);
+        System.out.println(&quot;自定义 排序结果:&quot; + comparatorMap.toString());
+}</code></pre>
+<p>输出结果：</p>
+<pre><code><code>默认 排序结果:{1=a, 2=b, 3=c, 4=d}
+自定义 排序结果:{4=d, 3=c, 2=b, 1=a}</code></pre>
+<p>相信使用过<code>TreeMap</code>的朋友，一定知道<code>TreeMap</code>会自动将<code>key</code>按照一定规则进行排序，<code>TreeSet</code>正是使用了<code>TreeMap</code>这种特性，来实现添加的元素集合，在输出的时候，其结果是已经排序好的。</p>
+<p>如果您没看过源码<code>TreeMap</code>的实现过程，可以参阅集合系列文章中<code>TreeMap</code>的实现过程介绍，或者阅读 jdk 源码。</p>
+<h4 id="remove方法-2">4.2、remove方法</h4>
+<p>TreeSet 的删除方法，同样如此，也是基于 TreeMap 的底层实现，源码如下：</p>
+<pre><code><code>public boolean remove(Object o) {
+        //调用TreeMap 的remove方法，移除元素
+        return m.remove(o)==PRESENT;
+}</code></pre>
+<h4 id="查询方法-2">4.3、查询方法</h4>
+<p>TreeSet 没有重写 get 方法，而是使用迭代器或者 for 循环来遍历元素，方法如下：</p>
+<pre><code><code>public static void main(String[] args) {
+        Set&lt;String&gt; treeSet = new TreeSet&lt;&gt;();
+        System.out.println(&quot;treeSet初始容量大小：&quot;+treeSet.size());
+        treeSet.add(&quot;1&quot;);
+        treeSet.add(&quot;4&quot;);
+        treeSet.add(&quot;3&quot;);
+        treeSet.add(&quot;8&quot;);
+        treeSet.add(&quot;5&quot;);
+
+        System.out.println(&quot;treeSet容量大小：&quot;+treeSet.size());
+        //迭代器遍历
+        Iterator&lt;String&gt; iterator = treeSet.iterator();
+        while (iterator.hasNext()){
+            String str = iterator.next();
+            System.out.print(str + &quot;,&quot;);
+        }
+
+        System.out.println(&quot;\n===========&quot;);
+        //增强for循环
+        for (String str : treeSet) {
+            System.out.print(str + &quot;,&quot;);
+        }
+    }</code></pre>
+<p>输出结果：</p>
+<pre><code><code>treeSet初始容量大小：0
+treeSet容量大小：5
+1,3,4,5,8,
+===========
+1,3,4,5,8,</code></pre>
+<h4 id="自定义排序">4.4、自定义排序</h4>
+<p>使用自定义排序，有 2 种方法，第一种在需要添加的元素类，实现<code>Comparable</code>接口，重写<code>compareTo</code>方法来实现对元素进行比较，实现自定义排序。</p>
+<h5 id="方法一">方法一</h5>
+<pre><code><code>/**
+  * 创建实体类Person实现Comparable接口
+  */
+public class Person implements Comparable&lt;Person&gt;{
+    private int age;
+    private String name;
+    public Person(String name, int age){
+        this.name = name;
+        this.age = age;
+    }
+    @Override
+    public int compareTo(Person o){
+        //重写 compareTo 方法，自定义排序算法
+        return this.age-o.age;
+    }
+    @Override
+    public String toString(){
+        return name+&quot;:&quot;+age;
+    }
+}</code></pre>
+<p>创建一个<code>Person</code>实体类，实现<code>Comparable</code>接口，重写<code>compareTo</code>方法，通过变量<code>age</code>实现自定义排序<br />
+测试方法如下：</p>
+<pre><code><code>public static void main(String[] args) {
+        Set&lt;Person&gt; treeSet = new TreeSet&lt;&gt;();
+        System.out.println(&quot;treeSet初始容量大小：&quot;+treeSet.size());
+        treeSet.add(new Person(&quot;李一&quot;,18));
+        treeSet.add(new Person(&quot;李二&quot;,17));
+        treeSet.add(new Person(&quot;李三&quot;,19));
+        treeSet.add(new Person(&quot;李四&quot;,21));
+        treeSet.add(new Person(&quot;李五&quot;,20));
+
+        System.out.println(&quot;treeSet容量大小：&quot;+treeSet.size());
+        System.out.println(&quot;按照年龄从小到大，自定义排序结果：&quot;);
+        //迭代器遍历
+        Iterator&lt;Person&gt; iterator = treeSet.iterator();
+        while (iterator.hasNext()){
+            Person person = iterator.next();
+            System.out.print(person.toString() + &quot;,&quot;);
+        }
+}</code></pre>
+<p>输出结果：</p>
+<pre><code><code>treeSet初始容量大小：0
+treeSet容量大小：5
+按照年龄从小到大，自定义排序结果：
+李二:17,李一:18,李三:19,李五:20,李四:21,</code></pre>
+<h5 id="方法二">方法二</h5>
+<p>第二种方法是在<code>TreeSet</code>初始化阶段，<code>Person</code>不用实现<code>Comparable</code>接口，将<code>Comparator</code>接口以内部类的形式作为参数，初始化进去，方法如下：</p>
+<pre><code><code>public static void main(String[] args) {
+        //自定义排序
+        Set&lt;Person&gt; treeSet = new TreeSet&lt;&gt;(new Comparator&lt;Person&gt;(){
+            @Override
+            public int compare(Person o1, Person o2) {
+                if(o1 == null || o2 == null){
+                    //不用比较
+                    return 0;
+                }
+                //从小到大进行排序
+                return o1.getAge() - o2.getAge();
+            }
+        });
+        System.out.println(&quot;treeSet初始容量大小：&quot;+treeSet.size());
+        treeSet.add(new Person(&quot;李一&quot;,18));
+        treeSet.add(new Person(&quot;李二&quot;,17));
+        treeSet.add(new Person(&quot;李三&quot;,19));
+        treeSet.add(new Person(&quot;李四&quot;,21));
+        treeSet.add(new Person(&quot;李五&quot;,20));
+
+        System.out.println(&quot;treeSet容量大小：&quot;+treeSet.size());
+        System.out.println(&quot;按照年龄从小到大，自定义排序结果：&quot;);
+        //迭代器遍历
+        Iterator&lt;Person&gt; iterator = treeSet.iterator();
+        while (iterator.hasNext()){
+            Person person = iterator.next();
+            System.out.print(person.toString() + &quot;,&quot;);
+        }
+}</code></pre>
+<p>输出结果：</p>
+<pre><code><code>treeSet初始容量大小：0
+treeSet容量大小：5
+按照年龄从小到大，自定义排序结果：
+李二:17,李一:18,李三:19,李五:20,李四:21,</code></pre>
+<p>需要注意的是，<strong><code>TreeSet</code>不能添加为空的元素，否则会报空指针错误！</strong></p>
+<h3 id="五enumset">五、EnumSet</h3>
+<p>EnumSet 是一个与枚举类型一起使用的专用 Set 集合，继承自<code>AbstractSet</code>抽象类。与 HashSet、LinkedHashSet 、TreeSet 不同的是，EnumSet 元素必须是<code>Enum</code>的类型，并且所有元素都必须来自同一个枚举类型，EnumSet 定义源码如下：</p>
+<pre><code><code>public abstract class EnumSet&lt;E extends Enum&lt;E&gt;&gt; extends AbstractSet&lt;E&gt;
+    implements Cloneable, java.io.Serializable {
+    ......
+}</code></pre>
+<p><code>EnumSet</code>是一个虚类，不能直接通过实例化来获取对象，只能通过它提供的静态方法来返回<code>EnumSet</code>实现类的实例。</p>
+<p><code>EnumSet</code>的实现类有两个，分别是<code>RegularEnumSet</code>、<code>JumboEnumSet</code>两个类，两个实现类都继承自<code>EnumSet</code>。</p>
+<p><code>EnumSet</code>会根据枚举类型中元素的个数，来决定是返回哪一个实现类，当 <code>EnumSet</code>元素中的元素个数小于或者等于<code>64</code>，就会返回<code>RegularEnumSet</code>实例；当<code>EnumSet</code>元素个数大于<code>64</code>，就会返回<code>JumboEnumSet</code>实例。</p>
+<p>这一点，我们可以从源码中看出，源码如下：</p>
+<pre><code><code>public static &lt;E extends Enum&lt;E&gt;&gt; EnumSet&lt;E&gt; noneOf(Class&lt;E&gt; elementType) {
+        Enum&lt;?&gt;[] universe = getUniverse(elementType);
+        if (universe == null)
+            throw new ClassCastException(elementType + &quot; not an enum&quot;);
+        //当元素个数小于或者等于 64 的时候，返回 RegularEnumSet
+        if (universe.length &lt;= 64)
+            return new RegularEnumSet&lt;&gt;(elementType, universe);
+        else
+            //大于64，返回 JumboEnumSet
+            return new JumboEnumSet&lt;&gt;(elementType, universe);
+}</code></pre>
+<p><code>noneOf</code>是<code>EnumSet</code>中一个静态方法，用于判断是返回哪一个实现类。</p>
+<p>我们来看看当元素个数小于等于64的时候，使用<code>RegularEnumSet</code>的类，源码如下：</p>
+<pre><code><code>class RegularEnumSet&lt;E extends Enum&lt;E&gt;&gt; extends EnumSet&lt;E&gt; {
+
+    /**元素为long型*/
+    private long elements = 0L;
+
+    /**添加元素*/
+    public boolean add(E e) {
+        typeCheck(e);
+
+        long oldElements = elements;
+        //二进制运算，获取元素
+        elements |= (1L &lt;&lt; ((Enum&lt;?&gt;)e).ordinal());
+        return elements != oldElements;
+    }
+}</code></pre>
+<p>RegularEnumSet 通过二进制运算得到结果，直接使用<code>long</code>来存放元素。</p>
+<p>我们再来看看当元素个数大于64的时候，使用<code>JumboEnumSet</code>的类，源码如下：</p>
+<pre><code><code>class JumboEnumSet&lt;E extends Enum&lt;E&gt;&gt; extends EnumSet&lt;E&gt; {
+
+    /**元素为long型*/
+    private long elements = 0L;
+
+    /**添加元素*/
+    public boolean add(E e) {
+        typeCheck(e);
+
+        int eOrdinal = e.ordinal();
+        int eWordNum = eOrdinal &gt;&gt;&gt; 6;
+
+        long oldElements = elements[eWordNum];
+        //二进制运算
+        elements[eWordNum] |= (1L &lt;&lt; eOrdinal);
+        //使用数组来操作元素
+        boolean result = (elements[eWordNum] != oldElements);
+        if (result)
+            size++;
+        return result;
+    }
+}</code></pre>
+<p>JumboEnumSet 也是通过二进制运算得到结果，使用<code>long</code>来存放元素，但是它是使用数组来存放元素。</p>
+<p>二者相比，RegularEnumSet 效率比 JumboEnumSet 高些，因为操作步骤少，大多数情况下返回的是 RegularEnumSet，只有当枚举元素个数超过 64 的时候，会使用 JumboEnumSet。</p>
+<h4 id="添加元素">5.1、添加元素</h4>
+<p>新建一个<code>EnumEntity</code>的枚举类型，定义2个参数。</p>
+<pre><code><code>public enum EnumEntity {
+    WOMAN,MAN;
+}</code></pre>
+<p>创建一个空的 EnumSet！</p>
+<pre><code><code>//创建一个 EnumSet，内容为空
+EnumSet&lt;EnumEntity&gt; noneSet = EnumSet.noneOf(EnumEntity.class);
+System.out.println(noneSet);</code></pre>
+<p>输出结果：</p>
+<pre><code><code>[]</code></pre>
+<p>创建一个 EnumSet，并将枚举类型的元素全部添加进去！</p>
+<pre><code><code>//创建一个 EnumSet，将EnumEntity 元素内容添加到EnumSet中
+EnumSet&lt;EnumEntity&gt; allSet = EnumSet.allOf(EnumEntity.class);
+System.out.println(allSet);</code></pre>
+<p>输出结果：</p>
+<pre><code><code>[WOMAN, MAN]</code></pre>
+<p>创建一个 EnumSet，添加指定的枚举元素！</p>
+<pre><code><code>//创建一个 EnumSet，添加 WOMAN 到 EnumSet 中
+EnumSet&lt;EnumEntity&gt; customSet = EnumSet.of(EnumEntity.WOMAN);
+System.out.println(customSet);</code></pre>
+<h4 id="查询元素">5.2、查询元素</h4>
+<p><code>EnumSet</code>与<code>HashSet</code>、<code>LinkedHashSet</code>、<code>TreeSet</code>一样，通过迭代器或者 for 循环来遍历元素，方法如下：</p>
+<pre><code><code>EnumSet&lt;EnumEntity&gt; allSet = EnumSet.allOf(EnumEntity.class);
+for (EnumEntity enumEntity : allSet) {
+        System.out.print(enumEntity + &quot;,&quot;);
+}</code></pre>
+<p>输出结果：</p>
+<pre><code><code>WOMAN,MAN,</code></pre>
+<h3 id="六总结">六、总结</h3>
+<p><img src="./images/深入浅出的分析 Set集合1.png" /></p>
+<ul>
+<li><p><strong>HashSet 是一个输入输出无序的 Set 集合，元素不重复，底层基于 HashMap 的 key 来实现，元素可以为空，如果添加的元素为对象，对象需要重写 equals() 和 hashCode() 方法来约束是否为相同的元素。</strong></p></li>
+<li><p><strong>LinkedHashSet 是一个输入输出有序的 Set 集合，继承自 HashSet，元素不重复，底层基于 LinkedHashMap 的 key来实现，元素也可以为空，LinkedHashMap 使用循环链表结构来保证输入输出有序。</strong></p></li>
+<li><p><strong>TreeSet 是一个排序的 Set 集合，元素不可重复，底层基于 TreeMap 的 key来实现，元素不可以为空，默认按照自然排序来存放元素，也可以使用 Comparable 和 Comparator 接口来比较大小，实现自定义排序。</strong></p></li>
+<li><p><strong>EnumSet 是一个与枚举类型搭配使用的专用 Set 集合，在 jdk1.5 中加入。EnumSet 是一个虚类，有2个实现类 RegularEnumSet、JumboEnumSet，不能显式的实例化改类，EnumSet 会动态决定使用哪一个实现类，当元素个数小于等于64的时候，使用 RegularEnumSet；大于 64的时候，使用JumboEnumSet类，EnumSet 其内部使用位向量实现，拥有极高的时间和空间性能，如果元素是枚举类型，推荐使用 EnumSet。</strong></p></li>
+</ul>
+<h3 id="七参考">七、参考</h3>
+<p>1、JDK1.7&amp;JDK1.8 源码</p>
+<p>2、<a href="http://www.voidcn.com/article/p-hoochjxy-ng.html">程序园 - java集合－EnumMap与EnumSet</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,76 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修利用Python模拟登录pastebin.com' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>利用Python模拟登录pastebin.com</center></div><div class='banquan'>原文出处:本文由博客园博主ktkt提供。<br/>
+原文连接:https://www.cnblogs.com/legend-123/p/11175550.html</div><br>
+    <h2><span style="font-size: 14px;">任务</span></h2>
+<p><span style="font-size: 14px;">在https://pastebin.com网站注册一个账号，利用python实现用户的自动登录和创建paste。该任务需要分成如下两步利用python实现：</span></p>
+<ol>
+<li><span style="font-size: 14px;">账号的自动登录</span></li>
+<li><span style="font-size: 14px;">paste的自动创建</span></li>
+</ol>
+<h2><span style="font-size: 14px;">模拟账号登录</span></h2>
+<p><span style="font-size: 14px;">模拟登录，需要知道登录的URL是什么，那么登录URL怎么去看呢。</span></p>
+<p><span style="font-size: 14px;">进入https://pastebin.com/之后，发现是以访客的身份进入的，点击身份图像的下拉中的LOGIN，进入登录页面，打开Chrome开发工具，选择Network，勾选Preserve log：</span></p>
+<p><span style="font-size: 14px;"><img src="./images/利用Python模拟登录pastebin.com0.png" alt="" /></span></p>
+<p><span style="font-size: 14px;">输入用户名和密码，登录进去后，如下图：</span></p>
+<p><span style="font-size: 14px;">&nbsp;<img src="./images/利用Python模拟登录pastebin.com1.png" alt="" /><img src="./images/利用Python模拟登录pastebin.com2.png" alt="" /></span></p>
+<p><span style="font-size: 14px;">这样就找到了需要提交的请求是什么，包括url，请求方法，提交的数据。POST请求是以什么格式提交的数据呢，在Request Header头部可以找到"content-type": "application/x-www-form-urlencoded"，这个需要注意，因为经常遇到的还有一种提交形式叫"application/json"。</span></p>
+<p><span style="font-size: 14px;"><em>在用requests post提交请求的时候，如果是form表单形式传送，则将数据传入data参数，如果是以json格式传送，则需要将数据传入json参数。</em></span></p>
+<p><span style="font-size: 14px;">登录之后，点击API菜单，可以从页面中 获取一个api_dev_key，后面实现自动创建paste的时候需要用到。</span></p>
+<p><span style="font-size: 14px;"><img src="./images/利用Python模拟登录pastebin.com3.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('f47d6b73-ee53-4720-a0f4-0fb7b55c3d8f')"><img id="code_img_closed_f47d6b73-ee53-4720-a0f4-0fb7b55c3d8f" class="code_img_closed" src="./images/利用Python模拟登录pastebin.com4.png" alt="" /><img id="code_img_opened_f47d6b73-ee53-4720-a0f4-0fb7b55c3d8f" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('f47d6b73-ee53-4720-a0f4-0fb7b55c3d8f',event)" src="./images/利用Python模拟登录pastebin.com5.png" alt="" />
+<div id="cnblogs_code_open_f47d6b73-ee53-4720-a0f4-0fb7b55c3d8f" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">from</span> lxml <span style="color: #0000ff;">import</span><span style="color: #000000;"> etree
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 登录  https://pastebin.com/</span>
+login_url = <span style="color: #800000;">"</span><span style="color: #800000;">https://pastebin.com/login</span><span style="color: #800000;">"</span><span style="color: #000000;">
+username </span>= <span style="color: #800000;">"</span><span style="color: #800000;">kuang123321</span><span style="color: #800000;">"</span><span style="color: #000000;">
+password </span>= <span style="color: #800000;">"</span><span style="color: #800000;">xxxxxx</span><span style="color: #800000;">"</span><span style="color: #000000;">
+api_dev_key </span>= <span style="color: #800000;">"</span><span style="color: #800000;">4f45a996aa78079d8f7d14f104c45893</span><span style="color: #800000;">"</span><span style="color: #000000;">
+session </span>=<span style="color: #000000;"> requests.Session()
+form_data </span>=<span style="color: #000000;"> {
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">submit_hidden</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">submit_hidden</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">user_name</span><span style="color: #800000;">"</span><span style="color: #000000;">: username,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">user_password</span><span style="color: #800000;">"</span><span style="color: #000000;">: password,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">submit</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Login</span><span style="color: #800000;">"</span><span style="color: #000000;">
+}
+headers </span>= {<span style="color: #800000;">"</span><span style="color: #800000;">content-type</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">application/x-www-form-urlencoded</span><span style="color: #800000;">"</span><span style="color: #000000;">}
+res </span>= session.post(login_url, data=form_data, headers=<span style="color: #000000;">headers)
+</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(res.status_code, res.url)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取 api_dev_key</span>
+api_url = <span style="color: #800000;">"</span><span style="color: #800000;">https://pastebin.com/api</span><span style="color: #800000;">"</span><span style="color: #000000;">
+text </span>= session.get(api_url).content.decode(<span style="color: #800000;">"</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+html </span>=<span style="color: #000000;"> etree.HTML(text)
+target_divs </span>= html.xpath(<span style="color: #800000;">'</span><span style="color: #800000;">//*[@id="content_left"]/div[9]/div/text()</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #0000ff;">if</span><span style="color: #000000;"> target_divs:
+    api_dev_key </span>=<span style="color: #000000;"> target_divs[0]
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(api_dev_key)
+</span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">raise</span> Exception(<span style="color: #800000;">"</span><span style="color: #800000;">cannot find api_dev_key</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<span class="cnblogs_code_collapse">自动登录和获取api_dev_key的代码</span></div>
+<p>&nbsp;</p>
+<p><span style="font-size: 14px;">&nbsp;</span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

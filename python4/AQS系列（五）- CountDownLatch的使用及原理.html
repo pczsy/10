@@ -1,0 +1,131 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修AQS系列（五）- CountDownLatch的使用及原理' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>AQS系列（五）- CountDownLatch的使用及原理</center></div><div class='banquan'>原文出处:本文由博客园博主张曾经提供。<br/>
+原文连接:https://www.cnblogs.com/zzq6032010/p/12076689.html</div><br>
+    <p><span style="font-size: 18px;"><strong><span style="background-color: #c0c0c0;">前言</span></strong></span></p>
+<p>&nbsp; &nbsp; 前面四节学完了AQS最难的两种重入锁应用，下面两节进入实战学习，看看JUC包中其他的工具类是如何运用AQS实现特定功能的。今天一起看一下CountDownLatch。</p>
+<p>&nbsp; &nbsp; CountDownLatch可以用来实现多个线程执行完一个功能后让另一个线程继续执行的功能。常见的场景比如大文件的处理，我们需要对一个或多个文件进行处理，处理完之后再统一入库，这时我们就可以用到CountDownLatch了。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>一、使用样例</strong></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args) {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 指定初始容量</span>
+<span style="color: #008080;"> 3</span>         CountDownLatch latch = <span style="color: #0000ff;">new</span> CountDownLatch(3<span style="color: #000000;">);
+</span><span style="color: #008080;"> 4</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 启动三个线程，每个线程独自处理文件</span>
+<span style="color: #008080;"> 5</span>         <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = 0;i &lt; 3; i++<span style="color: #000000;">) {
+</span><span style="color: #008080;"> 6</span>             <span style="color: #0000ff;">new</span> Thread(() -&gt;<span style="color: #000000;"> {
+</span><span style="color: #008080;"> 7</span>                 System.out.println(Thread.currentThread().getName() + " 正在处理文件"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 8</span>                 <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 9</span>                     Thread.sleep(2000<span style="color: #000000;">);
+</span><span style="color: #008080;">10</span>                 } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (InterruptedException e) {
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">                    e.printStackTrace();
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">13</span>                 System.out.println(Thread.currentThread().getName() + " 处理完毕"<span style="color: #000000;">);
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">                latch.countDown();
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">            }).start();
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">17</span>         <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">            latch.await();
+</span><span style="color: #008080;">19</span>         } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Exception e) {
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">            e.printStackTrace();
+</span><span style="color: #008080;">21</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">22</span>         System.out.println("所有文件处理完成后，统一入库"<span style="color: #000000;">);
+</span><span style="color: #008080;">23</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 运行结果：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> Thread-0<span style="color: #000000;"> 正在处理文件
+</span><span style="color: #008080;">2</span> Thread-2<span style="color: #000000;"> 正在处理文件
+</span><span style="color: #008080;">3</span> Thread-1<span style="color: #000000;"> 正在处理文件
+</span><span style="color: #008080;">4</span> Thread-0<span style="color: #000000;"> 处理完毕
+</span><span style="color: #008080;">5</span> Thread-2<span style="color: #000000;"> 处理完毕
+</span><span style="color: #008080;">6</span> Thread-1<span style="color: #000000;"> 处理完毕
+</span><span style="color: #008080;">7</span> 所有文件处理完成后，统一入库</pre>
+</div>
+<p>&nbsp; &nbsp; 效果就是这样，下面我们一起看看它是如何实现的这种功能。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>二、源码学习</strong></span></p>
+<p><strong>1、首先我们看看new CountDownLatch(3) 做了什么事情</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> CountDownLatch(<span style="color: #0000ff;">int</span><span style="color: #000000;"> count) {
+</span><span style="color: #008080;">2</span>         <span style="color: #0000ff;">if</span> (count &lt; 0) <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalArgumentException("count &lt; 0"<span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>         <span style="color: #0000ff;">this</span>.sync = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Sync(count);
+</span><span style="color: #008080;">4</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 继续追踪可以发现，就是将count赋值给AQS中的成员变量state，表示已经有3个线程占用了锁。</p>
+<p><strong>2、看countDown()方法做了什么</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> countDown() {
+</span><span style="color: #008080;">2</span>         sync.releaseShared(1<span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 可以看到，countDown走的是释放共享锁的逻辑，从给state赋值也可以猜到用的是共享锁-有多个线程且state可赋大于0的值。继续看releaseShared逻辑：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> releaseShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;">2</span>         <span style="color: #0000ff;">if</span><span style="color: #000000;"> (tryReleaseShared(arg)) {
+</span><span style="color: #008080;">3</span> <span style="color: #000000;">            doReleaseShared();
+</span><span style="color: #008080;">4</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">5</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">6</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">7</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 可以看到就是读锁释放的逻辑，其中doReleaseShared方法实现逻辑相同就不看了，不同的是tryReleaseShared方法，下面跟进：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">boolean</span> tryReleaseShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> releases) {
+</span><span style="color: #008080;"> 2</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> Decrement count; signal when transition to zero</span>
+<span style="color: #008080;"> 3</span>             <span style="color: #0000ff;">for</span><span style="color: #000000;"> (;;) {
+</span><span style="color: #008080;"> 4</span>                 <span style="color: #0000ff;">int</span> c =<span style="color: #000000;"> getState();
+</span><span style="color: #008080;"> 5</span>                 <span style="color: #0000ff;">if</span> (c == 0<span style="color: #000000;">)
+</span><span style="color: #008080;"> 6</span>                     <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 7</span>                 <span style="color: #0000ff;">int</span> nextc = c-1<span style="color: #000000;">;
+</span><span style="color: #008080;"> 8</span>                 <span style="color: #0000ff;">if</span><span style="color: #000000;"> (compareAndSetState(c, nextc))
+</span><span style="color: #008080;"> 9</span>                     <span style="color: #0000ff;">return</span> nextc == 0<span style="color: #000000;">;
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">11</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 此方法在CountDownLatch中的内部类Sync中得到实现，逻辑为将state-1，并且如果是0的话返回true。返回true后在releaseShared方法中会进入if里面，走唤醒后续节点的逻辑doReleaseShared方法，在该方法中唤醒的main线程。main线程什么时候被挂起的？且看下面。</p>
+<p><strong>3、await方法</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> await() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> InterruptedException {
+</span><span style="color: #008080;">2</span>         sync.acquireSharedInterruptibly(1<span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; await调用了可响应中断的获取共享锁方法，继续查看：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">void</span> acquireSharedInterruptibly(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg)
+</span><span style="color: #008080;">2</span>             <span style="color: #0000ff;">throws</span><span style="color: #000000;"> InterruptedException {
+</span><span style="color: #008080;">3</span>         <span style="color: #0000ff;">if</span><span style="color: #000000;"> (Thread.interrupted())
+</span><span style="color: #008080;">4</span>             <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> InterruptedException();
+</span><span style="color: #008080;">5</span>         <span style="color: #0000ff;">if</span> (tryAcquireShared(arg) &lt; 0<span style="color: #000000;">)
+</span><span style="color: #008080;">6</span> <span style="color: #000000;">            doAcquireSharedInterruptibly(arg);
+</span><span style="color: #008080;">7</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 此方法是AQS中的公用模板方法，不同点在于各实现类的实现逻辑，在CountDownLatch中对tryAcquireShared方法进行了实现，实现逻辑如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">int</span> tryAcquireShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> acquires) {
+</span><span style="color: #008080;">2</span>             <span style="color: #0000ff;">return</span> (getState() == 0) ? 1 : -1<span style="color: #000000;">;
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 即如果state==0则能获取到锁，否则获取不到。获取不到进入下面的doAcquireSharedInterruptibly方法，最终会将head的waitStatus设置为-1，自己挂起等待唤醒。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>三、总结</strong></span></p>
+<p>&nbsp; &nbsp; CountDownLatch是基于共享锁实现的并发控制功能，现在对总的实现逻辑做个梳理：首先在构造器初始化CountDownLatch的时候，就会给AQS中的state赋值，表示共享锁已经被获取了N次；然后每执行一次countDown则共享锁释放一次，直到释放完；await方法是加锁的逻辑，但加锁条件是state==0时才会加锁成功，否则挂起；最后，当通过countDown的调用将state减为0后，会唤醒处于阻塞状态的主线程，让其 获取到锁并执行。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

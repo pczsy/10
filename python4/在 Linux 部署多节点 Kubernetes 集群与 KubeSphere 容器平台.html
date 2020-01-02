@@ -1,0 +1,221 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台</center></div><div class='banquan'>原文出处:本文由博客园博主kubesphere提供。<br/>
+原文连接:https://www.cnblogs.com/kubesphere/p/12014219.html</div><br>
+    <p><a href="https://kubesphere.com.cn">KubeSphere</a> 是在 <a href="https://kubernetes.io">Kubernetes</a> 之上构建的<strong>以应用为中心</strong>的<strong>企业级容器平台</strong>，所有供为用户提供简单易用的操作界面以及向导式操作方式。同时，KubeSphere Installer 提供了 <strong>快速部署生产级别的 Kubernetes 集群和全栈化容器平台的功能</strong>，能够快速帮助企业用户快速搭建一套以应用为中心的 DevOps 平台。</p>
+<p>KubeSphere 支持部署和运行在包括<strong>公有云、私有云、VM、BM 和 Kubernetes 等任何基础设施之上</strong>，可以部署在公有云托管的 Kubernetes 之上（如 GKE、EKS、ACK），也支持部署在私有化的 Kubernetes 之上（如 kubeadm、k3s、RKE 部署的集群）。同时，KubeSphere 支持<strong>在线安装与离线安装</strong>。</p>
+<p>上一篇文章说明了如何在 Kubernetes 集群部署 KubeSphere，本文章将手把手带你 <strong>使用 KubeSphere Installer 在 3 台 Linux 机器部署一个多节点的 Kubernetes 集群</strong>，并开启 KubeSphere 最小化安装。</p>
+<p><img src="./images/在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台0.png" /></p>
+<p><code>Multi-Node</code> 即多节点部署，部署前建议您选择集群中任意一个节点作为一台任务执行机 (taskbox)，为准备部署的集群中其他节点执行部署的任务，且 Taskbox 应能够与待部署的其他节点进行 <strong>ssh 通信</strong>。</p>
+<blockquote>
+<ul>
+<li>KubeSphere 2.1 默认仅开启最小化安装，Installer 已支持自定义安装各个可插拔的功能组件，用户可根据业务需求和机器配置选择安装所需的组件，<strong>请确保开启可插拔组件之前机器资源满足最低要求</strong>，参考开启可选组件的安装。</li>
+<li>安装时间跟网络情况和带宽、机器配置、安装节点个数等因素有关，可通过调高带宽的方式，或在安装前 <a href="https://kubesphere.com.cn/forum/d/149-kubesphere-v2-1-0">配置镜像加速器</a> 来加快安装速度。</li>
+</ul>
+</blockquote>
+<blockquote>
+<p>说明：</p>
+<ul>
+<li>本安装示例仅作为快速测试部署的演示，因此将使用默认的 <a href="https://openebs.io/">OpenEBS</a> 基于 <a href="https://kubernetes.io/docs/concepts/storage/volumes/#local">Local Volume</a> 提供持久化存储服务，OpenEBS 支持 <a href="https://docs.openebs.io/docs/next/uglocalpv.html#Provision-OpenEBS-Local-PV-based-on-hostpath">动态申请 PV</a>，<strong>方便初次安装但没有准备存储服务端的场景下进行部署测试</strong>，<strong>正式环境建议配置使用 KubeSphere 支持的存储类型</strong>，参考 <a href="../storage-configuration">持久化存储配置说明</a>。</li>
+<li>Multi-node 支持 Master 和 etcd 节点高可用配置，本示例为了方便多节点的快速测试安装演示，仅部署单个 Master 和单个 etcd，正式环境建议配置 Master 和 etcd 节点的高可用，请参阅文档的集群高可用部署配置。</li>
+</ul>
+</blockquote>
+<h2 id="前提条件">前提条件</h2>
+<p>检查安装机器的网络防火墙是否已关闭，若未关闭防火墙则需要开放相关的指定端口，参考 <a href="https://kubesphere.com.cn/docs/v2.1/zh-CN/installation/port-firewall/">需开放的端口</a>。</p>
+<h2 id="第一步-准备主机">第一步: 准备主机</h2>
+<p>参考以下节点规格准备至少 3 台符合要求的主机开始 <code>multi-node</code> 模式的部署。为防止软件版本冲突，<strong>建议您选择多台干净的机器进行安装</strong>。</p>
+<blockquote>
+<p>说明：</p>
+<ul>
+<li>所有节点需要时间同步，否则可能会安装不成功；</li>
+<li>若使用 ubuntu 16.04 建议使用其最新的版本 16.04.5；</li>
+<li>若使用 ubuntu 18.04，则需使用 root 用户；</li>
+<li>若 Debian 系统未安装 sudo 命令，则需要在安装前使用 root 用户执行 <code>apt update &amp;&amp; apt install sudo</code> 命令安装 sudo 命令后再进行安装；</li>
+<li>若选装 DevOps 功能组件时需保证有一台内存大于 8G 的节点，因为 Jenkins 默认的 JVM 设置会需要 <code>6~8 G</code> 的整块内存，若可用内存不足可能会造成该节点崩溃。</li>
+</ul>
+</blockquote>
+<table>
+<thead>
+<tr class="header">
+<th>操作系统</th>
+<th>最小配置（每台）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CentOS 7.5 (64 bit)</td>
+<td>CPU：2 核， 内存：4 G， 系统盘：40 G</td>
+</tr>
+<tr class="even">
+<td>Ubuntu 16.04/18.04 LTS (64 bit)</td>
+<td>CPU：2 核， 内存：4 G， 系统盘：40 G</td>
+</tr>
+<tr class="odd">
+<td>Red Hat Enterprise Linux Server 7.4 (64 bit)</td>
+<td>CPU：2 核， 内存：4 G， 系统盘：40 G</td>
+</tr>
+<tr class="even">
+<td>Debian Stretch 9.5 (64 bit)</td>
+<td>CPU：2 核， 内存：4 G， 系统盘：40 G</td>
+</tr>
+</tbody>
+</table>
+<p>以下用一个示例介绍 multi-node 模式部署多节点环境，本示例准备了 <code>3</code> 台 CentOS 7.5 的主机并以 <code>root</code> 用户准备安装。登录主机名为 Master 的节点作为任务执行机 <strong>Taskbox</strong> 来执行安装步骤。</p>
+<p>在 <a href="../intro">安装说明</a> 已经介绍了 KubeSphere 集群架构是由管理节点 (Master) 和工作节点 (Node) 构成的，这 3 台主机分别部署 1 个 Master 节点和 2 个 Node 节点。</p>
+<p>假设主机信息如下所示：</p>
+<table>
+<thead>
+<tr class="header">
+<th>主机 IP</th>
+<th>主机名</th>
+<th>集群角色</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>192.168.0.1</td>
+<td>master</td>
+<td>master，etcd</td>
+</tr>
+<tr class="even">
+<td>192.168.0.2</td>
+<td>node1</td>
+<td>node</td>
+</tr>
+<tr class="odd">
+<td>192.168.0.3</td>
+<td>node2</td>
+<td>node</td>
+</tr>
+</tbody>
+</table>
+<p><strong>集群架构：</strong> 单 master 单 etcd 双 node</p>
+<p><img src="./images/在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台1.png" /></p>
+<h2 id="第二步-准备安装配置文件">第二步: 准备安装配置文件</h2>
+<p><strong>1.</strong> 下载 <code>KubeSphere 2.1.0</code> 安装包至待安装机器，进入 <code>conf</code> 目录。</p>
+<pre><code><code>$ curl -L https://kubesphere.io/download/stable/v2.1.0 &gt; installer.tar.gz \
+&amp;&amp; tar -zxf installer.tar.gz &amp;&amp; cd kubesphere-all-v2.1.0/conf</code></pre>
+<p><strong>2.</strong> 编辑主机配置文件 <code>conf/hosts.ini</code>，为了对目标机器及部署流程进行集中化管理配置，集群中各个节点在主机配置文件 <code>hosts.ini</code> 中应参考如下配置，建议使用 <code>root</code> 用户进行安装。</p>
+<blockquote>
+<p>说明：</p>
+<ul>
+<li>若以非 root 用户 (如 ubuntu 用户) 进行安装，[all] 部分可参考配置文件 <code>conf/hosts.ini</code> 的注释中 <code>non-root</code> 用户示例部分编辑。</li>
+<li>如果在 taskbox 使用 root 用户无法 ssh 连接到其他机器，也需要参考 <code>conf/hosts.ini</code> 的注释中 <code>non-root</code> 用户示例部分，但执行安装脚本 <code>install.sh</code> 时建议切换到 root 用户。</li>
+<li>master, node1, node2 作为集群各个节点的主机名，若需要自定义主机名则所有主机名需要都使用小写形式。</li>
+</ul>
+</blockquote>
+<p>以下示例在 CentOS 7.5 上使用 <code>root</code> 用户安装，每台机器信息占一行，不能分行。</p>
+<p><strong>root 配置 hosts.ini 示例：</strong></p>
+<pre class="ini"><code>[all]
+master ansible_connection=local  ip=192.168.0.1
+node1  ansible_host=192.168.0.2  ip=192.168.0.2  ansible_ssh_pass=PASSWORD
+node2  ansible_host=192.168.0.3  ip=192.168.0.3  ansible_ssh_pass=PASSWORD
+
+[kube-master]
+master
+
+[kube-node]
+node1
+node2
+
+[etcd]
+master
+
+[k8s-cluster:children]
+kube-node
+kube-master</code></pre>
+<blockquote>
+<p>说明：</p>
+<ul>
+<li><p><code>[all]</code>： 中需要修改集群中各个节点的内网 IP 和主机 root 用户密码：<br>主机名为 &quot;master&quot; 的节点作为已通过 SSH 连接的 Taskbox 所以无需填写密码。<br> Node 节点的参数比如 node1 和 node2 的 <code>ansible_host</code> 和 <code>ip</code> 都替换为当前 node1 和 node2 的内网 IP，将 <code>ansible_ssh_pass</code> 相应替换为 node1 和 node2 的 <code>root</code> 用户密码。</p>
+参数解释：<br><br />
+- <code>ansible_connection</code>: 与主机的连接类型，此处设置为 <code>local</code> 即本地连接<br />
+- <code>ansible_host</code>: 集群中将要连接的主机地址或域名<br />
+- <code>ip</code>: 集群中将要连接的主机 IP<br />
+- <code>ansible_user</code>: 默认的 SSH 用户名 (非 root)，例如 ubuntu<br />
+- <code>ansible_become_pass</code>: 默认的 SSH 用户登录密码<br />
+- <code>ansible_ssh_pass</code>: 待连接主机 root 用户的密码</li>
+<li><code>[kube-master]</code> 和 <code>[etcd]</code>：应将主机名 &quot;master&quot; 填入 [kube-master] 和 [etcd] 部分，&quot;master&quot; 节点作为 taskbox，用来执行整个集群的安装任务，同时 &quot;master&quot; 节点在 KubeSphere 集群架构中也将作为 Master 节点管理集群和 etcd 节点负责保存集群的数据。</li>
+<li><code>[kube-node]</code>：将主机名 &quot;node1&quot;，&quot;node2&quot; 填入 [kube-node] 部分，作为 KubeSphere 集群的 node 节点。<br></li>
+<li><p><code>[local-registry]</code>：离线安装包中该参数值表示设置哪个节点作为本地镜像仓库，默认值为 master 节点。建议给该节点的 <code>/mnt/registry</code> 单独挂盘 (参考 fdisk 命令)，使镜像可保存在持久化存储并节省机器空间。</p></li>
+</ul>
+</blockquote>
+<h2 id="第三步-安装-kubesphere">第三步: 安装 KubeSphere</h2>
+<p>KubeSphere 多节点部署会自动化地进行环境和文件监测、平台依赖软件的安装、Kubernetes 和 etcd 集群的自动化部署，以及存储的自动化配置。Installer 默认安装的 <strong>Kubernetes 版本</strong>是 <code>v1.15.5</code>。</p>
+<blockquote>
+<p>说明：</p>
+<ul>
+<li>通常情况您不需要修改任何配置，直接安装即可。</li>
+<li>网络插件默认是 <code>calico</code>，存储默认用 <a href="https://openebs.io/">OpenEBS</a> 基于 <a href="https://kubernetes.io/docs/concepts/storage/volumes/#local">Local Volume</a> 提供持久化存储服务，若您需要自定义安装参数，如网络、存储、负载均衡器插件、可选功能组件等相关配置需在 <strong><code>conf/common.yaml</code></strong> 文件中指定或修改，参考 <a href="../vars">集群组件配置说明</a>。</li>
+<li>支持存储类型：<a href="https://www.gluster.org/">GlusterFS</a>、<a href="https://ceph.com/">Ceph RBD</a>、<a href="https://kubernetes.io/docs/concepts/storage/volumes/#nfs">NFS</a>、<a href="https://kubernetes.io/docs/concepts/storage/volumes/#local">Local Volume</a>、<a href="https://docs.qingcloud.com/product/storage/volume/">QingCloud 云平台块存储</a> (QingCloud 公有云单节点挂盘限制为 10 块)、<a href="https://docs.qingcloud.com/product/storage/volume/super_high_performance_shared_volume/">QingStor NeonSAN</a>，存储配置相关的详细信息请参考 <a href="../storage-configuration">存储配置说明</a>。</li>
+<li>由于 Kubernetes 集群的 Cluster IP 子网网段默认是 <code>10.233.0.0/18</code>，Pod 的子网网段默认是 <code>10.233.64.0/18</code>，因此安装 KubeSphere 的节点 IP 地址范围不应与以上两个网段有重复，若遇到地址范围冲突可在配置文件 <code>conf/common.yaml</code> 修改 <code>kube_service_addresses</code> 或 <code>kube_pods_subnet</code> 的参数。</li>
+</ul>
+</blockquote>
+<p>参考以下步骤开始 multi-node 部署。</p>
+<blockquote>
+<p>说明：由于 multi-node 的安装时间跟网络情况和带宽、机器配置、安装节点个数等因素都有关，此处暂不提供时间标准。</p>
+</blockquote>
+<p><strong>1.</strong> 进入安装目录，建议使用 root 用户执行 <code>install.sh</code> 安装脚本：</p>
+<pre><code><code>$ cd scripts
+$ ./install.sh</code></pre>
+<p><strong>2.</strong> 输入数字 <code>2</code> 选择第二种 Multi-node 模式开始部署，安装程序会提示您的环境是否前提条件，若满足请输入 &quot;yes&quot; 开始安装。</p>
+<pre><code><code>################################################
+         KubeSphere Installer Menu
+################################################
+*   1) All-in-one
+*   2) Multi-node
+*   3) Quit
+################################################
+https://kubesphere.io/               2018-10-14
+################################################
+Please input an option: 2
+</code></pre>
+<p><strong>3.</strong> 验证 KubeSphere 集群部署是否成功：</p>
+<p><strong>(1)</strong> 待安装脚本执行完后，当看到如下 <code>&quot;Successful&quot;</code> 界面，则说明 KubeSphere 安装成功。</p>
+<pre><code><code>successsful!
+#####################################################
+###              Welcome to KubeSphere!           ###
+#####################################################
+
+Console: http://192.168.0.1:30880
+Account: admin
+Password: P@88w0rd
+
+NOTE：Please modify the default password after login.
+#####################################################</code></pre>
+<blockquote>
+<p>提示：如需要再次查看以上的界面信息，可在安装包目录下执行 <code>cat kubesphere/kubesphere_running</code> 命令查看。</p>
+</blockquote>
+<p><strong>(2)</strong> 若需要在外网访问，在云平台需要在端口转发规则中将<strong>内网端口</strong> 30880 转发到<strong>源端口</strong> 30880，然后在防火墙开放这个<strong>源端口</strong>，确保外网流量可以通过该端口。</p>
+<p><strong>(3)</strong> 安装成功后，浏览器访问对应的 URL，如 <code>http://{$公网IP}:30880</code>，即可进入 KubeSphere 登录界面，可使用默认的用户名和密码登录 KubeSphere 控制台体验，<strong>登录后请立即修改默认密码</strong>。参阅 <a href="https://kubesphere.com.cn/docs/v2.1/zh-CN/quick-start/admin-quick-start/">快速入门</a> 帮助您快速上手 KubeSphere。</p>
+<blockquote>
+<p>注意：登陆 Console 后请在 &quot;集群状态&quot; 查看服务组件的监控状态，待所有组件启动完成后即可开始使用，通常所有服务组件都将在 15 分钟内启动完成。</p>
+</blockquote>
+<p><img src="./images/在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台2.png" /></p>
+<h2 id="ui-快览">UI 快览</h2>
+<p><img src="./images/在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台3.png" /></p>
+<p><img src="./images/在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台4.png" /></p>
+<p><img src="./images/在 Linux 部署多节点 Kubernetes 集群与 KubeSphere 容器平台5.png" /></p>
+<p>KubeSphere (https://github.com/kubesphere/kubesphere) 是一个开源的以应用为中心的容器管理平台，支持部署在任何基础设施之上，并提供简单易用的 UI，极大减轻日常开发、测试、运维的复杂度，旨在解决 Kubernetes 本身存在的存储、网络、安全和易用性等痛点，帮助企业轻松应对敏捷开发与自动化监控运维、端到端应用交付、微服务治理、多租户管理、多集群管理、服务与网络管理、镜像仓库、AI 平台、边缘计算等业务场景。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

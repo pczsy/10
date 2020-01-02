@@ -1,0 +1,129 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修如何以python风格高逼格的改写购物车逻辑' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>如何以python风格高逼格的改写购物车逻辑</center></div><div class='banquan'>原文出处:本文由博客园博主志浩hzh提供。<br/>
+原文连接:https://www.cnblogs.com/HZHST/p/11365037.html</div><br>
+    <p><span style="font-size: 14pt;">之前有一篇博文写到关于购物车的业务逻辑，分别运用cookie和redis存储未登录和登录用户的购物车数据，虽然已经很好的完成了业务逻辑，但是会发现代码的冗余很严重，也不够具有python特色，今天就让我来用python特色，高逼格的来改写一下购物车逻辑把。</span></p>
+<p><span style="font-size: 14pt; line-height: 28px;">回看之前代码，我们会发现，会经常取出购物车数据，然后也会修改数据，我们能否对读和写的操作进行封装，第二，cookie中和redis中存储的我们对数据存储的格式不一样，能否考虑将两者存储为一种格式，第三，考虑数据通过网络传输，我们能否尽量存储少的数据。</span></p>
+<p><span style="font-size: 18.6667px; line-height: 28px;">之前我们在redis中是将商品数量和商品勾选状态分别存为hash和set，而在cookie中则是存成一个大字典，然后将大字典转化为字符串，在redis中，我们也可以采用相同的存储方式，而相对于字典中嵌套字典，我们的小字典中只有两组数据，我们可以用一个列表直接存储商品数量和勾选状态，记住对应的下标即可，这样我们就不用花空间去存储冗余的key值。确定好存储方式，我们需要想一下怎么去进行封装。在python是面向对象语言，同时具有多继承的特色，所以我们可以用拓展类的方式去封装读写操作，在对应的视图类中采取多继承的方式，引入读写的方法。</span></p>
+<div class="cnblogs_Highlighter">
+<pre><code>class CartMixin(object):
+    """购物车扩展类"""
+    str_to_dict_class = (str.encode, base64.b64decode, pickle.loads)
+    dict_to_dict_class = (pickle.dumps, base64.b64encode, bytes.decode)
+
+    def conversion_and_encryption(self, key):<br />　　　　　# 将数据转化为需要格式的方法
+        if isinstance(key, dict):
+            for func in self.dict_to_dict_class:
+                key = func(key)
+        else:
+            for func in self.str_to_dict_class:
+                key = func(key)
+        return key
+
+    def get_cart_dict(self, request):<br />　　　　 # 获取购物车的方法
+        try:
+            user = request.user
+        except Exception:
+            user = None
+        if user and user.is_authenticated:
+            return self.get_cart_from_redis(request)
+        else:
+            return self.get_cart_from_cookie(request)
+
+    def write_cart_dict(self, cart_dict, request, response):<br />　　　　　# 写入购物车数据的方法
+        try:
+            user = request.user
+        except Exception:
+            user = None
+        if user and user.is_authenticated:
+            self.write_cart_to_redis(cart_dict, user)
+            return response
+        else:
+            response = self.write_cart_to_cookie(cart_dict, response)
+            return response
+
+    def get_cart_from_redis(self,request):<br />　　　　　# 从redis中获取购物车
+        redis_conn = get_redis_connection('cart')
+        redis_cart = redis_conn.get('cart:%s'%request.user.id)
+        if not redis_cart:
+            return {}
+        # redis_cart = pickle.loads(base64.b64decode(redis_cart))
+        cart_dict = self.conversion_and_encryption(redis_cart.decode())
+        return cart_dict
+
+
+    def get_cart_from_cookie(self,request):<br />　　　　　# 从cookie中获取购物车的方法
+        cart_dict = request.COOKIES.get('cart')
+        if cart_dict:
+            # cart_dict = pickle.loads(base64.b64decode(cart_dict.encode()))
+            cart_dict = self.conversion_and_encryption(cart_dict)
+        else:
+            cart_dict = {}
+        return cart_dict
+
+    def write_cart_to_redis(self, cart_dict, user):<br />　　　　　# 写入购物车数据到redis的方法
+        redis_conn = get_redis_connection('cart')
+        # cart_dict = base64.b64encode(pickle.dumps(cart_dict)).decode()
+        cart_dict = self.conversion_and_encryption(cart_dict)
+        redis_conn.set('cart:%s'%user.id, cart_dict)
+
+
+
+    def write_cart_to_cookie(self, cart_dict, response):<br />　　　　　# 写入购物车数据到cookie的方法
+        # cart_cookie = base64.b64encode(pickle.dumps(cart_dict)).decode()
+        cart_cookie = self.conversion_and_encryption(cart_dict)
+        response.set_cookie('cart', cart_cookie, max_age=constants.CART_COOKIE_EXPIRES)
+        return response
+</pre>
+</div>
+<p><span style="font-size: 14pt;">为了保证数据的可靠性和安全性，我们会对数据进行一些处理在进行存储，考虑到有多个地方可能用到数据处理的操作，我们将数据处理的操作也封装成对应的方法，同时，我们也可能用不同的方式处理数据，所以将处理数据的方法放到一个列表中，用类属性方法进行存储，需要的更改的时候就只需要更改对应的类属性即可。这样我们就完成了读写操作的封装，在需要进行读写操作的地方调用对应的方法即可。这样能减少代码的冗余。</span></p>
+<p><span style="font-size: 14pt;">而在对应的业务逻辑中，我们应该只需要考虑业务方面的需要，无需考虑用户的登录状态，同时，购物车数据的读取和写入也是与我们的业务逻辑无关。关于登录状态的判断，已经封装到扩展类当中了，而对于读写，我们可以不必在视图的业务逻辑中进行操作，在drf框架中在请求进来之前会进行一个初始化操作，而在响应返回，传到前端之前，也会进行最后的处理，我们可以在视图类中，重写这两个方法，继承父类的操作，在加上我们需要进行的读写操作即可，这样就实现了读写操作和业务逻辑的分离。</span></p>
+<p>&nbsp;</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">class CartView(CartMixin, APIView):
+    '''购物车'''
+    permission_classes = [IsAuthenticated]
+
+    def perform_authentication(self, request):
+        """
+        重写父类的用户验证方法，不在进入视图前就检查JWT
+        """
+        pass
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.cart_dict = self.get_cart_dict(request)
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        self.response = self.write_cart_dict(self.cart_dict, request, response)
+        return self.response
+</pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 14pt;">至此，代码改写完成。<br /></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><span style="font-size: 14pt;">新人写博客锻炼自己，想一起交流的可以加我的qq595395786</span></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

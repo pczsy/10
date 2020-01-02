@@ -1,0 +1,93 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django与drf 源码视图解析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django与drf 源码视图解析</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11448967.html</div><br>
+    <h1 id="自我总结">0902自我总结</h1>
+<h1 id="django-与drf-源码视图解析">Django 与drf 源码视图解析</h1>
+<h2 id="一.原生django-cbv-源码分析view">一.原生Django CBV 源码分析：View</h2>
+<pre><code><code>&quot;&quot;&quot;
+1）as_view()是入口，得到view函数地址
+2）请求来了调用view函数，内部调用dispatch函数完成请求分发
+3）dispatch函数将请求方式映射成视图类的同名方法，完成请求的处理，得到相应
+4）再将相应的结果一层层返回
+&quot;&quot;&quot;</code></pre>
+<h2 id="二.drf-cbv-源码分析apiview">二.drf CBV 源码分析：APIView</h2>
+<pre><code><code>&quot;&quot;&quot;
+1）as_view()是入口，得到view函数地址，在范围view函数地址时局部禁用csrf认证
+2）请求来了调用view函数，内部调用(APIView类的)dispatch函数完成请求分发
+3）dispatch函数 二次封装request、完成三大认证后，再将请求方式映射成视图类的同名方法，完成请求的处理，得到相应，再对相应做渲染处理
+4）再将相应的结果一层层返回
+&quot;&quot;&quot;</code></pre>
+<h2 id="三.apiview做的处理">三.APIView做的处理</h2>
+<ul>
+<li><p><code>as_view</code>: <code>就干了一件事，禁用csrf认证</code></p></li>
+<li><code>dispatch</code>:
+<ul>
+<li>1）二次封装request</li>
+<li>2）三大认证</li>
+</ul></li>
+</ul>
+<h2 id="四.drf-的局部渲染和全局渲染">四.drf 的局部渲染和全局渲染</h2>
+<p>通过看了源码我们对于渲染内容是<code>JSONRenderer</code>还是<code>BrowsableAPIRenderer</code></p>
+<p>JSONRenderer与BrowsableAPIRenderer的导入</p>
+<p><code>from rest_framework.renderers import JSONRenderer from rest_framework.renderers import BrowsableAPIRenderer</code></p>
+<ul>
+<li><p>局部设置</p>
+<ul>
+<li>在我们定义基础APIView的类添加<code>renderer_classes = [JSONRenderer]</code>这样网页就不会出现渲染只显示js数据</li>
+</ul>
+<p>例如</p>
+<pre><code><code>class UserAPIView(APIView):
+  renderer_classes = [JSONRenderer]
+
+    def get(self, request, *args, **kwargs):
+        print(request.query_params)
+        data = {
+            &#39;status&#39;: 0,
+            &#39;msg&#39;: &#39;get ok&#39;,
+            &#39;results&#39;: [],
+            &#39;token&#39;: &#39;123.12321.231&#39;
+        }
+        return Response(
+            data=data,
+            status=status.HTTP_200_OK,
+            headers={&#39;Token&#39;: &#39;123as.masd21.asd213sd&#39;},
+            content_type=&#39;application/json&#39;  # 默认就是application/json
+        )</code></pre></li>
+<li><p>全局设置在<code>setting</code></p>
+<pre><code><code># drf配置
+REST_FRAMEWORK = {
+    # 响应的渲染模块
+    &#39;DEFAULT_RENDERER_CLASSES&#39;: [
+        &#39;rest_framework.renderers.JSONRenderer&#39;,
+        &#39;rest_framework.renderers.BrowsableAPIRenderer&#39;,
+    ],
+    &#39;DEFAULT_PARSER_CLASSES&#39;: [
+        &#39;rest_framework.parsers.JSONParser&#39;,  # &#39;application/json&#39;
+        &#39;rest_framework.parsers.FormParser&#39;,  # &#39;application/x-www-form-urlencoded&#39;
+        &#39;rest_framework.parsers.MultiPartParser&#39;  # multipart/form-data
+    ],
+}</code></pre></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

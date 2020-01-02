@@ -1,0 +1,152 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修JavaScript的内存模型' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>JavaScript的内存模型</center></div><div class='banquan'>原文出处:本文由博客园博主小维FE提供。<br/>
+原文连接:https://www.cnblogs.com/tangshiwei/p/12020478.html</div><br>
+    <h2 id="引言">引言</h2>
+<p>在我们的前端日常工作中，无时无刻不在进行着变量的声明和赋值，你是否也曾碰到过变量声明报错或变量被污染的问题，如果你跟笔者一样碰到过，那么我们应该暂时停下来好好思考问题发生的原因以及如何采取相应的补救措施。当然排查问题最好的方式就是深入其底层细节，了解在JavaScript中的内存分配方式。只有我们对底层细节有一定的了解之后，才能轻而易举地化解在写代码过程中遇到的各种问题。本文基于JavaScript的内存模型继续衍生出<code>let</code>和<code>const</code>的差异性对比，若文中有错误的地方，还请指出。</p>
+<h3 id="内存是什么">1、内存是什么</h3>
+<p>在讲解JavaScript中的内存模型之前，我们先从硬件层面来简单了解下内存是什么。</p>
+<blockquote>
+<p>内存是计算机中重要的部件之一，它是外存与CPU进行沟通的桥梁。计算机中所有程序的运行都是在内存中进行的，因此内存的性能对计算机的影响非常大。内存(Memory)也被称为<strong>内存储器</strong>和<strong>主存储器</strong>，其作用是用于暂时存放CPU中的运算数据，以及与硬盘等外部存储器交换的数据。只要计算机在运行中，CPU就会把需要运算的数据调到内存中进行运算，当运算完成后CPU再将结果传送出来，内存的运行也决定了计算机的稳定运行。</p>
+</blockquote>
+<p>内存条是计算机组成结构中的关键部分，其本身是一个非常精密的部件，内部包含了上亿个电子元器件，它们很小，达到了纳米级别。这些元器件，实际上也就是电路，电路的电压会发生变化，但只有两种可能，要么0V(低电平)，要么5V(高电平)，0V是断电，用0来表示，5V是通电，用1来表示，因此一个元器件包含了两个状态0和1，即表示一位(bit)。但是作为人类，我们并不擅长使用bit来思考和计算，因此我们会将它们划分成更大的组，例如8位表示1个byte(字节)，16位表示2个byte(字节)，32位表示4个byte(字节)。有很多东西都是存储在内存中的，比如我们的程序代码，程序中所声明的变量以及操作系统的代码等。</p>
+<h3 id="内存的生命周期">2、内存的生命周期</h3>
+<p>了解了内存的基本概念后，我们来简单聊聊内存的生命周期。JavaScript作为一门高级编程语言，不像其他语言(例如C语言)中需要开发人员手动地去管理内存，系统会自动为你分配内存。但是无论是哪种编程语言，内存的生命周期都主要分为三个阶段：</p>
+<p><img src="./images/JavaScript的内存模型0.png" /></p>
+<ul>
+<li><code>分配内存</code>：由操作系统来分配内存，供程序使用。在JavaScript中，这一步由操作系统来自动分配，无需开发人员手动操作。</li>
+<li><code>使用内存</code>：程序获得操作系统所分配的内存之后，在内存中发生读和写操作。</li>
+<li><code>释放内存</code>：程序使用完内存之后，会将这部分内存释放出来供其他程序使用。在JavaScript中，这一步同样不需要开发人员手动操作，由操作系统自动释放。</li>
+</ul>
+<p>我们知道，在JavaScript中的数据类型分为<strong>基本数据类型</strong>和<strong>引用数据类型</strong>，其中基本数据类型包括<code>String</code>、<code>Number</code>、<code>Boolean</code>、<code>Null</code>、<code>Undefined</code>，ES6中新增的<code>Symbol</code>以及最新的<code>BigInt</code>，除了这些以外，其他的均为引用数据类型，例如<code>Array</code>、<code>Date</code>、<code>Function</code>、<code>RegExp</code>、<code>Error</code>，<code>Object</code>等。那么这两种数据类型的其中一个区别就是，<strong>基本数据类型的内存大小都是固定的，而引用数据类型的内存大小都是动态不固定的，可能会随时发生变化</strong>。因此在内存分配阶段这两种数据类型会有一定的差异。</p>
+<p>编译器在编译代码时，对于基本数据类型，由于其空间大小固定，编译器在检查时会提前计算它们需要的内存大小，并插入与操作系统交互的代码，向操作系统申请存储变量所需的堆栈字节数，然后将申请到的内存分配给调用堆栈中的程序，称为<strong>静态内存分配</strong>。例如在调用函数时，函数中的变量所需的内存会被添加到现有的内存之上，当函数执行完毕后，这部分内存又会以后进先出(LIFO)的顺序被移除。但是对于引用数据类型，其空间大小是动态的，在编译阶段无法直接确定其需要多少内存，因此不能在堆栈上为其分配内存，相反，需要在运行时向操作系统申请适当的内存，并且这部分内存是在<strong>堆空间</strong>进行分配的，称为<strong>动态内存分配</strong>。静态内存分配和动态内存分配的区别如下表所示：</p>
+<table>
+<thead>
+<tr class="header">
+<th>静态内存分配</th>
+<th>动态内存分配</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>编译阶段可确定大小</td>
+<td>编译阶段无法确定大小</td>
+</tr>
+<tr class="even">
+<td>在编译时执行</td>
+<td>在运行时执行</td>
+</tr>
+<tr class="odd">
+<td>分配给堆栈</td>
+<td>分配给堆</td>
+</tr>
+<tr class="even">
+<td>顺序分配，后进先出(LIFO)</td>
+<td>无序分配</td>
+</tr>
+</tbody>
+</table>
+<h3 id="javascript中的内存分配">3、JavaScript中的内存分配</h3>
+<p>在我们的前端开发日常工作中，几乎每天都在做着变量的声明和赋值，这些变量最终都会被存放到内存中，所以我们还是有必要了解一下在JavaScript中的内存分配方式，这里使用基本数据类型和引用数据类型来分别讲述一下内存的分配过程，帮助我们理解JavaScript的底层细节。<br />
+首先我们从一个简单的基本数据类型的赋值开始，代码如下：</p>
+<pre><code><code>let num = 1;</code></pre>
+<p>当JavaScript引擎在执行到这行代码时，会执行如下操作：</p>
+<ul>
+<li>为变量<code>num</code>创建一个唯一标识符(identifier)，该标识符用于与栈内存中的地址<code>A1</code>形成映射关系。</li>
+<li>在栈内存中为其分配一个地址<code>A1</code>。</li>
+<li>将值<code>1</code>存储到分配的地址。</li>
+</ul>
+<p>示例图如下：<br />
+<img src="./images/JavaScript的内存模型1.png" /><br />
+通常我们说<code>num</code>变量的值等于<code>1</code>，但其实严格意义上来讲，<code>num</code>变量的值等于栈内存中存放对应值的内存地址(如图中的<code>A1</code>)。接下来我们创建一个新的变量<code>newNum</code>并将<code>num</code>赋值给它：</p>
+<pre><code><code>let newNum = num;</code></pre>
+<p>经过以上赋值之后，通常说<code>newNum</code>的值为<code>1</code>，同样从严格意义上来讲的话是指<code>newNum</code>和<code>num</code>指向同一个内存地址<code>A1</code>，如下图所示：<br />
+<img src="./images/JavaScript的内存模型2.png" /><br />
+如果接下来我们执行以下操作，看会发生什么：</p>
+<pre><code><code>num = num + 1;</code></pre>
+<p>我们对<code>num</code>变量进行自增长，很显然<code>num</code>变量的值为<code>2</code>。由于<code>newNum</code>和<code>num</code>指向同一个内存地址<code>A1</code>，那么此时<code>newNum</code>的值是否也为<code>2</code>呢，在回答这个问题之前，我们先来看一下当前内存地址发生的变化：<br />
+<img src="./images/JavaScript的内存模型3.png" /><br />
+在上图中我们可以发现，<code>num</code>变量的内存地址发生了改变，由原来的<code>A1</code>变为<code>A2</code>，这是因为在JS中的<strong>基本数据类型都是不可变</strong>的，一旦修改，只会为其分配新的内存地址并将修改后的新值存入到新的地址中，因此回答上面的那个问题，<code>newNum</code>的值保持不变，依旧为<code>1</code>，因为它的内存地址没有发生改变。再看如下示例：</p>
+<pre><code><code>let str = &#39;ab&#39;;
+str = str + &#39;c&#39;;</code></pre>
+<p>因为字符串也是属于基本数据类型，基本数据类型都是不可变的，所以即使上述代码中只是简单的将<code>c</code>拼接到了原来的字符串<code>ab</code>后面，但是依旧会为其分配新的内存地址，变量<code>str</code>最终会指向这个新的内存地址，如下图所示：<br />
+<img src="./images/JavaScript的内存模型4.png" /><br />
+了解了基本数据类型的内存分配方式之后，接下来我们来了解下引用数据类型的内存分配方式。同样我们从一个简单的引用数据类型的赋值开始：</p>
+<pre><code><code>let arr = [];</code></pre>
+<p>当JavaScript引擎在执行到这行代码时，会执行如下操作：</p>
+<ul>
+<li>为变量<code>arr</code>创建一个唯一标识符(identifier)，该标识符用于与栈内存中的地址<code>A3</code>形成映射关系。</li>
+<li>在栈内存中为其分配一个地址<code>A3</code>。</li>
+<li>栈内存中存储在堆中分配的内存地址的值<code>H1</code>。</li>
+<li>在堆中存储分配的值<code>空数组[]</code>。</li>
+</ul>
+<p>示例图如下：<br />
+<img src="./images/JavaScript的内存模型5.png" /><br />
+<strong>在JavaScript引擎(例如Chrome和Node的V8引擎)中主要是由两个部件组成，一个叫内存堆(Memory Heap)，一个叫调用堆栈(Call Stack)</strong>。其中调用堆栈除了函数调用之外，主要用于存放基本数据类型的值，而引用数据类型的值一般都存放在内存堆中，堆中存放的数据都是无序的并且可以动态地增长，所以非常适合用于存储数组和对象。</p>
+<h3 id="let和const的差异性对比">4、<code>let</code>和<code>const</code>的差异性对比</h3>
+<p>在了解完以上两种数据类型的内存分配方式后，我们这里对<code>let</code>和<code>const</code>的使用方式进行一下对比，通常来说，我们建议在写代码的过程中能使用<code>const</code>的地方尽量减少使用<code>let</code>，这样可以在某种程度上避免变量被无端修改而引发的一系列问题。如下代码：</p>
+<pre><code><code>let num = 1;
+num = num + 1;
+let arr = [];
+arr.push(1);
+arr.push(2);
+arr.push(3);</code></pre>
+<p>在上述代码中，变量<code>num</code>因为使用<code>let</code>的方式声明，所以允许其被修改，因为基本类型的值是不可变的，所以会为<code>num</code>变量分配新的内存地址。对于<code>arr</code>变量，这里同样使用<code>let</code>方式进行声明，表示允许其修改，但是对于<code>push</code>操作其实并没有修改<code>arr</code>变量的内存地址，只是将新的值推入了堆内存的数组中，所以此处建议修改为使用<code>const</code>进行声明。</p>
+<blockquote>
+<p>笔者的观点是：将修改理解为修改内存地址，若允许修改内存地址，则使用<code>let</code>进行声明，否则使用<code>const</code>进行声明。</p>
+</blockquote>
+<p>如下示例：</p>
+<pre><code><code>const num = 1;
+num = num + 1;</code></pre>
+<p>由在上一小节中了解到的基本数据类型的内存分配方式，我们知道为变量<code>num</code>在栈内存中分配了一个地址来保存对应的值。<br />
+<img src="./images/JavaScript的内存模型6.png" /><br />
+但是这里我们是使用<code>const</code>的方式来进行声明的，当我们重新为变量<code>num</code>进行赋值时，JS尝试为其分配新的内存地址，那么这里也就是抛出错误的地方，因为我们明确不允许对其进行修改。<br />
+<img src="./images/JavaScript的内存模型7.png" /><br />
+因此在控制台中我们会看到对应的报错信息。<br />
+<img src="./images/JavaScript的内存模型8.png" /><br />
+再看如下示例：</p>
+<pre><code><code>const arr = [];</code></pre>
+<p>对于引用数据类型，我们知道会在栈内存上为其分配内存地址，存储的是堆中的内存地址的值。<br />
+<img src="./images/JavaScript的内存模型9.png" /><br />
+我们做如下操作：</p>
+<pre><code><code>arr.push(1);
+arr.push(2);
+arr.push(3);</code></pre>
+<p><img src="./images/JavaScript的内存模型10.png" /><br />
+执行<code>push</code>操作实际上是将新值推入堆中的数组，内存地址并没有发生改变。这也就是为什么虽然使用<code>const</code>声明变量，但是依旧没有报错的原因。但是如果我们使用如下方式：</p>
+<pre><code><code>arr = 1;
+arr = undefined;
+arr = null;
+arr = [];
+arr = {};</code></pre>
+<p>这些方式都会修改原数组的内存地址，<code>const</code>声明是不允许修改内存地址的，所以很明显会抛出错误。因此这里也是建议默认情况下使用<code>const</code>声明变量，除非需要修改内存地址，<code>const</code>声明的变量必须在声明时进行初始化，也方便了其他前端人员能一眼看出哪些变量是不可变的。</p>
+<h3 id="总结">5、总结</h3>
+<p>在本篇中主要总结了一下JavaScript中的内存模型，并针对基本数据类型和引用数据类型分别讲述了其在JavaScript中的内存分配方式，然后对<code>let</code>和<code>const</code>这两种在代码中的变量声明方式进行对比以了解其中的差异性，下篇基于内存模型继续讲解JavaScript引擎中的垃圾回收机制以及在写代码过程中的几种有效避免内存泄漏的方式，和大家一起了解JavaScript的底层细节。</p>
+<h3 id="交流">6、交流</h3>
+<p>若觉得笔者的文章对你有帮助的话，不妨关注下笔者的公众号，每周都会原创和整理一些前端技术干货，关注公众号后可以邀你入群，我们一起交流前端，相互学习，共同进步。</p>
+<p><strong>文章已同步更新至<a href="https://github.com/qq591468061/xwfe">Github博客</a>，若觉文章尚可，欢迎前往star！</strong></p>
+<p><strong>你的一个点赞，值得让我付出更多的努力！</strong></p>
+<p><strong>逆境中成长，只有不断地学习，才能成为更好的自己，与君共勉！</strong></p>
+<p><img src="./images/JavaScript的内存模型11.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

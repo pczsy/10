@@ -1,0 +1,343 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修centos7服务器部署django项目。' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>centos7服务器部署django项目。</center></div><div class='banquan'>原文出处:本文由博客园博主记住我忘记我提供。<br/>
+原文连接:https://www.cnblogs.com/nmsghgnv/p/11417806.html</div><br>
+    <p>用到的工具，xftp（文件互传），xshell（远程连接）</p>
+<p>aliyun服务器防火墙开启的端口。80,22（ssh），3306（mysql），8000,9090</p>
+<p>部署项目：</p>
+<p>1，安装nginx</p>
+<div class="cnblogs_code">
+<pre><code>1&gt;http://nginx.org/en/<span style="color: #000000;">download.html
+</span>2&gt;下载： wget http://nginx.org/download/nginx-1.17<span style="color: #000000;">.0.tar.gz
+</span>3&gt;解压压缩包  tar xf nginx-1.17<span style="color: #000000;">.0.tar.gz
+</span>4&gt;安装依赖 yum -y install pcre-devel zlib-<span style="color: #000000;">devel
+</span>5&gt;进入解压后的文件 安装nginx： ./configure --prefix=/usr/local/<span style="color: #000000;">nginx
+</span>6&gt;<span style="color: #000000;">make  和  make install
+</span>7&gt;启动nginx /usr/local/nginx/sbin/nginx   可通过浏览器访问服务器公网ip看到欢迎页面</pre>
+</div>
+<p>2，安装mysql数据库</p>
+<div class="cnblogs_code">
+<pre><code>安装依赖：yum -y install ncurses-devel gcc-* bzip-*        yum -y install gcc-*</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">安装cmake：
+
+wget https:</span>//github.com/Kitware/CMake/releases/download/v3.14.4/cmake-3.14.4<span style="color: #000000;">.tar.gz
+   解压cmake  
+   进入cmake文件夹，运行configure命令   .</span>/<span style="color: #000000;">configure
+   没有error说明安装成功 然后cmake进行编译   make </span>-<span style="color: #000000;">j4    make install
+  查看cmake版本确认是否安装成功  cmake </span>--version</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>安装boost 1<span style="color: #000000;">.59版本
+下载: https:</span>//www.boost.org/users/history/<span style="color: #000000;">version_1_59_0.html
+解压boost，因为boost是绿化版，直接解压就好了
+剪切boost文件夹 mv boost_1_59_0 </span>/usr/local/boost</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">安装mysql
+   从官网下载mysql5.7的社区版压缩包
+解压并进入解压后的文件夹执行下面的命令：
+
+cmake . </span>-DCMAKE_INSTALL_PREFIX=/usr/local/<span style="color: #000000;">mysql \
+</span>-DMYSQL_DATADIR=/usr/local/mysql/data/<span style="color: #000000;"> \
+</span>-DMYSQL_UNIX_ADDR=/usr/local/mysql/<span style="color: #000000;">mysql.sock \
+</span>-DWITH_INNOBASE_STORAGE_ENGINE=1<span style="color: #000000;"> \
+</span>-DWITH_MYISAM_STORAGE_ENGINE=1<span style="color: #000000;"> \
+</span>-DENABLED_LOCAL_INFILE=1<span style="color: #000000;"> \
+</span>-DEXTRA_CHARSETS=all -DDEFAULT_CHARSET=utf8 -DDEFAULT_COLLATION=<span style="color: #000000;">utf8_general_ci \
+</span>-DWITH_DEBUG=<span style="color: #000000;">0 \
+</span>-DWITH_EMBEDDED_SERVER=1<span style="color: #000000;"> \
+</span>-DDOWNLOAD_BOOST=1 -DENABLE_DOWNLOADS=1 -DWITH_BOOST=/usr/local/boost</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">代表的意义分别是：
+指定安装路径
+指定数据目录
+指定sock文件路径
+安装Innodb存储引擎
+安装Myisam存储引擎
+允许使用Load data 命令从本地导入数据
+安装所有字符串，默认字符串utf8，校验字符
+关闭debug
+生成一个libmysqld.a的库，这个库同时集成了mysql服务和客户端API
+允许boost下载boost库文件</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>没有报错的话进行编译 ： make -j4     make install</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>如果在编译时候出错，或者make install后出错，可以重新编译make -<span style="color: #000000;">j4和make install
+因为可能网速问题，导致一些包没有下载下来，所以重新make </span>-<span style="color: #000000;">j4和make install
+就好了</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>cp /usr/local/mysql/support-files/mysql.server /etc/init.d/<span style="color: #000000;">mysql
+ll </span>/usr/local/mysql/</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>添加mysql的用户，用户名为mysql，并利用 chown 将指定文件的拥有者改为指定的用户mysql用户</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>useradd -s /sbin/nologin -<span style="color: #000000;">r mysql
+chown mysql.mysql </span>/usr/local/mysql/ -<span style="color: #000000;">R
+ll </span>/usr/local/mysql/</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>建立软连接</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>ln -sf /usr/local/mysql/bin/* /usr/bin/<span style="color: #000000;">
+ln </span>-sf /usr/local/mysql/lib/* /usr/lib/<span style="color: #000000;">
+ln </span>-sf /usr/local/mysql/libexec/* /usr/local/<span style="color: #000000;">libexec
+ln </span>-sf /usr/local/mysql/share/man/man1/* /usr/share/man/<span style="color: #000000;">man1
+ln </span>-sf /usr/local/mysql/share/man/man8/* /usr/share/man/man8</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 编辑配置文件</span>
+vim /etc/my.cnf</pre>
+</div>
+<p><img src="./images/centos7服务器部署django项目。0.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。1.png" alt="" /></p>
+<div class="cnblogs_code">
+<pre><code>/usr/local/mysql//bin/mysqld --initialize --user=mysql --basedir=/usr/local/mysql/ --datadir=/usr/local/mysql/data/</pre>
+</div>
+<p>Q8jZpqqlqG%H&nbsp;&nbsp;<span style="font-family: 宋体;">这个是</span>mysql<span style="font-family: 宋体;">密码，一定记得记录下来</span></p>
+<p>&nbsp;启动mysql</p>
+<div class="cnblogs_code">
+<pre><code>/etc/init.d/mysql start</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>yum -<span style="color: #000000;">y install lsof
+lsof </span>-i :3306</pre>
+</div>
+<p>设置mysql</p>
+<div class="cnblogs_code">
+<pre><code>mysql_secure_installation</pre>
+</div>
+<p><img src="./images/centos7服务器部署django项目。2.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。3.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。4.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。5.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。6.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。7.png" alt="" /></p>
+<p>Ctr+d<span style="font-family: 宋体;">退出</span></p>
+<p>&nbsp;<img src="./images/centos7服务器部署django项目。8.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。9.png" alt="" /></p>
+<p><img src="./images/centos7服务器部署django项目。10.png" alt="" /></p>
+<p><span style="font-family: 宋体;">这样才能用</span>Navicat<span style="font-family: 宋体;">去连接数据库</span></p>
+<p>&nbsp;3，部署python</p>
+<div class="cnblogs_code">
+<pre><code>下载python文件  wget https://www.python.org/ftp/python/3.7.1/Python-3.7.1<span style="color: #000000;">.tar.xz
+解压并进入python文件夹
+yum </span>-y install gcc-* openssl-* libffi-devel sqlite-<span style="color: #000000;">devel
+.</span>/configure --enable-optimizations --with-openssl=/usr/bin/<span style="color: #000000;">openssl
+make </span>-<span style="color: #000000;">j8       make install
+默认安装路径：</span>/usr/local/lib/python3.7<span style="color: #000000;">
+ 
+升级pip   pip3 install </span>--<span style="color: #000000;">upgrade pip
+安装虚拟环境，因为有可能上线多个项目，每个项目所需工具不一样，所以创建虚拟环境，一个项目一个环境，互不影响：pip3 install virtualenv
+创建一个虚拟环境 virtualenv </span>-<span style="color: #000000;">p python3 web
+使得虚拟环境生效：source web</span>/bin/<span style="color: #000000;">activate
+然后在web虚拟环境下安装Django:   pip3 install django</span>==2.1.8<span style="color: #000000;">
+创建一个django项目： django</span>-<span style="color: #000000;">admin.py startproject myweb
+django</span>-<span style="color: #000000;">admin.py
+修改配置文件
+vim myweb</span>/settings.py</pre>
+</div>
+<p><img src="./images/centos7服务器部署django项目。11.png" alt="" /></p>
+<div class="cnblogs_code">
+<pre><code>指定端口，启动Django项目：python3 manage.py runserver 0.0.0.0:8000<span style="color: #000000;">
+通过浏览器访问服务器官网ip</span>+端口号可查看页面信息  119.23.204.209:8000<span style="color: #000000;">
+服务器mysql版本：</span>5.7   Django版本：2.1   python版本：3.7</pre>
+</div>
+<p>4，发布网站</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">安装uwsgi : pip install uwsgi   pip3 install uwsgi
+mkdir </span>/etc/<span style="color: #000000;">uwsgi
+vim </span>/etc/uwsgi/<span style="color: #000000;">uwsgi.ini      写入以下内容
+[uwsgi]
+uid</span>=root      //<span style="color: #000000;">谁启动uwgi
+gid</span>=root      //<span style="color: #000000;">组是谁
+socket </span>= 127.0.0.1:9090    //<span style="color: #000000;">监听的ip地址和端口是多少
+master </span>= true        //<span style="color: #000000;">启动主进程
+vhost </span>= true         //<span style="color: #000000;">多站模式，可以发布多个网站
+no</span>-site = true       //<span style="color: #000000;">多站模式时不设置入口模块和文件
+workers </span>= 2        //<span style="color: #000000;">子进程数
+reload</span>-mercy = 10   //<span style="color: #000000;">平滑的重启
+vacuum </span>= true      //<span style="color: #000000;">退出、重启时清理文件
+max</span>-requests = 1000  //<span style="color: #000000;">开启10000个进程后，启动respawn下
+limit</span>-as = 512   //<span style="color: #000000;">将进程的总内存量控制在512M
+buffer</span>-size = 30000  //<span style="color: #000000;">buffer的大小
+pidfile </span>= /var/run/uwsgi9090.pid  //<span style="color: #000000;">pid文件，用于下面的脚本启动、停止该进程
+daemonize </span>= /var/log/<span style="color: #000000;">uwsgi9090.log
+pythonpath</span>=/root/web/lib/python3.7/site-packages</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>启动uwsgi：uwsgi --ini /etc/uwsgi/uwsgi.ini</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code>查看启用端口信息： netstat -<span style="color: #000000;">ntpl
+关闭uwsgi：
+cat </span>/var/run/uwsgi9090.pid     kill -9 11830<span style="color: #000000;">
+vim </span>/etc/init.d/<span style="color: #000000;">uwsgi     写入以下内容
+</span><span style="color: #008000;">#</span><span style="color: #008000;">! /bin/sh</span>
+DESC=<span style="color: #800000;">"</span><span style="color: #800000;">uwsgi daemon</span><span style="color: #800000;">"</span><span style="color: #000000;">
+NAME</span>=<span style="color: #000000;">uwsgi
+DAEMON</span>=/usr/local/bin/<span style="color: #000000;">uwsgi
+CONFIGFILE</span>=/etc/uwsgi/<span style="color: #000000;">$NAME.ini
+PIDFILE</span>=/var/run/${NAME}9090<span style="color: #000000;">.pid
+SCRIPTNAME</span>=/etc/init.d/<span style="color: #000000;">$NAME
+FIFOFILE</span>=/tmp/<span style="color: #000000;">uwsgififo
+set </span>-<span style="color: #000000;">e
+[ </span>-x <span style="color: #800000;">"</span><span style="color: #800000;">$DAEMON</span><span style="color: #800000;">"</span> ] ||<span style="color: #000000;"> exit 0
+ 
+do_start() {
+</span><span style="color: #0000ff;">if</span> [ ! -<span style="color: #000000;">f $PIDFILE ];then
+    $DAEMON $CONFIGFILE </span>|| echo -n <span style="color: #800000;">"</span><span style="color: #800000;">uwsgi running</span><span style="color: #800000;">"</span>
+<span style="color: #0000ff;">else</span><span style="color: #000000;">
+    echo </span><span style="color: #800000;">"</span><span style="color: #800000;">The PID is exit...</span><span style="color: #800000;">"</span><span style="color: #000000;">
+fi
+}
+ 
+do_stop() {
+</span><span style="color: #0000ff;">if</span> [ -<span style="color: #000000;">f $PIDFILE ];then
+    $DAEMON </span>--stop $PIDFILE || echo -n <span style="color: #800000;">"</span><span style="color: #800000;">uwsgi not running</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    rm </span>-<span style="color: #000000;">f $PIDFILE
+    echo </span><span style="color: #800000;">"</span><span style="color: #800000;">$DAEMON STOPED.</span><span style="color: #800000;">"</span>
+<span style="color: #0000ff;">else</span><span style="color: #000000;">
+    echo </span><span style="color: #800000;">"</span><span style="color: #800000;">The $PIDFILE dosen't found</span><span style="color: #800000;">"</span><span style="color: #000000;">
+fi
+}
+ 
+do_reload() {
+</span><span style="color: #0000ff;">if</span> [ -<span style="color: #000000;">p $PIDFILE ];then
+    echo w </span>&gt;<span style="color: #000000;"> $FIFOFILE
+</span><span style="color: #0000ff;">else</span><span style="color: #000000;">  
+    $DAEMON </span>--touch--workers--reload $PIDFILE || echo -n <span style="color: #800000;">"</span><span style="color: #800000;">uwsgi can't reload</span><span style="color: #800000;">"</span><span style="color: #000000;">
+fi
+}
+ 
+do_status() {
+    ps aux</span>|<span style="color: #000000;">grep $DAEMON
+}
+ 
+case </span><span style="color: #800000;">"</span><span style="color: #800000;">$1</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">in</span><span style="color: #000000;">
+ status)
+    echo </span>-en <span style="color: #800000;">"</span><span style="color: #800000;">Status $NAME: \n</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    do_status
+ ;;
+ start)
+    echo </span>-en <span style="color: #800000;">"</span><span style="color: #800000;">Starting $NAME: \n</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    do_start
+ ;;
+ stop)
+    echo </span>-en <span style="color: #800000;">"</span><span style="color: #800000;">Stopping $NAME: \n</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    do_stop
+ ;;
+ reload</span>|<span style="color: #000000;">graceful)
+    echo </span>-en <span style="color: #800000;">"</span><span style="color: #800000;">Reloading $NAME: \n</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    do_reload
+ ;;
+ </span>*<span style="color: #000000;">)
+    echo </span><span style="color: #800000;">"</span><span style="color: #800000;">Usage: $SCRIPTNAME {start|stop|reload}</span><span style="color: #800000;">"</span> &gt;&amp;2<span style="color: #000000;">
+    exit </span>3<span style="color: #000000;">
+ ;;
+esac
+exit 0</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 设置权限</span>
+chmod 755  /etc/init.d/<span style="color: #000000;">uwsgi
+启动uwsgi       </span>/etc/init.d/<span style="color: #000000;">uwsgi start
+vim </span>/usr/local/nginx/conf/nginx.conf</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">写入以下内容:
+注意：如果域名已经解析过了，server_name  localhost;改为server_name www.terroristhouse.com;</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">server {
+        listen       </span>80<span style="color: #000000;">;
+        server_name  localhost;
+ 
+        location </span>/<span style="color: #000000;"> {
+            include uwsgi_params;
+            uwsgi_pass </span>127.0.0.1:9090<span style="color: #000000;">;
+            uwsgi_param UWSGI_SCRIPT myweb.wsgi;
+            uwsgi_param UWSGI_CHDIR </span>/usr/local/nginx/html/<span style="color: #000000;">myweb;
+            index  index.html index.htm;
+            client_max_body_size 35m;
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_cache_valid 1m;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_temp_file_write_size 64k;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_busy_buffers_size 64k;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_buffers 8 64k;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_buffer_size 64k;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_read_timeout 300;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_send_timeout 300;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">uwsgi_connect_timeout 300;</span>
+<span style="color: #000000;">        }
+    }</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">移动项目到指定文件夹</span>
+mv myweb /usr/local/nginx/html/</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">静态文件配置
+
+</span>/usr/local/nginx/conf/<span style="color: #000000;">nginx.conf文件中设置
+server {
+       listen       </span>80<span style="color: #000000;">;
+       server_name  www.terroristhouse.com;
+location </span>/static/<span style="color: #000000;"> {
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">autoindex on;</span>
+        alias /usr/local/nginx/html/mysite7/static/<span style="color: #000000;">;
+   </span><span style="color: #0000ff;">break</span><span style="color: #000000;">;
+   </span><span style="color: #008000;">#</span><span style="color: #008000;">alias /usr/local/nginx/html/collectedstatic;</span>
+<span style="color: #000000;">}
+location </span>/media/<span style="color: #000000;"> {
+   alias </span>/usr/local/nginx/html/mysite7/media/<span style="color: #000000;">;
+   </span><span style="color: #0000ff;">break</span><span style="color: #000000;">;
+   </span><span style="color: #008000;">#</span><span style="color: #008000;">autoindex on;</span>
+   <span style="color: #008000;">#</span><span style="color: #008000;">alias /usr/local/nginx/html/collectedstatic;</span>
+}</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">收集本地项目安装的库项目目录下
+导出库:pip3 freeze </span>&gt;<span style="color: #000000;"> requirements.txt
+
+在服务器虚拟项目中安装库
+导入库: pip3 install </span>-r requirements.txt</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">重启 uwsgi和nginx  用浏览器访问域名可查看页面
+
+</span>/etc/init.d/<span style="color: #000000;">uwsgi stop        停止运行uwsgi
+</span>/etc/init.d/<span style="color: #000000;">uwsgi start        开启运行uwsgi
+killall </span>-9<span style="color: #000000;"> nginx                关闭nginx的进程
+</span>/usr/local/nginx/sbin/nginx    启动和查看nginx服务</pre>
+</div>
+<p>done。</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

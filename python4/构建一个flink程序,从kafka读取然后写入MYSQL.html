@@ -1,0 +1,614 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修构建一个flink程序,从kafka读取然后写入MYSQL' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>构建一个flink程序,从kafka读取然后写入MYSQL</center></div><div class='banquan'>原文出处:本文由博客园博主黄青石提供。<br/>
+原文连接:https://www.cnblogs.com/huangqingshi/p/12003453.html</div><br>
+    <p>　　最近flink已经变得比较流行了，所以大家要了解flink并且使用flink。现在最流行的实时计算应该就是flink了，它具有了流计算和批处理功能。它可以处理有界数据和无界数据，也就是可以处理永远生产的数据。具体的细节我们不讨论，我们直接搭建一个flink功能。总体的思路是source -&gt; transform -&gt; sink，即从source获取相应的数据来源，然后进行数据转换，将数据从比较乱的格式，转换成我们需要的格式，转换处理后，然后进行sink功能，也就是将数据写入到相应的db里边或文件中用于存储和展现。</p>
+<p>　　接下来我们需要下载flink，kafka，mysql, zookeeper，　　我直接下载了tar或tgz包，然后解压。</p>
+<p>　　下载好flink之后，然后启动一下，比如我下载了flink-1.9.1-bin-scala_2.11.tgz，然后解压一下。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">tar</span> -zxvf flink-<span style="color: #800080;">1.9</span>.<span style="color: #800080;">1</span>-bin-scala_2.<span style="color: #800080;">11</span><span style="color: #000000;">.tgz
+cd flink</span>-<span style="color: #800080;">1.9</span>.<span style="color: #800080;">1</span><span style="color: #000000;">
+.</span>/bin/start-cluster.<span style="color: #0000ff;">sh</span></pre>
+</div>
+<p>　　启动好了之后访问 http://localhost:8081 ，会看到截图。</p>
+<p><img src="./images/构建一个flink程序,从kafka读取然后写入MYSQL0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;　 下载zookeeper，解压之后，复制zookeeper/conf下的zoo_sample.cfg, 然后启动，命令如下，zookeeper是和kafka结合使用的，因为kafka要监听和发现所有broker的。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">cp</span><span style="color: #000000;"> zoo_sample.cfg zoo.cfg
+cd ..</span>/<span style="color: #000000;">
+.</span>/bin/zkServer.<span style="color: #0000ff;">sh start</span></pre>
+</div>
+<p>　　 接下来下载kafka和启动, 创建一个person的topic，由一个partition和一个备份构成。</p>
+<div class="cnblogs_code">
+<pre><code>./bin/kafka-server-start.<span style="color: #0000ff;">sh</span> config/<span style="color: #000000;">server.properties
+.</span>/bin/kafka-topics --create --zookeeper localhost:<span style="color: #800080;">2181</span> --replication-factor <span style="color: #800080;">1</span> --partitions <span style="color: #800080;">1</span> --topic person</pre>
+</div>
+<p>　　mysql的话，大家可以自行安装了，安装好之后可以在数据库里创建一张表。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">CREATE</span> <span style="color: #0000ff;">TABLE</span><span style="color: #000000;"> `Person` (
+  `id` mediumint </span><span style="color: #808080;">NOT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;"> auto_increment,
+  `name` </span><span style="color: #0000ff;">varchar</span>(<span style="color: #800000; font-weight: bold;">255</span>) <span style="color: #808080;">NOT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;">,
+  `age` </span><span style="color: #0000ff;">int</span>(<span style="color: #800000; font-weight: bold;">11</span>) <span style="color: #0000ff;">DEFAULT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;">,
+  `createDate` </span><span style="color: #0000ff;">timestamp</span> <span style="color: #0000ff;">NULL</span> <span style="color: #0000ff;">DEFAULT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;">,
+  </span><span style="color: #0000ff;">PRIMARY</span> <span style="color: #0000ff;">KEY</span><span style="color: #000000;"> (`id`)
+) ENGINE</span><span style="color: #808080;">=</span>InnoDB <span style="color: #0000ff;">DEFAULT</span> CHARSET<span style="color: #808080;">=</span>utf8mb4 COLLATE<span style="color: #808080;">=</span>utf8mb4_general_ci</pre>
+</div>
+<p>　　接下来我们该创建一个JAVA工程，采用的maven的方式。前提是大家一定要先安装好maven，可以执行mvn命令。直接执行一下maven的时候可能会卡住，下载不了，我先从<!--?xml version="1.0" encoding="UTF-8"?--></p>
+<div>&nbsp;<a href="http://repo.maven.apache.org/maven2/">http://repo.maven.apache.org/maven2/</a>上下载一个&nbsp;<!--?xml version="1.0" encoding="UTF-8"?--> archetype-catalog.xml 文件，然后放到本地的maven对应的库，你们可以参考这个我的路径进行调整。<!--?xml version="1.0" encoding="UTF-8"?--> &nbsp;　　/Users/huangqingshi/.m2/repository/org/apache/maven/archetype/archetype-catalog/2.4</div>
+<div>　　
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">mvn archetype:generate \ 
+    </span>-DarchetypeGroupId=<span style="color: #000000;">org.apache.flink \
+    </span>-DarchetypeArtifactId=flink-quickstart-<span style="color: #000000;">java \
+    </span>-DarchetypeVersion=<span style="color: #800080;">1.7</span>.<span style="color: #800080;">2</span><span style="color: #000000;"> \
+    </span>-DgroupId=flink-<span style="color: #000000;">project \
+    </span>-DartifactId=flink-<span style="color: #000000;">project \
+    </span>-Dversion=<span style="color: #800080;">0.1</span><span style="color: #000000;"> \
+    </span>-Dpackage=<span style="color: #000000;">myflink \
+    </span>-DinteractiveMode=<span style="color: #0000ff;">false \  #这个是创建项目时采用交互方式，上边指定了了相关的版本号和包名等信息，所以不需要交互方式进行。</span>
+    <span style="color: #ff0000;">-DarchetypeCatalog=local  #这个是使用上边下载的文件，local也就是从本地文件获取，因为远程获取特别慢。导致工程生成不了。</span></pre>
+</div>
+<p>　　我的这个项目添加了一些依赖比如kafka的，数据库连接等，具体的pom文件内容为：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">&lt;!--</span><span style="color: #008000;">
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+</span><span style="color: #008000;">--&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">project </span><span style="color: #ff0000;">xmlns</span><span style="color: #0000ff;">="http://maven.apache.org/POM/4.0.0"</span><span style="color: #ff0000;"> xmlns:xsi</span><span style="color: #0000ff;">="http://www.w3.org/2001/XMLSchema-instance"</span><span style="color: #ff0000;">
+    xsi:schemaLocation</span><span style="color: #0000ff;">="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">modelVersion</span><span style="color: #0000ff;">&gt;</span>4.0.0<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">modelVersion</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>flink-project<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>flink-project<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>0.1<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">packaging</span><span style="color: #0000ff;">&gt;</span>jar<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">packaging</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">name</span><span style="color: #0000ff;">&gt;</span>Flink Quickstart Job<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">name</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">url</span><span style="color: #0000ff;">&gt;</span>http://www.myorganization.org<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">url</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">properties</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">project.build.sourceEncoding</span><span style="color: #0000ff;">&gt;</span>UTF-8<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">project.build.sourceEncoding</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">flink.version</span><span style="color: #0000ff;">&gt;</span>1.7.2<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">flink.version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">java.version</span><span style="color: #0000ff;">&gt;</span>1.8<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">java.version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">scala.binary.version</span><span style="color: #0000ff;">&gt;</span>2.11<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">scala.binary.version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">maven.compiler.source</span><span style="color: #0000ff;">&gt;</span>${java.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">maven.compiler.source</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">maven.compiler.target</span><span style="color: #0000ff;">&gt;</span>${java.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">maven.compiler.target</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">properties</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">repositories</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">repository</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">id</span><span style="color: #0000ff;">&gt;</span>apache.snapshots<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">id</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">name</span><span style="color: #0000ff;">&gt;</span>Apache Development Snapshot Repository<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">name</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">url</span><span style="color: #0000ff;">&gt;</span>https://repository.apache.org/content/repositories/snapshots/<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">url</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">releases</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">enabled</span><span style="color: #0000ff;">&gt;</span>false<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">enabled</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">releases</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">snapshots</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">enabled</span><span style="color: #0000ff;">&gt;</span>true<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">enabled</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">snapshots</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">repository</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">repositories</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependencies</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Apache Flink dependencies </span><span style="color: #008000;">--&gt;</span>
+        <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> These dependencies are provided, because they should not be packaged into the JAR file. </span><span style="color: #008000;">--&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.flink<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>flink-java<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>${flink.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>provided<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.flink<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>flink-streaming-java_${scala.binary.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>${flink.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>provided<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+        <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Add connector dependencies here. They must be in the default scope (compile). </span><span style="color: #008000;">--&gt;</span>
+
+        <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Example:
+
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.flink&lt;/groupId&gt;
+            &lt;artifactId&gt;flink-connector-kafka-0.10_${scala.binary.version}&lt;/artifactId&gt;
+            &lt;version&gt;${flink.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        </span><span style="color: #008000;">--&gt;</span>
+
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.flink<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>flink-connector-kafka-0.10_${scala.binary.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>${flink.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+        <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Add logging framework, to produce console output when running in the IDE. </span><span style="color: #008000;">--&gt;</span>
+        <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> These dependencies are excluded from the application JAR by default. </span><span style="color: #008000;">--&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.slf4j<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>slf4j-log4j12<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>1.7.7<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>runtime<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>log4j<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>log4j<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>1.2.17<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>runtime<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>com.alibaba<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>fastjson<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>1.2.62<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>com.google.guava<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>guava<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>28.1-jre<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>redis.clients<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>jedis<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>3.1.0<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>mysql<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>mysql-connector-java<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>8.0.16<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>com.alibaba<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>druid<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>1.1.20<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependencies</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">build</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">plugins</span><span style="color: #0000ff;">&gt;</span>
+
+            <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Java Compiler </span><span style="color: #008000;">--&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">plugin</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.maven.plugins<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>maven-compiler-plugin<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>3.1<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">configuration</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">source</span><span style="color: #0000ff;">&gt;</span>${java.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">source</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">target</span><span style="color: #0000ff;">&gt;</span>${java.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">target</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">configuration</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">plugin</span><span style="color: #0000ff;">&gt;</span>
+
+            <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> We use the maven-shade plugin to create a fat jar that contains all necessary dependencies. </span><span style="color: #008000;">--&gt;</span>
+            <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Change the value of &lt;mainClass&gt;...&lt;/mainClass&gt; if your program entry point changes. </span><span style="color: #008000;">--&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">plugin</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.maven.plugins<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>maven-shade-plugin<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>3.0.0<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">executions</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Run shade goal on package phase </span><span style="color: #008000;">--&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">execution</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">phase</span><span style="color: #0000ff;">&gt;</span>package<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">phase</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">goals</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>shade<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">goals</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">configuration</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactSet</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">excludes</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>org.apache.flink:force-shading<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>com.google.code.findbugs:jsr305<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>org.slf4j:*<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>log4j:*<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">excludes</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactSet</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">filters</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">filter</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Do not copy the signatures in the META-INF folder.
+                                    Otherwise, this might cause SecurityExceptions when using the JAR. </span><span style="color: #008000;">--&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifact</span><span style="color: #0000ff;">&gt;</span>*:*<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifact</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">excludes</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>META-INF/*.SF<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>META-INF/*.DSA<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>META-INF/*.RSA<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">exclude</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">excludes</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">filter</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">filters</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">transformers</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">transformer </span><span style="color: #ff0000;">implementation</span><span style="color: #0000ff;">="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">mainClass</span><span style="color: #0000ff;">&gt;</span>myflink.StreamingJob<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">mainClass</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">transformer</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">transformers</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">configuration</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">execution</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">executions</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">plugin</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">plugins</span><span style="color: #0000ff;">&gt;</span>
+
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">pluginManagement</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">plugins</span><span style="color: #0000ff;">&gt;</span>
+
+                <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> This improves the out-of-the-box experience in Eclipse by resolving some warnings. </span><span style="color: #008000;">--&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">plugin</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.eclipse.m2e<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>lifecycle-mapping<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>1.0.0<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">configuration</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lifecycleMappingMetadata</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">pluginExecutions</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">pluginExecution</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">pluginExecutionFilter</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.maven.plugins<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>maven-shade-plugin<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">versionRange</span><span style="color: #0000ff;">&gt;</span>[3.0.0,)<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">versionRange</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">goals</span><span style="color: #0000ff;">&gt;</span>
+                                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>shade<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">goals</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">pluginExecutionFilter</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">action</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">ignore</span><span style="color: #0000ff;">/&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">action</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">pluginExecution</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">pluginExecution</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">pluginExecutionFilter</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.maven.plugins<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>maven-compiler-plugin<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">versionRange</span><span style="color: #0000ff;">&gt;</span>[3.1,)<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">versionRange</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">goals</span><span style="color: #0000ff;">&gt;</span>
+                                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>testCompile<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>
+                                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>compile<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">goal</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">goals</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">pluginExecutionFilter</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">action</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">ignore</span><span style="color: #0000ff;">/&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">action</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">pluginExecution</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">pluginExecutions</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">lifecycleMappingMetadata</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">configuration</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">plugin</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">plugins</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">pluginManagement</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">build</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> This profile helps to make things run out of the box in IntelliJ </span><span style="color: #008000;">--&gt;</span>
+    <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Its adds Flink's core classes to the runtime class path. </span><span style="color: #008000;">--&gt;</span>
+    <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> Otherwise they are missing in IntelliJ, because the dependency is 'provided' </span><span style="color: #008000;">--&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">profiles</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">profile</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">id</span><span style="color: #0000ff;">&gt;</span>add-dependencies-for-IDEA<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">id</span><span style="color: #0000ff;">&gt;</span>
+
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">activation</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">property</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">name</span><span style="color: #0000ff;">&gt;</span>idea.version<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">name</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">property</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">activation</span><span style="color: #0000ff;">&gt;</span>
+
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependencies</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.flink<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>flink-java<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>${flink.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>compile<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>org.apache.flink<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">groupId</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>flink-streaming-java_${scala.binary.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">artifactId</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>${flink.version}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">version</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>compile<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">scope</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependency</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">dependencies</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">profile</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">profiles</span><span style="color: #0000ff;">&gt;</span>
+
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">project</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>　　接下来，创建一个POJO对象用于保存数据等操作。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflink.pojo;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Date;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-07
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Person {
+
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> String name;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> age;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Date createDate;
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> String getName() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> name;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setName(String name) {
+        </span><span style="color: #0000ff;">this</span>.name =<span style="color: #000000;"> name;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> getAge() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> age;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setAge(<span style="color: #0000ff;">int</span><span style="color: #000000;"> age) {
+        </span><span style="color: #0000ff;">this</span>.age =<span style="color: #000000;"> age;
+    }
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Date getCreateDate() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> createDate;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setCreateDate(Date createDate) {
+        </span><span style="color: #0000ff;">this</span>.createDate =<span style="color: #000000;"> createDate;
+    }
+}</span></pre>
+</div>
+<p>　　　创建一个写入kafka的任务，用于将数据写入到kafka。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflink.kafka;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> com.alibaba.fastjson.JSON;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflink.pojo.Person;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.commons.lang3.RandomUtils;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.kafka.clients.producer.KafkaProducer;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.kafka.clients.producer.ProducerRecord;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Date;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Properties;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.concurrent.TimeUnit;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-07
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> KafkaWriter {
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">本地的kafka机器列表</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String BROKER_LIST = "localhost:9092"<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">kafka的topic</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String TOPIC_PERSON = "PERSON"<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">key序列化的方式，采用字符串的形式</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String KEY_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer"<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">value的序列化的方式</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String VALUE_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer"<span style="color: #000000;">;
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> writeToKafka() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception{
+        Properties props </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Properties();
+        props.put(</span>"bootstrap.servers"<span style="color: #000000;">, BROKER_LIST);
+        props.put(</span>"key.serializer"<span style="color: #000000;">, KEY_SERIALIZER);
+        props.put(</span>"value.serializer"<span style="color: #000000;">, VALUE_SERIALIZER);
+
+        KafkaProducer</span>&lt;String, String&gt; producer = <span style="color: #0000ff;">new</span> KafkaProducer&lt;&gt;<span style="color: #000000;">(props);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">构建Person对象，在name为hqs后边加个随机数</span>
+        <span style="color: #0000ff;">int</span> randomInt = RandomUtils.nextInt(1, 100000<span style="color: #000000;">);
+        Person person </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Person();
+        person.setName(</span>"hqs" +<span style="color: #000000;"> randomInt);
+        person.setAge(randomInt);
+        person.setCreateDate(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> Date());
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">转换成JSON</span>
+        String personJson =<span style="color: #000000;"> JSON.toJSONString(person);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">包装成kafka发送的记录</span>
+        ProducerRecord&lt;String, String&gt; record = <span style="color: #0000ff;">new</span> ProducerRecord&lt;String, String&gt;(TOPIC_PERSON, <span style="color: #0000ff;">null</span><span style="color: #000000;">,
+                </span><span style="color: #0000ff;">null</span><span style="color: #000000;">, personJson);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">发送到缓存</span>
+<span style="color: #000000;">        producer.send(record);
+        System.out.println(</span>"向kafka发送数据:" +<span style="color: #000000;"> personJson);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">立即发送</span>
+<span style="color: #000000;">        producer.flush();
+
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args) {
+        </span><span style="color: #0000ff;">while</span>(<span style="color: #0000ff;">true</span><span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">每三秒写一条数据</span>
+                TimeUnit.SECONDS.sleep(3<span style="color: #000000;">);
+                writeToKafka();
+            } </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Exception e) {
+                e.printStackTrace();
+            }
+
+        }
+    }
+
+}</span></pre>
+</div>
+<p>　　创建一个数据库连接的工具类，用于连接数据库。使用Druid工具，然后放入具体的Driver，Url，数据库用户名和密码，初始化连接数，最大活动连接数，最小空闲连接数也就是数据库连接池，创建好之后返回需要的连接。</p>
+<div class="cnblogs_code">
+<pre><code></pre>
+<pre><code>package myflink.db;<br /><br />import com.alibaba.druid.pool.DruidDataSource;<br /><br />import java.sql.Connection;<br /><br />/**<br /> * @author huangqingshi<br /> * @Date 2019-12-07<br /> */<br />public class DbUtils {<br /><br />    private static DruidDataSource dataSource;<br /><br />    public static Connection getConnection() throws Exception {<br />        dataSource = new DruidDataSource();<br />        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");<br />        dataSource.setUrl("jdbc:mysql://localhost:3306/testdb");<br />        dataSource.setUsername("root");<br />        dataSource.setPassword("root");<br />        //设置初始化连接数，最大连接数，最小闲置数<br />        dataSource.setInitialSize(10);<br />        dataSource.setMaxActive(50);<br />        dataSource.setMinIdle(5);<br />        //返回连接<br />        return  dataSource.getConnection();<br />    }<br /><br />}</pre>
+<pre><code><span style="color: #0000ff;">&nbsp;</span></pre>
+</div>
+<p>　　接下来创建一个MySQLSink，继承RichSinkFunction类。重载里边的open、invoke、close方法，在执行数据sink之前先执行open方法，然后开始调用invoke, 调用完成后最后执行close方法。也就是先在open里边创建数据库连接，创建好之后进行调用invoke，执行具体的数据库写入程序，执行完所有的数据库写入程序之后，最后没有数据之后会调用close方法，将数据库连接资源进行关闭和释放。具体参考如下代码。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflink.sink;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflink.db.DbUtils;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflink.pojo.Person;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.configuration.Configuration;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.Connection;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.PreparedStatement;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.Timestamp;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.List;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-07
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> MySqlSink <span style="color: #0000ff;">extends</span> RichSinkFunction&lt;List&lt;Person&gt;&gt;<span style="color: #000000;"> {
+
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> PreparedStatement ps;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Connection connection;
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> open(Configuration parameters) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #0000ff;">super</span><span style="color: #000000;">.open(parameters);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">获取数据库连接，准备写入数据库</span>
+        connection =<span style="color: #000000;"> DbUtils.getConnection();
+        String sql </span>= "insert into person(name, age, createDate) values (?, ?, ?); "<span style="color: #000000;">;
+        ps </span>=<span style="color: #000000;"> connection.prepareStatement(sql);
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> close() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #0000ff;">super</span><span style="color: #000000;">.close();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">关闭并释放资源</span>
+        <span style="color: #0000ff;">if</span>(connection != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            connection.close();
+        }
+
+        </span><span style="color: #0000ff;">if</span>(ps != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            ps.close();
+        }
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> invoke(List&lt;Person&gt; persons, Context context) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #0000ff;">for</span><span style="color: #000000;">(Person person : persons) {
+            ps.setString(</span>1<span style="color: #000000;">, person.getName());
+            ps.setInt(</span>2<span style="color: #000000;">, person.getAge());
+            ps.setTimestamp(</span>3, <span style="color: #0000ff;">new</span><span style="color: #000000;"> Timestamp(person.getCreateDate().getTime()));
+            ps.addBatch();
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">一次性写入</span>
+        <span style="color: #0000ff;">int</span>[] count =<span style="color: #000000;"> ps.executeBatch();
+        System.out.println(</span>"成功写入Mysql数量：" +<span style="color: #000000;"> count.length);
+
+    }
+}</span></pre>
+</div>
+<p>　　创建从kafka读取数据的source，然后sink到数据库。配置连接kafka所需要的环境，然后从kafka里边读取数据然后transform成Person对象，这个就是上边所说的transform。收集5秒钟窗口从kafka获取的所有数据，最后sink到MySQL数据库。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflink;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> com.alibaba.fastjson.JSONObject;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflink.kafka.KafkaWriter;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflink.pojo.Person;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflink.sink.MySqlSink;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.common.serialization.SimpleStringSchema;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.datastream.DataStream;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.datastream.DataStreamSource;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.functions.windowing.AllWindowFunction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.windowing.time.Time;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.windowing.windows.TimeWindow;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.util.Collector;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.List;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Properties;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-07
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> DataSourceFromKafka {
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> main(String[] args) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception{
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">构建流执行环境</span>
+        StreamExecutionEnvironment env =<span style="color: #000000;"> StreamExecutionEnvironment.getExecutionEnvironment();
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">kafka</span>
+        Properties prop = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Properties();
+        prop.put(</span>"bootstrap.servers"<span style="color: #000000;">, KafkaWriter.BROKER_LIST);
+        prop.put(</span>"zookeeper.connect", "localhost:2181"<span style="color: #000000;">);
+        prop.put(</span>"group.id"<span style="color: #000000;">, KafkaWriter.TOPIC_PERSON);
+        prop.put(</span>"key.serializer"<span style="color: #000000;">, KafkaWriter.KEY_SERIALIZER);
+        prop.put(</span>"value.serializer"<span style="color: #000000;">, KafkaWriter.VALUE_SERIALIZER);
+        prop.put(</span>"auto.offset.reset", "latest"<span style="color: #000000;">);
+
+        DataStreamSource</span>&lt;String&gt; dataStreamSource = env.addSource(<span style="color: #0000ff;">new</span> FlinkKafkaConsumer010&lt;String&gt;<span style="color: #000000;">(
+                KafkaWriter.TOPIC_PERSON,
+                </span><span style="color: #0000ff;">new</span><span style="color: #000000;"> SimpleStringSchema(),
+                prop
+                )).
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">单线程打印，控制台不乱序，不影响结果</span>
+                setParallelism(1<span style="color: #000000;">);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">从kafka里读取数据，转换成Person对象</span>
+        DataStream&lt;Person&gt; dataStream = dataStreamSource.map(value -&gt; JSONObject.parseObject(value, Person.<span style="color: #0000ff;">class</span><span style="color: #000000;">));
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">收集5秒钟的总数</span>
+        dataStream.timeWindowAll(Time.seconds(5L<span style="color: #000000;">)).
+                apply(</span><span style="color: #0000ff;">new</span> AllWindowFunction&lt;Person, List&lt;Person&gt;, TimeWindow&gt;<span style="color: #000000;">() {
+
+                    @Override
+                    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> apply(TimeWindow timeWindow, Iterable&lt;Person&gt; iterable, Collector&lt;List&lt;Person&gt;&gt; out) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+                        List</span>&lt;Person&gt; persons =<span style="color: #000000;"> Lists.newArrayList(iterable);
+
+                        </span><span style="color: #0000ff;">if</span>(persons.size() &gt; 0<span style="color: #000000;">) {
+                            System.out.println(</span>"5秒的总共收到的条数：" +<span style="color: #000000;"> persons.size());
+                            out.collect(persons);
+                        }
+
+                    }
+                })
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">sink 到数据库</span>
+                .addSink(<span style="color: #0000ff;">new</span><span style="color: #000000;"> MySqlSink());
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">打印到控制台
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">.print();</span>
+<span style="color: #000000;">
+
+        env.execute(</span>"kafka 消费任务开始"<span style="color: #000000;">);
+    }
+
+}</span></pre>
+</div>
+<p>　　一切准备就绪，然后运行KafkaWriter的main方法往kafka的person主题里边写入数据。看到日志说明已经写入成功了。</p>
+<p><img src="./images/构建一个flink程序,从kafka读取然后写入MYSQL1.png" alt="" /></p>
+<p>&nbsp;　　运行DataSourceFromKafka的main方法从kafka读取数据，然后写入数据库，提示如下：</p>
+<p><img src="./images/构建一个flink程序,从kafka读取然后写入MYSQL2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;　　然后查询数据库，数据库里边写入数据库了， 说明成功了。</p>
+<p><img src="./images/构建一个flink程序,从kafka读取然后写入MYSQL3.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;　　完工啦， 如果有什么地方不对的地方欢迎指出。</p>
+</div>
+<p>　　</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

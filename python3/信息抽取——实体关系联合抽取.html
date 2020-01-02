@@ -1,0 +1,265 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修信息抽取——实体关系联合抽取' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>信息抽取——实体关系联合抽取</center></div><div class='banquan'>原文出处:本文由博客园博主西多士NLP提供。<br/>
+原文连接:https://www.cnblogs.com/sandwichnlp/p/12049829.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#简介">简介</a></li>
+        <li><a href="#实体关系联合抽取">实体关系联合抽取</a><ul>
+        <li><a href="#model-1-end-to-end-relation-extraction-using-lstms-on-sequences-and-tree-structures">Model 1: End-to-End Relation Extraction using LSTMs on Sequences and Tree Structures</a></li>
+        <li><a href="#model-2-joint-extraction-of-entities-and-relations-based-on-a-novel-tagging-scheme">Model 2: Joint Extraction of Entities and Relations Based on a Novel Tagging Scheme</a></li>
+        <li><a href="#model-3-joint-entity-recognition-and-relation-extraction-as-a-multi-head-selection-problem">Model 3: Joint entity recognition and relation extraction as a multi-head selection problem</a></li>
+        <li><a href="#model-4-基于dgcnn和概率图的轻量级信息抽取模型">Model 4: 基于DGCNN和概率图的轻量级信息抽取模型</a></li>
+        <li><a href="#model-5-entity-relation-extraction-as-multi-turn-question-answering">Model 5: Entity-Relation Extraction as Multi-turn Question Answering</a></li>
+        <li><a href="#model-6-a-novel-hierarchical-binary-tagging-framework-for-joint-extraction-of-entities-and-relations">Model 6: A Novel Hierarchical Binary Tagging Framework for Joint Extraction of Entities and Relations</a></li>
+        </ul></li>
+        <li><a href="#小结">小结</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="简介">简介</h1>
+<p>通常，早期的信息抽取将实体抽取和关系抽取看作串联的任务，这样的串联模型在建模上相对更简单，但这样将实体识别和关系抽取当作两个独立的任务明显会存在一系列的问题：</p>
+<ul>
+<li>两个任务的解决过程中没有考虑到两个子任务之间的相关性，从而导致关系抽取任务的结果严重依赖于实体抽取的结果，导致误差累积的问题</li>
+<li>对于一对多的问题，也就是关系重叠问题，串联模型无法提供较好的解决方案</li>
+</ul>
+<p>因此，近年来有许多工作都考虑将实体识别与关系抽取任务进行联合建模，这种 end-to-end 的模型直觉上会有更优的效果。</p>
+<h1 id="实体关系联合抽取">实体关系联合抽取</h1>
+<h2 id="model-1-end-to-end-relation-extraction-using-lstms-on-sequences-and-tree-structures">Model 1: End-to-End Relation Extraction using LSTMs on Sequences and Tree Structures</h2>
+<p>原文链接：<a href="https://www.aclweb.org/anthology/P16-1105/" class="uri">https://www.aclweb.org/anthology/P16-1105/</a></p>
+<p>该论文是经典的 end-to-end 实体关系联合抽取模型，在此之前，联合抽取模型通常都是基于人工构造特征的结构化学习方法，而该论文采用了端到端的神经网络结构来进行建模，该模型基于词序信息以及依存树结构信息来抽取实体以及实体关系，其主要模型结构如下图所示：<br />
+<img src="./images/信息抽取——实体关系联合抽取0.png" width = "100%" height = "100%"></p>
+<p>该模型主要分为如下三个部分：</p>
+<ul>
+<li>Embeddings layer：Embedding 层主要用于学习对应表征，整个模型中主要有四个 Embedding 层，分别用来表示词嵌入<span class="math inline">\(v^{(w)}\)</span>、词性(POS)嵌入<span class="math inline">\(v^{(p)}\)</span>、依存关系嵌入 <span class="math inline">\(v^{(d)}\)</span> 以及实体标签嵌入 <span class="math inline">\(v^{(e)}\)</span>。注意每个嵌入层是用在模型的不同位置的。</li>
+<li>Sequence Layer：嵌入层的词嵌入以及POS嵌入作为该层的输入，即时刻 <span class="math inline">\(t\)</span> 的输入为 <span class="math inline">\(x_t = [v^{(w)}_t, v^{(p)}_t]\)</span>，Sequence Layer 主要完成的是实体识别任务，有如下几个小块
+<ul>
+<li>利用 BiLSTM 作为序列编码器，得到的输出则是 BiLSTM 在同一个时刻两个方向上的输出 <span class="math inline">\(s_t = [\overrightarrow{h}_t; \overleftarrow{h}_t]\)</span></li>
+<li><p>将实体识别任务看作是一个序列标注任务，实体标签采用 BILOU(Begin, Inside, Last, Outside, Unit) 的标注方式，而实体类别接续在实体标签之后 (标准方法可以参考我关于序列标注的第一篇文章)。利用两个全连接层来实现实体识别<br />
+<span class="math display">\[\begin{aligned}
+  h^{(e)}_t &amp;= tanh(W^{(e_h)}[s_t; v_{t-1}^{(e)}] + b^{(e_h)})\\
+  y_t &amp;= softmax (W^{(e_y)}h^{(e)}_t + b^{(e_y)})
+  \end{aligned}\]</span></p>
+显然，在每个词的标签预测时，将考虑到上一个词的预测结果，从而考虑到标签上的依赖性。</li>
+</ul></li>
+<li><p>Dependency layer：该层主要关注两个实体在依存树的最短路径(shortest path)，最短路径在做个关系分类研究中已被证明是十分有效的。作者采用了双向树结构的 BiLSTM 来捕捉两个实体之间的关系。从论文中的表达式来看，树结构的 LSTM 与传统 LSTM 的区别在于，其接受多个子节点的隐藏信息，而不仅仅是上一个时刻的隐藏信息。作者提出一种新的基于树结构的 LSTM，其相同类型的子节点共享参数矩阵，同时允许可变数量的子节点(感兴趣的读者可以去原文看看模型细节，公式较多这里就不做详细介绍了)。该层以对应 Sequence Layer 对应时刻的隐藏状态、依存关系嵌入和实体标签嵌入的拼接作为模型输入，即<br />
+<span class="math display">\[x_t = [s_t; v_t^{(d)}; v_t^{(e)}]\]</span></p>
+<p>作者将 Dependency layer 堆叠在 Sequence layer 上，因此 Dependency layer 可以依赖 Sequence layer 的输出，或者说实体识别的结果间接地对关系分类的结果加以影响。</p>
+<p>对于构造的树结构的 BiLSTM，存在两个传输方向，即从子节点到根节点方向 &quot;<span class="math inline">\(\uparrow\)</span>&quot;，和从根节点到子节点方向 &quot;<span class="math inline">\(\downarrow\)</span>&quot;，最终用于关系分类的输入，为根节点位置 <span class="math inline">\(\uparrow\)</span> 方向上的隐藏状态，和两个实体的 <span class="math inline">\(\downarrow\)</span> 方向上的隐藏状态的拼接，即<br />
+<span class="math display">\[d_p = [\uparrow h_{pa}; \downarrow h_{p1}; \downarrow h_{p2}]\]</span></p>
+<p>此外，考虑到每个输出都是只考虑到单词之间的关系，而无法利用整个实体的信息，为了缓解这个问题，作者将 Sequence layer 上对应实体的隐藏层求平均拼接到 <span class="math inline">\(d_p\)</span> 上，即<br />
+<span class="math display">\[d_p&#39; = [d_p;\frac{1}{|I_{p_1}|}\sum_{i\in I_{p_1}}s_i;\frac{1}{|I_{p_2}|}\sum_{i\in I_{p_2}}s_i]\]</span></p>
+<p>其中，<span class="math inline">\(I_{p_1}\)</span> 和 <span class="math inline">\(I_{p_2}\)</span> 分别表示实体 1 和实体 2 的单词集合，将该向量直接输入与 Sequence layer 中类似的分类器进行分类，即<br />
+<span class="math display">\[\begin{aligned}
+  h^{(r)}_p &amp;= tanh(W^{(r_h)}d_p&#39; + b^{(r_h)})\\
+  y_p &amp;= softmax (W^{(r_y)}h^{(r)}_t + b^{(r_y)})
+  \end{aligned}\]</span></p></li>
+</ul>
+<p><strong>小结</strong>：总的来说，该任务通过在实体识别和关系抽取任务中共享 Embedding layer 和 Sequence layer 参数的方法，加强两个任务之间的相关性，确实存在一定的创新，且设计了树结构的 LSTM 模型用于关系分类任务中。但是其模型设计上还存在很大的缺陷，如实体抽取任务上忽略了标签之间的长依赖关系，此外实体与关系的抽取还是存在先后性，两个任务并不是完全同步进行的。这篇论文首次将神经网络模型用于解决实体关系联合抽取任务，属于这块领域的开山之作，之后很多工作都在此基础上进行改进，或与该工作的结果进行对比</p>
+<h2 id="model-2-joint-extraction-of-entities-and-relations-based-on-a-novel-tagging-scheme">Model 2: Joint Extraction of Entities and Relations Based on a Novel Tagging Scheme</h2>
+<p>原文链接：<a href="https://arxiv.org/abs/1706.05075" class="uri">https://arxiv.org/abs/1706.05075</a></p>
+<p>该篇论文被评为 ACL2017 杰出论文，其主要做法是将实体关系联合抽取任务看作一个序列标注任务来处理，取得了非常好的效果。</p>
+<p>作者认为，之前的做法多数都需要大量复杂的特征工程，并且十分依赖其他的 NLP 工具，这将导致误差传播问题。虽然 <strong>Model 1</strong> 通过共享参数的方法将两个任务整合到同一个模型当中，但是实体抽取与关系识别任务仍然是两个分离的过程，这将造成产生大量的冗余信息。</p>
+<p>作者认为，实体关系联合抽取的关键就是要得到实体对以及它们之间关系组成的三元组。因此作者的做法是直接对三元组进行建模，而不是分别提取实体和关系。为了解决这个问题，作者设计了一种新颖的标注方案，它包含实体信息和它们所持有的关系，对于系列标注问题，很容易使用神经网络来建模，而不需要复杂的特征工程。</p>
+<p>论文的主要贡献有如下几点：</p>
+<ul>
+<li>提出了一种新的标注方案，联合提取实体和关系，可以很容易地将提取问题转化为标注任务。</li>
+<li>基于我们的标注方案，我们研究了不同类型的端到端模型来解决问题。基于标记的方法比大多数现有的流水线和联合学习方法要好。</li>
+<li>此外，我们还开发了具有偏置损失函数的端到端模型，以适应新型标注。它可以增强相关实体之间的关联。<br />
+<img src="./images/信息抽取——实体关系联合抽取1.png" width = "100%" height = "100%"></li>
+</ul>
+<p>下面简单介绍一下论文如何将提取问题转换为基于本文标注方法的标注问题，简单的标注实例如上图所示</p>
+<ul>
+<li>需要抽取的三元组可以表示为：(Entity1, RelationType, Entity2)，其中，Entity1 和 Entity2 需要抽取的文中的实体，RelationType 为预定义的 Entity1 和 Entity2 之间的关系</li>
+<li>非抽取对象用标签 &quot;O&quot; 标注，表示 &quot;Other&quot;</li>
+<li>实体对象的标签由三部分组成：单词位置、关系类型、关系角色
+<ul>
+<li>单词位置使用 &quot;BIES&quot; 的方式来标注，表示单词在实体中的位置信息</li>
+<li>关系类型直接从预定义的关系集合中获得</li>
+<li>关系角色直接用 &quot;1&quot; 和 &quot;2&quot; 表示，用于表示实体在三元组中的位置</li>
+<li>标签的总数为 $2 \times 4 \times|R| + 1 $，其中 <span class="math inline">\(|R|\)</span> 是预定义的关系集的大小</li>
+</ul></li>
+<li>对于已标注的序列，根据就近原则将其合并为需要抽取的三元组<br />
+<img src="./images/信息抽取——实体关系联合抽取2.png" width = "100%" height = "100%"></li>
+</ul>
+<p>端到端模型的基本架构如上图所示，主要包括如下几个部分：</p>
+<ul>
+<li>BiLSTM Encoder layer: 将传统的 BiLSTM 作为序列编码层，并将对应时刻的双向隐藏输出拼接得到对应词的编码结果，即 <span class="math inline">\(h_t = [\overrightarrow{h}_t; \overleftarrow{h}_t]\)</span></li>
+<li><p>LSTM Decoding Layer: 从图中可以清楚的看到差别，LSTM Decoding Cell 与经典的 LSTM 的区别在于，其当前时刻的输入除了上一时刻的隐藏状态 <span class="math inline">\(h^{(2)}_{t-1}\)</span> 以及当前时刻的输入 <span class="math inline">\(h_t\)</span> 之外，还包括上一时刻的预测标签表示 <span class="math inline">\(T_{t-1}\)</span>，即<br />
+<span class="math display">\[h_t^{(2)} = LSTM(h_t, [h^{(2)}_{t-1}, T_{t-1}])\]</span></p>
+<p>对于时刻 <span class="math inline">\(t\)</span> 的隐藏状态，通过一个全连接层得到标签表示：<br />
+<span class="math display">\[T_t = W_{ts}h_t^{(2)} + b_{ts}\]</span></p></li>
+</ul>
+<p>最终将标签表示输入经典的全连接层分类器进行分类：<br />
+<span class="math display">\[\begin{aligned}
+y_t &amp;= W_yT_t + b_y\\
+p_t^i&amp;=\frac{exp(y_t^i)}{\sum_{j=1}^{N_t}exp(y_t^j)}
+\end{aligned}\]</span></p>
+<ul>
+<li><p>The Bias Objective Function: 定义了一个标签偏置函数<br />
+<span class="math display">\[ L = max\ \sum_{j=1}^{|D|}\sum_{t=1}^{L_j}(log(p_t^{(j)}=y_t^{(j)}|x_j, \Theta)\cdot I(O) + \alpha \cdot log(p_t^{(j)}=y_t^{(j)}|x_j, \Theta)\cdot (1- I(O)))\]</span></p>
+<p>上式中，<span class="math inline">\(|D|\)</span> 是训练集的大小，<span class="math inline">\(L_j\)</span> 是句子 <span class="math inline">\(x_j\)</span> 的长度，<span class="math inline">\(y_t^{(j)}\)</span> 是单词 <span class="math inline">\(x_j\)</span> 中词 <span class="math inline">\(t\)</span> 的标注，<span class="math inline">\(p_t^{(j)}\)</span> 是模型输出的归一化标注概率。此外，<span class="math inline">\(I(O)\)</span> 是一个开关函数，以区分标注 ‘O’ 与 其他标注。他被定义如下：<br />
+<span class="math display">\[I(O) = 
+\begin{cases}
+1,\ if\ tag = &#39;O&#39;\\
+0,\ if\ tag \ne &#39;O&#39;
+\end{cases}\]</span></p>
+<p>简单来说，就是使得模型对于实体标签与其他标签的关注程度不一样，而参数 <span class="math inline">\(\alpha\)</span> 就是偏置权重，<span class="math inline">\(\alpha\)</span> 越大，模型对于实体的相关标注的偏向性就越大。</p></li>
+</ul>
+<p><strong>小结</strong>：这篇论文通过巧妙的设计将实体与关系联合抽取任务当作一个序列标注任务来处理，大大简化了工作的复杂性，且其模型性能优于之前的工作。此外，模型的缺陷也是比较明显的，其无法考虑到实体关系重叠的问题，也就是说一个实体在上下文中可能与多个实体有不同的关系。</p>
+<h2 id="model-3-joint-entity-recognition-and-relation-extraction-as-a-multi-head-selection-problem">Model 3: Joint entity recognition and relation extraction as a multi-head selection problem</h2>
+<p>原文链接：<a href="https://arxiv.org/abs/1804.07847" class="uri">https://arxiv.org/abs/1804.07847</a></p>
+<p>论文指出了目前的实体关系抽取任务存在的一些问题：</p>
+<ul>
+<li>目前 State-of-the-art 的联合抽取模型依赖外部的NLP工具提取特征，模型性能严重依赖 NLP 工具的性能；</li>
+<li>之前的工作没有考虑实体关系重叠问题，即一个实体可能与上下文中的多个实体有不同的关系。</li>
+</ul>
+<p>该论文创新点在于其将实体关系联合抽取问题看作是一个 multi-head selection 的问题，即任何一个实体都可能与其他实体存在关系，目的是解决关系重叠问题。<br />
+<img src="./images/信息抽取——实体关系联合抽取3.png" width = "100%" height = "100%"></p>
+<p>该论文提出的模型如上图所示，包括以下结构：embedding layer，BiLSTM layer，CRF layer，sigmoid scoring layer。</p>
+<ul>
+<li><p>Embedding layer：Embedding layer 主要用于生成词表征，包括字符级别的向量和词级别的向量两个部分，构造方式如下所示，引入字符级别的向量是因为字符级别的向量可以融入一些形态学特征<br />
+<img src="./images/信息抽取——实体关系联合抽取4.png" width = "60%" height = "60%"></p></li>
+<li><p>BiLSTM encoding layer：利用 多层的 BiLSTM 来对句子进行编码，每一个时刻的输出为两个方向的向量的拼接：<br />
+<span class="math display">\[h_i = [\overrightarrow{h}_i; \overleftarrow{h}_i], i = [0, ..., n]\]</span></p></li>
+<li>CRF layer: 在 BiLSTM 之后接 CRF 来辅助实体识别已经是常规操作了，实体识别部分的标注方式是 BIO，此外在实体位置标注之后还接有实体类别标注，在图中也有很清楚的表示</li>
+<li><p>Label Embedding：构造一个 Label Embedding 层，用来获取标签相应的向量表征，也是可训练的，用 <span class="math inline">\(g_i\)</span> 表示第 <span class="math inline">\(i\)</span> 个 token 的预测标签向量</p></li>
+<li><p>multi-head selection problem：将关系抽取看作一个 multi-head selection problem，multi-head 的含义是每个 实体 与其他所有 实体 都存在关系，在判断关系的时候，为了避免造成信息冗余，只判断每个实体的最后一个 token 与其他实体的最后一个 token 的关系，而每个实体的最后一个 token 被称作 head。对于每个 head ，需要预测元组 <span class="math inline">\((\hat{y}_i, \hat{c}_i)\)</span>，其中 <span class="math inline">\(\hat{y}_i\)</span> 表示当前 token 的关系对象，<span class="math inline">\(\hat{c}_i\)</span> 表示两者之间的关系。对于给定的 token 向量 <span class="math inline">\(w_i\)</span> 和 <span class="math inline">\(w_j\)</span>，其关系为 <span class="math inline">\(r_k\)</span> 的分数为：<br />
+<span class="math display">\[s^{(r)}(z_j, z_i, r_k) = V^{(r)}f(U^{(r)}z_j + W^{(r)}z_i + b^{(r)})\]</span></p>
+<p>其中，<span class="math inline">\(z_i = [h_i; g_i]\)</span>，<span class="math inline">\(f(·)\)</span> 为激活函数，<span class="math inline">\(U^{(r)}, W^{(r)}\)</span> 相当于先将向量进行降维，<span class="math inline">\(V^{(r)}\)</span> 是一个一维向量，最后输出的是一个分数值，之后再将分数映射为概率值<br />
+<span class="math display">\[Pr(head=w_j, label=r_k|w_i)=\sigma(s^{(r)}(z_i, z_j, r_k))\]</span></p>
+<p>关系抽取过程的损失函数定义为：<br />
+<span class="math display">\[L_{rel} = \sum_{i=0}^{n}\sum_{j=0}^{m}-log\ Pr(head=y_{i,j}, relation=r_{i,j}|w_i)\]</span></p>
+<p>整个模型的损失函数即为 <span class="math inline">\(L_{ner} + L_{rel}\)</span></p>
+<p>在预测阶段，可以通过认为输出的预测概率超过某一个阈值就认为这个关系是有效的。注意，该模型对两个词之间过个关系的预测并不是采用的 softmax 函数，而是对每个关系采用了 sigmoid 函数，区别在于 softmax 是将所有类别看作是互斥关系，将所有分数归一化为和为 1 的形式，而 sigmoid 与 softmax 的区别在于，其独立的将每个类别的判断看作是独立二分类的问题，即各个类别不存在互斥关系，这样跟有利于判断出两个实体之间存在的多种关系的情况。</p></li>
+</ul>
+<p><strong>小结</strong>：这篇文章的关键创新点在于其将关系抽取任务当作一个 multi-head selection problem 的问题，从而使得每个实体能够与其他所有实体判断关系，此外，不再将关系抽取任务当作一个每个关系互斥的多分类任务，而是看作每个关系独立的多个二分类任务，从而能够判断每一对实体是否可能有多个关系存在。此外，该组在同一年还发布了一篇以该论文为 baseline，在训练过程中加入对抗扰动的论文，分数达到新高，有兴趣的同学可以关注一下</p>
+<h2 id="model-4-基于dgcnn和概率图的轻量级信息抽取模型">Model 4: 基于DGCNN和概率图的轻量级信息抽取模型</h2>
+<p>原文链接：<a href="https://kexue.fm/archives/6671" class="uri">https://kexue.fm/archives/6671</a></p>
+<p>这个模型是苏神提出的 DGCNN 用于实体关系抽取的模型，一直感觉这个模型设计的挺巧妙的，这里也记录下。数据集是百度给出的中文信息抽取数据集(需要的话可以去苏神博客里找，有下载链接)。</p>
+<p>首先，作者发现数据主要有以下几个特点：</p>
+<ul>
+<li>s和o未必是分词工具分出来的词，因此要对query做标注才能抽取出正确的s、o，而考虑到分词可能切错边界，因此应该使用基于字的输入来标注；</li>
+<li>样本中大多数的抽取结果是“一个s、多个(p, o)”的形式，比如“《战狼》的主演包括吴京和余男”，那么要抽出“(战狼, 主演, 吴京)”、“(战狼, 主演, 余男)”；</li>
+<li>抽取结果是“多个s、一个(p, o)”甚至是“多个s、多个(p, o)”的样本也占有一定比例，比如“《战狼》、《战狼2》的主演都是吴京”，那么要抽出“(战狼, 主演, 吴京)”、“(战狼2, 主演, 吴京)”；</li>
+<li>同一对(s, o)也可能对应多个p，比如“《战狼》的主演和导演都是吴京”，那么要抽出“(战狼, 主演, 吴京)”、“(战狼, 导演, 吴京)”；</li>
+<li>极端情况下，s、o之间是可能重叠的，比如“《鲁迅自传》由江苏文艺出版社出版”，严格上来讲，除了要抽出“(鲁迅自传, 出版社, 江苏文艺出版社)”外，还应该抽取出“(鲁迅自传, 作者, 鲁迅)”。</li>
+</ul>
+<p>由上可知，数据集的质量非常高，且情况也十分复杂。作者由此调研了当时主要的信息抽取模型，发现没有一个模型能很好地覆盖这5个特点。于是自行设计了一个基于概率图思想的抽取方案，然后从效率出发，利用 CNN+Attention 的架构完成了这个模型。</p>
+<p>作者设计的抽取方案借鉴了 seq2seq 的概率图思路。在 seq2seq 解码器的解码过程是层次递归进行的的，其实际上是在建模<br />
+<span class="math display">\[P(y_1,y_2,...,y_n|x)=P(y_1|x)P(y_2|x,y_1)...P(y_n|x,y_1,y_2,…,y_{n−1})\]</span></p>
+<p>而对于信息抽取任务，三元组的抽取过程也能够转化为上述层次递归的方式进行抽取，对于三元组 (s, o, p)，其抽取过程可以建模为：<br />
+<span class="math display">\[P(s,p,o)=P(s)P(o|s)P(p|s,o)\]</span></p>
+<p>即首先预测 <span class="math inline">\(s\)</span>，然后根据 <span class="math inline">\(s\)</span> 来预测该 <span class="math inline">\(s\)</span> 所对应的 <span class="math inline">\(o\)</span> 及 <span class="math inline">\(p\)</span>。由于抽取 <span class="math inline">\(s\)</span> 以及抽取 <span class="math inline">\(s\)</span> 所对应的 <span class="math inline">\(o\)</span> 及 <span class="math inline">\(p\)</span> 的过程均是非唯一性的，因此，作者采用了 MRC 中常用的指针网络的抽取方法，即仅抽取答案的开始和结束位置，且把预测开始和结束位置的任务转化为了预测每一个位置是否为开始位置或结束位置(将softmx换成sigmoid)。模型的整体结构如下图所示<br />
+<img src="./images/信息抽取——实体关系联合抽取5.png" width = "60%" height = "60%"></p>
+<p>我们这里只关注作者信息抽取的思路，更多的模型细节可以去作者的博客里了解。总的来说，整个模型包括如下几个部分：</p>
+<ul>
+<li>字编码层：得到字表征</li>
+<li><span class="math inline">\(s\)</span> 抽取层：通过 Self-Attention 和 CNN 的结构来对 s 的开始和结束位置进行抽取</li>
+<li>对于预测到的 <span class="math inline">\(s\)</span> 将其对应位置的编码结果通过一个 BiLSTM 进一步比啊妈，然后拼接到 Self-Attention 的输出中，再通过 CNN 预测每一个 <span class="math inline">\(p\)</span> 对应的 <span class="math inline">\(o\)</span> 到开始和结束位置</li>
+</ul>
+<p>作者的思路相比于之前的模型很好的解决了关系重叠问题，且主要架构是基于 CNN 和 Self-Attention，因此模型训练速度非常快。作者在博客结尾提到了下面要介绍的这篇论文，大致思想与作者的论文相类似，但是是通过将其转化为一个多轮问答的形式将信从而将抽取过程建模为层次递归的。</p>
+<h2 id="model-5-entity-relation-extraction-as-multi-turn-question-answering">Model 5: Entity-Relation Extraction as Multi-turn Question Answering</h2>
+<p>原文链接：<a href="https://www.aclweb.org/anthology/P19-1129/" class="uri">https://www.aclweb.org/anthology/P19-1129/</a></p>
+<p>过去大部分论文都将实体关系联合抽取的任务看作是一个三元组抽取任务，而这样的处理将存在如下几个问题</p>
+<ul>
+<li>在形式化层面上：简单的三元组形式往往不能充分表现文本背后的结构化信息，因为往往在文本中存在层级性的依赖关系。独立地考虑两种实体可能导致依赖关系的间断。</li>
+<li>在算法层面上：对于关系抽取任务，大多数模型都是以标记的 mention 作为输入，而模型的主要目的是判断两个 mention 是否存在某种关系，在这种情况下，模型难以捕捉词汇、语法以及语义上的关系，特别是在如下几种情形下：
+<ul>
+<li>实体相距很远；</li>
+<li>一个实体出现在多个三元组中；</li>
+<li>关系跨度相交</li>
+</ul></li>
+</ul>
+<p>这个篇文章的创新点在于其将实体关系联合抽取的任务当作一个多轮问答类问题来处理，即每种实体和每种关系都用一个问答模板进行刻画，从而这些实体和关系可以通过回答这些模板化的问题来从上下文中进行抽取。下面简单给出一个问答模版：<br />
+<img src="./images/信息抽取——实体关系联合抽取6.png" width = "40%" height = "40%"></p>
+<p>可见，问题主要有如下几个特点：</p>
+<ul>
+<li>首先确定目标实体 <span class="math inline">\(e1\)</span></li>
+<li>之后根据目标实体和候选关系类别进行提问</li>
+</ul>
+<p>这样的处理方法主要有如下几个优点：</p>
+<ul>
+<li>能够很好地捕捉标签的层次依赖性。即随着每一轮问答的进行，我们有序的获得所需要的实体，这与多回合填充式对话系统类似</li>
+<li>问题的编码能够整合对关系分类任务重要的一些先验信息，这些信息可以潜在地解决了现有关系抽取模型难以解决的问题，如远距离实体对，或是关系重叠问题</li>
+<li>QA任务提供了一种很自然的方式来融合实体抽取和关系抽取任务，因为 QA 任务对于没有答案的问题可以返回 None，则对于不存在相应关系的问题，如果返回的不是 None，则可以同时确定实体和关系<br />
+<img src="./images/信息抽取——实体关系联合抽取7.png" width = "50%" height = "50%"></li>
+</ul>
+<p>将实体关系抽取任务转化为多轮问答任务的算法如上所示，整个算法分如下几个部分：</p>
+<ul>
+<li>头实体抽取(line 4 - 9)：由于每一轮多轮对话都需要一个头实体来作为 trigger，因此需要事先抽取句子中所有的头实体，而抽取实体的过程可以看作一个抽取 entity_question 答案的过程。所有 entity_question 都存放在 EntityQuesTemplates 中，每一种 entity_question 都对应一类实体的抽取</li>
+<li>关系与尾实体抽取(line 10 - 24)：ChainOfRelTemplates 定义了一个关系序列，我们需要根据这个关系序列来进行多轮问答。同时，它也定义了每种关系的模板，为了生成对应的问题（第14行），我们要在模板槽（slot）中插入之前抽取的实体。然后，关系 REL 和尾实体 e 就能通过回答问题同时被抽取出来。如果回答是 None，就说明没有答案，即只有同时抽出头实体，以及头实体存在对应的关系和尾实体被抽出时，才算是成功抽出一个满足条件的三元组了。</li>
+</ul>
+<p>关于问题模版的生成方式可以参考原文中的方法，这里就不赘述了。</p>
+<p>我们知道现阶段常见的 MRC 模型都是通过指针网络的方式，仅预测答案在 Context 中的开始和结束位置，仅适用于单答案的情况。但对于实体识别任务，在一段 Context 中可能有多个答案，所以这种方法并不合适。作者的做法是将其当作以问题为基础的序列标注问题，或者说将 2 个 N-class 分类任务转换成 N 个 5-class 分类任务，其中 N 为句子长度。</p>
+<p>作者将 BERT 作为 baseline。训练时，损失函数为两个子任务的叠加，即：<br />
+<span class="math display">\[L = (1-\lambda)L(head_entity) + \lambda L(tail_entity, rel)\]</span></p>
+<p>为了进一步优化模型性能，还采用了强化学习的方法来进一步优化，这一块暂时也不做研究了，感兴趣的同学可以去原文参考一下</p>
+<h2 id="model-6-a-novel-hierarchical-binary-tagging-framework-for-joint-extraction-of-entities-and-relations">Model 6: A Novel Hierarchical Binary Tagging Framework for Joint Extraction of Entities and Relations</h2>
+<p>原文链接：<a href="https://arxiv.org/abs/1909.03227" class="uri">https://arxiv.org/abs/1909.03227</a></p>
+<p>这篇文章在 WebNLG 和 NYT 数据集上取得了 SOTA 的效果，模型的整体思路与苏神的模型非常类似。该论文指出，当前处理关系重叠的模型仍然存在一系列问题，具体来说，它们都将关系视为要分配给实体对的离散标签。 这种表述使关系分类成为困难的机器学习问题。 例如，当在相同上下文中的同一实体参与多个（在某些情况下超过五个）有效关系（即重叠的三元组）时，分类器需要大量的监督学习才能确定上下文与关系的对应关系。</p>
+<p>作者设计了一种 Hierarchical Binary Tagging 的框架来解决这个问题，这个框架将三元组的抽取任务建模为三个级别的问题，从而能够更好解决三元组重叠的问题。其核心观点就是不再将关系抽取的过程看作实体对的离散标签，而是将其看作两个实体的映射关系，即<span class="math inline">\(f(s, o) -&gt; r\)</span>，整个三元组的过程可以概括为</p>
+<ul>
+<li>抽取三元组中的 subject</li>
+<li>针对每一个 <span class="math inline">\(f_r(·)\)</span>，抽取其对应的 object</li>
+</ul>
+<p>实体抽取的方法与上一片论文以及苏神的做法差不多，即采用 Point Net 的指针形式进行抽取。这样的建模方式明显更容易学习。实验结果表明即便使用随机初始化的 BERT 作为编码层，仍然能够取得 SOTA 的效果。<br />
+<img src="./images/信息抽取——实体关系联合抽取8.png" width = "80%" height = "80%"></p>
+<p>模型的整体结构如上图所示，主要包括如下几个部分：</p>
+<ul>
+<li>BERT Encoder：通过 BERT 得到每个词的词表征，关于 BERT 这里不做具体介绍了，把 BERT 的输出当作词向量用即可</li>
+<li><p>Subject Tagger：该部分用于识别所有可能的 subject 对象。其通过对每一个位置的编码结果用两个分类器进行分类，来判断其是否是实体的开始或结束位置，即<br />
+<span class="math display">\[
+p^{start\_s}_i = σ(W_{start}x_i + b_{start}) \\
+p^{end\_s}_i = σ(W_{end}x_i + b_{end})
+\]</span></p>
+<p>其中，<span class="math inline">\(x_i\)</span> 为第 i 个词通过 BERT 的编码输出，<span class="math inline">\(W, b\)</span> 为全连接层分类器的参数，激活函数为 sigmoid。对于句子中存在多个 subject 的情况，开始指针与结束指针通过就近匹配原则进行配对</p></li>
+<li>Relation-specific Object Taggers：针对每一个 subject，都需要对其进行之后的 object 进行预测。由图中可知，其与 Subject Tagger 基本一致，主要区别在于
+<ul>
+<li>每一个关系类别独享一组 object 分类器</li>
+<li>这一部分的输入除了输入序列的 BERT 编码结果，还额外加入了 subject 的特征，subject 特征为 subject 的每个字符的 BERT 表征的平均池化</li>
+<li>主要表达式如下<br />
+<span class="math display">\[p^{start\_o}_i = \sigma(W^r_{start}(x_i + v^k_{sub}) + b^r_{start}) \\
+  p^{end\_o}_i = \sigma(W^r_{end}(x_i + v^k_{sub}) + b^r_{end})\]</span></li>
+</ul></li>
+</ul>
+<h1 id="小结">小结</h1>
+<p>早期联合抽取模型的架构主要可分为两个部分：</p>
+<ul>
+<li>实体对抽取</li>
+<li>实体间关系分类</li>
+</ul>
+<p>其将关系分类看作两个实体间的离散标签多分类问题，这样的问题学习起来是十分困难的，或者说无法很好的学习到两个标签之间的相关性。近年来的模型大多都将其建模为层次递归的模型，其直接为每个关系类别构建独立的模型，用于学习这种关系映射关系，主要可以分为下面两个部分</p>
+<ul>
+<li>抽取所有可能的第一个 subject</li>
+<li>对于每一个 subject，将其输入到每一个关系类别模型中，抽取每个关系对应的 object</li>
+</ul>
+<p>这种将实体关系当作一种函数映射来学习的方式显然能够得到更好的效果。</p>
+<p><strong>参考链接</strong><br />
+<a href="https://zhuanlan.zhihu.com/p/74886839" class="uri">https://zhuanlan.zhihu.com/p/74886839</a><br />
+<a href="https://mp.weixin.qq.com/s?__biz=MzI2NjkyNDQ3Mw==&amp;mid=2247486614&amp;idx=2&amp;sn=46b8a011a29803fc59f14431e91b8fbd&amp;chksm=ea87f440ddf07d564cb3ce680ea52277c12bce882419428c581b95abbf58d75265fd3fb01942&amp;scene=21#wechat_redirect" class="uri">https://mp.weixin.qq.com/s?__biz=MzI2NjkyNDQ3Mw==&amp;mid=2247486614&amp;idx=2&amp;sn=46b8a011a29803fc59f14431e91b8fbd&amp;chksm=ea87f440ddf07d564cb3ce680ea52277c12bce882419428c581b95abbf58d75265fd3fb01942&amp;scene=21#wechat_redirect</a><br />
+<a href="https://blog.csdn.net/qq_32782771/article/details/86062586" class="uri">https://blog.csdn.net/qq_32782771/article/details/86062586</a><br />
+<a href="https://zhuanlan.zhihu.com/p/65870466" class="uri">https://zhuanlan.zhihu.com/p/65870466</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

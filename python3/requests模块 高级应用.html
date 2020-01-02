@@ -1,0 +1,828 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修requests模块 高级应用' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>requests模块 高级应用</center></div><div class='banquan'>原文出处:本文由博客园博主郭楷丰提供。<br/>
+原文连接:https://www.cnblogs.com/guokaifeng/p/11536706.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#requests模块-高级应用">requests模块 高级应用</a><ul>
+        <li><a href="#httpconnectinpool-问题解决">HttpConnectinPool 问题解决</a></li>
+        <li><a href="#ip代理">IP代理</a></li>
+        <li><a href="#简单使用代理">简单使用代理</a></li>
+        <li><a href="#代理池">代理池</a></li>
+        <li><a href="#cookie的处理">cookie的处理</a></li>
+        <li><a href="#页面中验证码识别">页面中验证码识别</a></li>
+        <li><a href="#使用-multiprocessing.dummy-pool-线程池">使用 multiprocessing.dummy Pool 线程池</a></li>
+        <li><a href="#单线程多任务异步协程">单线程+多任务异步协程</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h2 id="requests模块-高级应用">requests模块 高级应用</h2>
+<h3 id="httpconnectinpool-问题解决">HttpConnectinPool 问题解决</h3>
+<pre><code><code>- HttpConnectinPool:
+    - 原因：
+        - 1.短时间内发起了高频的请求导致ip被禁
+        - 2.http连接池中的连接资源被耗尽
+    - 解决：
+        - 1.使用代理
+        - 2.headers中加入Conection：“close”</code></pre>
+<h3 id="ip代理">IP代理</h3>
+<pre><code><code>- 代理：代理服务器，可以接受请求然后将其转发。
+- 匿名度
+    - 高匿：接收方,啥也不知道
+    - 匿名：接收方知道你使用了代理，但是不知道你的真实ip
+    - 透明：接收方知道你使用了代理并且知道你的真实ip
+- 类型：
+    - http
+    - https
+- 免费代理：
+    - 全网代理IP    www.goubanjia.com 
+    - 快代理        https://www.kuaidaili.com/
+    - 西祠代理      https://www.xicidaili.com/nn/
+    - 代理精灵      http://http.zhiliandaili.cn/</code></pre>
+<h3 id="简单使用代理">简单使用代理</h3>
+<pre><code><code>- 代理服务器
+  - 进行请求转发
+  - 代理ip：port作用到get、post方法的proxies = {&#39;http&#39;:&#39;ip:port&#39;}中
+  - 代理池（列表）</code></pre>
+<ul>
+<li><h4 id="爬虫代码使用代理">爬虫代码使用代理</h4></li>
+</ul>
+<pre><code><code>import requests
+
+headers = {
+    &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36&#39;
+}
+
+url = &#39;https://www.baidu.com/s?wd=ip&#39;
+page_text = requests.get(url,headers=headers,proxies={&#39;https&#39;:&#39;36.111.140.6:8080&#39;}).text
+with open(&#39;ip.html&#39;,&#39;w&#39;,encoding=&#39;utf-8&#39;) as fp:
+    fp.write(page_text)</code></pre>
+<p><img src="./images/requests模块 高级应用0.png" /></p>
+<ul>
+<li><h4 id="浏览器设置代理">浏览器设置代理</h4></li>
+</ul>
+<p><img src="./images/requests模块 高级应用1.png" /></p>
+<p><img src="./images/requests模块 高级应用2.png" /></p>
+<p><img src="./images/requests模块 高级应用3.png" /></p>
+<h3 id="代理池">代理池</h3>
+<ul>
+<li><h4 id="代理池的作用">代理池的作用</h4></li>
+</ul>
+<pre><code><code>解决短时间内频繁爬取统一网站导致IP封锁的情况,具体工作机制：从各大代理网站抓取免费IP,
+去重后以有序集合的方式保存到Redis中,定时检测IP有效性、根据自己设定的分数规则进行优先级更改并删除分数为零
+（无效）的IP 提供代理接口供爬虫工具使用.</code></pre>
+<ul>
+<li><h4 id="简单实现一个代理池">简单实现一个代理池</h4></li>
+</ul>
+<pre><code><code>#代理池：列表
+import random
+
+#字典都是网上找的代理ip
+proxy_list = [
+    {&#39;https&#39;:&#39;121.231.94.44:8888&#39;},
+    {&#39;https&#39;:&#39;131.231.94.44:8888&#39;},
+    {&#39;https&#39;:&#39;141.231.94.44:8888&#39;}
+]
+#指定url
+url = &#39;https://www.baidu.com/s?wd=ip&#39;
+
+#proxies=random.choice(proxy_list) 使用代理池
+page_text = requests.get(url,headers=headers,proxies=random.choice(proxy_list)).text
+
+with open(&#39;ip.html&#39;,&#39;w&#39;,encoding=&#39;utf-8&#39;) as fp:
+    fp.write(page_text)</code></pre>
+<ul>
+<li><h4 id="构建一个代理池">构建一个代理池</h4></li>
+</ul>
+<pre><code><code>import random
+import requests
+from lxml import etree
+
+headers = {
+    &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36&#39;,
+    &#39;Connection&#39;:&quot;close&quot;
+}
+
+#从代理精灵中提取代理ip
+ip_url = &#39;http://t.11jsq.com/index.php/api/entry?method=proxyServer.generate_api_url&amp;packid=1&amp;fa=0&amp;fetch_key=&amp;groupid=0&amp;qty=4&amp;time=1&amp;pro=&amp;city=&amp;port=1&amp;format=html&amp;ss=5&amp;css=&amp;dt=1&amp;specialTxt=3&amp;specialJson=&amp;usertype=2&#39;
+page_text = requests.get(ip_url,headers=headers).text
+tree = etree.HTML(page_text)
+ip_list = tree.xpath(&#39;//body//text()&#39;)
+
+#爬取西祠代理
+url = &#39;https://www.xicidaili.com/nn/%d&#39;
+proxy_list_http = []
+proxy_list_https = []
+for page in range(1,20):
+    new_url = format(url%page)
+    ip_port = random.choice(ip_list)
+    page_text = requests.get(new_url,headers=headers,proxies={&#39;https&#39;:ip_port}).text
+    tree = etree.HTML(page_text)
+    #tbody不可以出现在xpath表达式中
+    tr_list = tree.xpath(&#39;//*[@id=&quot;ip_list&quot;]//tr&#39;)[1:]
+    for tr in tr_list:
+        ip = tr.xpath(&#39;./td[2]/text()&#39;)[0]
+        port = tr.xpath(&#39;./td[3]/text()&#39;)[0]
+        t_type = tr.xpath(&#39;./td[6]/text()&#39;)[0]
+        ips = ip+&#39;:&#39;+port
+        if t_type == &#39;HTTP&#39;:
+            dic = {
+                t_type: ips
+            }
+            proxy_list_http.append(dic)
+        else:
+            dic = {
+                t_type:ips
+            }
+            proxy_list_https.append(dic)
+print(len(proxy_list_http),len(proxy_list_https))
+
+
+#检测 (这里可以进行持久化储存)
+for ip in proxy_list_http:
+    response = requests.get(&#39;https://www/sogou.com&#39;,headers=headers,proxies={&#39;https&#39;:ip})
+    if response.status_code == &#39;200&#39;:
+        print(&#39;检测到了可用ip&#39;)</code></pre>
+<h3 id="cookie的处理">cookie的处理</h3>
+<pre><code><code>手动处理：将cookie封装到headers中
+
+自动处理：session对象。可以创建一个session对象，改对象可以像requests一样进行请求发送。
+不同之处在于如果在使用session进行请求发送的过程中产生了cookie，则cookie会被自动存储在session对象中。</code></pre>
+<ul>
+<li><h4 id="爬取雪球网首页新闻信息-httpsxueqiu.com">爬取雪球网首页新闻信息 https://xueqiu.com/</h4></li>
+</ul>
+<p><img src="./images/requests模块 高级应用4.png" /></p>
+<ul>
+<li><h4 id="爬取过程中遇到问题">爬取过程中遇到问题</h4></li>
+</ul>
+<pre><code><code>import requests
+
+headers = {
+    &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36&#39;,
+}
+url = &#39;https://xueqiu.com/v4/statuses/public_timeline_by_category.json?since_id=-1&amp;max_id=20349203&amp;count=15&amp;category=-1&#39;
+page_text = requests.get(url=url,headers=headers).json()
+print(page_text)
+
+#执行结果
+{&#39;error_description&#39;: &#39;遇到错误，请刷新页面或者重新登录帐号后再试&#39;, &#39;error_uri&#39;: &#39;/v4/statuses/public_timeline_by_category.json&#39;, &#39;error_data&#39;: None, &#39;error_code&#39;: &#39;400016&#39;} 
+
+#分析发现,正常的浏览器请求携带有cookie数据</code></pre>
+<ul>
+<li><h4 id="解决办法手动添加cookie信息-不推荐因为有的网站cookie可能是变动的这样就写死了">解决办法手动添加cookie信息 (不推荐,因为有的网站cookie可能是变动的,这样就写死了)</h4></li>
+</ul>
+<pre><code><code>#对雪球网中的新闻数据进行爬取https://xueqiu.com/
+import requests
+
+headers = {
+    &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36&#39;,
+    &#39;Cookie&#39;:&#39;aliyungf_tc=AQAAAAl2aA+kKgkAtxdwe3JmsY226Y+n; acw_tc=2760822915681668126047128e605abf3a5518432dc7f074b2c9cb26d0aa94; xq_a_token=75661393f1556aa7f900df4dc91059df49b83145; xq_r_token=29fe5e93ec0b24974bdd382ffb61d026d8350d7d; u=121568166816578; device_id=24700f9f1986800ab4fcc880530dd0ed&#39;,
+}
+
+url = &#39;https://xueqiu.com/v4/statuses/public_timeline_by_category.json?since_id=-1&amp;max_id=20349203&amp;count=15&amp;category=-1&#39;
+page_text = requests.get(url=url,headers=headers).json()
+print(page_text)
+
+#执行结果
+{&#39;list&#39;: [{&#39;id&#39;: 20349202, &#39;category&#39;: 0, &#39;data&#39;: &#39;{&quot;id&quot;:132614531,&quot;title&quot;:&quot;狼来了！今天，中囯电信行业打响第一枪！
+流量费用要降价了！&quot;,&quot;description&quot;:&quot;狼，终究来了！ 刚刚传来大消息，中国工信部正式宣布：英国电信（BT）
+获得了在中国全国性经营通信的牌照。 随后，英国电信也在第一时间证实这一消息！他们兴高采烈地表示：
+取得牌照，意味着英国电信在中国迈出重要的一步！ 是的，你没有看错：英国电信！这是英国最大的电信公司，
+也是一家有着超过...&quot;,&quot;target&quot;:&quot;/3583653389/132614531&quot;,&quot;reply_count&quot;:75,&quot;retweet_count&quot;:7,&quot;topic_title&quot;:&quot;狼来了！
+今天，中囯电信行业打响第一枪！流量费用要降价了！&quot;,&quot;topic_desc&quot;:&quot;狼，终究来了！ 刚刚传来大消息， 中国工信部正式宣布：英...}.....省略</code></pre>
+<p><img src="./images/requests模块 高级应用5.png" /></p>
+<ul>
+<li><h4 id="自动获取cookie推荐cookie是变化的也没问题">自动获取cookie(推荐,cookie是变化的也没问题)</h4></li>
+</ul>
+<pre><code><code>import requests
+
+#创建session对象
+session = requests.Session()
+session.get(&#39;https://xueqiu.com&#39;,headers=headers)#会自动把请求中的cookie信息携带上
+headers = {
+    &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36&#39;,
+}
+
+url = &#39;https://xueqiu.com/v4/statuses/public_timeline_by_category.json?since_id=-1&amp;max_id=20349203&amp;count=15&amp;category=-1&#39;
+page_text = session.get(url=url,headers=headers).json()
+print(page_text)
+
+#执行结果
+{&#39;list&#39;: [{&#39;id&#39;: 20349202, &#39;category&#39;: 0, &#39;data&#39;: &#39;{&quot;id&quot;:132614531,&quot;title&quot;:&quot;狼来了！今天，中囯电信行业打响第一枪！
+流量费用要降价了！&quot;,&quot;description&quot;:&quot;狼，终究来了！ 刚刚传来大消息，中国工信部正式宣布：英国电信（BT）
+获得了在中国全国性经营通信的牌照。 随后，英国电信也在第一时间证实这一消息！他们兴高采烈地表示：
+取得牌照，意味着英国电信在中国迈出重要的一步！ 是的，你没有看错：英国电信！这是英国最大的电信公司，
+也是一家有着超过...&quot;,&quot;target&quot;:&quot;/3583653389/132614531&quot;,&quot;reply_count&quot;:75,&quot;retweet_count&quot;:7,&quot;topic_title&quot;:&quot;狼来了！
+今天，中囯电信行业打响第一枪！流量费用要降价了！&quot;,&quot;topic_desc&quot;:&quot;狼，终究来了！ 刚刚传来大消息， 中国工信部正式宣布：英...}......省略</code></pre>
+<h3 id="页面中验证码识别">页面中验证码识别</h3>
+<ul>
+<li><h4 id="识别该网站验证码-httpsso.gushiwen.orguserlogin.aspxfromhttpso.gushiwen.orgusercollect.aspx">识别该网站验证码 https://so.gushiwen.org/user/login.aspx?from=http://so.gushiwen.org/user/collect.aspx</h4></li>
+</ul>
+<p><img src="./images/requests模块 高级应用6.png" /></p>
+<ul>
+<li><h4 id="解决办法">解决办法</h4></li>
+</ul>
+<pre><code><code>验证码的识别推荐平台
+- 超级鹰：http://www.chaojiying.com/about.html (这里我们使用超级鹰)
+    - 注册：（用户中心身份）
+    - 登陆：
+    - 创建一个软件：899370
+    - 下载示例代码
+- 云打码:http://www.yundama.com/</code></pre>
+<ul>
+<li><h4 id="实现过程">实现过程</h4></li>
+</ul>
+<p><img src="./images/requests模块 高级应用7.png" /></p>
+<p><img src="./images/requests模块 高级应用8.png" /></p>
+<p><img src="./images/requests模块 高级应用9.png" /></p>
+<p><img src="./images/requests模块 高级应用10.png" /></p>
+<p><img src="./images/requests模块 高级应用11.png" /></p>
+<ul>
+<li><h4 id="识别网页验证码">识别网页验证码</h4></li>
+</ul>
+<pre><code><code>#超级鹰代码
+import requests
+from hashlib import md5
+
+class Chaojiying_Client(object):
+
+    def __init__(self, username, password, soft_id):
+        self.username = username
+        password =  password.encode(&#39;utf8&#39;)
+        self.password = md5(password).hexdigest()
+        self.soft_id = soft_id
+        self.base_params = {
+            &#39;user&#39;: self.username,
+            &#39;pass2&#39;: self.password,
+            &#39;softid&#39;: self.soft_id,
+        }
+        self.headers = {
+            &#39;Connection&#39;: &#39;Keep-Alive&#39;,
+            &#39;User-Agent&#39;: &#39;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0)&#39;,
+        }
+
+    def PostPic(self, im, codetype):
+        &quot;&quot;&quot;
+        im: 图片字节
+        codetype: 题目类型 参考 http://www.chaojiying.com/price.html
+        &quot;&quot;&quot;
+        params = {
+            &#39;codetype&#39;: codetype,
+        }
+        params.update(self.base_params)
+        files = {&#39;userfile&#39;: (&#39;ccc.jpg&#39;, im)}
+        r = requests.post(&#39;http://upload.chaojiying.net/Upload/Processing.php&#39;, data=params, files=files, headers=self.headers)
+        return r.json()
+
+    def ReportError(self, im_id):
+        &quot;&quot;&quot;
+        im_id:报错题目的图片ID
+        &quot;&quot;&quot;
+        params = {
+            &#39;id&#39;: im_id,
+        }
+        params.update(self.base_params)
+        r = requests.post(&#39;http://upload.chaojiying.net/Upload/ReportError.php&#39;, data=params, headers=self.headers)
+        return r.json()
+    
+#爬虫代码
+#识别古诗文网中的验证码
+from lxml import etree
+
+#识别古诗文网中的验证码
+def tranformImgData(imgPath,t_type):#调用超级鹰
+    chaojiying = Chaojiying_Client(&#39;bobo3280948&#39;, &#39;bobo3284148&#39;, &#39;899370&#39;)#超级鹰账户 密码 软件id
+    im = open(imgPath, &#39;rb&#39;).read()
+    return chaojiying.PostPic(im, t_type)[&#39;pic_str&#39;]
+
+headers = {
+    &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36&#39;,
+}
+
+url = &#39;https://so.gushiwen.org/user/login.aspx?from=http://so.gushiwen.org/user/collect.aspx&#39;
+page_text = requests.get(url,headers=headers).text
+tree = etree.HTML(page_text)
+img_src = &#39;https://so.gushiwen.org&#39;+tree.xpath(&#39;//*[@id=&quot;imgCode&quot;]/@src&#39;)[0]
+img_data = requests.get(img_src,headers=headers).content
+with open(&#39;./code.jpg&#39;,&#39;wb&#39;) as fp:
+    fp.write(img_data)
+yzm = tranformImgData(&#39;./code.jpg&#39;,1004)#保存的验证码图片地址 验证码对应超级鹰的验证码类型对应号    
+print(yzm)
+#执行结果 成功解析验证码
+d145</code></pre>
+<ul>
+<li><h4 id="模拟登录">模拟登录</h4></li>
+</ul>
+<pre><code><code>import requests
+from hashlib import md5
+
+class Chaojiying_Client(object):
+
+    def __init__(self, username, password, soft_id):
+        self.username = username
+        password =  password.encode(&#39;utf8&#39;)
+        self.password = md5(password).hexdigest()
+        self.soft_id = soft_id
+        self.base_params = {
+            &#39;user&#39;: self.username,
+            &#39;pass2&#39;: self.password,
+            &#39;softid&#39;: self.soft_id,
+        }
+        self.headers = {
+            &#39;Connection&#39;: &#39;Keep-Alive&#39;,
+            &#39;User-Agent&#39;: &#39;Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0)&#39;,
+        }
+
+    def PostPic(self, im, codetype):
+        &quot;&quot;&quot;
+        im: 图片字节
+        codetype: 题目类型 参考 http://www.chaojiying.com/price.html
+        &quot;&quot;&quot;
+        params = {
+            &#39;codetype&#39;: codetype,
+        }
+        params.update(self.base_params)
+        files = {&#39;userfile&#39;: (&#39;ccc.jpg&#39;, im)}
+        r = requests.post(&#39;http://upload.chaojiying.net/Upload/Processing.php&#39;, data=params, files=files, headers=self.headers)
+        return r.json()
+
+    def ReportError(self, im_id):
+        &quot;&quot;&quot;
+        im_id:报错题目的图片ID
+        &quot;&quot;&quot;
+        params = {
+            &#39;id&#39;: im_id,
+        }
+        params.update(self.base_params)
+        r = requests.post(&#39;http://upload.chaojiying.net/Upload/ReportError.php&#39;, data=params, headers=self.headers)
+        return r.json()
+    
+    
+from lxml import etree
+
+
+#识别古诗文网中的验证码
+def tranformImgData(imgPath,t_type):#调用超级鹰
+    chaojiying = Chaojiying_Client(&#39;bobo328410948&#39;, &#39;bobo328410948&#39;, &#39;899370&#39;)
+    im = open(imgPath, &#39;rb&#39;).read()
+    return chaojiying.PostPic(im, t_type)[&#39;pic_str&#39;]
+
+headers = {
+    &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36&#39;,
+}
+
+#模拟登陆
+s = requests.Session()
+url = &#39;https://so.gushiwen.org/user/login.aspx?from=http://so.gushiwen.org/user/collect.aspx&#39;
+page_text = s.get(url,headers=headers).text
+tree = etree.HTML(page_text)
+img_src = &#39;https://so.gushiwen.org&#39;+tree.xpath(&#39;//*[@id=&quot;imgCode&quot;]/@src&#39;)[0]
+img_data = s.get(img_src,headers=headers).content
+with open(&#39;./code.jpg&#39;,&#39;wb&#39;) as fp:
+    fp.write(img_data)
+    
+#动态获取变化的请求参数
+__VIEWSTATE = tree.xpath(&#39;//*[@id=&quot;__VIEWSTATE&quot;]/@value&#39;)[0]
+__VIEWSTATEGENERATOR = tree.xpath(&#39;//*[@id=&quot;__VIEWSTATEGENERATOR&quot;]/@value&#39;)[0]
+    
+code_text = tranformImgData(&#39;./code.jpg&#39;,1004)
+login_url = &#39;https://so.gushiwen.org/user/login.aspx?from=http%3a%2f%2fso.gushiwen.org%2fuser%2fcollect.aspx&#39;
+data = {
+    &#39;__VIEWSTATE&#39;: __VIEWSTATE,
+    &#39;__VIEWSTATEGENERATOR&#39;: __VIEWSTATEGENERATOR,
+    &#39;from&#39;:&#39;http://so.gushiwen.org/user/collect.aspx&#39;,
+    &#39;email&#39;: &#39;www.zhangbowudi@qq.com&#39;,
+    &#39;pwd&#39;: &#39;bobo328410948&#39;,
+    &#39;code&#39;: code_text,
+    &#39;denglu&#39;: &#39;登录&#39;,
+}
+page_text = s.post(url=login_url,headers=headers,data=data).text
+with open(&#39;login.html&#39;,&#39;w&#39;,encoding=&#39;utf-8&#39;) as fp:
+    fp.write(page_text)
+    
+#动态变化的请求参数  通常情况下动态变化的请求参数都会被隐藏在前台页面源码中    </code></pre>
+<p><img src="./images/requests模块 高级应用12.png" /></p>
+<h3 id="使用-multiprocessing.dummy-pool-线程池">使用 multiprocessing.dummy Pool 线程池</h3>
+<ul>
+<li><h4 id="模拟请求">模拟请求</h4></li>
+</ul>
+<pre><code><code>#未使用线程池(模拟请求)
+import time
+from time import sleep
+start = time.time()
+urls = [
+    &#39;www.1.com&#39;,
+    &#39;www.2.com&#39;,
+    &#39;www.3.com&#39;,
+]
+def get_request(url):
+    print(&#39;正在访问:%s&#39;%url)
+    sleep(2)
+    print(&#39;访问结束:%s&#39;%url)
+    
+for url in urls:
+    get_request(url)
+print(&#39;总耗时:&#39;,time.time()-start)
+
+#执行结果
+正在访问:www.1.com
+访问结束:www.1.com
+正在访问:www.2.com
+访问结束:www.2.com
+正在访问:www.3.com
+访问结束:www.3.com
+总耗时: 6.000494718551636
+    
+#使用线程池 (模拟请求)
+import time
+from time import sleep
+from multiprocessing.dummy import Pool
+
+start = time.time()
+urls = [
+    &#39;www.1.com&#39;,
+    &#39;www.2.com&#39;,
+    &#39;www.3.com&#39;,
+]
+
+def get_request(url):
+    print(&#39;正在访问:%s&#39; % url)
+    sleep(2)
+    print(&#39;访问结束:%s&#39; % url)
+    
+pool = Pool(3)
+pool.map(get_request, urls)
+print(&#39;总耗时:&#39;, time.time() - start)
+
+#执行结果
+正在访问:www.1.com
+正在访问:www.2.com
+正在访问:www.3.com
+访问结束:www.2.com
+访问结束:www.3.com
+访问结束:www.1.com
+总耗时: 2.037109613418579</code></pre>
+<ul>
+<li><h4 id="简单使用flask模拟server端-进行测试">简单使用Flask模拟server端 进行测试</h4></li>
+</ul>
+<pre><code><code>#server
+from flask import Flask
+from time import sleep
+app = Flask(__name__)
+@app.route(&#39;/index&#39;)
+def index():
+    sleep(2)
+    return &#39;hello&#39;
+
+if __name__ == &#39;__main__&#39;:
+    app.run()
+    
+#爬虫请求代码    
+import time
+import requests
+from multiprocessing.dummy import Pool
+start = time.time()
+urls = [
+    &#39;http://localhost:5000/index&#39;,
+    &#39;http://localhost:5000/index&#39;,
+    &#39;http://localhost:5000/index&#39;,
+]
+def get_request(url):
+    page_text = requests.get(url).text
+    print(page_text)
+
+pool = Pool(3)
+pool.map(get_request, urls)
+print(&#39;总耗时：&#39;, time.time() - start)
+
+#执行结果
+hello
+hello
+hello
+总耗时： 3.0322463512420654</code></pre>
+<h3 id="单线程多任务异步协程">单线程+多任务异步协程</h3>
+<pre><code><code>- 协程
+  - 在函数（特殊的函数）定义的时候，如果使用了async修饰的话，则改函数调用后会返回一个协程对象，并且函数内部的实现语句不会被立即执行
+- 任务对象
+  - 任务对象就是对协程对象的进一步封装。任务对象==高级的协程对象==特殊的函数
+  - 任务对象时必须要注册到事件循环对象中
+  - 给任务对象绑定回调：爬虫的数据解析中
+- 事件循环
+  - 当做是一个容器，容器中必须存放任务对象。
+  - 当启动事件循环对象后，则事件循环对象会对其内部存储任务对象进行异步的执行。
+- aiohttp:支持异步网络请求的模块</code></pre>
+<ul>
+<li><h4 id="简单了解-asyncio异步协程函数">简单了解 asyncio异步协程函数</h4></li>
+</ul>
+<pre><code><code>import asyncio
+def callback(task):#作为任务对象的回调函数
+    print(&#39;i am callback and &#39;,task.result())#task.result()接受特殊函数的返回值
+
+async def test(): #特殊函数
+    print(&#39;i am test()&#39;)
+    return &#39;bobo&#39;
+
+c = test()#c为协程对象
+#封装了一个任务对象
+task = asyncio.ensure_future(c)
+#绑定回调函数
+task.add_done_callback(callback)
+#创建一个事件循环的对象
+loop = asyncio.get_event_loop()
+#将任务对象注册到事件循环中
+loop.run_until_complete(task)
+
+#执行结果
+i am test()
+i am callback and  bobo</code></pre>
+<ul>
+<li><h4 id="协程多任务模拟请求">协程+多任务(模拟请求)</h4></li>
+</ul>
+<pre><code><code>import time
+import asyncio
+
+start = time.time()
+# 在特殊函数内部的实现中不可以出现不支持异步的模块代码
+async def get_request(url):
+    await asyncio.sleep(2)
+    print(&#39;访问成功:&#39;, url)
+
+
+urls = [
+    &#39;www.1.com&#39;,
+    &#39;www.2.com&#39;
+]
+tasks = []
+for url in urls:
+    c = get_request(url)
+    task = asyncio.ensure_future(c)
+    tasks.append(task)
+
+loop = asyncio.get_event_loop()
+# 注意：挂起操作需要手动处理
+loop.run_until_complete(asyncio.wait(tasks))
+print(time.time() - start)
+
+#执行结果
+访问成功: www.1.com
+访问成功: www.2.com
+2.002183198928833</code></pre>
+<ul>
+<li><h4 id="使用requests模块发现并不能实现异步">使用requests模块,发现并不能实现异步</h4></li>
+</ul>
+<pre><code><code>#server端
+from flask import Flask
+from time import sleep
+app = Flask(__name__)
+@app.route(&#39;/index&#39;)
+def index():
+    sleep(2)
+    return &#39;hello&#39;
+@app.route(&#39;/index1&#39;)
+def index1():
+    sleep(2)
+    return &#39;hello1&#39;
+if __name__ == &#39;__main__&#39;:
+    app.run()
+ 
+#爬虫代码
+import requests
+import time
+import asyncio
+s = time.time()
+urls = [
+    &#39;http://127.0.0.1:5000/index&#39;,
+    &#39;http://127.0.0.1:5000/home&#39;
+]
+async def get_request(url):
+    page_text = requests.get(url).text
+    return page_text
+
+tasks = []
+for url in urls:
+    c = get_request(url)
+    task = asyncio.ensure_future(c)
+    tasks.append(task)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(asyncio.wait(tasks))
+
+print(time.time()-s)    
+
+#执行结果 并未实现异步
+4.021323204040527
+
+#因为requests不支持异步,需要使用aiohttp</code></pre>
+<ul>
+<li><h4 id="使用aiohttp模块实现了异步">使用aiohttp模块,实现了异步</h4></li>
+</ul>
+<pre><code><code>#server端
+from flask import Flask
+from time import sleep
+app = Flask(__name__)
+@app.route(&#39;/index&#39;)
+def index():
+    sleep(2)
+    return &#39;index&#39;
+@app.route(&#39;/home&#39;)
+def index1():
+    sleep(2)
+    return &#39;home&#39;
+if __name__ == &#39;__main__&#39;:
+    app.run()
+    
+#爬虫代码   
+import aiohttp
+import time
+import asyncio
+
+s = time.time()
+urls = [
+    &#39;http://127.0.0.1:5000/index&#39;,
+    &#39;http://127.0.0.1:5000/home&#39;
+]
+
+
+async def get_request(url):
+    #每个with前要加async
+    async with aiohttp.ClientSession() as s:
+        #在阻塞操作前加await
+        async with await s.get(url=url) as response:#get(url=url,headers,params,proxy)可用参数 
+            page_text = await response.text()#要加括号,是方法
+            print(page_text)
+    return page_text
+
+
+tasks = []
+for url in urls:
+    c = get_request(url)
+    task = asyncio.ensure_future(c)
+    tasks.append(task)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(asyncio.wait(tasks))
+
+print(time.time() - s)
+
+#执行结果
+index
+home
+2.016155242919922</code></pre>
+<ul>
+<li><h4 id="示例二">示例二</h4></li>
+</ul>
+<pre><code><code>########################test.html文件########################
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh-CN&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;utf-8&quot;&gt;
+  &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge&quot;&gt;
+  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+  &lt;!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ --&gt;
+  &lt;title&gt;Bootstrap 101 Template&lt;/title&gt;
+  &lt;!-- Bootstrap --&gt;
+  &lt;link href=&quot;bootstrap-3.3.7-dist/css/bootstrap.min.css&quot; rel=&quot;stylesheet&quot;&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;你好，世界！&lt;/h1&gt;
+&lt;ul&gt;
+  &lt;li&gt;i am hero!!!&lt;/li&gt;
+  &lt;li&gt;i am superMan!!!&lt;/li&gt;
+  &lt;li&gt;i am Spider!!!&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+
+########################server端########################
+import time
+from flask import Flask,render_template
+
+app = Flask(__name__)
+
+@app.route(&#39;/bobo&#39;)
+def index_bobo():
+    time.sleep(2)
+    return render_template(&#39;test.html&#39;)
+
+@app.route(&#39;/jay&#39;)
+def index_jay():
+    time.sleep(2)
+    return render_template(&#39;test.html&#39;)
+
+@app.route(&#39;/tom&#39;)
+def index_tom():
+    time.sleep(2)
+    return render_template(&#39;test.html&#39;)
+
+if __name__ == &#39;__main__&#39;:
+    app.run(threaded=True)
+    
+########################爬虫代码########################
+import time
+import aiohttp
+import asyncio
+from lxml import etree
+
+start = time.time()
+urls = [
+    &#39;http://127.0.0.1:5000/bobo&#39;,
+    &#39;http://127.0.0.1:5000/jay&#39;,
+    &#39;http://127.0.0.1:5000/tom&#39;,
+    &#39;http://127.0.0.1:5000/bobo&#39;,
+    &#39;http://127.0.0.1:5000/jay&#39;,
+    &#39;http://127.0.0.1:5000/tom&#39;,
+    &#39;http://127.0.0.1:5000/bobo&#39;,
+    &#39;http://127.0.0.1:5000/jay&#39;,
+    &#39;http://127.0.0.1:5000/tom&#39;,
+    &#39;http://127.0.0.1:5000/bobo&#39;,
+    &#39;http://127.0.0.1:5000/jay&#39;,
+    &#39;http://127.0.0.1:5000/tom&#39;
+]
+
+# 特殊的函数：请求发送和响应数据的捕获
+# 细节：在每一个with前加上async，在每一个阻塞操作的前边加上await
+async def get_request(url):
+    async with aiohttp.ClientSession() as s:
+        # s.get(url,headers,proxy=&quot;http://ip:port&quot;,params)
+        async with await s.get(url) as response:
+            page_text = await response.text()  # read()返回的是byte类型的数据
+            return page_text
+
+# 回调函数
+def parse(task):
+    page_text = task.result()
+    tree = etree.HTML(page_text)
+    parse_data = tree.xpath(&#39;//li/text()&#39;)
+    print(parse_data)
+
+tasks = []
+for url in urls:
+    c = get_request(url)
+    task = asyncio.ensure_future(c)
+    task.add_done_callback(parse)
+    tasks.append(task)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(asyncio.wait(tasks))
+
+print(time.time() - start)
+
+#执行结果 实现了异步
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+[&#39;i am hero!!!&#39;, &#39;i am superMan!!!&#39;, &#39;i am Spider!!!&#39;]
+2.094982147216797</code></pre>
+<ul>
+<li><h4 id="总结">总结</h4></li>
+</ul>
+<pre><code><code>- 单线程+多任务异步协程
+  - 协程
+    - 如果一个函数的定义被asyic修饰后，则改函数调用后会返回一个协程对象。
+  - 任务对象：
+    - 就是对协程对象的进一步封装
+  - 绑定回调
+    - task.add_done_callback(func):func(task):task.result()
+  - 事件循环对象
+    - 事件循环对象是用来装载任务对象。该对象被启动后，则会异步的处理调用其内部装载的每一个任务对象。（将任务对象手动进行挂起操作）
+  - aynic，await
+  - 注意事项：在特殊函数内部不可以出现不支持异步模块的代码，否则会中断整个异步的效果！！！
+- aiohttp支持异步请求的模块</code></pre>
+<div id="MySignature" style="display: block;">
+    <div><b>作    者：</b><a href="https://www.cnblogs.com/guokaifeng/" target="_blank">郭楷丰</a></div>
+    <div><b>出    处：</b><a href="https://www.cnblogs.com/guokaifeng/" target="_blank">https://www.cnblogs.com/guokaifeng/</a></div>
+    <div><b>声援博主：</b>如果您觉得文章对您有帮助，可以点击文章右下角 <strong><span style="color: #ff0000; font-size: 12pt;">【<a id="post-up" onclick="votePost(11221919,'Digg')">推荐</a>】</span></strong>一下。您的鼓励是博主的最大动力！</div>
+    <div><b>自    勉：</b>生活，需要追求；梦想，需要坚持；生命，需要珍惜；但人生的路上，更需要坚强。<b>带着感恩的心启程，学会爱，爱父母，爱自己，爱朋友，爱他人。</b></div>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

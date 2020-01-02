@@ -1,0 +1,211 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修ASP.NET Core 选项模式源码学习Options Configure（一）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>ASP.NET Core 选项模式源码学习Options Configure（一）</center></div><div class='banquan'>原文出处:本文由博客园博主HueiFeng提供。<br/>
+原文连接:https://www.cnblogs.com/yyfh/p/12020522.html</div><br>
+    <blockquote>
+<h2 id="前言">前言</h2>
+</blockquote>
+<p>ASP.NET Core 后我们的配置变得更加轻量级了，在ASP.NET Core中，配置模型得到了显著的扩展和增强，应用程序配置可以存储在多环境变量配置中，appsettings.json用户机密等 并可以通过应用程序中的相同界面轻松访问，除此之外，ASP.NET中的新配置系统允许使用Options的强类型设置。</p>
+<blockquote>
+<h2 id="强类型options">强类型Options</h2>
+</blockquote>
+<p>在ASP.NET Core中没有AppSettings[&quot;Key&quot;]默认方法，那么推荐的是创建强类型的配置类，去绑定配置项。</p>
+<pre><code><code>
+    public class MyOptions
+    {
+        public string Name { get; set; }
+
+        public string Url { get; set; }
+    }
+</code></pre>
+<p>然后我们在appsettings.json中添加如下内容：</p>
+<pre><code><code>
+{
+  &quot;MyOptions&quot;: 
+    {
+      &quot;Name&quot;: &quot;TestName&quot;,
+      &quot;Url&quot;: &quot;TestUrl&quot;
+    }
+}
+</code></pre>
+<blockquote>
+<h2 id="配置绑定到类">配置绑定到类</h2>
+</blockquote>
+<p>ConfigureServices方法进行配置以绑定到类</p>
+<pre><code><code>        public void ConfigureServices(IServiceCollection services)
+        {
+
+            services.Configure&lt;MyOptions&gt;(Configuration.GetSection(&quot;MyOptions&quot;));
+            services.AddControllers();
+
+        }
+</code></pre>
+<p>MyOptions只需将IOptions&lt;&gt;类的实例注入控制器中，然后通过Value属性获取Myoptions：</p>
+<pre><code><code>
+    public class WeatherForecastController : ControllerBase
+    {
+        private readonly MyOptions _options;
+        public WeatherForecastController(IOptions&lt;MyOptions&gt; options)
+        {
+            _options = options.Value;
+        }
+
+        [HttpGet]
+        public OkObjectResult Get() {
+            return Ok(string.Format(&quot;Name:{0},Url:{1}&quot;, _options.Name,_options.Url));
+        }
+    }
+</code></pre>
+<blockquote>
+<h2 id="configure">Configure</h2>
+</blockquote>
+<h5 id="委托配置">委托配置</h5>
+<pre><code><code>
+            //基础注册方式
+            services.Configure&lt;MyOptions&gt;(o =&gt; { o.Url = &quot;MyOptions&quot;; o.Name = &quot;Name111&quot;; });
+            //指定具体名称
+            services.Configure&lt;MyOptions&gt;(&quot;Option&quot;, o =&gt; { o.Url = &quot;MyOptions&quot;; o.Name = &quot;Name111&quot;; }) ;
+            //配置所有实例
+            services.ConfigureAll&lt;MyOptions&gt;(options =&gt;{ options.Name = &quot;Name1&quot;;  options.Url = &quot;Url1&quot;;});
+
+</code></pre>
+<h5 id="通过配置文件配置">通过配置文件配置</h5>
+<pre><code><code>
+           // 使用配置文件来注册实例
+            services.Configure&lt;MyOptions&gt;(Configuration.GetSection(&quot;MyOptions&quot;));
+            // 指定具体名称
+            services.Configure&lt;MyOptions&gt;(&quot;Option&quot;, Configuration.GetSection(&quot;MyOptions&quot;));
+</code></pre>
+<h5 id="postconfigure">PostConfigure</h5>
+<p>PostConfigure会在Configure注册完之后再进行注册</p>
+<pre><code><code>
+     services.PostConfigure&lt;MyOptions&gt;(o =&gt; o.Name = &quot;Name1&quot;);
+            services.PostConfigure&lt;MyOptions&gt;(&quot;Option&quot;, o =&gt; o.Name = &quot;Name1&quot;);
+            services.PostConfigureAll&lt;MyOptions&gt;(o =&gt; o.Name = &quot;Name1&quot;);
+</code></pre>
+<blockquote>
+<h2 id="源码解析">源码解析</h2>
+</blockquote>
+<p>IConfigureOptions接口</p>
+<pre><code><code>
+    public interface IConfigureOptions&lt;in TOptions&gt; where TOptions : class
+    {
+        
+        void Configure(TOptions options);
+    }
+
+</code></pre>
+<p>Configure为方便使用IConfigureOptions注册单例ConfigureNamedOptions</p>
+<pre><code><code>
+     public static IServiceCollection Configure&lt;TOptions&gt;(this IServiceCollection services, string name, Action&lt;TOptions&gt; configureOptions)
+            where TOptions : class
+        {
+            if (services == null)
+            {
+                throw new ArgumentNullException(nameof(services));
+            }
+
+            if (configureOptions == null)
+            {
+                throw new ArgumentNullException(nameof(configureOptions));
+            }
+
+            services.AddOptions();
+            services.AddSingleton&lt;IConfigureOptions&lt;TOptions&gt;&gt;(new ConfigureNamedOptions&lt;TOptions&gt;(name, configureOptions));
+            return services;
+        }
+
+
+</code></pre>
+<p>上面代码IConfigureOptions实现了ConfigureNamedOptions，那我们再来看看内部源码<br />
+ConfigureNamedOptions 其实就是把我们注册的Action包装成统一的Configure方法，以方便后续创建Options实例时，进行初始化。</p>
+<pre><code><code>
+    public class ConfigureNamedOptions&lt;TOptions&gt; : IConfigureNamedOptions&lt;TOptions&gt; where TOptions : class
+    {
+        
+        public ConfigureNamedOptions(string name, Action&lt;TOptions&gt; action)
+        {
+            Name = name;
+            Action = action;
+        }
+
+       
+        public string Name { get; }
+
+      
+        public Action&lt;TOptions&gt; Action { get; }
+
+      
+        public virtual void Configure(string name, TOptions options)
+        {
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
+            // Null name is used to configure all named options.
+            if (Name == null || name == Name)
+            {
+                Action?.Invoke(options);
+            }
+        }
+        public void Configure(TOptions options) =&gt; Configure(Options.DefaultName, options);
+    }
+</code></pre>
+<p>在 <strong>services.Configure<MyOptions>(Configuration.GetSection(&quot;MyOptions&quot;));</strong> 我们不指定具体名称的时候默认是如下代码片段</p>
+<pre><code><code>
+        public virtual void Configure(string name, TOptions options)
+        {
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
+            // Null name is used to configure all named options.
+            if (Name == null || name == Name)
+            {
+                Action?.Invoke(options);
+            }
+        }
+        public void Configure(TOptions options) =&gt; Configure(Options.DefaultName, options);
+</code></pre>
+<p>默认使用的是Options.DefaultName</p>
+<p>AddOptions默认方法默认为我们注册了一些核心的类</p>
+<pre><code><code>
+     public static IServiceCollection AddOptions(this IServiceCollection services)
+        {
+            if (services == null)
+            {
+                throw new ArgumentNullException(nameof(services));
+            }
+
+            services.TryAdd(ServiceDescriptor.Singleton(typeof(IOptions&lt;&gt;), typeof(OptionsManager&lt;&gt;)));
+            services.TryAdd(ServiceDescriptor.Scoped(typeof(IOptionsSnapshot&lt;&gt;), typeof(OptionsManager&lt;&gt;)));
+            services.TryAdd(ServiceDescriptor.Singleton(typeof(IOptionsMonitor&lt;&gt;), typeof(OptionsMonitor&lt;&gt;)));
+            services.TryAdd(ServiceDescriptor.Transient(typeof(IOptionsFactory&lt;&gt;), typeof(OptionsFactory&lt;&gt;)));
+            services.TryAdd(ServiceDescriptor.Singleton(typeof(IOptionsMonitorCache&lt;&gt;), typeof(OptionsCache&lt;&gt;)));
+            return services;
+        }
+        </code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

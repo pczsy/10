@@ -1,0 +1,135 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修爬虫多次爬取时候cookie的存储用于登入' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>爬虫多次爬取时候cookie的存储用于登入</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11688241.html</div><br>
+    <h2 id="一.用requests模块自动保存保存缓存中">一.用requests模块自动保存(保存缓存中)</h2>
+<ul>
+<li><p>构建一个session对象session = requests.session（）</p></li>
+<li><p>用构建的session代替requests进行访问他就会自动存啦</p></li>
+</ul>
+<pre><code><code>import requests
+session = requests.session（）
+r = session.get(......)   #他会存返回的cookies不会存发送的cookies
+r = session.post(......)  #在请求同一url他会把存的cookies发送过去</code></pre>
+<p><code>注意点</code></p>
+<ul>
+<li>只存响应的cookie</li>
+<li>不存发送请求时候带的cookie</li>
+<li>不同url没有影响</li>
+<li>cookie名字一样会覆盖掉</li>
+</ul>
+<p>原因自己看下面自己看哈,有问题可以<code>私聊我</code></p>
+<p><img src="./images/爬虫多次爬取时候cookie的存储用于登入0.png" /></p>
+<p><img src="./images/爬虫多次爬取时候cookie的存储用于登入1.png" /></p>
+<p><img src="./images/爬虫多次爬取时候cookie的存储用于登入2.png" /></p>
+<p><img src="./images/爬虫多次爬取时候cookie的存储用于登入3.png" /></p>
+<h2 id="二.将cookie存本地">二.将cookie存本地</h2>
+<h3 id="基于session推荐使用代码少哈哈">1.基于session(推荐使用代码少哈哈)</h3>
+<pre><code><code>import requests
+from  http import  cookiejar
+
+session =requests.session()
+session.cookies = cookiejar.LWPCookieJar()  #MozillaCookieJar或LWPCookieJar。
+
+
+session.cookies.save(filename=&#39;1.txt&#39;)   //存cookie
+
+session.cookies.load(filename=&#39;1.txt&#39;)   //读cookie
+</code></pre>
+<h3 id="普通请求把cookies存本地">2.普通请求把cookies存本地</h3>
+<p><code>这个参照https://www.cnblogs.com/fu-yong/p/9032902.html</code></p>
+<p><code>第一次访问</code></p>
+<pre><code><code>from urllib import request,parse
+from http import cookiejar
+ 
+# 创建filecookiejar实例对象
+# 它需要一个参数，既cookie保存的位置
+filename = &#39;cookie.txt&#39;
+cookie = cookiejar.FileCookieJar(filename)
+ 
+# 根据创建的cookie生成cookie的管理器
+cookie_handle = request.HTTPCookieProcessor(cookie)
+ 
+# 创建http请求管理器
+http_handle = request.HTTPHandler()
+ 
+# 创建https管理器
+https_handle = request.HTTPSHandler()
+ 
+# 创建求求管理器，将上面3个管理器作为参数属性
+# 有了opener，就可以替代urlopen来获取请求了
+opener =  request.build_opener(cookie_handle,http_handle,https_handle)
+
+# 登录url，需要从登录form的action属性中获取
+url = &#39;xxxxxxxxxxxxxx&#39;
+
+# 登录所需要的数据，数据为字典形式，
+# 此键值需要从form扁担中对应的input的name属性中获取
+data = {
+    &#39;email&#39;:&#39;xxxx&#39;,
+    &#39;password&#39;:&#39;xxxxx&#39;
+}
+
+# 将数据解析成urlencode格式
+data = parse.urlencode(data)
+
+req = request.Request(url,data=data)
+
+# 正常是用request.urlopen(),这里用opener.open()发起请求
+response = opener.open(req)
+
+# 保存cookie文件
+cookie.save()</code></pre>
+<p><code>第二次访问</code></p>
+<pre><code><code>from urllib import request,parse
+from http import cookiejar
+ 
+# 创建cookiejar实例对象
+cookie = cookiejar.FileCookieJar()
+ 
+# 读取已经保存的cookie文件
+# 读取之后，就无需登录，直接访问主页即可
+cookie.load(&#39;cookie.txt&#39;)
+ 
+# 根据创建的cookie生成cookie的管理器
+cookie_handle = request.HTTPCookieProcessor(cookie)
+ 
+# 创建http请求管理器
+http_handle = request.HTTPHandler()
+ 
+# 创建https管理器
+https_handle = request.HTTPSHandler()
+ 
+# 创建求求管理器，将上面3个管理器作为参数属性
+# 有了opener，就可以替代urlopen来获取请求了
+opener =  request.build_opener(cookie_handle,http_handle,https_handle)
+
+url = &#39;http://xxxxxx&#39;
+res = opener.open(url)
+ 
+html = res.read().decode()
+
+with open(&#39;renren.html&#39;,&#39;w&#39;) as f:
+        f.write(html)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

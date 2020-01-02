@@ -1,0 +1,475 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python并发编程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python并发编程</center></div><div class='banquan'>原文出处:本文由博客园博主Raina_RLN提供。<br/>
+原文连接:https://www.cnblogs.com/raina/p/11175565.html</div><br>
+    <h3 id="进程线程协程">1. 进程、线程、协程</h3>
+<p><strong>进程</strong>是cpu资源分配的最小单位，进程是正在进行的一个过程或者说一个任务。<br />
+<strong>线程</strong>是cpu调度的最小单位。<br />
+<strong>协程</strong>是一种用户态的轻量级线程，即协程是由用户程序自己控制调度的。（单线程下的并发）<br />
+<strong>进程线程区别：</strong></p>
+<ul>
+<li>线程开销小</li>
+<li>主进程下多个进程PID不同；主进程下多个线程PID与主进程相同</li>
+<li>进程间地址空间相隔离；同一个进程内多个线程共享该进程的地址资源。</li>
+</ul>
+<h3 id="僵尸进程">2. 僵尸进程</h3>
+<p>子进程结束后，子进程的状态信息仍然保存在系统中，直到父进程结束。（所有进程都会经历僵尸进程）</p>
+<h3 id="孤儿进程">3. 孤儿进程</h3>
+<p>父进程已经退出，但它的一个或多个子进程还在运行， 这些进程就会成为孤儿进程，由init进程收养。</p>
+<h3 id="守护进程">4. 守护进程</h3>
+<p>守护进程会在主进程代码执行结束后就终止。</p>
+<h3 id="创建子进程">5. 创建子进程</h3>
+<p>方式一：</p>
+<pre><code><code>import time
+from multiprocessing import Process
+
+
+def task(name):  # 子进程执行的任务
+    print(&#39;%s is running&#39; % name)
+    time.sleep(3)
+    print(&#39;%s is done&#39; % name)
+
+
+if __name__ == &#39;__main__&#39;:
+
+    # 实例化得到对象
+    p1 = Process(target=task, args=(&#39;子进程1&#39;,))  # 必须加逗号
+    p2 = Process(target=task, kwargs={&#39;name&#39;: &#39;子进程2&#39;})
+
+    # 调用对象下的方法，开启进程
+    p1.start()  # 仅是给操作系统发送信号, 由操作系统开启子进程
+    p2.start()
+
+    print(&#39;主&#39;)</code></pre>
+<p>方式二：</p>
+<pre><code><code>import time
+from multiprocessing import Process
+
+class MyProcess(Process):
+
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+
+    def run(self):  # 实际上是start，但是必须叫run
+        print(&#39;%s is running&#39; % self.name)
+        time.sleep(3)
+        print(&#39;%s is done&#39; % self.name)
+
+
+if __name__ == &#39;__main__&#39;:
+
+    p1 = MyProcess(&#39;子进程1&#39;)
+    p2 = MyProcess(&#39;子进程2&#39;)
+
+    p1.start()  # 启动进程，并调用该子进程中的p.run() 
+    p2.start()
+
+    print(&#39;主&#39;)</code></pre>
+<h3 id="查看进程的相关参数">6. 查看进程的相关参数</h3>
+<p><strong>进程名：</strong><code>print(p.name)</code><br />
+<strong>进程PID：</strong> <code>print(os.getpid)</code> <code>print(p.pid)</code><br />
+<strong>父进程PID：</strong><code>print(os.getppid)</code></p>
+<h3 id="相关函数">7. 相关函数</h3>
+<p><strong>等待进程运行结束：</strong><code>p.join()</code><br />
+<strong>查看进程是否在运行：</strong><code>print(p.is_alive())</code><br />
+<strong>终止进程：</strong><code>p.terminate()</code> 进程结束时间由操作系统决定。<br />
+<em>终止进程但不进行任何清理操作，如果p创建了子进程，该子进程就成了僵尸进程；如果p还保存了一个锁那么也将不会被释放，进而导致死锁。</em><br />
+<strong>开启守护进程：</strong><code>p.daemon = True</code> <em>必须在<code>p.start(</code>)之前设置，守护进程将被禁止创建子进程。</em></p>
+<h3 id="互斥锁">8. 互斥锁</h3>
+<p>例子：</p>
+<pre><code><code>from multiprocessing import Process, Lock
+import time
+
+
+def task(name, lock):
+    lock.acquire()
+    print(&#39;%s 1&#39; % name)
+    time.sleep(1)
+    print(&#39;%s 2&#39; % name)
+    time.sleep(1)
+    print(&#39;%s 3&#39; % name)
+    lock.release()
+
+
+if __name__ == &#39;__main__&#39;:
+
+    lock = Lock()
+    for i in range(3):
+        p = Process(target=task, args=(&#39;进程%s&#39; % i, lock))
+        p.start()</code></pre>
+<h3 id="队列-queue">9. 队列 Queue</h3>
+<p>例子：</p>
+<pre><code><code>from multiprocessing import Queue
+
+que = Queue(3)
+
+que.put(1)
+que.put({&#39;a&#39;: &#39;hello&#39;})
+que.put([1, 2, 3])
+print(que.full())  # 判断队列是否已满
+# que.put(4) #再放就阻塞住了
+
+print(que.get())
+print(que.get())
+print(que.get())
+print(que.empty())  # 队列是否空了
+# print(que.get())  # 再取就阻塞住了</code></pre>
+<h3 id="队列-joinablequeue">10. 队列 JoinableQueue</h3>
+<p>例子：</p>
+<pre><code><code>from multiprocessing import Process, JoinableQueue
+import time
+import random
+
+
+def producer(q, name, food):
+    for i in range(2):
+        res = &#39;%s%s&#39; % (food, i)
+        time.sleep(random.randint(1, 3))
+        print(&#39;\033[34m%s 生产了 %s\033[0m&#39; % (name, res))
+        q.put(res)  # 入队
+    q.join()  # 等到消费者把队列中的所有的数据都取走之后，生产者才结束
+
+
+def consumer(q, name):
+    while True:
+        res = q.get()  # 出队
+        time.sleep(random.randint(1, 3))
+        print(&#39;\033[32m%s 吃 %s\033[0m&#39; % (name, res))
+        q.task_done()  # 发送信号给q.join()，说明已经从队列中取走一个数据并处理完毕了
+
+
+if __name__ == &#39;__main__&#39;:
+
+    que = JoinableQueue()
+
+    # 3个生产者
+    p1 = Process(target=producer, args=(que, &#39;生产者1&#39;, &#39;包子&#39;))
+    p2 = Process(target=producer, args=(que, &#39;生产者2&#39;, &#39;饺子&#39;))
+    p3 = Process(target=producer, args=(que, &#39;生产者3&#39;, &#39;月饼&#39;))
+
+    # 2个消费者
+    c1 = Process(target=consumer, args=(que, &#39;消费者1&#39;))
+    c2 = Process(target=consumer, args=(que, &#39;消费者2&#39;))
+    c1.daemon = True  # 将消费者设为守护进程
+    c2.daemon = True  # 消费者在生产者结束后, 随主进程一起结束
+
+    l1 = [p1, p2, p3]
+    l2 = [c1, c2]
+
+    # 开始生产
+    for p in l1:
+        p.start()
+
+    # 开始消费
+    for c in l2:
+        c.start()
+
+    # 主进程等生产者p1、p2、p3结束
+    # 而p1、p2、p3在消费者把所有数据都取干净之后结束
+    for p in l1:
+        p.join()
+    print(&#39;主&#39;)</code></pre>
+<h3 id="协程">11. 协程</h3>
+<p>使用<code>greenlet</code>库：</p>
+<pre><code><code>from greenlet import greenlet
+
+def eat(name):
+    print(&#39;%s eat 1&#39; % name)
+    g2.switch(&#39;egon&#39;)  # 传入第一次参数, 之后不用再传
+    print(&#39;%s eat 2&#39; % name)
+    g2.switch()
+    
+    
+def play(name):
+    print(&#39;%s play 1&#39; % name)
+    g1.switch()
+    print(&#39;%s play 2&#39; % name)
+
+
+g1 = greenlet(eat)
+g2 = greenlet(play)
+
+g1.switch(&#39;egon&#39;)  # 在第一次switch时传入参数，以后都不需要</code></pre>
+<p>使用<code>gevent</code>库 <em>（无法识别<code>socket</code> <code>time</code>等模块的阻塞，需要使用gevent自带的阻塞）</em>：</p>
+<pre><code><code>import gevent
+
+
+def eat(name):
+    print(&#39;%s eat 1&#39; % name)
+    gevent.sleep(2)  # gevent识别到阻塞，进行切换
+    print(&#39;%s eat 2&#39; % name)
+
+
+def play(name):
+    print(&#39;%s play 1&#39; %name)
+    gevent.sleep(1)
+    print(&#39;%s play 2&#39; %name)
+
+
+g1 = gevent.spawn(eat, &#39;egon&#39;)
+g2 = gevent.spawn(play, name=&#39;egon&#39;)
+g1.join()
+g2.join()
+# gevent.joinall([g1,g2])  # 等待列表中所有协程对象结束
+print(&#39;主&#39;)</code></pre>
+<p>导入<code>monkey</code> 可识别<code>socket</code> <code>time</code>等阻塞：</p>
+<pre><code><code>from gevent import monkey; monkey.patch_all()
+# patch_all()必须放在导入socket、time等模块前，否则gevent无法识别socket、time的阻塞
+import gevent
+import time
+
+
+def eat():
+    print(&#39;eat food 1&#39;)
+    time.sleep(2)
+    print(&#39;eat food 2&#39;)
+
+
+def play():
+    print(&#39;play 1&#39;)
+    time.sleep(1)
+    print(&#39;play 2&#39;)
+
+
+g1 = gevent.spawn(eat)
+g2 = gevent.spawn(play)
+gevent.joinall([g1, g2])
+print(&#39;主&#39;)</code></pre>
+<h3 id="进程池线程池">12. 进程池、线程池</h3>
+<p><strong>导入模块：</strong></p>
+<pre><code><code>from concurrent.futures import ProcessPoolExecutor  # 进程池
+from concurrent.futures import ThreadPoolExecutor  # 线程池</code></pre>
+<p><strong>创建进程/线程池：</strong></p>
+<pre><code><code>executor = ProcessPoolExecutor(max_worker=3)  # 进程池
+executor = ThreadPoolExecutor(max_workers=3)  #线程池</code></pre>
+<p><strong>将进程/线程放入池内：</strong></p>
+<pre><code><code>future = exector.submit(task, parm)
+
+&quot;&quot;&quot;
+executor.map(task, range(1,12))
+相当于:
+for i in range(11):
+    exector.submit(task, i)
+&quot;&quot;&quot;</code></pre>
+<p><strong>关闭进程/线程池：</strong></p>
+<pre><code><code>exector.shutdown()  # 默认wait参数为True</code></pre>
+<p><code>wait=True</code> 等待池内所有任务执行完毕回收完资源后再执行后续代码。<br />
+<code>wait=False</code> 不join，直接执行后续代码。<br />
+关闭进程/线程池后，不允许再向已关闭的进程/线程池内加入进程/线程。</p>
+<p><strong>拿到进程/线程运行结果：</strong></p>
+<pre><code><code>print(future.result())</code></pre>
+<p><strong>回调函数：</strong><br />
+<strong><code>future.add_done_callback(func)</code>：</strong> <code>future</code>的<code>task</code>结束后，会自动把future对象当做参数传给回调函数func。</p>
+<p><strong>例子：</strong></p>
+<pre><code><code>from concurrent.futures import ProcessPoolExecutor
+import time
+import random
+
+
+def task(name):
+    print(&quot;%s is running&quot; % name)
+    time.sleep(random.randint(3, 5))
+    return name
+
+
+def func(future):
+    name = future.result()
+    print(&quot;%s&#39;s callback function&quot; % name)
+
+
+if __name__ == &#39;__main__&#39;:
+    executor = ProcessPoolExecutor(5)
+    futures = []
+
+    for i in range(3):
+        future = executor.submit(task, &quot;task&quot;+str(i))
+        future.add_done_callback(func)
+        futures.append(future)
+
+    executor.shutdown(True)
+
+    print(&quot;主&quot;) </code></pre>
+<h3 id="io模型">13. IO模型</h3>
+<ul>
+<li>IO涉及的两个对象：<strong>进程/线程</strong>、<strong>内核</strong><br />
+</li>
+<li>IO操作的两个阶段：
+<ol>
+<li>等待数据准备</li>
+<li>将数据从内存拷贝到进程中</li>
+</ol></li>
+<li>5种IO模型：
+<ul>
+<li><strong>阻塞IO(blocking IO)：</strong> 在内核将数据准备好之前，系统调用会一直等待。</li>
+<li><strong>非阻塞IO(nonblocking IO)：</strong> 每次客户询问内核是否有数据准备好，当有数据报准备好时，就进行拷贝数据报的操作，当没有数据报准备好时，也不阻塞程序，内核直接返回未准备就绪的信号，等待用户程序的下一个轮寻。</li>
+<li><strong>多路复用IO(IO multiplexing)：</strong> 多路复用IO属于阻塞IO，但可以对多个文件描述符进行阻塞监听，所以效率较阻塞IO的高。</li>
+<li><strong>信号驱动IO(signal driven IO)：</strong> 在信号驱动IO模型中，当用户线程发起一个IO请求操作，会给对应的socket注册一个信号函数，然后用户线程会继续执行，当内核数据就绪时会发送一个信号给用户线程，用户线程接收到信号之后，便在信号函数中调用IO读写操作来进行实际的IO请求操作。</li>
+<li><strong>异步IO(asynchronous IO)：</strong> 数据准备、将数据从内从拷贝到进程均由内核完成，完成后告知进程该IO操作已完成。期间程序不阻塞。</li>
+</ul></li>
+</ul>
+<p><strong>阻塞程度：阻塞IO&gt;非阻塞IO&gt;多路转接IO&gt;信号驱动IO&gt;异步IO，效率是由低到高。</strong></p>
+<h3 id="信号量">14. 信号量</h3>
+<p>信号量也是一把锁，但同一时间可以被指定大小的任务获取。</p>
+<p>模块导入：</p>
+<pre><code><code>from threading import Semaphore</code></pre>
+<p>设置计数器大小：</p>
+<pre><code><code>sm = Semaphore(value=1)  # 计数器大小默认为1</code></pre>
+<p>两个主要的方法：</p>
+<pre><code><code>acquire()  # 内置计数器-1， 当计数器为0时阻塞，等待其他线程调用release()
+release()  # 内置计数器+1</code></pre>
+<p>例子：</p>
+<pre><code><code>from threading import Thread, Semaphore
+import threading
+import time
+
+
+def func():
+    sm.acquire()
+    print(&#39;%s get sm&#39; % threading.current_thread().getName())
+    time.sleep(3)
+    sm.release()
+
+
+if __name__ == &#39;__main__&#39;:
+    sm = Semaphore(5)
+    for _ in range(23):
+        t = Thread(target=func)
+        t.start()
+</code></pre>
+<h3 id="event">15. Event</h3>
+<p>Event对象：<br />
+用于线程间通信，即程序中的其一个线程需要通过判断某个线程的状态来确定自己下一步的操作，就用到了Event对象。</p>
+<p>模块导入：</p>
+<pre><code><code>from threading import Event</code></pre>
+<p>创建Event对象：</p>
+<pre><code><code>event = Event()</code></pre>
+<p>相关方法：</p>
+<pre><code><code>event.isSet()  # 返回event的状态值
+event.wait([maxtime])  # 如果 event.isSet() == False将阻塞线程, [maxtime]-超时时间
+event.set()  # 设置event的状态值为True,所有阻塞池的线程激活进入就绪状态, 等待操作系统调度
+event.clear()  # 恢复event的状态值为False</code></pre>
+<p>例子：</p>
+<pre><code><code>from threading import Thread, Event
+import threading
+import time
+import random
+
+
+def conn_mysql():
+    count = 1
+    while not event.is_set():
+        if count &gt; 3:
+            print(&#39;\033[31m[%s]连接失败\033[0m&#39; % threading.current_thread().getName())
+            exit(0)
+        print(&#39;&lt;%s&gt;第%s次尝试连接&#39; % (threading.current_thread().getName(), count))
+        event.wait(1)
+        count += 1
+    print(&#39;&lt;%s&gt;连接成功&#39; % threading.current_thread().getName())
+
+
+def check_mysql():
+    print(&#39;\033[45m[%s]正在检查mysql\033[0m&#39; % threading.current_thread().getName())
+    time.sleep(random.randint(1, 4))
+    event.set()
+
+
+if __name__ == &#39;__main__&#39;:
+    event = Event()
+    conn1 = Thread(target=conn_mysql)
+    conn2 = Thread(target=conn_mysql)
+    check = Thread(target=check_mysql)
+
+    conn1.start()
+    conn2.start()
+    check.start()
+</code></pre>
+<h3 id="定时器">16. 定时器</h3>
+<p>定时器Timer：指定n秒后执行某项操作(不会像sleep一样阻塞)<br />
+例子：</p>
+<pre><code><code>from threading import Timer
+
+
+def hello():
+    print(&quot;hello, world&quot;)
+
+
+t = Timer(1, hello)  // 一秒后执行hello函数
+t.start()</code></pre>
+<h3 id="递归锁">17. 递归锁</h3>
+<p><strong>死锁现象：</strong> 指两个或两个以上的进程或线程在执行过程中，因争夺资源而造成的一种互相等待的现象，这种永远在互相等待的进程称为死锁进程。<br />
+<strong>递归锁：</strong> <code>RLock</code>可以连续acquire多次。RLock内部维护着一个Lock和一个counter变量，counter记录了acquire的次数，从而使得资源可以被多次require。直到一个线程所有的acquire都被release，其他的线程才能获得资源。</p>
+<p>例子：</p>
+<pre><code><code>from threading import Thread, RLock
+import time
+
+mutexA = mutexB = RLock()
+
+
+class MyThread(Thread):
+    def run(self):
+        self.func1()
+        self.func2()
+
+    def func1(self):
+        mutexA.acquire()
+        print(&#39;\033[41m%s 拿到A锁\033[0m&#39; % self.name)
+
+        mutexB.acquire()
+        print(&#39;\033[42m%s 拿到B锁\033[0m&#39; % self.name)
+
+        mutexB.release()
+        print(&#39;\033[41m%s 释放A锁\033[0m&#39; % self.name)
+
+        mutexA.release()
+        print(&#39;\033[42m%s 释放B锁\033[0m&#39; % self.name)
+
+    def func2(self):
+        mutexB.acquire()
+        print(&#39;\033[43m%s 拿到B锁\033[0m&#39; % self.name)
+        time.sleep(2)
+
+        mutexA.acquire()
+        print(&#39;\033[44m%s 拿到A锁\033[0m&#39; % self.name)
+
+        mutexA.release()
+        print(&#39;\033[43m%s 释放B锁\033[0m&#39; % self.name)
+
+        mutexB.release()
+        print(&#39;\033[44m%s 释放A锁\033[0m&#39; % self.name)
+
+
+if __name__ == &#39;__main__&#39;:
+    for _ in range(4):
+        t = MyThread()
+        t.start()
+</code></pre>
+<h3 id="gil全局解释器锁">18. GIL全局解释器锁</h3>
+<p>cpython中引进GIL，保证同一时刻同一进程中只有一个线程被执行，获取锁并获取资源，避免了多线程并发执行，保证了线程的安全，但无法使用多核优势。</p>
+<p>结论：</p>
+<blockquote>
+<p><strong>多线程用于IO密集型</strong><br />
+<strong>多进程用于计算密集型</strong></p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

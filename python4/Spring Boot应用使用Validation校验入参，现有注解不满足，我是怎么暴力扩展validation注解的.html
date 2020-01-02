@@ -1,0 +1,350 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的</center></div><div class='banquan'>原文出处:本文由博客园博主三国梦回提供。<br/>
+原文连接:https://www.cnblogs.com/grey-wolf/p/12037311.html</div><br>
+    <h1 id="前言">前言</h1>
+<p>昨天，我开发的代码，又收获了一个bug，说是界面上列表查询时，正常情况下，可以根据某个关键字keyword模糊查询，后台会去数据库 %keyword%查询（非互联网项目，没有使用es，只能这样了）；但是，当输入%字符时，可以模糊匹配出所有的记录，就好像，好像这个条件没进行过滤一样。</p>
+<p>原因很简单，当输入%时，最终出来的sql，就是%%%这样的。</p>
+<p>我们用的<code>mybatis plus</code>，写法如下，看来这样是有问题的（bug警告）：</p>
+<pre><code><code>QueryWrapper&lt;QueryUserListReqVO&gt; wrapper = new QueryWrapper&lt;&gt;();
+if (StringUtils.isNotBlank(reqVO.getIncidentNumber())) {
+  // 如果传入的条件不为空，需要模糊查询
+  wrapper.and(i -&gt; i.like(&quot;i.incident_number&quot;, reqVO.getIncidentNumber()));
+}
+//根据wrapper去查询
+return this.baseMapper.getAppealedNormalIncidentList( wrapper);
+
+</code></pre>
+<p><code>mapper</code>层代码如下（以下仅为演示，单表肯定不直接写sql了，哈哈）：</p>
+<pre><code><code>public interface IncidentAppealInformationMapper extends BaseMapper&lt;IncidentAppealInformation&gt; {
+
+    @Select(&quot;SELECT \n&quot; +
+            &quot;  * \n&quot;
+            &quot; FROM\n&quot; +
+            &quot;  incident_appeal_information a ${ew.customSqlSegment}&quot;)
+    List&lt;GetAppealedNormalIncidentListRespVO&gt; getAppealedNormalIncidentList(@Param(Constants.WRAPPER)QueryWrapper wrapper);</code></pre>
+<p>当输入的条件为<code>%</code>时，我们看看console打印的sql：</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的0.png" /></p>
+<p>问题找到了，看看怎么改吧。</p>
+<p>项目源码在（建议先看代码，再看本文，会容易一些）：<br />
+<a href="https://gitee.com/ckl111/all-simple-demo-in-work/tree/master/spring-boot-validation-demo" class="uri">https://gitee.com/ckl111/all-simple-demo-in-work/tree/master/spring-boot-validation-demo</a></p>
+<h1 id="修改方法">修改方法</h1>
+<p>闲言少叙，我想的办法是，判断请求参数，正常情况下，请求参数里都不会有这种%字符。问题是，我们有很多地方的列表查询有这个问题，懒得一个一个写<code>if/else</code>，作为懒人，肯定要想想办法了，那就是使用<code>java ee</code>规范里的<code>validation</code>。</p>
+<p>使用<code>spring validation</code>的demo，可以看看博主的码云：</p>
+<p><a href="https://gitee.com/ckl111/all-simple-demo-in-work/tree/master/spring-boot-validation-demo" class="uri">https://gitee.com/ckl111/all-simple-demo-in-work/tree/master/spring-boot-validation-demo</a></p>
+<p>简单的使用方法如下：</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的1.png" /></p>
+<p>所以，我解决这个问题的办法就是，自定义一个注解，加在支持模糊查询的字段上，在该注解的处理handler中，判断是否包含了特殊字符%，如果包含了，直接给客户端抛错误码。</p>
+<p>定了方向，说干就干，我这里没有第一时间去搜索答案，因为感觉也不是很难，好像自己可以搞定的样子，哈哈。</p>
+<p>那就开始吧。</p>
+<h1 id="理顺原有逻辑找准扩展方式">理顺原有逻辑，找准扩展方式</h1>
+<p>因为，我知道这类validation注解，主要是在validation-api的包里，maven坐标：</p>
+<pre><code><code>        &lt;dependency&gt;
+            &lt;groupId&gt;javax.validation&lt;/groupId&gt;
+            &lt;artifactId&gt;validation-api&lt;/artifactId&gt;
+        &lt;/dependency&gt;</code></pre>
+<p>然后呢，这个包是java ee 规范的，只定义，不实现，实现的话，hibernate对这个进行了实现，spring-boot-starter-web里默认也引了这个依赖。</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的2.png" /></p>
+<p>所以，大家可以这么理解，<code>validation-api</code>定义了基本的注解，然后<code>hibernate-validator</code>进行了实现，并且，扩展了一部分注解，我随便找了两个，比如</p>
+<blockquote>
+<p>org.hibernate.validator.constraints.Length，校验字符串长度是否在指定的范围内</p>
+<p>org.hibernate.validator.constraints.Email，校验指定字符串为一个有效的email地址</p>
+</blockquote>
+<p>我本地工程都是maven管理，且下载了源码的，所以直接查找 <code>org.hibernate.validator.constraints.Email</code>的引用的地方，即发现了下面这个代码<code>org.hibernate.validator.internal.metadata.core.ConstraintHelper</code>：</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的3.png" /></p>
+<p>所以，我们只要想办法，在这里面加上我们自己的一条记录就行了，最简单的办法是，把代码给它覆盖了，但是，我还是有底线的，能扩展就扩展，实在不行了，再覆盖。</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的4.png" alt="img" /></p>
+<p>分析了一下，这个地方，是<code>org.hibernate.validator.internal.metadata.core.ConstraintHelper</code>的构造函数里，先是new了一个hashmap，把这些注解和注解处理器put进去后，再用下面的代码赋给了类中的field：</p>
+<pre><code><code>// 一个map，key：注解class，value：能够处理该注解class的handler的描述符
+@Immutable
+private final Map&lt;Class&lt;? extends Annotation&gt;, List&lt;? extends ConstraintValidatorDescriptor&lt;?&gt;&gt;&gt; builtinConstraints;
+
+public ConstraintHelper() {
+    Map&lt;Class&lt;? extends Annotation&gt;, List&lt;ConstraintValidatorDescriptor&lt;?&gt;&gt;&gt; tmpConstraints = new HashMap&lt;&gt;();
+
+    // Bean Validation constraints
+    putConstraint( tmpConstraints, Email.class, EmailValidator.class );
+    this.builtinConstraints = Collections.unmodifiableMap( tmpConstraints );
+}</code></pre>
+<p>所以，我的思路是，等这个类的构造函数被调用后，修改下这个map。那，先得看看怎么操纵这个类的构造函数在哪被调用的？经过查找，发现是在<code>org.hibernate.validator.internal.engine.ValidatorFactoryImpl#ValidatorFactoryImpl</code>:</p>
+<pre><code><code>public ValidatorFactoryImpl(ConfigurationState configurationState) {
+        ClassLoader externalClassLoader = getExternalClassLoader( configurationState );
+
+        this.valueExtractorManager = new ValueExtractorManager( configurationState.getValueExtractors() );
+        this.beanMetaDataManagers = new ConcurrentHashMap&lt;&gt;();
+        // 这里new了一个上面类的实例
+        this.constraintHelper = new ConstraintHelper();
+}</code></pre>
+<p>继续追踪，发现在</p>
+<pre><code><code>## org.hibernate.validator.HibernateValidator
+public class HibernateValidator implements ValidationProvider&lt;HibernateValidatorConfiguration&gt; {
+    ...
+      
+    @Override
+    public ValidatorFactory buildValidatorFactory(ConfigurationState configurationState) {
+        // 这里new了该类的实例  
+        return new ValidatorFactoryImpl( configurationState );
+    }
+}</code></pre>
+<p>到这里，我们可以在上面这里，打个断点，看看什么场景下，会走到这里来了：</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的5.png" /></p>
+<p>走到上图的最后一步时，会进入到单独的线程来做以上动作：</p>
+<pre><code><code>org.springframework.boot.autoconfigure.BackgroundPreinitializer.ValidationInitializer
+/**
+ * Early initializer for javax.validation.
+ */
+private static class ValidationInitializer implements Runnable {
+
+  @Override
+  public void run() {
+    Configuration&lt;?&gt; configuration = Validation.byDefaultProvider().configure();
+    configuration.buildValidatorFactory().getValidator();
+  }
+
+}</code></pre>
+<p>我们接着看，看什么情况会走到我们之前的</p>
+<pre><code><code>## org.hibernate.validator.HibernateValidator
+public class HibernateValidator implements ValidationProvider&lt;HibernateValidatorConfiguration&gt; {
+    ...
+      
+    @Override
+    public ValidatorFactory buildValidatorFactory(ConfigurationState configurationState) {
+        // 这里new了该类的实例  
+        return new ValidatorFactoryImpl( configurationState );
+    }
+}</code></pre>
+<p>经过跟踪，发现在以下地方进入的：</p>
+<pre><code><code>    @Override
+    public final ValidatorFactory buildValidatorFactory() {
+      loadValueExtractorsFromServiceLoader();
+      parseValidationXml();
+
+      for ( ValueExtractorDescriptor valueExtractorDescriptor : valueExtractorDescriptors.values() ) {
+        validationBootstrapParameters.addValueExtractorDescriptor( valueExtractorDescriptor );
+      }
+
+      ValidatorFactory factory = null;
+      if ( isSpecificProvider() ) {
+        factory = validationBootstrapParameters.getProvider().buildValidatorFactory( this );
+      }
+      else {
+          //如果没有指定validator，则会进入该分支，一般默认都进入该分支了
+          final Class&lt;? extends ValidationProvider&lt;?&gt;&gt; providerClass = validationBootstrapParameters.getProviderClass();
+          if ( providerClass != null ) {
+            for ( ValidationProvider&lt;?&gt; provider : providerResolver.getValidationProviders() ) {
+              if ( providerClass.isAssignableFrom( provider.getClass() ) ) {
+                factory = provider.buildValidatorFactory( this );
+                break;
+              }
+            }
+            if ( factory == null ) {
+              throw LOG.getUnableToFindProviderException( providerClass );
+            }
+          }
+          else {
+            //进入这里，是因为，参数里没指定provider class，provider class可以在classpath下的META-              INF/validation.xml中指定
+            
+            // 这里，providerResolver会去根据自己的规则，获取validationProvider class集合
+            List&lt;ValidationProvider&lt;?&gt;&gt; providers = providerResolver.getValidationProviders();               // 取第一个集合中的provider，这里的providers.get(0)一般就会取到前面我们说的                         // HibernateValidator
+            factory = providers.get( 0 ).buildValidatorFactory( this );
+          }
+        
+      }
+
+        return factory;
+    }</code></pre>
+<p>这段逻辑，还是有点绕的，先说说，频繁出现的provider是啥意思？</p>
+<p>我先来，其实，这就是个工厂。</p>
+<p>然后，让api来话事，这个类，<code>javax.validation.spi.ValidationProvider</code>出现在<code>validation-api</code>包里。我们说了，这个包，只管定接口，不管实现。</p>
+<pre><code><code>public interface ValidationProvider&lt;T extends Configuration&lt;T&gt;&gt; {
+    ... 
+
+    /**
+     * 构造一个ValidatorFactory并返回
+     * 
+     * Build a {@link ValidatorFactory} using the current provider implementation.
+     * &lt;p&gt;
+     * The {@code ValidatorFactory} is assembled and follows the configuration passed
+     * via {@link ConfigurationState}.
+     * &lt;p&gt;
+     * The returned {@code ValidatorFactory} is properly initialized and ready for use.
+     *
+     * @param configurationState the configuration descriptor
+     * @return the instantiated {@code ValidatorFactory}
+     * @throws ValidationException if the {@code ValidatorFactory} cannot be built
+     */
+    ValidatorFactory buildValidatorFactory(ConfigurationState configurationState);
+}</code></pre>
+<p>既然说了，这个接口，只管接口，不管实现；那么实现在哪指定呢？</p>
+<p>这个是利用了SPI机制，javax.validation.spi.ValidationProvider的实现在下面这个地方指定：</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的6.png" /></p>
+<p>然后，我再画个图来说，前面查找provider的简易流程：</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的7.png" /></p>
+<p>所以，大家如果对SPI机制有了解的话，那么我们可以在classpath下，自定义一个ValidationProvider，比如像下面这样：</p>
+<p><img src="./images/Spring Boot应用使用Validation校验入参，现有注解不满足，我是怎么暴力扩展validation注解的8.png" /></p>
+<h1 id="通过spi机制扩展validationprovider">通过SPI机制扩展ValidationProvider</h1>
+<p>这里看看我们是怎么自定义<code>com.example.webdemo.config.CustomHibernateValidator</code>的：</p>
+<pre><code><code>package com.example.webdemo.config;
+
+import lombok.extern.slf4j.Slf4j;
+import org.hibernate.validator.HibernateValidator;
+import org.hibernate.validator.internal.engine.ValidatorFactoryImpl;
+
+import javax.validation.ValidatorFactory;
+import javax.validation.spi.ConfigurationState;
+import java.lang.reflect.Field;
+
+@Slf4j
+public class CustomHibernateValidator extends HibernateValidator{
+
+    @Override
+    public ValidatorFactory buildValidatorFactory(ConfigurationState configurationState) {
+        ValidatorFactoryImpl validatorFactory = new ValidatorFactoryImpl(configurationState);
+        // 修改validatorFactory中原有的ConstraintHelper
+        CustomConstraintHelper customConstraintHelper = new CustomConstraintHelper();
+        try {
+            Field field = validatorFactory.getClass().getDeclaredField(&quot;constraintHelper&quot;);
+            field.setAccessible(true);
+            field.set(validatorFactory,customConstraintHelper);
+        } catch (IllegalAccessException | NoSuchFieldException e) {
+            log.error(&quot;{}&quot;,e);
+        }
+        // 我们自定义的CustomConstraintHelper，继承了原有的
+        // org.hibernate.validator.internal.metadata.core.ConstraintHelper,这里对
+        // 原有类中的注解--》注解处理器map进行修改，放进我们自定义的注解和注解处理器
+        customConstraintHelper.moidfy();
+
+        return validatorFactory;
+    }
+}
+</code></pre>
+<h2 id="自定义的customconstrainthelper">自定义的CustomConstraintHelper</h2>
+<pre><code><code>package com.example.webdemo.config;
+
+import com.example.webdemo.annotation.SpecialCharNotAllowed;
+import com.example.webdemo.annotation.SpecialCharValidator;
+import lombok.extern.slf4j.Slf4j;
+import org.hibernate.validator.internal.engine.constraintvalidation.ConstraintValidatorDescriptor;
+import org.hibernate.validator.internal.metadata.core.ConstraintHelper;
+
+import javax.validation.ConstraintValidator;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
+public class CustomConstraintHelper extends ConstraintHelper {
+
+    public CustomConstraintHelper() {
+        super();
+    }
+
+    void moidfy(){
+        Field field = null;
+        try {
+            field = this.getClass().getSuperclass().getDeclaredField(&quot;builtinConstraints&quot;);
+            field.setAccessible(true);
+
+            Object o = field.get(this);
+
+            // 因为field被定义为了private final，且实际类型为
+            // this.builtinConstraints = Collections.unmodifiableMap( tmpConstraints );
+            // 因为不能修改，所以我这里只能拷贝到一个新的hashmap，再反射设置回去
+            Map&lt;Class&lt;? extends Annotation&gt;, List&lt;? extends ConstraintValidatorDescriptor&lt;?&gt;&gt;&gt; modifiedMap = new HashMap&lt;&gt;();
+            modifiedMap.putAll((Map&lt;? extends Class&lt;? extends Annotation&gt;, ? extends List&lt;? extends ConstraintValidatorDescriptor&lt;?&gt;&gt;&gt;) o);
+            // 在这里注册我们自定义的注解和注解处理器
+            modifiedMap.put( SpecialCharNotAllowed.class,
+                    Collections.singletonList( ConstraintValidatorDescriptor.forClass( SpecialCharValidator.class, SpecialCharNotAllowed.class ) ) );
+
+            /**
+             * 设置回field
+             */
+            field.set(this,modifiedMap);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            log.error(&quot;{}&quot;,e);
+        }
+
+    }
+
+
+    private static &lt;A extends Annotation&gt; void putConstraint(Map&lt;Class&lt;? extends Annotation&gt;, List&lt;ConstraintValidatorDescriptor&lt;?&gt;&gt;&gt; validators,
+                                                             Class&lt;A&gt; constraintType, Class&lt;? extends ConstraintValidator&lt;A, ?&gt;&gt; validatorType) {
+        validators.put( constraintType, Collections.singletonList( ConstraintValidatorDescriptor.forClass( validatorType, constraintType ) ) );
+    }
+}
+</code></pre>
+<h2 id="自定义的注解和处理器">自定义的注解和处理器</h2>
+<pre><code><code>package com.example.webdemo.annotation;
+
+import javax.validation.Payload;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * 注解，主要验证是否有特殊字符
+ */
+@Target({ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface SpecialCharNotAllowed {
+//    String message() default &quot;{javax.validation.constraints.Min.message}&quot;;
+    String message() default &quot;special char like &#39;%&#39; is illegal&quot;;
+
+    Class&lt;?&gt;[] groups() default { };
+
+    Class&lt;? extends Payload&gt;[] payload() default { };
+
+}
+</code></pre>
+<pre><code><code>package com.example.webdemo.annotation;
+
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
+
+
+public class SpecialCharValidator implements ConstraintValidator&lt;SpecialCharNotAllowed, Object&gt; {
+
+    @Override
+    public boolean isValid(Object object, ConstraintValidatorContext constraintValidatorContext) {
+        if (object == null) {
+            return true;
+        }
+        if (object instanceof String) {
+            String str = (String) object;
+            if (str.contains(&quot;%&quot;)) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+</code></pre>
+<h1 id="总结">总结</h1>
+<p>其实，扩展不需要这么麻烦，官方提供了扩展点，我也是写完后，查了下才发现的。</p>
+<p>不过，本文只是给一个思路，和一些我用到的方法吧，希望能抛砖引玉。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

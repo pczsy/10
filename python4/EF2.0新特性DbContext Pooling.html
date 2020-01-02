@@ -1,0 +1,95 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修EF2.0新特性DbContext Pooling' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>EF2.0新特性DbContext Pooling</center></div><div class='banquan'>原文出处:本文由博客园博主nodotnet提供。<br/>
+原文连接:https://www.cnblogs.com/JulianHuang/p/12074483.html</div><br>
+    <h3>长话短说</h3>
+<p>　　上个月公司上线了一个物联网数据科学项目，我主要负责前端接受物联网事件，并提供 参数下载。</p>
+<p>webapp 部署在Azure云上，参数使用Azure SQL Server存储。<span style="text-decoration: line-through;"> 最近从灰度测试转向全量部署之后，日志时常收到：</span></p>
+<p><span style="text-decoration: line-through;">&nbsp;SQL Session超限报错。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="text-decoration: line-through;"><span style="color: #800080; text-decoration: line-through;">19</span>/<span style="color: #800080; text-decoration: line-through;">12</span>/<span style="color: #800080; text-decoration: line-through;">18</span> <span style="color: #800080; text-decoration: line-through;">20</span>:<span style="color: #800080; text-decoration: line-through;">41</span>:<span style="color: #800080; text-decoration: line-through;">18</span> [Error].[Microsoft.EntityFrameworkCore.Query].[][0HLS3MS83SC3K:<span style="color: #800080; text-decoration: line-through;">00000004</span>].[http:<span style="color: #008000; text-decoration: line-through;">//</span><span style="color: #008000; text-decoration: line-through;">localhost/api/v1/soc-prediction-model/all].[].[GetModeParameters] </span>
+An exception occurred <span style="color: #0000ff; text-decoration: line-through;">while</span> iterating over the results of a query <span style="color: #0000ff; text-decoration: line-through;">for</span> context type <span style="color: #800000; text-decoration: line-through;">'</span><span style="color: #800000; text-decoration: line-through;">Gridsum.SaicEnergyTracker.CarModelContext</span><span style="color: #800000; text-decoration: line-through;">'</span><span style="color: #000000; text-decoration: line-through;">.
+Microsoft.Data.SqlClient.SqlException (</span><span style="color: #800080; text-decoration: line-through;">0x80131904</span>): Resource ID : <span style="color: #800080; text-decoration: line-through;">2</span>. The session limit <span style="color: #0000ff; text-decoration: line-through;">for</span> the database <span style="color: #0000ff; text-decoration: line-through;">is</span> <span style="color: #800080; text-decoration: line-through;">300</span> and has been reached. See <span style="color: #800000; text-decoration: line-through;">'</span><span style="color: #800000; text-decoration: line-through;">http://go.microsoft.com/fwlink/?LinkId=267637</span><span style="color: #800000; text-decoration: line-through;">'</span> <span style="color: #0000ff; text-decoration: line-through;">for</span><span style="color: #000000; text-decoration: line-through;"> assistance.
+Changed database context to </span><span style="color: #800000; text-decoration: line-through;">'</span><span style="color: #800000; text-decoration: line-through;">saic-carmodel</span><span style="color: #800000; text-decoration: line-through;">'</span><span style="color: #000000; text-decoration: line-through;">.
+Changed language setting to us_english.
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CheckPoolBlockingPeriod(Exception e)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.UserCreateRequest(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.TryGetConnection(DbConnection owningObject, UInt32 waitForMultipleObjectsTimeout, Boolean allowCreate, Boolean onlyOneCheckConnection, DbConnectionOptions userOptions, DbConnectionInternal</span>&amp;<span style="color: #000000; text-decoration: line-through;"> connection)
+   at Microsoft.Data.ProviderBase.DbConnectionPool.WaitForPendingOpen()
+</span>--- End of stack trace <span style="color: #0000ff; text-decoration: line-through;">from</span> previous location <span style="color: #0000ff; text-decoration: line-through;">where</span> exception was thrown ---<span style="color: #000000; text-decoration: line-through;">
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenDbConnectionAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenDbConnectionAsync(Boolean errorsExpected, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalConnection.OpenAsync(CancellationToken cancellationToken, Boolean errorsExpected)
+   at Microsoft.EntityFrameworkCore.Storage.RelationalCommand.ExecuteReaderAsync(RelationalCommandParameterObject parameterObject, CancellationToken cancellationToken)
+   at Microsoft.EntityFrameworkCore.Query.RelationalShapedQueryCompilingExpressionVisitor.AsyncQueryingEnumerable`</span><span style="color: #800080; text-decoration: line-through;">1</span>.AsyncEnumerator.MoveNextAsync()</span></pre>
+</div>
+<h3>&nbsp;排查</h3>
+<p>　　<span style="text-decoration: line-through;">我在Azure上使用的是 SQL Server Basic Edition（好歹也是付费版），全量发布至今，日均SQL访问次数约为10000，查询了<a href="https://docs.microsoft.com/en-us/azure/sql-database/sql-database-resource-limits-database-server" target="_blank">Azure SQL的使用限制文档</a>：</span></p>
+<p><span style="text-decoration: line-through;">一句话： 付费级别和计算资源大小决定了&nbsp; Azure SQL最大会话数和请求数。要缓解，要么升级硬件资源，要么优化查询利用率。</span></p>
+<p>查看使用EFCore访问SQL Server的过程,&nbsp; 也是官方默认用法：</p>
+<ul>
+<li>&nbsp;在依赖注入框架 注册一个自定义的 DbContext类型</li>
+<li>在 Controller 构造函数中获取 DbContext实例</li>
+</ul>
+<p>这意味着每次请求都会创建一个DbContext实例， 可以想象到</p>
+<p>&nbsp;主： 频繁创建和销毁DbContext 实例，影响App Service自身性能。</p>
+<p><span style="font-size: 12px;">&nbsp;<span style="text-decoration: line-through;">次:&nbsp; 在急缺CPU资源下，连接会话来不及释放，会话数不断累积，最终某时刻会超过Azure的会话限制数。</span></span></p>
+<p>EFCore2.0 为DbContext引入新的注册方式， 能够透明的注册一个 DbContext实例池：</p>
+<div class="cnblogs_code">
+<pre><code>services.AddDbContextPool&lt;CarModelContext&gt;(options =&gt; options.UseSqlServer(Configuration.GetConnectionString(<span style="color: #800000;">"</span><span style="color: #800000;">SQL</span><span style="color: #800000;">"</span>)));</pre>
+</div>
+<p>&nbsp;&nbsp; - 一如既往支持lambda方式注册连接字符串</p>
+<p>&nbsp; - 默认的DbContext Pool实例数量为 128</p>
+<p>&nbsp; - 每次使用完DbContext不会释放对象，而是重置并回收到DBContextPool</p>
+<p>Web程序中通过重用池中DbContext实例可增加高并发场景下的吞吐量，&nbsp;这在<strong>概念上类似于ADO.NET Provider原生的连接池操作方式，具有节省DbContext实例化成本的优点</strong>,&nbsp; &nbsp;这也是EFCore2.0 其中一个性能亮点。</p>
+<blockquote>
+<p>这么重要的使用方式竟然不在 Microsoft doc 默认Demo中推荐使用，真是一个坑。</p>
+</blockquote>
+<p><img src="./images/EF2.0新特性DbContext Pooling0.png" alt="" /></p>
+<p><span style="text-decoration: line-through;">修改代码重新部署之后，历经几天测试，暂时未出现最开始的SqlException异常。</span></p>
+<h4>验证</h4>
+<p>回过头随机验证SQL Server 有连接的会话数：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">SELECT DEC.session_id, DEC.protocol_type, DEC.auth_scheme,
+  DES.login_name, DES.login_time
+FROM sys.dm_exec_sessions AS DES
+  JOIN sys.dm_exec_connections AS DEC
+    ON DEC.session_id </span>= DES.session_id;</pre>
+</div>
+<p><img src="./images/EF2.0新特性DbContext Pooling1.png" alt="" /></p>
+<h3>总结</h3>
+<p>①&nbsp; 提示EFCore2.0 新推出的DbContextPool 特性， 提高App Service 性能。</p>
+<p>②&nbsp; 尝试使用SQL Server 内置脚本验证当前有效连接的 会话数</p>
+<p>&nbsp;</p>
+<p>--------------------------------------<span style="background-color: #ffff00; font-size: 16px;">20191222 更新</span>------------------------</p>
+<p>&nbsp;查阅资料， DbContext 确实是EFCore连接会话的概念，EFCore2.0推出的DbContextPool 通过减少DBContext频繁实例化、销毁的成本来提高程序性能，</p>
+<p>概念上类似 Ado.Net原生的连接池的概念（Ado.NET连接池是更重更底层的资源， 效果会更好）。</p>
+<p>至于SQL查询吞吐量，DbContextPool 并没有很直接的证据能证明对SQL吞吐量有改善，目前的证据显示DbContextPool 因为app 性能提升，前端处理请求的吞吐量有20% 提升。</p>
+<p>鉴于没有实际证据证明对SQL查询吞吐量有改善，<strong><span style="background-color: #ffff00;">本文不再将 数据库底层的改善直接归功于使用DbContextPool</span></strong>， 因此本文删除了上面的关联关系，但是DbContextPool 还是应该作为默认实践。</p>
+<p>&nbsp;+&nbsp;<a href="https://github.com/aspnet/EntityFrameworkCore/issues/9426">https://github.com/aspnet/EntityFrameworkCore/issues/9426</a></p>
+<p>+&nbsp;<a href="https://github.com/aspnet/EntityFrameworkCore/issues/10125">https://github.com/aspnet/EntityFrameworkCore/issues/10125</a></p>
+<p>&nbsp;</p>
+<p>+&nbsp;&nbsp;<a href="https://stackoverflow.com/questions/48443567/adddbcontext-or-adddbcontextpool">https://stackoverflow.com/questions/48443567/adddbcontext-or-adddbcontextpool</a></p>
+<p>+&nbsp;<a href="https://www.mssqltips.com/sqlservertip/5507/understanding-and-using-sysdmexecsessions-in-sql-server/">https://www.mssqltips.com/sqlservertip/5507/understanding-and-using-sysdmexecsessions-in-sql-server/</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

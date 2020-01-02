@@ -1,0 +1,162 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【Spring】只想用一篇文章记录@Value的使用，不想再找其它了(附思维导图)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【Spring】只想用一篇文章记录@Value的使用，不想再找其它了(附思维导图)</center></div><div class='banquan'>原文出处:本文由博客园博主南瓜慢说提供。<br/>
+原文连接:https://www.cnblogs.com/larrydpk/p/12079717.html</div><br>
+    <h1 id="简介">1 简介</h1>
+<p>不得不说，Spring为大家提供许多开箱即用的功能，<code>@Value</code>就是一个极其常用的功能，它能将配置信息注入到bean中去。即使是一个简单的功能，Spring也提供了丰富的注入类型和形式。我经常会忘记一些特别类型注入的写法，比如说数组，现在整理一下，希望以后不用再找了。</p>
+<p><img src="./images/【Spring】只想用一篇文章记录@Value的使用，不想再找其它了(附思维导图)0.png" /></p>
+<h1 id="三种形式">2 三种形式</h1>
+<p>使用<code>@Value</code>注入有三种形式，如下所示：</p>
+<p>（1）直接写值<code>@Value(&quot;string value&quot;)</code></p>
+<p>这种方式就是直接把要注入的值字面量写在注解里，比较少用。如果要写死在注解里了，那直接定义变量的时候写死就可以了。</p>
+<p>（2）占位符<code>@Value(&quot;${myvalue}&quot;)</code></p>
+<p>这种应该最常用，通过属性名，将值注入进来。</p>
+<p>如果可能为空，需要设置默认值，用法：<code>@Value(&quot;${unknown.param:defaultValue}&quot;)</code></p>
+<p>（3）SpEL表达式<code>@Value(&quot;#{someBean.someValue}&quot;)</code><br />
+SpEL表达式很强大，还能在属性值基础上加以运算等。</p>
+<p>如果可能为空，需要设置默认值，用法：<code>@Value(&quot;#{systemProperties['unknown'] ?: 'defaultValue'}&quot;)</code></p>
+<p>另外，占位符形式和SpEL表达式是可以结合使用的，如下：</p>
+<pre><code><code>@Value(&quot;#{&#39;${listOfValues}&#39;.split(&#39;,&#39;)}&quot;)
+private List valuesList;</code></pre>
+<p>需要注意的，内外顺序不能倒过来，应该要<code>#{}</code>外面，<code>${}</code>在里面。</p>
+<h1 id="使用场景">3 使用场景</h1>
+<p>对于注入的场景，主要有三种：</p>
+<p>（1）bean声明的变量</p>
+<p>（2）setter方法注入</p>
+<p>（3）构造方法或其它方法的入参</p>
+<p>例子代码如下：</p>
+<pre><code><code>//bean声明的变量
+public static class MyValues {
+    @Value(&quot;#{systemProperties[&#39;user.timezone&#39;]}&quot;)
+    private String timeZone;
+}
+
+//setter 方法中
+public static class MyValues {
+    private String timeZone;
+    @Value(&quot;#{systemProperties[&#39;user.timezone&#39;]}&quot;)
+    public void setTimeZone(String timeZone) {
+        this.timeZone = timeZone;
+    }
+}
+
+//方法入参
+public class MyValues {
+    private String timeZone;
+    @Autowired
+    public void configure(@Value(&quot;#{systemProperties[&#39;user.timezone&#39;]}&quot;) String timeZone) {
+        this.timeZone = timeZone;
+    }
+}</code></pre>
+<h1 id="引入配置文件">4 引入配置文件</h1>
+<p>既然是注入配置属性，那就需要有配置文件。对于Springboot，引入配置文件有两种方法，一种是默认引入的<code>application.properties</code>，另一种则需要通过<code>@PropertySource</code>来引入，引入的方式如下：</p>
+<pre><code><code>@PropertySources({
+  @PropertySource(value = &quot;classpath:missing.properties&quot;, ignoreResourceNotFound=true),
+  @PropertySource(&quot;classpath:config.properties&quot;)
+})
+public class AppConfig {
+        //...
+}</code></pre>
+<p>加上<code>ignoreResourceNotFound</code>后，即使文件找不到，也不会抛<code>FileNotFoundException</code>异常。</p>
+<h1 id="使用举例">5 使用举例</h1>
+<p>现在例举一些可能使用到的例子，以后在这找就行了。</p>
+<p>Java代码如下所示：</p>
+<pre><code><code>//直接写值
+@Value(&quot;plainText&quot;)
+private String plainText;
+
+//普通形式-字符串
+@Value(&quot;${myValues.string}&quot;)
+private String myValuesString;
+
+//普通形式-数字
+@Value(&quot;${myValues.int}&quot;)
+private int myValuesInt;
+
+//普通形式-布尔类型
+@Value(&quot;${myValues.boolean}&quot;)
+private boolean myValuesBoolean;
+
+//数组
+@Value(&quot;${myValues.array}&quot;)
+private String[] myValuesArray;
+
+//Map
+@Value(&quot;#{${myValues.map}}&quot;)
+private Map&lt;String, String&gt; myValuesMap;
+
+//操作系统属性
+@Value(&quot;#{systemProperties[&#39;user.timezone&#39;]}&quot;)
+private String timeZone;
+
+//表达式结果
+@Value(&quot;#{ T(java.lang.Math).random() * 100.0 }&quot;)
+private double randomNumber;
+
+//其它bean的属性
+@Value(&quot;#{propertiesApplication.class.getName()}&quot;)
+private String className;
+
+//文件资源
+@Value(&quot;classpath:larry.txt&quot;)
+private Resource file;
+
+//URL资源
+@Value(&quot;https://www.github.com&quot;)
+private Resource url;</code></pre>
+<p>其中，配置文件<code>application.properties</code>内容为：</p>
+<pre class="properties"><code>myValues.int=99
+myValues.boolean=true
+myValues.string=Larry
+myValues.array=my,name,is,larry
+myValues.map={name: &#39;Larry&#39;, age: &#39;18&#39;, city: &#39;Guangzhou&#39;}</code></pre>
+<p>资源文件<code>larry.txt</code>内容为：</p>
+<pre><code><code>上善若水，水利万物而不争！</code></pre>
+<p>启动程序，打印以上所有属性，输出结果如下所示：</p>
+<pre class="json"><code>{
+plainText=&#39;plainText&#39;, 
+myValuesString=&#39;Larry&#39;, 
+myValuesInt=99, 
+myValuesBoolean=true, 
+myValuesArray=[my, name, is, larry], 
+myValuesMap={name=Larry, age=18, city=Guangzhou}, 
+timeZone=&#39;Asia/Shanghai&#39;, 
+randomNumber=19.775129662772294, 
+className=&#39;com.pkslow.properties.PropertiesApplication$$EnhancerBySpringCGLIB$$4d0912c&#39;, 
+file=上善若水，水利万物而不争！, 
+url=
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+省略html内容
+&lt;/html&gt;
+}</code></pre>
+<h1 id="总结">6 总结</h1>
+<p>本文讲解了<code>@Value</code>注解的使用，基本上平时开发用到的都涉及了，应该不需要再找其它资料了吧。</p>
+<hr />
+<p>欢迎关注公众号&lt;<strong>南瓜慢说</strong>&gt;，将持续为你更新...<br />
+<img src="./images/【Spring】只想用一篇文章记录@Value的使用，不想再找其它了(附思维导图)1.png" /></p>
+<p>欢迎加博主微信，做一个点赞之友，哈哈...</p>
+<p><img src="./images/【Spring】只想用一篇文章记录@Value的使用，不想再找其它了(附思维导图)2.png" /></p>
+<p><strong>多读书，多分享；多写作，多整理。</strong></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

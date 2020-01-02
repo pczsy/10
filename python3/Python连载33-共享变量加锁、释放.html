@@ -1,0 +1,143 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python连载33-共享变量加锁、释放' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python连载33-共享变量加锁、释放</center></div><div class='banquan'>原文出处:本文由博客园博主心悦君兮君不知-睿提供。<br/>
+原文连接:https://www.cnblogs.com/ruigege0000/p/11421552.html</div><br>
+    <p>一、共享变量</p>
+<p>共享变量：当多个线程访问同一个变量的时候。会产生共享变量的问题。</p>
+<p>例子：</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+
+sum </span>=<span style="color: #000000;"> 0
+
+loopSum </span>= 1000000
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> myAdd():
+
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> sum, loopSum
+
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1<span style="color: #000000;">,loopSum):
+
+        sum </span>+= 1
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> myMinu():
+
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> sum, loopSum
+
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1<span style="color: #000000;">,loopSum):
+
+        sum </span>-= 1
+
+<span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Dont,,,,,,,{0}</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(sum))
+
+    t1 </span>= threading.Thread(target=myAdd,args=<span style="color: #000000;">())
+
+    t2 </span>= threading.Thread(target=myMinu,args=<span style="color: #000000;">())
+
+    t1.start()
+
+    t2.start()
+
+    t1.join()
+
+    t2.join()
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Done,,,,,,{0}</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(sum))
+
+ </span></pre>
+</div>
+<p><img src="./images/Python连载33-共享变量加锁、释放0.png" alt="" /></p>
+<p>正如上面的结果可以看出：并不是我们期望的0，而是-286705，这就是因为我们共享变量了，同时对变量进行了操作，程序并不是原子的。</p>
+<p>2.解决方案：使用&ldquo;锁&rdquo;，&ldquo;信号灯&rdquo;</p>
+<p>（1）锁lock：是一个标志，表示一个线程在占用一些资源。</p>
+<p>使用方式：先上锁，然后使用共享资源，放心的使用，最后再释放锁，即释放了这个变量。</p>
+<p>锁哪个：哪个资源需要共享，那么就锁谁</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+
+sum </span>=<span style="color: #000000;"> 0
+
+loopSum </span>= 1000000<span style="color: #000000;">
+
+lock </span>=<span style="color: #000000;"> threading.Lock()
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">先生成一个锁的实例</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> myAdd():
+
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> sum, loopSum
+
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1<span style="color: #000000;">,loopSum):
+
+        lock.acquire()</span><span style="color: #008000;">#</span><span style="color: #008000;">这里申请了一把锁</span>
+<span style="color: #000000;">
+        sum </span>+= 1<span style="color: #000000;">
+
+        lock.release()</span><span style="color: #008000;">#</span><span style="color: #008000;">注意千万不要忘了释放锁</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> myMinu():
+
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> sum, loopSum
+
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1<span style="color: #000000;">,loopSum):
+
+        lock.acquire()
+
+        sum </span>-= 1<span style="color: #000000;">
+
+        lock.release()
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Done,,,,,,,{0}</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(sum))
+
+    t1 </span>= threading.Thread(target=myAdd,args=<span style="color: #000000;">())
+
+    t2 </span>= threading.Thread(target=myMinu,args=<span style="color: #000000;">())
+
+    t1.start()
+
+    t2.start()
+
+    t1.join()
+
+    t2.join()
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Done,,,,,,{0}</span><span style="color: #800000;">"</span>.format(sum))</pre>
+</div>
+<p><img src="./images/Python连载33-共享变量加锁、释放1.png" alt="" /></p>
+<p>正如我们所预料的加减的顺序无所谓，但最后是零和游戏，但是上面的那个例子，都也是加减顺序无所谓，但是有一点要知道会存在同时对变量的内存使用的情况，这就存在内存被错写的风险，所以最后结果不对，上面的不是零和游戏。</p>
+<p>（2）线程的安全问题：</p>
+<p>如果一个资源、变量，他对于多线程来讲，不用加锁，也不会引起任何问题，则称为线程安全；线程不安全的变量类型：list\set\dict;线程安全的变量类型：queue</p>
+<p>二、源码</p>
+<p>d25_1_shared_variable_and_lock.py</p>
+<p>https://github.com/ruigege66/Python_learning/blob/master/d25_1_shared_variable_and_lock.py</p>
+<p>2.CSDN：https://blog.csdn.net/weixin_44630050（心悦君兮君不知-睿）</p>
+<p>3.博客园：https://www.cnblogs.com/ruigege0000/</p>
+<p>4.欢迎关注微信公众号：傅里叶变换，后台回复&rdquo;礼包&ldquo;，获取大数据学习资料</p>
+<p>&nbsp;<img src="./images/Python连载33-共享变量加锁、释放2.png" alt="" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

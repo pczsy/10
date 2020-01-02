@@ -1,0 +1,134 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修深度学习基础篇之逻辑回归拟合二维数据' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>深度学习基础篇之逻辑回归拟合二维数据</center></div><div class='banquan'>原文出处:本文由博客园博主宋讼颂提供。<br/>
+原文连接:https://www.cnblogs.com/ss-py/p/11575546.html</div><br>
+    <p>　　从今天起，我会在这里记录一下学习深度学习所留下的足迹，目的也很简单，手头有近3w个已经标记好正确值得验证码，想要从头训练出一个可以使用的模型，</p>
+<p>虽然我也知道网上的相关模型和demo很多，但是还是非常希望自己可以亲手搞一个能用的出来，学习书籍主要是：李金洪老师的《深度学习之Tensorflow 入门、原理与进阶实战》。</p>
+<p>另外，在我将验证码识别模型训练出来后也会将源代码、模型，以及近3w个验证码完全开源出来。共勉之。</p>
+<p>　　</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding: utf-8 -*-</span>
+<span style="color: #008080;"> 3</span> <span style="color: #008000;">#</span><span style="color: #008000;"> @Time    : 2019/9/23 21:27</span>
+<span style="color: #008080;"> 4</span> <span style="color: #008000;">#</span><span style="color: #008000;"> @Author  : SongSa</span>
+<span style="color: #008080;"> 5</span> <span style="color: #008000;">#</span><span style="color: #008000;"> @Desc    : </span>
+<span style="color: #008080;"> 6</span> <span style="color: #008000;">#</span><span style="color: #008000;"> @File    : 拟合二维数据.py</span>
+<span style="color: #008080;"> 7</span> <span style="color: #008000;">#</span><span style="color: #008000;"> @Software: PyCharm</span>
+<span style="color: #008080;"> 8</span> 
+<span style="color: #008080;"> 9</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> tensorflow as tf
+</span><span style="color: #008080;">10</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> numpy as np
+</span><span style="color: #008080;">11</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> matplotlib.pyplot as plt
+</span><span style="color: #008080;">12</span> 
+<span style="color: #008080;">13</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;">14</span> <span style="color: #800000;">深度学习分为4个步骤：
+</span><span style="color: #008080;">15</span> <span style="color: #800000;">    准备数据
+</span><span style="color: #008080;">16</span> <span style="color: #800000;">    搭建模型
+</span><span style="color: #008080;">17</span> <span style="color: #800000;">    迭代训练
+</span><span style="color: #008080;">18</span> <span style="color: #800000;">    使用模型
+</span><span style="color: #008080;">19</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;">20</span> 
+<span style="color: #008080;">21</span> <span style="color: #008000;">#</span><span style="color: #008000;">#######准备数据########</span>
+<span style="color: #008080;">22</span> train_X = np.linspace(-1, 1, 100<span style="color: #000000;">)
+</span><span style="color: #008080;">23</span> train_Y = 2 * train_X + np.random.randn(100) * 0.3  <span style="color: #008000;">#</span><span style="color: #008000;"> y = 2x  但是加入了噪声</span>
+<span style="color: #008080;">24</span> plt.plot(train_X, train_Y, <span style="color: #800000;">'</span><span style="color: #800000;">ro</span><span style="color: #800000;">'</span>, label=<span style="color: #800000;">'</span><span style="color: #800000;">original data</span><span style="color: #800000;">'</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> 显示模拟的数据点</span>
+<span style="color: #008080;">25</span> plt.legend()  <span style="color: #008000;">#</span><span style="color: #008000;"> 拥有显示图例label</span>
+<span style="color: #008080;">26</span> <span style="color: #000000;">plt.show()
+</span><span style="color: #008080;">27</span> 
+<span style="color: #008080;">28</span> 
+<span style="color: #008080;">29</span> plotdata = {<span style="color: #800000;">"</span><span style="color: #800000;">batchsize</span><span style="color: #800000;">"</span>:[], <span style="color: #800000;">"</span><span style="color: #800000;">loss</span><span style="color: #800000;">"</span><span style="color: #000000;">:[]}
+</span><span style="color: #008080;">30</span> <span style="color: #0000ff;">def</span> moving_average(a, w=10<span style="color: #000000;">):
+</span><span style="color: #008080;">31</span>     <span style="color: #0000ff;">if</span> len(a) &lt;<span style="color: #000000;"> w:
+</span><span style="color: #008080;">32</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> a[:]
+</span><span style="color: #008080;">33</span>     <span style="color: #0000ff;">return</span> [val <span style="color: #0000ff;">if</span> idx &lt; w <span style="color: #0000ff;">else</span> sum(a[(idx-w):idx])/w <span style="color: #0000ff;">for</span> idx, val <span style="color: #0000ff;">in</span><span style="color: #000000;"> enumerate(a)]
+</span><span style="color: #008080;">34</span> 
+<span style="color: #008080;">35</span> 
+<span style="color: #008080;">36</span> <span style="color: #008000;">#</span><span style="color: #008000;">#######搭建模型########</span>
+<span style="color: #008080;">37</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 模型分为两个方向：正向和反向</span>
+<span style="color: #008080;">38</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 创建模型</span>
+<span style="color: #008080;">39</span> X = tf.placeholder(<span style="color: #800000;">"</span><span style="color: #800000;">float</span><span style="color: #800000;">"</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> 占位符</span>
+<span style="color: #008080;">40</span> Y = tf.placeholder(<span style="color: #800000;">"</span><span style="color: #800000;">float</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">41</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 模型参数</span>
+<span style="color: #008080;">42</span> W = tf.Variable(tf.random_normal([1]), name=<span style="color: #800000;">"</span><span style="color: #800000;">weight</span><span style="color: #800000;">"</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> W被初始化为[-1, 1]的随机数，形状为一维的数字</span>
+<span style="color: #008080;">43</span> b = tf.Variable(tf.zeros([1]), name=<span style="color: #800000;">"</span><span style="color: #800000;">bias</span><span style="color: #800000;">"</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> b的初始化为0</span>
+<span style="color: #008080;">44</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 前向结构</span>
+<span style="color: #008080;">45</span> z = tf.multiply(X, W) + b  <span style="color: #008000;">#</span><span style="color: #008000;"> tf.multiply()是相乘的函数  z = X * W + b</span>
+<span style="color: #008080;">46</span> 
+<span style="color: #008080;">47</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 反向搭建模型</span>
+<span style="color: #008080;">48</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 神经网络在训练时数据流向有两个方向，先通过正向生成一个值，然后观察其与真实值的差距，再通过反向过程将里边的参数进行调整，</span>
+<span style="color: #008080;">49</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 接着在生成正向预测值来与真实值进行比对，如此循环，知道将参数调整为合适值为止，反向传播会引入一些算法来实现对参数的正确调整。</span>
+<span style="color: #008080;">50</span> cost = tf.reduce_mean(tf.square(Y - z))  <span style="color: #008000;">#</span><span style="color: #008000;"> cost等于生成值与真实值的平方差</span>
+<span style="color: #008080;">51</span> <span style="color: #008000;">#</span><span style="color: #008000;"> tf.reduce_mean()  用于计算张量沿着指定轴的平均值</span>
+<span style="color: #008080;">52</span> <span style="color: #008000;">#</span><span style="color: #008000;"> tf.square() 用于计算Y-z的平方</span>
+<span style="color: #008080;">53</span> learning_rate = 0.01  <span style="color: #008000;">#</span><span style="color: #008000;"> 学习率 (值越大表明调整的速度越大，但不精准，反之亦然)</span>
+<span style="color: #008080;">54</span> optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)  <span style="color: #008000;">#</span><span style="color: #008000;"> 封装好的梯度下降算法</span>
+<span style="color: #008080;">55</span> 
+<span style="color: #008080;">56</span> 
+<span style="color: #008080;">57</span> <span style="color: #008000;">#</span><span style="color: #008000;">#######迭代训练########</span>
+<span style="color: #008080;">58</span> <span style="color: #008000;">#</span><span style="color: #008000;"> Tensorflow中的任务是通过session来进行的</span>
+<span style="color: #008080;">59</span> init = tf.global_variables_initializer()  <span style="color: #008000;">#</span><span style="color: #008000;"> 初始化所有变量</span>
+<span style="color: #008080;">60</span> <span style="color: #008000;">#</span><span style="color: #008000;">定义参数</span>
+<span style="color: #008080;">61</span> training_epochs = 20
+<span style="color: #008080;">62</span> display_stop = 2
+<span style="color: #008080;">63</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 启动session</span>
+<span style="color: #008080;">64</span> <span style="color: #000000;">with tf.Session() as sess:
+</span><span style="color: #008080;">65</span> <span style="color: #000000;">    sess.run(init)
+</span><span style="color: #008080;">66</span>     plotdata = {<span style="color: #800000;">"</span><span style="color: #800000;">batchsize</span><span style="color: #800000;">"</span>:[], <span style="color: #800000;">"</span><span style="color: #800000;">loss</span><span style="color: #800000;">"</span>:[]}  <span style="color: #008000;">#</span><span style="color: #008000;"> 存放批次值和损失值</span>
+<span style="color: #008080;">67</span>     <span style="color: #0000ff;">for</span> epoch <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(training_epochs):
+</span><span style="color: #008080;">68</span>         <span style="color: #0000ff;">for</span> (x, y) <span style="color: #0000ff;">in</span><span style="color: #000000;"> zip(train_X, train_Y):
+</span><span style="color: #008080;">69</span>             sess.run(optimizer, feed_dict=<span style="color: #000000;">{X:x, Y:y})
+</span><span style="color: #008080;">70</span> 
+<span style="color: #008080;">71</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 显示训练中的详细信息</span>
+<span style="color: #008080;">72</span>         <span style="color: #0000ff;">if</span> epoch % display_stop ==<span style="color: #000000;"> 0:
+</span><span style="color: #008080;">73</span>             loss = sess.run(cost, feed_dict=<span style="color: #000000;">{X:train_X, Y:train_Y})
+</span><span style="color: #008080;">74</span>             <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Epoch:</span><span style="color: #800000;">"</span>, epoch+1, <span style="color: #800000;">"</span><span style="color: #800000;">cost=</span><span style="color: #800000;">"</span>, loss, <span style="color: #800000;">"</span><span style="color: #800000;">W=</span><span style="color: #800000;">"</span>, sess.run(W), <span style="color: #800000;">"</span><span style="color: #800000;">b=</span><span style="color: #800000;">"</span><span style="color: #000000;">, sess.run(b))
+</span><span style="color: #008080;">75</span>             <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span> (loss == <span style="color: #800000;">"</span><span style="color: #800000;">NA</span><span style="color: #800000;">"</span><span style="color: #000000;">):
+</span><span style="color: #008080;">76</span>                 plotdata[<span style="color: #800000;">'</span><span style="color: #800000;">batchsize</span><span style="color: #800000;">'</span><span style="color: #000000;">].append(epoch)
+</span><span style="color: #008080;">77</span>                 plotdata[<span style="color: #800000;">"</span><span style="color: #800000;">loss</span><span style="color: #800000;">"</span><span style="color: #000000;">].append(loss)
+</span><span style="color: #008080;">78</span> 
+<span style="color: #008080;">79</span>     <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Finished!</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">80</span>     <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">cost=</span><span style="color: #800000;">"</span>, sess.run(cost, feed_dict={X:train_X, Y:train_Y}), <span style="color: #800000;">"</span><span style="color: #800000;">W=</span><span style="color: #800000;">"</span>, sess.run(W), <span style="color: #800000;">"</span><span style="color: #800000;">b=</span><span style="color: #800000;">"</span><span style="color: #000000;">, sess.run(b))
+</span><span style="color: #008080;">81</span> 
+<span style="color: #008080;">82</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 训练模型可视化</span>
+<span style="color: #008080;">83</span>     plt.plot(train_X, train_Y, <span style="color: #800000;">'</span><span style="color: #800000;">ro</span><span style="color: #800000;">'</span>, label=<span style="color: #800000;">"</span><span style="color: #800000;">Original data</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">84</span>     plt.plot(train_X, sess.run(W) * train_X + sess.run(b), label=<span style="color: #800000;">"</span><span style="color: #800000;">Fittedline</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">85</span> <span style="color: #000000;">    plt.legend()
+</span><span style="color: #008080;">86</span> <span style="color: #000000;">    plt.show()
+</span><span style="color: #008080;">87</span> 
+<span style="color: #008080;">88</span>     plotdata[<span style="color: #800000;">'</span><span style="color: #800000;">avgloss</span><span style="color: #800000;">'</span>] = moving_average(plotdata[<span style="color: #800000;">"</span><span style="color: #800000;">loss</span><span style="color: #800000;">"</span><span style="color: #000000;">])
+</span><span style="color: #008080;">89</span>     plt.figure(1<span style="color: #000000;">)
+</span><span style="color: #008080;">90</span>     plt.subplot(211<span style="color: #000000;">)
+</span><span style="color: #008080;">91</span>     plt.plot(plotdata[<span style="color: #800000;">"</span><span style="color: #800000;">batchsize</span><span style="color: #800000;">"</span>], plotdata[<span style="color: #800000;">'</span><span style="color: #800000;">avgloss</span><span style="color: #800000;">'</span>], <span style="color: #800000;">'</span><span style="color: #800000;">b--</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">92</span>     plt.ylabel(<span style="color: #800000;">"</span><span style="color: #800000;">Loss</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">93</span>     plt.title(<span style="color: #800000;">"</span><span style="color: #800000;">Minibatch run vs.  Training loss</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">94</span> <span style="color: #000000;">    plt.show()
+</span><span style="color: #008080;">95</span> 
+<span style="color: #008080;">96</span> 
+<span style="color: #008080;">97</span> <span style="color: #008000;">#</span><span style="color: #008000;">#######使用模型########</span>
+<span style="color: #008080;">98</span>     <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">使用模型：\n\n</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">99</span>     <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">x=0.2, z=</span><span style="color: #800000;">"</span>, sess.run(z, feed_dict={X:0.2}))</pre>
+</div>
+<p><img src="./images/深度学习基础篇之逻辑回归拟合二维数据0.png" alt="" /><img src="./images/深度学习基础篇之逻辑回归拟合二维数据1.png" alt="" /></p>
+<p><img src="./images/深度学习基础篇之逻辑回归拟合二维数据2.png" alt="" /><img src="./images/深度学习基础篇之逻辑回归拟合二维数据3.png" alt="" /></p>
+<p>最后，打个广告:&nbsp;想了解更多Python关于爬虫、数据分析的内容，获取大量爬虫爬取到的源数据，欢迎大家关注我的微信公众号：悟道Python</p>
+<p><img src="./images/深度学习基础篇之逻辑回归拟合二维数据4.png" alt="" width="805" height="230" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

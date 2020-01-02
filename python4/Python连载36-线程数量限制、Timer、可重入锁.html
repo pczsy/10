@@ -1,0 +1,150 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python连载36-线程数量限制、Timer、可重入锁' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python连载36-线程数量限制、Timer、可重入锁</center></div><div class='banquan'>原文出处:本文由博客园博主心悦君兮君不知-睿提供。<br/>
+原文连接:https://www.cnblogs.com/ruigege0000/p/11489375.html</div><br>
+    <p>一、允许一个资源最多由几个线程同时进行</p>
+<p>命令行：threading.Semaphore(个数)</p>
+<p>代表现在最多有几个线程可以进行操作</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">参数定义了最多几个线程可以使用资源</span>
+<span style="color: #000000;">
+semaphore </span>= threading.Semaphore(3)<span style="color: #008000;">#</span><span style="color: #008000;">这里就是指最多有三个线程可以进行操作</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> func():
+
+    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> semaphore.acquire():
+
+        </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(2<span style="color: #000000;">):
+
+            </span><span style="color: #0000ff;">print</span>(threading.current_thread().getName() + <span style="color: #800000;">"</span><span style="color: #800000;">get semapore</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+        time.sleep(</span>5<span style="color: #000000;">)
+
+        semaphore.release()
+
+        </span><span style="color: #0000ff;">print</span>(threading.current_thread().getName() + <span style="color: #800000;">"</span><span style="color: #800000;">release semaphore</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(8<span style="color: #000000;">):
+
+    t1 </span>= threading.Thread(target=func,args=<span style="color: #000000;">())
+
+    t1.start()
+
+ </span></pre>
+</div>
+<p><img src="./images/Python连载36-线程数量限制、Timer、可重入锁0.png" alt="" /></p>
+<p>二、Timer讲解</p>
+<p>格式：threading.Timer(时间间隔，函数）</p>
+<p>代表这个函数在&ldquo;时间间隔&rdquo;的时间之后启动</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> func2():
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">I am running.....</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    time.sleep(</span>3<span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">I an done.......</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    t2 </span>= threading.Timer(6,func2) <span style="color: #008000;">#</span><span style="color: #008000;">代表6秒之后开始启动线程func2</span>
+<span style="color: #000000;">
+    t2.start()
+
+    i </span>=<span style="color: #000000;"> 0
+
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">{0}*********</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(i))
+
+        time.sleep(</span>3<span style="color: #000000;">)
+
+        i </span>+= 1
+
+ </pre>
+</div>
+<p><img src="./images/Python连载36-线程数量限制、Timer、可重入锁1.png" alt="" /></p>
+<p>三、可重入锁</p>
+<p>1.一个锁可以被一个线程多次申请</p>
+<p>2.主要解决递归调用的时候哦，需要申请锁的情况，可以防止被锁住，重新申请</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> MyThread(threading.Thread):
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+
+        </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> num
+
+        time.sleep(</span>1<span style="color: #000000;">)
+
+        </span><span style="color: #0000ff;">if</span> mutex.acquire(1<span style="color: #000000;">):
+
+            num </span>= num+1<span style="color: #000000;">
+
+            msg </span>= self.name + <span style="color: #800000;">"</span><span style="color: #800000;"> set num to </span><span style="color: #800000;">"</span>+<span style="color: #000000;">str(num)
+
+            </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(msg)
+
+            mutex.acquire()
+
+            mutex.release()
+
+            mutex.release()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> test():
+
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(5<span style="color: #000000;">):
+
+        t3 </span>=<span style="color: #000000;"> MyThread()
+
+        t3.start()
+
+ 
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    num </span>=<span style="color: #000000;"> 0
+
+    mutex </span>= threading.RLock()<span style="color: #008000;">#</span><span style="color: #008000;">可重入锁</span>
+<span style="color: #000000;">
+    test()
+
+ </span></pre>
+</div>
+<p><img src="./images/Python连载36-线程数量限制、Timer、可重入锁2.png" alt="" /></p>
+<p>解释：我们的线程可以直接进行，不会因为一个申请了，就会被阻塞，依然还可以申请这把锁</p>
+<p>&nbsp;</p>
+<p>四、源码</p>
+<p>d25_4_Rlock.py</p>
+<p>https://github.com/ruigege66/Python_learning/blob/master/d25_4_Rlock.py</p>
+<p>2.CSDN：https://blog.csdn.net/weixin_44630050（心悦君兮君不知-睿）</p>
+<p>3.博客园：https://www.cnblogs.com/ruigege0000/</p>
+<p>4.欢迎关注微信公众号：傅里叶变换，后台回复&rdquo;礼包&ldquo;，获取大数据学习资料</p>
+<p>&nbsp;<img src="./images/Python连载36-线程数量限制、Timer、可重入锁3.png" alt="" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

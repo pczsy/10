@@ -1,0 +1,103 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DJango错误日志生成' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DJango错误日志生成</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11569390.html</div><br>
+    <h1 id="django错误日志生成">DJango错误日志生成</h1>
+<h2 id="setting.py设置">setting.py设置</h2>
+<pre><code><code>LOGGING = {
+    &#39;version&#39;: 1,
+    &#39;disable_existing_loggers&#39;: False,
+    &#39;formatters&#39;: {
+        &#39;verbose&#39;: {
+            &#39;format&#39;: &#39;%(levelname)s %(asctime)s %(module)s %(lineno)d %(message)s&#39;
+        },
+        &#39;simple&#39;: {
+            &#39;format&#39;: &#39;%(levelname)s %(module)s %(lineno)d %(message)s&#39;
+        },
+    },
+    &#39;filters&#39;: {
+        &#39;require_debug_true&#39;: {
+            &#39;()&#39;: &#39;django.utils.log.RequireDebugTrue&#39;,
+        },
+    },
+    &#39;handlers&#39;: {
+        &#39;console&#39;: {
+            &#39;level&#39;: &#39;DEBUG&#39;,
+            &#39;filters&#39;: [&#39;require_debug_true&#39;],
+            &#39;class&#39;: &#39;logging.StreamHandler&#39;,
+            &#39;formatter&#39;: &#39;simple&#39;
+        },
+        &#39;file&#39;: {
+            # 实际开发建议使用WARNING
+            &#39;level&#39;: &#39;INFO&#39;,
+            &#39;class&#39;: &#39;logging.handlers.RotatingFileHandler&#39;,
+            # 日志位置,日志文件名,日志保存目录必须手动创建，注：这里的文件路径要注意BASE_DIR
+            &#39;filename&#39;: os.path.join(os.path.dirname(BASE_DIR), &quot;logs/luffy.log&quot;),
+            # 日志文件的最大值,这里我们设置300M
+            &#39;maxBytes&#39;: 300 * 1024 * 1024,
+            # 日志文件的数量,设置最大日志数量为10
+            &#39;backupCount&#39;: 10,
+            # 日志格式:详细格式
+            &#39;formatter&#39;: &#39;verbose&#39;,
+            # 编码
+            &#39;encoding&#39;: &#39;utf-8&#39;
+        },
+    },
+    # 日志对象
+    &#39;loggers&#39;: {
+        &#39;django&#39;: {
+            &#39;level&#39;: &#39;INFO&#39;,
+            &#39;handlers&#39;: [&#39;console&#39;, &#39;file&#39;],
+            &#39;propagate&#39;: True,  # 是否让日志信息继续冒泡给其他的日志处理系统
+        },
+    }
+}
+</code></pre>
+<h2 id="exception.py抛错设置">exception.py(抛错设置)</h2>
+<pre><code><code># rest_framework.views 下的 exception_handler 处理了所有 drf可控范围内的异常
+from rest_framework.views import exception_handler as drf_exception_handler
+# drf的异常还是交给 drf_exception_handler，我们只需要处理 drf未处理的异常
+from rest_framework.response import Response
+from .response import APIResponse
+# 自定义异常句柄的原因：要通过 logging 记录异常日志
+from .logging import logger
+def exception_handler(exc, context):
+    response = drf_exception_handler(exc, context)
+
+    if response is None:
+        # drf处理不了的异常
+        error_info = &#39;【%s】【%s】&#39; % (context[&#39;view&#39;], exc)
+        logger.error(error_info)
+        # return Response({
+        #     &#39;exception&#39;: &#39;服务器异常&#39;,
+        # }, status=500)
+        return APIResponse(1, &#39;服务器异常&#39;, status=500)
+
+    response.exception = True
+    return response
+</code></pre>
+<h2 id="logging.py">logging.py</h2>
+<pre><code><code>import logging
+logger = logging.getLogger(&#39;django&#39;)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

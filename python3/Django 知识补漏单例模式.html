@@ -1,0 +1,220 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django 知识补漏单例模式' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django 知识补漏单例模式</center></div><div class='banquan'>原文出处:本文由博客园博主python学习者0提供。<br/>
+原文连接:https://www.cnblogs.com/xxpythonxx/p/11324171.html</div><br>
+    <p>单例模式：（说白了就是）创建一个类的实例。在 Python 中，我们可以用多种方法来实现单例模式：</p>
+<h4 id="文件导入的形式常用">1、文件导入的形式（常用）</h4>
+<pre><code><code>s1.py
+
+class Foo(object):
+    def test(self):
+        print(&quot;123&quot;)
+
+v = Foo()
+#v是Foo的实例
+
+s2.py
+
+复制代码
+from s1 import v as v1
+print(v1,id(v1))  
+from s1 import v as v2
+print(v1,id(v2))   
+
+# 文件加载的时候，第一次导入后，会生成 .pyc 文件，当第二次导入时，就会直接加载 .pyc 文件，再次导入时不会再重新加载。
+# 两个的内存地址是一样的</code></pre>
+<h4 id="基于类实现的单例模式">2、基于类实现的单例模式</h4>
+<pre><code><code>
+# ======================单例模式：无法支持多线程情况===============
+
+class Singleton(object):
+
+    def __init__(self):
+        import time
+        time.sleep(1)
+
+    @classmethod
+    def instance(cls, *args, **kwargs):
+        if not hasattr(Singleton, &quot;_instance&quot;):
+            Singleton._instance = Singleton(*args, **kwargs)
+        return Singleton._instance
+
+import threading
+
+def task(arg):
+    obj = Singleton.instance()
+    print(obj)
+
+for i in range(10):
+    t = threading.Thread(target=task,args=[i,])
+    t.start()
+
+# ====================单例模式：支持多线程情况================、
+
+import time
+import threading
+class Singleton(object):
+    _instance_lock = threading.Lock()
+
+    def __init__(self):
+        time.sleep(1)
+
+    @classmethod
+    def instance(cls, *args, **kwargs):
+        if not hasattr(Singleton, &quot;_instance&quot;):
+            with Singleton._instance_lock:   #为了保证线程安全在内部加锁
+                if not hasattr(Singleton, &quot;_instance&quot;):
+                    Singleton._instance = Singleton(*args, **kwargs)
+        return Singleton._instance
+
+
+def task(arg):
+    obj = Singleton.instance()
+    print(obj)
+for i in range(10):
+    t = threading.Thread(target=task,args=[i,])
+    t.start()
+time.sleep(20)
+obj = Singleton.instance()
+print(obj)
+# 使用先说明，以后用单例模式，obj = Singleton.instance()
+# 示例：
+# obj1 = Singleton.instance()
+# obj2 = Singleton.instance()
+# print(obj1,obj2)
+# 错误示例
+# obj1 = Singleton()
+# obj2 = Singleton()
+# print(obj1,obj2)</code></pre>
+<h4 id="基于__new__实现的单例模式最常用-推荐使用方便">3、基于__new__实现的单例模式（最常用 推荐使用，方便）</h4>
+<pre><code><code>
+# =============单线程下执行===============
+import threading
+class Singleton(object):
+
+    _instance_lock = threading.Lock()
+    def __init__(self):
+        pass
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(Singleton, &quot;_instance&quot;):
+            with Singleton._instance_lock:
+                if not hasattr(Singleton, &quot;_instance&quot;):
+                    # 类加括号就回去执行__new__方法，__new__方法会创建一个类实例：Singleton()
+                    Singleton._instance = object.__new__(cls, *args, **kwargs)  # 继承object类的__new__方法，类去调用方法，说明是函数，要手动传cls
+        return Singleton._instance  #obj1
+        #类加括号就会先去执行__new__方法，在执行__init__方法
+# obj1 = Singleton()
+# obj2 = Singleton()
+# print(obj1,obj2)
+
+# ===========多线程执行单利============
+def task(arg):
+    obj = Singleton()
+    print(obj)
+
+for i in range(10):
+    t = threading.Thread(target=task,args=[i,])
+    t.start()
+# 使用先说明，以后用单例模式，obj = Singleton()
+# 示例
+# obj1 = Singleton()
+# obj2 = Singleton()
+# print(obj1,obj2)</code></pre>
+<h4 id="基于metaclass元类实现的单例模式">4、基于metaclass(元类)实现的单例模式</h4>
+<pre><code><code>&quot;&quot;&quot;
+
+1.对象是类创建，创建对象时候类的__init__方法自动执行，对象()执行类的 __call__ 方法
+2.类是type创建，创建类时候type的__init__方法自动执行，类() 执行type的 __call__方法(类的__new__方法,类的__init__方法)
+
+# 第0步: 执行type的 __init__ 方法【类是type的对象】
+class Foo:
+    def __init__(self):
+        pass
+
+    def __call__(self, *args, **kwargs):
+        pass
+
+# 第1步: 执行type的 __call__ 方法
+#        1.1  调用 Foo类（是type的对象）的 __new__方法，用于创建对象。
+#        1.2  调用 Foo类（是type的对象）的 __init__方法，用于对对象初始化。
+obj = Foo()
+# 第2步：执行Foo的 __call__ 方法
+obj()
+&quot;&quot;&quot;
+
+# ===========类的执行流程================
+class SingletonType(type):
+    def __init__(self,*args,**kwargs):
+        print(self)  #会不会打印？  #&lt;class &#39;__main__.Foo&#39;&gt;
+        super(SingletonType,self).__init__(*args,**kwargs)
+
+    def __call__(cls, *args, **kwargs):  #cls = Foo
+        obj = cls.__new__(cls, *args, **kwargs)
+        obj.__init__(*args, **kwargs)
+        return obj
+
+
+class Foo(metaclass=SingletonType):
+    def __init__(self,name):
+        self.name = name
+    def __new__(cls, *args, **kwargs):
+        return object.__new__(cls, *args, **kwargs)
+&#39;&#39;&#39;
+    1、对象是类创建的，创建对象时类的__init__方法会自动执行，对象（）执行类的__call__方法
+    2、类是type创建的，创建类时候type类的__init__方法会自动执行，类（）会先执行type的__call__方法（调用类的__new__，__init__方法）
+    Foo 这个类是由SingletonType这个类创建的
+&#39;&#39;&#39;
+obj = Foo(&quot;hiayan&quot;)
+
+
+# ============第三种方式实现单例模式=================
+import threading
+
+class SingletonType(type):
+    _instance_lock = threading.Lock()
+    def __call__(cls, *args, **kwargs):
+        if not hasattr(cls, &quot;_instance&quot;):
+            with SingletonType._instance_lock:
+                if not hasattr(cls, &quot;_instance&quot;):
+                    cls._instance = super(SingletonType,cls).__call__(*args, **kwargs)
+        return cls._instance
+
+class Foo(metaclass=SingletonType):
+    def __init__(self,name):
+        self.name = name
+
+
+obj1 = Foo(&#39;name&#39;)
+obj2 = Foo(&#39;name&#39;)
+print(obj1,obj2)</code></pre>
+<h4 id="简单总结">简单总结</h4>
+<ol>
+<li><p>单例只有一个实例</p></li>
+<li><p>静态方法、静态字段</p></li>
+<li><p>所有封装数据都一样时用单例模式</p></li>
+</ol>
+<p>静态方法：无法访问类属性、实例属性，相当于一个相对独立的方法，跟类其实没什么关系，换个角度来讲，其实就是放在一个类的作用域里的函数而已。</p>
+<p>类成员方法：可以访问类属性，无法访问实例属性。在类里是类变量，在实例中又是实例变量，所以容易混淆。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

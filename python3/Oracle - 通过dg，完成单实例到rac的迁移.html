@@ -1,0 +1,365 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Oracle - 通过dg，完成单实例到rac的迁移' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Oracle - 通过dg，完成单实例到rac的迁移</center></div><div class='banquan'>原文出处:本文由博客园博主小豹子加油提供。<br/>
+原文连接:https://www.cnblogs.com/ddzj01/p/12055290.html</div><br>
+    <h2>一、概述</h2>
+<p>本文将介绍如何给单实例搭建一个rac dg，以及如何对其进行角色转换，完成从单实例到rac的迁移。预先具备的知识(rac搭建，单实例-单实例dg搭建)</p>
+<p>&nbsp;</p>
+<h2>二、实验环境介绍</h2>
+<p>主库（已有数据库实例prod）<br />
+prod：192.168.56.102，sid：prod，version：11.2.0.4</p>
+<p>从库rac(已安装rac软件，无数据库实例)<br />
+rac1：192.168.56.11，version：11.2.0.4<br />
+rac2：192.168.56.12，version：11.2.0.4</p>
+<p><a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163501960-289991303.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="Snipaste_2019-12-17_13-20-34" src="./images/Oracle - 通过dg，完成单实例到rac的迁移0.png" alt="Snipaste_2019-12-17_13-20-34" width="489" height="267" border="0" /></a></p>
+<p>&nbsp;</p>
+<h2>三、搭建dg</h2>
+<h3>1. 主库打开归档模式，并强制写日志</h3>
+<p>先查看数据库的归档状态以及是否开启强制写日志，从下图可以看到目前数据库并没有打开归档，也没有开启强制写日志<br />
+SQL&gt; select log_mode, force_logging from v$database;<br />
+<a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163502600-1275327301.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="3" src="./images/Oracle - 通过dg，完成单实例到rac的迁移1.png" alt="3" width="133" height="49" border="0" /></a></p>
+<p>数据库在mount状态下打开归档<br />
+[oracle@prod ~]$ mkdir -p /u01/app/oracle/oradata/prod/archivelog<br />
+SQL&gt; alter system set log_archive_dest_1='location=/u01/app/oracle/oradata/prod/archivelog/' scope=spfile;<br />
+SQL&gt; shutdown immediate;<br />
+SQL&gt; startup mount;&nbsp; <br />
+SQL&gt; alter database archivelog;<br />
+SQL&gt; alter database open;</p>
+<p>强制日志写，数据库在open状态就能修改<br />
+SQL&gt; alter database force logging;</p>
+<p>再来查看数据库的归档状态以及是否开启强制写日志<br />
+SQL&gt; select log_mode, force_logging from v$database;<br />
+<a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163503036-123256379.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="4" src="./images/Oracle - 通过dg，完成单实例到rac的迁移2.png" alt="4" width="140" height="52" border="0" /></a></p>
+<p>&nbsp;</p>
+<h3>2. 主库打开dataguard开关</h3>
+<p>SQL&gt; alter system set log_archive_config='dg_config=(prod,proddg)';&nbsp; # prod是主库的db_unique_name，proddg是从库的db_unique_name，这里只需要把主从环境中所有db_unique_name列出来就行，谁先谁后并不影响。</p>
+<p>&nbsp;</p>
+<h3>3. 主库设置远程归档</h3>
+<p>SQL&gt; alter system set log_archive_dest_3='service=proddg valid_for=(online_logfiles,primary_role) db_unique_name=proddg';</p>
+<p>&nbsp;</p>
+<h3>4. 将主库的口令文件传送给从库</h3>
+<p>[oracle@prod ~]$ scp $ORACLE_HOME/dbs/orapw$ORACLE_SID 192.168.56.11:$ORACLE_HOME/dbs/orapwproddg1<br />
+[oracle@prod ~]$ scp $ORACLE_HOME/dbs/orapw$ORACLE_SID 192.168.56.12:$ORACLE_HOME/dbs/orapwproddg2<br />&nbsp; <br />
+</p>
+<h3>5. 从库准备参数文件</h3>
+<p>[oracle@rac1 ~]$ vi /home/oracle/pfile_initproddg1.ora&nbsp; # 只在从库节点1上创建</p>
+<div class="cnblogs_code">
+<pre><code>*.audit_file_dest='/u01/app/oracle/admin/proddg/adump'
+*.audit_trail='db'
+*.compatible='11.2.0.4.0'
+*.control_files='+DATA/PRODDG/CONTROLFILE/control01.ctl'
+*.db_block_size=8192
+*.db_domain=''
+*.db_name='prod'
+*.diagnostic_dest='/u01/app/oracle'
+*.log_archive_config='dg_config=(prod,proddg)'
+*.log_archive_dest_2='location=+DATA/PRODDG/ARCHSTDLOG/ valid_for=(standby_logfiles,standby_role) db_unique_name=proddg'
+*.memory_target=838860800
+*.open_cursors=300
+*.processes=150
+*.remote_login_passwordfile='exclusive'
+*.standby_file_management=auto
+*.db_unique_name='proddg'
+*.db_file_name_convert='/u01/app/oracle/oradata/prod/','+DATA/proddg/datafile/','/u01/app/oracle/oradata/prod/','+DATA/proddg/tempfile/'
+*.log_file_name_convert='/u01/app/oracle/oradata/prod/','+DATA/proddg/onlinelog/'
+*.cluster_database=false
+proddg1.undo_tablespace='UNDOTBS1'
+proddg2.undo_tablespace='UNDOTBS2'
+proddg1.instance_number=1
+proddg2.instance_number=2
+proddg1.thread=1
+proddg2.thread=2</pre>
+</div>
+<p><br />
+</p>
+<h3>6. 从库中准备相关目录 </h3>
+<p>[oracle@oradg ~]$ mkdir -p /u01/app/oracle/admin/proddg/adump&nbsp; # 从库两节点都创建</p>
+<p>[grid@rac1 ~]$ asmcmd&nbsp; # 只在从库节点1上创建<br />
+ASMCMD&gt; lsdg<br />
+ASMCMD&gt; cd data<br />
+ASMCMD&gt; mkdir PRODDG<br />
+ASMCMD&gt; cd PRODDG<br />
+ASMCMD&gt; mkdir ARCHIVELOG<br />
+ASMCMD&gt; mkdir ARCHSTDLOG<br />
+ASMCMD&gt; mkdir CONTROLFILE<br />
+ASMCMD&gt; mkdir DATAFILE<br />
+ASMCMD&gt; mkdir ONLINELOG<br />
+ASMCMD&gt; mkdir TEMPFILE</p>
+<p>&nbsp;</p>
+<h3>7. 从库生成spfile文件</h3>
+<p>[oracle@oradg ~]$ export ORACLE_SID=proddg1&nbsp; # 只在从库节点1上做<br />
+[oracle@oradg ~]$ sqlplus / as sysdba<br />
+SQL&gt; startup nomount pfile='/home/oracle/pfile_initproddg1.ora';<br />
+SQL&gt; create spfile='+DATA/PRODDG/spfileproddg.ora' from pfile='/home/oracle/pfile_initproddg1.ora';<br />
+SQL&gt; shutdown abort<br />
+SQL&gt; exit</p>
+<p>&nbsp;</p>
+<h3>8. 从库生成pfile文件</h3>
+<p>[oracle@rac1 ~]$ echo "SPFILE='+DATA/PRODDG/spfileproddg.ora'" &gt; $ORACLE_HOME/dbs/initproddg1.ora&nbsp; # 节点1生成<br />
+[oracle@rac2 ~]$ echo "SPFILE='+DATA/PRODDG/spfileproddg.ora'" &gt; $ORACLE_HOME/dbs/initproddg2.ora&nbsp; # 节点2生成<br />&nbsp; <br />
+</p>
+<h3>9. 主库生成全库备份和standby controlfile并拷贝至从库节点1</h3>
+<p>[oracle@prod ~]$ export ORACLE_SID=prod <br />
+[oracle@prod ~]$ rman target /<br />
+RMAN&gt; backup database format '/home/oracle/prod_%t_%s';<br />
+RMAN&gt; backup current controlfile for standby format '/home/oracle/prod_control01.ctl';</p>
+<p>[oracle@prod ~]$ scp /home/oracle/prod* 192.168.56.11:/home/oracle/backup<br />&nbsp; <br />
+</p>
+<h3>10. 在从库节点1启动实例，并恢复控制文件 </h3>
+<p>[oracle@oradg ~]$ export ORACLE_SID=proddg1&nbsp; # 只在从库节点1上做<br />
+[oracle@oradg ~]$ sqlplus / as sysdba<br />
+SQL&gt; startup nomount</p>
+<p>再开启一个窗口<br />
+[oracle@oradg ~]$ export ORACLE_SID=proddg1&nbsp; # 只在从库节点1上做<br />
+[oracle@oradg ~]$ rman target /<br />
+RMAN&gt; restore controlfile from '/home/oracle/backup/prod_control01.ctl';<br />
+RMAN&gt; alter database mount;<br />
+RMAN&gt; catalog start with '/home/oracle/backup';&nbsp; # 将备份片的信息重新注册到控制文件中</p>
+<p>&nbsp;</p>
+<h3>11. 在从库节点1还原和恢复数据库备份</h3>
+<p># 具体的数据文件和临时文件编号可以在主库通过dba_data_files，dba_temp_files查到<br />
+# 偶然通过实验发现一个比较神奇的现象，因为我前面在参数文件中定义了db_file_name_convert和log_file_name_convert，所以控制文件中的logfile和datafile的路径已经被转换好了，下面run中set newname for xxx其实是没必要的。<br />
+RMAN&gt; run {<br />
+set newname for datafile 1 to '+DATA';<br />
+set newname for datafile 2 to '+DATA';<br />
+set newname for datafile 3 to '+DATA';<br />
+set newname for datafile 4 to '+DATA';<br />
+set newname for datafile 5 to '+DATA';<br />
+set newname for tempfile 1 to '+DATA';<br />
+restore database;<br />
+switch datafile all;<br />
+switch tempfile all;<br />
+}</p>
+<p>RMAN&gt; recover database;<br />
+以下错误可以暂时忽略，因为开启同步后，dg会自动同步归档日志</p>
+<div class="cnblogs_code">
+<pre><code>unable to find archived log
+archived log thread=1 sequence=8
+RMAN-00571: ===========================================================
+RMAN-00569: =============== ERROR MESSAGE STACK FOLLOWS ===============
+RMAN-00571: ===========================================================
+RMAN-03002: failure of recover command at 12/16/2019 15:09:48
+RMAN-06054: media recovery requesting unknown archived log for thread 1 with sequence 8 and starting SCN of 1019774</pre>
+</div>
+<p><br />
+</p>
+<h3>12. 在从库节点1创建standby log </h3>
+<p># 添加的日志的大小跟主库的onlinelog保持一致，数量多两组（主库的onlinelog信息查看v$log）<br />
+SQL&gt; alter database add standby logfile thread 1 group 21 ('+data') size 50M;<br />
+SQL&gt; alter database add standby logfile thread 1 group 22 ('+data') size 50M;<br />
+SQL&gt; alter database add standby logfile thread 1 group 23 ('+data') size 50M;<br />
+SQL&gt; alter database add standby logfile thread 1 group 24 ('+data') size 50M;<br />
+SQL&gt; alter database add standby logfile thread 2 group 25 ('+data') size 50M;<br />
+SQL&gt; alter database add standby logfile thread 2 group 26 ('+data') size 50M;<br />
+SQL&gt; alter database add standby logfile thread 2 group 27 ('+data') size 50M;<br />
+SQL&gt; alter database add standby logfile thread 2 group 28 ('+data') size 50M;</p>
+<p>&nbsp;</p>
+<h3>13. 主库配置服务命名 </h3>
+<p>[oracle@prod ~]$ vi $ORACLE_HOME/network/admin/tnsnames.ora</p>
+<p># 这里只需要指向节点1就行了</p>
+<div class="cnblogs_code">
+<pre><code>proddg =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.56.11)(PORT = 1521))
+    )
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = proddg)
+    )
+  )</pre>
+</div>
+<p>&nbsp; <br />
+</p>
+<h3>14. 从库打开应用日志</h3>
+<p>SQL&gt; alter database recover managed standby database disconnect from session;</p>
+<p>&nbsp;</p>
+<h3>15. 主库切换归档</h3>
+<p>SQL&gt; alter system switch logfile;</p>
+<p>&nbsp;</p>
+<h3>16. 打开从库</h3>
+<p>当从库应用归档一段时间后，就关闭应用归档日志，打开从库。<br />
+SQL&gt; alter database recover managed standby database cancel;<br />
+SQL&gt; alter database open;<br />
+SQL&gt; alter database recover managed standby database using current logfile disconnect from session;</p>
+<p>&nbsp;</p>
+<h3>17. 验证同步</h3>
+<p>主库做修改<br />
+SQL&gt; update scott.emp set sal=30;<br />
+SQL&gt; commit;</p>
+<p>从库查询<br />
+SQL&gt; select * from scott.emp;</p>
+<p>至此，从库rac1已经搭建完成，接下来将rac2加入进来</p>
+<p>&nbsp;</p>
+<h2>四、把从库节点2加入到集群中</h2>
+<h3>18. 主库再添加一个undo tablespace</h3>
+<p># 因为从库是2节点的rac，每个rac节点都需要使用自己的undo tablespace，所以主库添加的undotbs2同步到同库中，给从库节点2使用 <br />
+SQL&gt; create undo tablespace undotbs2 datafile '/u01/app/oracle/oradata/prod/undotbs02.dbf' size 1G autoextend on maxsize unlimited; </p>
+<p>&nbsp;</p>
+<h3>19. 在从库节点1修改数据库为rac模式</h3>
+<p>SQL&gt; alter system set cluster_database=true scope=spfile;<br />
+SQL&gt; alter system set cluster_database_instances=2 scope=spfile;<br />
+SQL&gt; shutdown immediate&nbsp; <br />
+SQL&gt; startup <br />
+SQL&gt; alter database recover managed standby database using current logfile disconnect from session; <br />&nbsp; <br />
+</p>
+<h3>20. 启动从库节点2 </h3>
+<p>[oracle@rac2 ~]$ export ORACLE_SID=proddg2&nbsp; <br />
+[oracle@rac2 ~]$ sqlplus / as sysdba<br />
+SQL&gt; startup<br />&nbsp; <br />
+</p>
+<h3>21. 验证修改</h3>
+<p>主库做修改<br />
+SQL&gt; update scott.emp set sal=40;<br />
+SQL&gt; commit;<br />
+SQL&gt; alter system switch logfile;</p>
+<p>从库查询<br />
+SQL&gt; select * from scott.emp; <br />&nbsp; <br />
+</p>
+<h3>22. 在从库节点1注册数据库到集群中</h3>
+<p>注册数据库<br />
+[oracle@rac1 ~]$ srvctl add database -d proddg -n prod -o /u01/app/oracle/product/11.2.0/db_1 -p +DATA/proddg/spfileproddg.ora -r physical_standby -a "DATA,OCR"<br />
+# 相关参数的意义可以通过srvctl add database -h查看<br />&nbsp; <br />
+注册节点<br />
+[oracle@rac1 ~]$ srvctl add instance -d proddg -i proddg1 -n rac1<br />
+[oracle@rac1 ~]$ srvctl add instance -d proddg -i proddg2 -n rac2&nbsp; <br />&nbsp; <br />
+检查资源配置 <br />
+[oracle@rac1 ~]$ srvctl config database -d proddg </p>
+<p>查看数据库实例是否随集群启动自动启动<br />
+[root@rac1 ~]# crsctl status res ora.proddg.db -p</p>
+<p>修改成随集群启动自动启动<br />
+[root@rac1 ~]# crsctl modify res "ora.proddg.db" -attr "AUTO_START=always"</p>
+<p>至此，给单实例搭建一个rac dg就已经完成，接下来将介绍如何对其做角色切换</p>
+<p>&nbsp;</p>
+<h2>五、主从切换准备</h2>
+<h3>23. 主库添加standby logfile归档路径</h3>
+<p>[oracle@prod ~]$ mkdir -p /u01/app/oracle/oradata/prod/archstdlog</p>
+<p>使用sys数据库账号，修改数据库参数<br />
+SQL&gt; alter system set log_archive_dest_2='location=/u01/app/oracle/oradata/prod/archstdlog/ valid_for=(standby_logfiles,standby_role) db_unique_name=prod' sid='*';</p>
+<p>&nbsp;</p>
+<h3>24. 主库添加standby logfile</h3>
+<p>[oracle@prod ~]$ mkdir -p /u01/app/oracle/oradata/prod/standbylog</p>
+<p>添加的日志的大小跟主库的onlinelog保持一致，数量多两组（主库的onlinelog信息查看v$log）<br />
+SQL&gt; alter database add standby logfile group 21 '/u01/app/oracle/oradata/prod/standbylog/std01.log' size 50M;<br />
+SQL&gt; alter database add standby logfile group 22 '/u01/app/oracle/oradata/prod/standbylog/std02.log' size 50M;<br />
+SQL&gt; alter database add standby logfile group 23 '/u01/app/oracle/oradata/prod/standbylog/std03.log' size 50M;<br />
+SQL&gt; alter database add standby logfile group 24 '/u01/app/oracle/oradata/prod/standbylog/std04.log' size 50M;<br />
+SQL&gt; alter database add standby logfile group 25 '/u01/app/oracle/oradata/prod/standbylog/std05.log' size 50M;<br />
+SQL&gt; alter database add standby logfile group 26 '/u01/app/oracle/oradata/prod/standbylog/std06.log' size 50M;<br />
+SQL&gt; alter database add standby logfile group 27 '/u01/app/oracle/oradata/prod/standbylog/std07.log' size 50M;<br />
+SQL&gt; alter database add standby logfile group 28 '/u01/app/oracle/oradata/prod/standbylog/std08.log' size 50M;</p>
+<p>&nbsp;</p>
+<h3>25. 主库修改参数文件</h3>
+<p>SQL&gt; alter system set standby_file_management=auto sid='*';<br />
+SQL&gt; alter system set db_file_name_convert='/u01/app/oracle/oradata/prod/','+DATA/proddg/datafile/' sid='*' scope=spfile;<br />
+SQL&gt; alter system set log_file_name_convert='/u01/app/oracle/oradata/prod/','+DATA/proddg/onlinelog/' sid='*' scope=spfile;</p>
+<p>到这里，主库转换为备库的准备工作已完成！</p>
+<p>&nbsp;</p>
+<h3>26. 从库配置tnsnames.ora</h3>
+<p>这里的配置tnsnames.ora的目的是，当原从库转变为新主库之后，原主库变为新从库，新主库需要给新从库发送归档日志，所以这里的tnsnames要指向新从库。</p>
+<p>[oracle@rac1 ~]$ vi $ORACLE_HOME/network/admin/tnsnames.ora&nbsp; # rac两个节点都要设置</p>
+<div class="cnblogs_code">
+<pre><code>toprod =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.56.102)(PORT = 1521))
+    )
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = prod)
+    )
+  )</pre>
+</div>
+<p><br />
+
+</p>
+<h3>27. 从库为onlinelog设置归档路径</h3>
+<p># 只在节点1设置即可<br />
+SQL&gt; alter system set log_archive_dest_1='location=+DATA/proddg/archivelog/ valid_for=(online_logfiles,primary_role) db_unique_name=proddg' sid='*';</p>
+<p>&nbsp;</p>
+<h3>28. 从库设置远程归档参数</h3>
+<p># 只在节点1设置即可<br />
+SQL&gt; alter system set log_archive_dest_3='service=toprod valid_for=(online_logfiles,primary_role) db_unique_name=prod' sid='*';</p>
+<p>到这里，从库转为主库的准备工作已完成！</p>
+<p>&nbsp;</p>
+<h2>六、主从切换</h2>
+<p><a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163503552-1212057567.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="Snipaste_2019-12-17_13-22-47" src="./images/Oracle - 通过dg，完成单实例到rac的迁移3.png" alt="Snipaste_2019-12-17_13-22-47" width="496" height="324" border="0" /></a></p>
+<p>&nbsp;</p>
+<h3>29. 查看主库的角色转换状态</h3>
+<p>SQL&gt; select database_role,switchover_status from v$database;<br />
+<a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163504118-976074601.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="5" src="./images/Oracle - 通过dg，完成单实例到rac的迁移4.png" alt="5" width="307" height="50" border="0" /></a><br />&nbsp;&nbsp; <br />
+</p>
+<h3>30. 主转从</h3>
+<p>执行以下命令，将主库转为从库，并且关闭实例 <br />
+SQL&gt; alter database commit to switchover to physical standby with session shutdown; </p>
+<p>&nbsp;</p>
+<h3>31. 在从库节点1上从转主</h3>
+<p>由于从库是集群，在从转主的过程中，只能有一个活动节点，因此关闭从库节点2<br />SQL&gt; shutdown immediate  # 只关闭节点2</p>
+<p>SQL&gt; select database_role,switchover_status from v$database;<br />
+<a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163504637-1335137333.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="6" src="./images/Oracle - 通过dg，完成单实例到rac的迁移5.png" alt="6" width="310" height="44" border="0" /></a></p>
+<p>如果是"NOT ALLOWED"表示归档还没有应用完成，可以等待一段时间</p>
+<p>如果日志全部应用了再查看角色转换状态<br />
+SQL&gt; select database_role,switchover_status from v$database;<br />
+<a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163505116-1002528734.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="7" src="./images/Oracle - 通过dg，完成单实例到rac的迁移6.png" alt="7" width="305" height="51" border="0" /></a></p>
+<p>如果角色转换状态是TO PRIMARY，那么表示可以进行角色转换</p>
+<p>执行从转主的命令，命令执行成功后，数据库的状态会变为mount<br />
+SQL&gt; alter database commit to switchover to primary;<br />
+SQL&gt; alter database open;</p>
+<p>&nbsp;</p>
+<h3>32. 打开新从库</h3>
+<p>SQL&gt; startup</p>
+<p>应用归档<br />
+SQL&gt; alter database recover managed standby database using current logfile disconnect from session;</p>
+<p>在主库节点1上切换归档<br />
+SQL&gt; alter system switch logfile;</p>
+<p>&nbsp;</p>
+<h3>33. 验证同步</h3>
+<p>主库做修改<br />
+SQL&gt; update scott.emp set sal=4000;<br />
+SQL&gt; commit;</p>
+<p>从库查询<br />
+SQL&gt; select * from scott.emp;</p>
+<p>&nbsp;</p>
+<h3>34. 在主库节点1上为节点2添加日志文件</h3>
+<p>SQL&gt; alter database add logfile thread 2 group 4 '+DATA/proddg/onlinelog/redo04.log' size 50M;<br />
+SQL&gt; alter database add logfile thread 2 group 5 '+DATA/proddg/onlinelog/redo05.log' size 50M;<br />
+SQL&gt; alter database add logfile thread 2 group 6 '+DATA/proddg/onlinelog/redo06.log' size 50M;<br />
+SQL&gt; alter database enable thread 2;</p>
+<p>&nbsp;</p>
+<h3>35. 启动新主库节点2实例</h3>
+<p>SQL&gt; startup&nbsp; # 只在节点2上操作</p>
+<p>&nbsp;</p>
+<h3>36. 错误处理</h3>
+<p>如果发现日志传不到备库的话可以在主库通过以下命令查看错误原因</p>
+<p>SQL&gt; select dest_id,dest_name,log_sequence,status,error from v$archive_dest;<br />
+<a href="https://img2018.cnblogs.com/blog/1399177/201912/1399177-20191217163505621-92725187.png"><img style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" title="8" src="./images/Oracle - 通过dg，完成单实例到rac的迁移7.png" alt="8" width="910" height="89" border="0" /></a></p>
+<p>如果报上面的错误的话，可以把归档开关重启一下即可<br />
+SQL&gt; alter system set log_archive_dest_state_3='defer' sid='*';<br />
+SQL&gt; alter system set log_archive_dest_state_3='enable' sid='*';</p>
+<p>&nbsp;</p>
+<h2>七、总结</h2>
+<p>1. dg的切换需要停掉所有的应用，并把数据库的所有连接全部kill掉，账号全锁（此举是为了防止切换过程中有其它用户登录数据库），切换完成后再解锁<br />
+2. rac在切换时，只留一个活的实例，其它全部关闭<br />
+3. 命令每执行一条，就留意返回的结果，并实时查看alert.log<br />
+4. 由于篇幅限制，文章没有展示每步运行的结果。所以文章只是提供一个思路，具体步骤还需要根据自己库的实际情况来</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

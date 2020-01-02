@@ -1,0 +1,321 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修深入 .NET Core 基础 - 1：deps.json, runtimeconfig.json 以及 dll' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>深入 .NET Core 基础 - 1：deps.json, runtimeconfig.json 以及 dll</center></div><div class='banquan'>原文出处:本文由博客园博主冠军提供。<br/>
+原文连接:https://www.cnblogs.com/haogj/p/12003854.html</div><br>
+    <h1 class="md-end-block md-heading"><span class="md-plain md-expand">深入 .NET Core 基础：deps.json, runtimeconfig.json 以及 dll</span></h1>
+<p class="md-end-block md-p"><span class="md-link">原文地址:<a href="https://natemcmaster.com/blog/2017/12/21/netcore-primitives/">https://natemcmaster.com/blog/2017/12/21/netcore-primitives/</a></span></p>
+<h2 class="md-end-block md-heading"><span class="md-plain">1. .NET Core 应用程序基础</span></h2>
+<p class="md-end-block md-p"><span class="md-plain">我学习过使用 gcc，C++ 和 vim 编程。当我开始使用 C# 和 .NET 的时候，点击 Visual Studio 中的 <span><code>运行</code><span class="md-plain"> 按钮就是魔法，也带者失望。失望 - 不是因为我希望编写 Makefile - 而是因为我不知道 <span><code>运行</code><span class="md-plain"> 都做了什么。所以，我开始探索。在本博文中，我将展示在 .NET Core 中使用的多数基础工具，并手工创建 .NET Core 应用程序<span><strong>而不借助于 Visual Studio</strong><span class="md-plain">。如果你是 .NET Core 的新手，并且希望揭开内幕，本文就是为您而来。如果您已经是一个 .NET Core 的开发者，并且好奇 *.deps.json 或者 *.runtimeconfig.json 文件是做什么的，我也会涵盖这些内容。</span></span></span></span></span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">我将会终止 Visual Studio 的魔法，而一直使用命令行工具。为了你能够进行，您需要 </span></p>
+<p class="md-end-block md-p"><span class=" md-link"><a href="https://www.microsoft.com/net/download/"><span class="md-plain">.NET Core 2.1 SDK</span></a><span class="md-plain"> ( 实际上，<span class=" md-link"><a href="https://www.microsoft.com/net/download/"><span class="md-plain">.NET Core 3.1 SDK</span></a><span class="md-plain"> 已经发布，我想你更应该下载这个最新版)。下面的这些步骤是在 macOS 上完成的，但是它们也同样在 Linux 和 Windows 上一样工作，如果您将路径更改为 <span><code>c:\Program Files\dotnet\</code><span class="md-plain"> 和 <span><code>dotnet.exe</code><span class="md-plain"> 的话。</span></span></span></span></span></span></span></span></p>
+<h2 class="md-end-block md-heading"><span class="md-plain">2. C# 编译器</span></h2>
+<p class="md-end-block md-p"><span class="md-plain">C# 编译器将 *.cs 文件编译为 *.dll 文件，也被称为程序集文件。程序集文件具有便携可执行文件格式，.NET Core 可以在 Windows、macOS 和 Linux 上执行它。<span><code>.NET Core app</code><span class="md-plain"> 是一系列 *.dll 文件的集合 (包括少量的配置文件)。它可以通过多种程序设计语言，例如 VB 或者 F# 等所生成，但是，C# 是最常用的一种。</span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">C# 编译器可以直接调用来生成程序集文件。C# 编译器可以在 .NET Core SDK 中发现，并像下面这样被调用。</span></p>
+<pre><code><span>dotnet /usr/local/share/dotnet/sdk/2.1.3/Roslyn/bincore/csc.dll <span class="cm-attribute">-help</span></span></pre>
+<p class="md-end-block md-p"><span class="md-plain">让我们为它提供一个输入内容。首先，创建名为 <span><code>Program.cs</code><span class="md-plain"> 的文件，并编写如下 C# 代码：</span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:csharp;gutter:true;">/* Program.cs */
+class Program
+{
+    static void Main(string[] args)
+        =&gt; System.Console.WriteLine("Hello World!");
+}</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">然后，在命令行，执行如下命令：</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt; dotnet \
+  /usr/local/share/dotnet/sdk/2.1.3/Roslyn/bincore/csc.dll \
+  -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Runtime.dll \
+  -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Console.dll \
+  -out:Program.dll \
+  Program.cs</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">在 .NET Core 3.1 中，<span><code>NuGetFallbackFoler</code><span class="md-plain"> 已经从 <span><code>sdk</code><span class="md-plain"> 文件夹中移除了。这些程序集已经转移到 <span><code>C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1</code><span class="md-plain"> 文件夹中。</span></span></span></span></span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">如果在 Windows 下，注意空格的处理：</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">dotnet 'C:\Program Files\dotnet\sdk\3.1.100\Roslyn\bincore\csc.dll' -reference:'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Runtime.dll' -reference:'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Console.dll' -out:Program.dll Program.cs</pre>
+</div>
+<pre><code><span style="font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px;">参数的含义如下：</span></pre>
+<ul class="ul-list" data-mark="*">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">dotnet - C# 编译器本身也是一个 .NET Core 应用程序，所以，我们需要通过 dotnet 命令来启动它</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">/usr/local/share/dotnet/sdk/2.1.3/Roslyn/bincore/csc.dll - C# 编译器的路径。在 Windows 上，路径就是： C:\Program Files\dotnet\</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">-reference 参数指向了 System.Runtime.dll 和 System.Console.dll，这些类似于 C++ 中的头文件，它们为编译器提供关于 <span><code>System.Object</code><span class="md-plain"> 和 <span><code>System.Console</code><span class="md-plain"> 的信息。</span></span></span></span></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">-out:Program.dll，输出文件名。<span><code>.dll</code><span class="md-plain"> 的扩展名是 .NET Core 的约定，并不是必需的。如果没有指定，编译器将生成名为 <span><code>Program.exe</code><span class="md-plain"> 的文件。在 Windows 系统上，这会导致一点误解，因为你并不能通过双击 Program.exe 来启动它，所以，在 .NET Core 中，我们总是使用 .dll 扩展名。</span></span></span></span></span></p>
+</li>
+</ul>
+<p class="md-end-block md-p"><span class="md-plain">Reference 引用允许我们使用代码中涉及的在其它 .NET Core 代码中定义的成千上万的类型，例如 <span><code>List</code><span class="md-plain">、<span><code>Integer</code><span class="md-plain"> 以及 <span><code>HttpClient</code><span class="md-plain"> 类型等等。但是，你不得不告诉编译器到哪里去找到它们。如果你删除掉 <span><code>-reference:***</code><span class="md-plain"> 部分，编译器将会失败，并返回如下错误：</span></span></span></span></span></span></span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">Program.cs(1,11): error CS0518: Predefined type 'System.Object' is not defined or imported
+Program.cs(3,26): error CS0518: Predefined type 'System.String' is not defined or imported
+Program.cs(3,16): error CS0518: Predefined type 'System.Void' is not defined or imported</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">示例中使用的路径是 <span><code>/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app</code><span class="md-plain">。这些来自与 <span><code>Microsoft.NETCore.App</code><span class="md-plain"> 这个 NugGet 包，后面我们会讨论它。</span></span></span></span></span></p>
+<h2 class="md-end-block md-heading"><span class="md-plain">3. runtimeconfig.json</span></h2>
+<p class="md-end-block md-p"><span class="md-plain">对于 .NET Core 应用程序来说，<span><code>runtime.config.json</code><span class="md-plain"> 文件是必需的。术语 <span><code>runtime</code><span class="md-plain"> 、<span><code>shared framework</code><span class="md-plain">、或者 <span><code>platform</code><span class="md-plain"> 经常互换，但是，在谈论 .NET Core 的时候，它们是一回事。该 JSON 配置文件用于运行时。</span></span></span></span></span></span></span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">如果您拥有了上一步所得到的程序集，您可以试着在命令行运行它，通过 <span><code>dotnet</code><span class="md-plain"> 工具。没有这个 <span><code>runtime.config.json</code><span class="md-plain">，该尝试将会失败：</span></span></span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt;dotnet Program.dll
+A fatal error was encountered. The library 'libhostpolicy.dylib' required to execute the application was not found in '/Users/nmcmaster/code/'.</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">在 Windows 环境的 .NET Core 3.1 环境下，我得到是：</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;"> &gt;dotnet Program.dll
+A fatal error was encountered. The library 'hostpolicy.dll' required to execute the application was not found in 'C:\temp\dotnet\'.
+Failed to run as a self-contained app. If this should be a framework-dependent app, add the C:\temp\dotnet\Program.runtimeconfig.json file specifying the appropriate framework.</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">该段说明的意思是，.NET Core 不能找到用于执行 Program.dll 文件所必需的某些文件。为了解决这个问题，创建名为 <span><code>Program.runtimeconfig.json</code><span class="md-plain"> 的文件，并使用如下内容：</span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:javascript;gutter:true;">{
+  "runtimeOptions": {
+    "framework": {
+      "name": "Microsoft.NETCore.App",
+      "version": "2.0.0"
+    }
+  }
+}</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">注意，在 .NET Core .3.1 下，文件内容如下：</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:javascript;gutter:true;">{
+  "runtimeOptions": {
+    "framework": {
+      "name": "Microsoft.NETCore.App",
+      "version": "3.1.0"
+    }
+  }
+}</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">这些设置指示 <span><code>dotnet</code><span class="md-plain"> 使用 <span><code>Microsoft.NETCore.App 3.1.0</code><span class="md-plain"> 共享框架。该框架也是最常使用的框架，但是，还有其它的框架，例如 <span><code>Microsoft.AspNetCore.App</code><span class="md-plain">。不像 .NET Framework 是装个机器范围生效，可以有多个 .NET Core 共享框架安装在同一台机器上。<span><code>dotnet</code><span class="md-plain"> 将读取该 JSON 文件，并在 <span><code>/usr/local/share/dotnet/shared/$FrameworkName/$Version/</code><span class="md-plain"> 中查找需要的文件并运行应用程序。</span></span></span></span></span></span></span></span></span></span></span></p>
+<blockquote>
+<p class="md-end-block md-p"><span class="md-plain">说明：如果有更高版本的 <span><code>Microsoft.NeTCore.App</code><span class="md-plain"> 补丁安装，例如 <span><code>shared/Microsoft.NETCore.App/2.0.4/</code><span class="md-plain">，<span><code>dotnet</code><span class="md-plain"> 将自动使用更高版本。</span></span></span></span></span></span></span></p>
+</blockquote>
+<p class="md-end-block md-p"><span class="md-plain">现在，执行 <span><code>dotnet Program.dll</code><span class="md-plain">。</span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt;dotnet Program.dll
+Hello world!</pre>
+</div>
+<h2 class="md-end-block md-heading"><span class="md-plain">4. Package 包</span></h2>
+<p class="md-end-block md-p"><span class="md-plain">包提供了在不同项目之间、项目组之间以及组织之间共享代码的方式，.NET 程序集被打包到 <span><code>*.nupkg</code><span class="md-plain"> 文件中，这仅仅是一个 ZIP 压缩格式文件，并含有一个 XML 文件 (.nuspec) ，包含有关于该包的元数据。</span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">最流行的一个 .NET 包称为 JSON.NET，也被称为 Newtonsoft.Json。它提供了解析和序列化 JSON 的 API。我们可以从 NuGet.org 得到它并提取到磁盘上。</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;"># Bash
+mkdir -p ./packages/Newtonsoft.Json/10.0.3/
+curl -L https://www.nuget.org/api/v2/package/Newtonsoft.Json/10.0.3 | tar -xf - -C ./packages/Newtonsoft.Json/10.0.3/</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">Windows 环境下</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;"># Windows (powershell)
+mkdir ./packages/Newtonsoft.Json/10.0.3/
+Invoke-WebRequest https://www.nuget.org/api/v2/package/Newtonsoft.Json/10.0.3 -OutFile Newtonsoft.Json.10.0.3.zip
+Expand-Archive Newtonsoft.Json.10.0.3.zip -D ./packages/Newtonsoft.Json/10.0.3/</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">为了演示它的使用，我们将更新前一步的示例代码，以 JSON 对象格式输出信息。</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:csharp;gutter:true;">class Program
+{
+    static void Main(string[] args)
+      =&gt; System.Console.WriteLine(
+          Newtonsoft.Json.JsonConvert.SerializeObject(new { greeting = "Hello World!" }));
+}</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">这需要添加更多的编译参数到编译器的参数列表中，以便使用 Newtonsoft.Json 的 API。</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt; dotnet /usr/local/share/dotnet/sdk/2.1.3/Roslyn/bincore/csc.dll \
+    -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Runtime.dll \
+    -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Console.dll \
+    -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Collections.dll \
+    -reference:./packages/Newtonsoft.Json/10.0.3/lib/netstandard1.3/Newtonsoft.Json.dll \
+    -out:Program.dll \
+    Program.cs</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">使用 .NET Core 3.1 的命令如下：</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">dotnet 'C:\Program Files\dotnet\sdk\3.1.100\Roslyn\bincore\csc.dll' -reference:'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Runtime.dll' -reference:'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Console.dll' -reference:'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Collections.dll' -reference:'./packages/Newtonsoft.Json/10.0.3/lib/netstandard1.3/Newtonsoft.Json.dll' -out:Program.dll Program.cs</pre>
+</div>
+<blockquote>
+<p class="md-end-block md-p"><span class="md-plain">注意：显然我们需要 <span><code>reference:Newtonsoft.Json.dll</code><span class="md-plain">，但是，为什么需要 <span><code>System.Collections.dll</code><span class="md-plain">？这是因为我们还使用了匿名类型，<span><code>new { greeting }</code><span class="md-plain">。在背后，C# 编译器在匿名类型上生成了一个 <span><code>.Equals()</code><span class="md-plain"> 方法，该方法调用了 <span><code>System.Collections.Generic.EqualityComparer</code><span class="md-plain">，它定义在 <span><code>System.Collections.dll</code><span class="md-plain"> 中。</span></span></span></span></span></span></span></span></span></span></span></span></span></p>
+</blockquote>
+<p class="md-end-block md-p"><span class="md-plain">编译应当成功，虽然带有一些警告信息。</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">Program.cs(4,35): warning CS1701: Assuming assembly reference 'System.Runtime, Version=4.0.20.0, <br />Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' used by 'Newtonsoft.Json' matches <br />identity 'System.Runtime, Version=4.2.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' <br />of 'System.Runtime', you may need to supply runtime policy</pre>
+</div>
+<blockquote>
+<p class="md-end-block md-p"><span class="md-plain">在 .NET Core 3.1 下，实际上，我得到的输出信息如下：</span></p>
+<pre><code><span>Microsoft (R) Visual C# Compiler version 3.4.0-beta4-19562-05 (ff930dec)<br /><span>Copyright (C) Microsoft Corporation. All rights reserved.<br /><span><span>​<br /><span>warning CS1701: Assuming assembly reference 'System.Runtime, Version=4.0.20.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' used by 'Newtonsoft.Json' matches identity 'System.Runtime, Version=4.2.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' of 'System.Runtime', you may need to supply runtime policy<br /><span>Program.cs(5,11): warning CS1701: Assuming assembly reference 'System.Runtime, Version=4.0.20.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' used by 'Newtonsoft.Json' matches identity 'System.Runtime, Version=4.2.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' of 'System.Runtime', you may need to supply runtime policy</span></span></span></span></span></span></pre>
+</blockquote>
+<p class="md-end-block md-p md-focus"><span class="md-plain md-expand">这意味着在 <span><code>Newtonsoft.Json</code><span class="md-plain"> 的作者创建 <span><code>Newtonsoft.Json.dll</code><span class="md-plain"> 的时候，他基于的 <span><code>System.Runtime.dll</code><span class="md-plain"> 的版本是 <span><code>4.0.20.0</code><span class="md-plain">。但是，现在提供的 <span><code>System.Runtime.dll</code><span class="md-plain"> 更新一些，版本是 <span><code>4.2.0.0</code><span class="md-plain">。如果在版本 <span><code>4.0.20.0</code><span class="md-plain"> 到 <span><code>4.2.0.0</code><span class="md-plain"> 之间有变化的化，会导致你运行的应用程序出现问题，所以，编译器发出警告。幸运的是，这些变更是后向兼容的，所以 <span><code>Newtonsoft.Json</code><span class="md-plain"> 将工作正常。我们可以通过添加参数 <span><code>-nowarn:/CS1701</code><span class="md-plain"> 来抑制这些警告。</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt; dotnet /usr/local/share/dotnet/sdk/2.1.3/Roslyn/bincore/csc.dll \
+    -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Runtime.dll \
+    -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Console.dll \
+    -reference:/usr/local/share/dotnet/sdk/NuGetFallbackFolder/microsoft.netcore.app/2.0.0/ref/netcoreapp2.0/System.Collections.dll \
+    -reference:./packages/Newtonsoft.Json/10.0.3/lib/netstandard1.3/Newtonsoft.Json.dll \
+    -nowarn:CS1701 \
+    -out:Program.dll \
+    Program.cs
+</pre>
+</div>
+<p>　　</p>
+<blockquote>
+<p class="md-end-block md-p"><span class="md-plain">对于 Windows 环境下的 .NET Core 3.1，命令如下：</span></p>
+<pre><code><span>dotnet <span class="cm-string">'C:\Program Files\dotnet\sdk\3.1.100\Roslyn\bincore\csc.dll' <span class="cm-attribute">-reference:<span class="cm-string">'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Runtime.dll' <span class="cm-attribute">-reference:<span class="cm-string">'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Console.dll' <span class="cm-attribute">-reference:<span class="cm-string">'C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1\System.Collections.dll' <span class="cm-attribute">-reference:<span class="cm-string">'./packages/Newtonsoft.Json/10.0.3/lib/netstandard1.3/Newtonsoft.Json.dll' <span class="cm-attribute">-nowarn:CS1701 <span class="cm-attribute">-out:Program.dll Program.cs</span></span></span></span></span></span></span></span></span></span></span></span></pre>
+<p class="md-end-block md-p"><span class="md-plain">注意 <span><code>CS1701</code><span class="md-plain"> 中的字母是大写。</span></span></span></p>
+</blockquote>
+<h2 class="md-end-block md-heading"><span class="md-plain">5. 动态链接</span></h2>
+<p class="md-end-block md-p"><span class="md-plain">在上一步，我们编译了一个引用 <span><code>Newtonsoft.dll</code><span class="md-plain">、<span><code>System.Runtime.dll</code><span class="md-plain"> 和其它程序集的简单应用程序。在添加 <span><code>Newtonsoft.dll</code><span class="md-plain"> 之前，我们的应用程序工作良好。但是，在更新版本之后，该程序的运行将会失败。</span></span></span></span></span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt; dotnet Program.dll
+Unhandled Exception: System.IO.FileNotFoundException: Could not load file or assembly 'Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed'. The system cannot find the file specified.</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">.NET 在运行时动态链接程序集。编译器在程序集 <span><code>Program.dll</code><span class="md-plain"> 中添加了到 <span><code>Newtonsoft.Json.dll</code><span class="md-plain"> 的引用，但并不会将代码复制进来。.NET Core 运行时期待能够在应用程序执行的时候能够加载名为 <span><code>Newtonsoft.Json.dll</code><span class="md-plain"> 的程序集。对于 <span><code>System.Runtime.dll</code><span class="md-plain"> 和 <span><code>System.Console.dll</code><span class="md-plain"> ，以及其它引用的 System.* 文件也是同样的。</span></span></span></span></span></span></span></span></span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">.NET Core 可以通过配置在一系列位置寻找 <span><code>Newtonsoft.Json.dll</code><span class="md-plain">，但是，为了简单起见，我们可以将它复制到 <span><code>Program.dll</code><span class="md-plain"> 的同一个文件夹中。</span></span></span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt; cp ./packages/Newtonsoft.Json/10.0.3/lib/netstandard1.3/Newtonsoft.Json.dll ./
+&gt; dotnet Program.dll
+{"greeting":"Hello World!"}</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">为什么我们不需要将 <span><code>System.Runtime.dll</code><span class="md-plain"> 和其它文件复制过来呢？这些文件通过 Microsoft.NETCore.App 共享框架动态链接过来，如前面所述。</span></span></span></p>
+<h2 class="md-end-block md-heading"><span class="md-plain">6. deps.json</span></h2>
+<p class="md-end-block md-p"><span><code>deps.json</code><span class="md-plain"> 文件是依赖说明文件。它可以用来配置来自包的动态链接到程序集。如前所述，.NET Core 可以配置为从多个位置来动态加载程序集。这些位置包括：</span></span></p>
+<ul class="ul-list" data-mark="*">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">应用程序所在的目录，与应用程序入口相同的文件夹，不需要配置。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">包的缓存文件夹 (NuGet 恢复缓存或者 NuGet 回落文件夹)</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">优化之后的包缓存，或者运行时包存储。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">服务目录 (servicing index)，很少使用，用于 Windows Update 方式</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">共享框架 (通过 runtimeconfig.json 配置)</span></p>
+</li>
+</ul>
+<p class="md-end-block md-p"><span class="md-plain">综上所述，<span><code>deps.json</code><span class="md-plain"> 定义可以动态链接的依赖列表，通常，该文件由机器生成，对于实际的应用程序，可能变得很大并且很复杂。但是，它是纯文本形式的，所以我们可以使用编辑器来处理它。</span></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">添加名为 <span><code>Program.deps.json</code><span class="md-plain"> 的文件到项目中，内容如下：</span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:javascript;gutter:true;">{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v2.0"
+  },
+  "targets": {
+    ".NETCoreApp,Version=v2.0": {
+      "Newtonsoft.Json/10.0.3": {
+        "runtime": {
+          "lib/netstandard1.3/Newtonsoft.Json.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.3.21018"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Newtonsoft.Json/10.0.3": {
+      "type": "package",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">为了展示这是如何工作的，将现在的与 <span><code>Program.dll</code><span class="md-plain"> 同一文件夹的 <span><code>Newtonsoft.Json.dll</code><span class="md-plain"> 删除。然后，执行 <span><code>dotnet Program.dll</code><span class="md-plain"> 。</span></span></span></span></span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt; rm Newtonsoft.Json.dll
+&gt; dotnet Program.dll
+Error:
+  An assembly specified in the application dependencies manifest (Program.deps.json) was not found:
+    package: 'Newtonsoft.Json', version: '10.0.3'
+    path: 'lib/netstandard1.3/Newtonsoft.Json.dll'</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">虽然提供了 <span><code>Program.deps.json</code><span class="md-plain"> 文件，.NET Core 还需要一点关于到哪里定位匹配 <span><code>deps.json</code><span class="md-plain"> 文件中程序集的信息。该配置可以通过如下三种方式之一实现：</span></span></span></span></span></p>
+<ol class="ol-list">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span><code>*.runtimeconfig.dev.json</code><span class="md-plain">。这是配置的典型的最佳方式。添加文件 <span><code>Program.runtimeconfig.dev.json</code><span class="md-plain"> 文件，其中设置了包文件夹的位置。它类似于 <span><code>Program.runtimeconfig.json</code><span class="md-plain"> 文件，但它是可选的。典型地其中包含了文件完全路径，所以不适于在不同机器上发布。</span></span></span></span></span></span></p>
+<pre><code></pre>
+<div class="cnblogs_Highlighter">
+<pre class="brush:javascript;gutter:true;"> {
+   "runtimeOptions": {
+     "additionalProbingPaths": [
+       "/Users/nmcmaster/code/packages/"
+     ]
+   }
+ }</pre>
+</div>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">命令行。你可以使用 <span><code>exec</code><span class="md-plain"> 命令来手工指定 <span><code>dotnet</code><span class="md-plain"> 命令中程序集的位置。使用 <span><code>--additionalprobingppath</code><span class="md-plain"> 参数，可以指定多个值。</span></span></span></span></span></span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:bash;gutter:true;">&gt; dotnet exec --additionalprobingpath ./packages/ Program.dll
+</pre>
+</div>
+<p>　　</p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span><code>*.runtimeconfig.json</code><span class="md-plain">。可以添加一个运行时设置来指定新的探测位置。它可以使用相对路径。</span></span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:javascript;gutter:true;">{
+   "runtimeOptions": {
+     "framework": {
+       "name": "Microsoft.NETCore.App",
+       "version": "2.0.0"
+     },
+     "additionalProbingPaths": [
+       "./packages/"
+     ]
+   }
+ }
+</pre>
+</div>
+<p>　　</p>
+</li>
+</ol>
+<blockquote>
+<p class="md-end-block md-p"><span class="md-plain">注意：在我的 .NET Core 3.1 环境下，这个 <span><code>additionalProbingPaths</code><span class="md-plain"> 没有工作。这里是 StackOverflow 上的一个问题：<span class="md-link"><a href="https://stackoverflow.com/questions/56844233/additional-probing-paths-for-net-core-3-migration">https://stackoverflow.com/questions/56844233/additional-probing-paths-for-net-core-3-migration</a></span></span></span></span></p>
+</blockquote>
+<h2 class="md-end-block md-heading"><span class="md-plain">7. 总结</span></h2>
+<p class="md-end-block md-p"><span class="md-plain">对于大多数的开发工作，并不需要这些基础。类似 NuGet、MSBuild 和 Visual Studio 自动处理获取应用，C# 文件，调用编译器，连结到调试器，以及其它任务。但是，我认为知道背后是如何工作的还是非常用用。当然了，你还可以更加深入。在 *.dll 文件中实际有什么？什么是 *.pdb 文件？什么是 crossgen 和 libcoreclr？我会把这些留在其它部分中。</span></p>
+<h2 class="md-end-block md-heading"><span class="md-plain">8. 参考信息</span></h2>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Specs on runtimeconfig.json and deps.json: <span class="md-link"><a href="https://github.com/dotnet/cli/blob/v2.0.0/Documentation/specs/runtime-configuration-file.md">https://github.com/dotnet/cli/blob/v2.0.0/Documentation/specs/runtime-configuration-file.md</a></span></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Assembly resolution and dynamic linking: <span class="md-link md-expand"><a href="https://github.com/dotnet/cli/blob/v2.0.0/Documentation/specs/corehost.md">https://github.com/dotnet/cli/blob/v2.0.0/Documentation/specs/corehost.md</a></span></span></p>
+</li>
+</ul>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,249 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修io流函数略解(java_input流)[二] ' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>io流函数略解(java_input流)[二] </center></div><div class='banquan'>原文出处:本文由博客园博主族语提供。<br/>
+原文连接:https://www.cnblogs.com/aoximin/p/12044270.html</div><br>
+    <h3 id="背景">背景</h3>
+<p>在写这篇随笔之前，已经写了io流函数略解(java_File)(一)，主要是总结了File的一些操作，以及一些源码介绍。<br />
+在Io实际应用中，实际上运用在如果会操作File，实际上很难写出一点能实际应用的code，因为操作文件嘛，更多的是操作流，也就是steam。<br />
+下面将简单总结一些流的概念，以及流的一些基本理论，同时也会贴出源码来略看。</p>
+<h3 id="实践">实践</h3>
+<p>io之所以叫io，i的意思是input，o的意思是output，也就是一个输入一个输出，分别对应read与write。</p>
+<h4 id="inputsteam">inputsteam</h4>
+<p>inputsteam 在java 中是一个abstract class。那么它和接口是不一样的，抽象类是可以有具体方法的甚至构造函数。<br />
+inputsteam是read操作，那么看下在inputsteam有什么read的函数吧。</p>
+<pre><code><code>/**
+ * Reads the next byte of data from the input stream. The value byte is
+ * returned as an &lt;code&gt;int&lt;/code&gt; in the range &lt;code&gt;0&lt;/code&gt; to
+ * &lt;code&gt;255&lt;/code&gt;. If no byte is available because the end of the stream
+ * has been reached, the value &lt;code&gt;-1&lt;/code&gt; is returned. This method
+ * blocks until input data is available, the end of the stream is detected,
+ * or an exception is thrown.
+ *
+ * &lt;p&gt; A subclass must provide an implementation of this method.
+ *
+ * @return     the next byte of data, or &lt;code&gt;-1&lt;/code&gt; if the end of the
+ *             stream is reached.
+ * @exception  IOException  if an I/O error occurs.
+ */
+public abstract int read() throws IOException;</code></pre>
+<p>read 没有实现，是一个抽象的方法。但是告诉了我们很有用的信息。<br />
+如下:</p>
+<ol>
+<li><p>返回的是一个字节，返回是0-255。为什么是0-255呢？因为一个字节是8位，11111111不就是255嘛。</p></li>
+<li><p>如果没有了，则返回-1，为什么会返回-1，因为-1最高效。解释起来很复杂，可以关注我后面总结的数据结构。</p></li>
+<li><p>如果错误会返回一个IOException 异常。</p></li>
+</ol>
+<p>同样，我找到了另外一个read</p>
+<pre class="java"><code>public int read(byte b[], int off, int len) throws IOException {
+//判断参数是否符合，比如说byte是否为空，然后off与len的一些基本要求，比如说一个正常的off肯定要&gt;0,然后len&gt;0,len还有大于b.length-off
+//在看到 b.length - off的时候就可以确定off是针对b[]的,冲off开始，给b[]写入或者替换数据。
+    if (b == null) {
+        throw new NullPointerException();
+    } else if (off &lt; 0 || len &lt; 0 || len &gt; b.length - off) {
+        throw new IndexOutOfBoundsException();
+    } else if (len == 0) {
+        return 0;
+    }
+//为什么要单独写一个呢？一个是优化，不需要构造for循环，第二个是可以提前检查read错误
+    int c = read();
+    if (c == -1) {
+        return -1;
+    }
+    b[off] = (byte)c;
+//for 循环读取，然后read -1则说明到底了。
+    int i = 1;
+    try {
+        for (; i &lt; len ; i++) {
+            c = read();
+            if (c == -1) {
+                break;
+            }
+            b[off + i] = (byte)c;
+        }
+    } catch (IOException ee) {
+    }
+    return i;
+}</code></pre>
+<p>这个我就不贴注释了，有源码看啥注释。一些关键点，我也给了自己的一些看法。</p>
+<p>然后还有一个是:</p>
+<pre><code><code>public int read(byte b[]) throws IOException {
+    return read(b, 0, b.length);
+}</code></pre>
+<p>其实就是调用read(byte b[], int off, int len)；<br />
+至此，read部分就基本在这了，当然有其他函数了，不可能一一来说明，用到的时候自然就ok的。</p>
+<h4 id="fileinputstream">FileInputStream</h4>
+<p>我们在inputsteam有了一个大体的框架，然而呢，read没有实现。那么来看看到底是如何读取文件的吧，FileInputStream。<br />
+依然我们来看read:</p>
+<pre><code><code>public int read() throws IOException {
+        return read0();
+}
+private native int read0() throws IOException;</code></pre>
+<p>出现了native,这表示是调用外部库。native解释起来有一丢丢麻烦，就是去调用不是java写的库了，例如调用c语言写的函数库，后面也写一片总结吧。<br />
+好吧，read只能暂时介绍到这里，操作一下吧。</p>
+<pre class="java"><code> try(InputStream inputStream= new FileInputStream(&quot;xxxx&quot;))
+ {
+     int n;
+     while ((n=inputStream.read())!=-1) {
+        System.out.println(n);
+
+    }
+ }catch (Exception e) {
+    // TODO: handle exception
+}</code></pre>
+<p>ps:</p>
+<pre><code><code>try(InputStream inputStream= new FileInputStream(&quot;xxxx&quot;))这样写自动在finally中帮我们调用close方法，因为InputStream 继承了java.lang.AutoCloseable 接口。
+为什么要close呢?因为要释放资源啊，用完就放，轻装前行。</code></pre>
+<h4 id="bytearrayinputstream">ByteArrayInputStream</h4>
+<p>这个从字面意思是字节数组输入流?意思就是把字符数组转换成InputStream。<br />
+例如:</p>
+<pre><code><code>public void ByteArrayInputStreamTest() throws IOException  {
+  byte[] data={11,12,15,16};
+  try(InputStream inputStream=new ByteArrayInputStream(data))
+  {
+      int n;
+      while ((n = inputStream.read()) != -1) {
+      }
+  }
+}</code></pre>
+<p>来看看源码实现吧:<br />
+1.看看它的超类</p>
+<pre><code><code>ByteArrayInputStream extends InputStream</code></pre>
+<p>这就解释了为什么可以这样写:</p>
+<pre><code><code>InputStream inputStream=new ByteArrayInputStream(data)</code></pre>
+<p>2.实例化:</p>
+<pre class="java"><code>public ByteArrayInputStream(byte buf[]) {
+    this.buf = buf;
+    this.pos = 0;
+    this.count = buf.length;
+}</code></pre>
+<p>在这里我们可以想到read(byte b[], int off, int len)，其实就是模拟把文件中所有的字节都读出来了，然后给了里面的一个buf 缓存属性。</p>
+<h4 id="reader">Reader</h4>
+<p>InputStream 关于字节流的,Reader 是关于字符流的。<br />
+我们知道字节是byte，字符是char，两者存在千丝万缕的关系，他们中间的桥梁是编码。编码又是一个相当难以用一两句话解释的东西了，后续会添加一篇编码的随笔。<br />
+总之，看下Reader 到底干什么的吧。</p>
+<pre><code><code>// 读取单个字符
+public int read() throws IOException {
+    char cb[] = new char[1];
+    if (read(cb, 0, 1) == -1)
+        return -1;
+    else
+        return cb[0];
+}
+// 抽象没得实现
+abstract public int read(char cbuf[], int off, int len) throws IOException;
+//调用了抽象read(char cbuf[], int off, int len)
+public int read(char cbuf[]) throws IOException {
+    return read(cbuf, 0, cbuf.length);
+}</code></pre>
+<p>好吧，没有什么具体的实现，那么就去看看InputStreamReader吧，它的一个实现类。</p>
+<h4 id="inputstreamreader">InputStreamReader</h4>
+<p>根据上文，我们迫切需要知道的是abstract public int read(char cbuf[], int off, int len) throws IOException的实现方法。</p>
+<pre class="java"><code>public int read(char[] cbuf,
+    int offset,
+    int length) throws IOException 
+
+{
+        int off = offset;
+        int len = length;
+        synchronized (lock) {
+            ensureOpen();
+            if ((off &lt;  0) || (off  &gt; cbuf.length) || (len &lt;  0) ||
+                ((off + len)  &gt; cbuf.length) || ((off + len) &lt;  0)) {
+                throw new IndexOutOfBoundsException();
+            }
+            if (len == 0)
+                return 0;
+            int n = 0;
+            if (haveLeftoverChar) {
+                // Copy the leftover char into the buffer
+                cbuf[off] = leftoverChar;
+                off++; len--;
+                haveLeftoverChar = false;
+                n = 1;
+                if ((len == 0) || !implReady())
+                    // Return now if this is all we can produce w/o blocking
+                    return n;
+            }
+            if (len == 1) {
+                // Treat single-character array reads just like read()
+                int c = read0();
+                if (c == -1)
+                    return (n == 0) ? -1 : n;
+                cbuf[off] = (char)c;
+                return n + 1;
+            }
+            return n + implRead(cbuf, off, off + len);
+        }
+}</code></pre>
+<p>关键部分:</p>
+<pre class="java"><code>int c = read0();
+if (c == -1){
+  return (n == 0) ? -1 : n;
+}
+cbuf[off] = (char) c;</code></pre>
+<p>上文中提及到read0()是读取一个字节，然后把字节转换成字符。<br />
+ok，那么我们就知道原理了。<br />
+实践一下吧：</p>
+<pre><code><code>public void readFile() throws IOException {
+    try (Reader reader = new FileReader(&quot;xxxx&quot;)) {
+        char[] buffer = new char[1000];
+        int n;
+        while ((n = reader.read(buffer)) != -1) {
+        }
+    }
+}</code></pre>
+<h4 id="chararrayreader与stringreader">CharArrayReader与StringReader</h4>
+<p>简单说明一下他们俩吧。</p>
+<pre><code><code>char[] test={&#39;a&#39;,&#39;b&#39;};
+try (Reader reader = new CharArrayReader(test)) {
+}
+try (Reader reader = new StringReader(&quot;xxx&quot;)) {
+}</code></pre>
+<p>就是把字符数组或者字符串专成了Reader。<br />
+以CharArrayReader为例:<br />
+1.继承:</p>
+<pre><code><code>public class CharArrayReader extends Reader</code></pre>
+<p>2.实例化</p>
+<pre class="java"><code>public CharArrayReader(char buf[]) {
+    this.buf = buf;
+    this.pos = 0;
+    this.count = buf.length;
+}</code></pre>
+<p>3.读取</p>
+<pre><code><code>public int read() throws IOException {
+    synchronized (lock) {
+        ensureOpen();
+        if (pos &gt;= count)
+            return -1;
+        else
+            return buf[pos++];
+    }
+}</code></pre>
+<p>就是模拟了假如全部的读取文件中的所有数据，然后转换成了char[]，缓存起来。</p>
+<h3 id="总结">总结</h3>
+<p>1.不管是一次性读取byte[]还是一个一个读byte，原理上都是一个一个读的,只是byte[] 存储起来了。<br />
+2.读取字符流其实是在读取字节后转换的。<br />
+3.避免忘记close，推荐使用try(){}这种语法。<br />
+4.对于像ByteArrayInputStream 这样的转换，其实是假设数据全部读取出来了，然后进行操作。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

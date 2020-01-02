@@ -1,0 +1,88 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python使用ORM之如何调用多对多关系' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python使用ORM之如何调用多对多关系</center></div><div class='banquan'>原文出处:本文由博客园博主我是渣渣聪提供。<br/>
+原文连接:https://www.cnblogs.com/missdx/p/11200081.html</div><br>
+    <p>　　在models.py中，我创建了两张表，他们分别是作者表和书籍表，且之间的关系是多对多。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 书</span>
+<span style="color: #008080;"> 2</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Book(models.Model):
+</span><span style="color: #008080;"> 3</span>     id = models.AutoField(primary_key=True)<span style="color: #008000;">#</span><span style="color: #008000;"> 自增的主键</span>
+<span style="color: #008080;"> 4</span>     title = models.CharField(max_length=64, null=False, unique=True)  <span style="color: #008000;">#</span><span style="color: #008000;"> 创建一个varchar(64)不为空的唯一的书名字段</span>
+<span style="color: #008080;"> 5</span>     publisher = models.ForeignKey(to=<span style="color: #800000;">'</span><span style="color: #800000;">Publisher</span><span style="color: #800000;">'</span>,on_delete=models.CASCADE) <span style="color: #008000;">#</span><span style="color: #008000;"> 和Publisher关联的外键字段</span>
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 作者&mdash;&mdash;注意作者和书应该是多对多的关系</span>
+<span style="color: #008080;"> 8</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Author(models.Model):
+</span><span style="color: #008080;"> 9</span>     id = models.AutoField(primary_key=<span style="color: #000000;">True)
+</span><span style="color: #008080;">10</span>     name = models.CharField(max_length=16,null=False,unique=<span style="color: #000000;">True)
+</span><span style="color: #008080;">11</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 通过下面这条语句，不仅可以生成Author表，还可以自动生成第三张表</span>
+<span style="color: #008080;">12</span>     book = models.ManyToManyField(to=<span style="color: #800000;">'</span><span style="color: #800000;">Book</span><span style="color: #800000;">'</span>)<span style="color: #008000;">#</span><span style="color: #008000;"> 建立作者和书的多对多的关系</span></pre>
+</div>
+<p>　　执行相关代码之后，生成三张表：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/python使用ORM之如何调用多对多关系0.png" alt="" /></p>
+<p>　　其中，app_author_book表如下图所示：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/python使用ORM之如何调用多对多关系1.png" alt="" /></p>
+<p>　　author表和book表通过生成第三张表，联系各自的id值相关联。</p>
+<p>　　现在我想在一个页面展示我的所有作者：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 展示作者</span>
+<span style="color: #008080;">2</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> author_list(request):
+</span><span style="color: #008080;">3</span> 
+<span style="color: #008080;">4</span>     author_obj =<span style="color: #000000;"> models.Author.objects.all()
+</span><span style="color: #008080;">5</span>     <span style="color: #0000ff;">return</span> render(request,<span style="color: #800000;">'</span><span style="color: #800000;">author_list.html</span><span style="color: #800000;">'</span>,{<span style="color: #800000;">'</span><span style="color: #800000;">author_list</span><span style="color: #800000;">'</span>:author_obj})</pre>
+</div>
+<p>　　再创建一个author_list.html页面把author_obj的值传过去：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> &lt;table border=<span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span>&gt;
+<span style="color: #008080;"> 2</span>     &lt;thead&gt;
+<span style="color: #008080;"> 3</span>     &lt;tr&gt;
+<span style="color: #008080;"> 4</span>         &lt;th&gt;编号&lt;/th&gt;
+<span style="color: #008080;"> 5</span>         &lt;th&gt;ID&lt;/th&gt;
+<span style="color: #008080;"> 6</span>         &lt;th&gt;作者姓名&lt;/th&gt;
+<span style="color: #008080;"> 7</span>         &lt;th&gt;作品&lt;/th&gt;
+<span style="color: #008080;"> 8</span>     &lt;/tr&gt;
+<span style="color: #008080;"> 9</span>     &lt;/thead&gt;
+<span style="color: #008080;">10</span>     &lt;tbody&gt;
+<span style="color: #008080;">11</span>     {% <span style="color: #0000ff;">for</span> author <span style="color: #0000ff;">in</span> author_list %<span style="color: #000000;">}
+</span><span style="color: #008080;">12</span>         &lt;tr&gt;
+<span style="color: #008080;">13</span>         &lt;td&gt;{{ forloop.counter }}&lt;/td&gt;
+<span style="color: #008080;">14</span>         &lt;td&gt;{{ author.id }}&lt;/td&gt;
+<span style="color: #008080;">15</span>         &lt;td&gt;{{ author.name }}&lt;/td&gt;
+<span style="color: #008080;">16</span>         &lt;td&gt;
+<span style="color: #008080;">17</span>             {% <span style="color: #0000ff;">for</span> book <span style="color: #0000ff;">in</span> author.book.all %<span style="color: #000000;">}
+</span><span style="color: #008080;">18</span>                 {% <span style="color: #0000ff;">if</span> forloop.last %<span style="color: #000000;">}
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">                    {{ book.title }}
+</span><span style="color: #008080;">20</span>                  {% <span style="color: #0000ff;">else</span> %<span style="color: #000000;">}
+</span><span style="color: #008080;">21</span>                     {{ book.title }}|
+<span style="color: #008080;">22</span>                 {% endif %<span style="color: #000000;">}
+</span><span style="color: #008080;">23</span>             {% endfor %<span style="color: #000000;">}
+</span><span style="color: #008080;">24</span>         &lt;/td&gt;
+<span style="color: #008080;">25</span>         &lt;/tr&gt;
+<span style="color: #008080;">26</span>     {% endfor %<span style="color: #000000;">}
+</span><span style="color: #008080;">27</span>     &lt;/tbody&gt;
+<span style="color: #008080;">28</span> &lt;/table&gt;</pre>
+</div>
+<p>　　问题来了，因为作者和书籍是多对多的关系，那么一个作者可能对应多本书，一本书也可能有多个作者。我想在每个作者后面展示他的作品，在models.py中我在Author表中加入了book字段，通过book字段我可以调用Book表中的数据，如上述代码的17行所示，我写的是author.book.all，为什么要写.all，而不是直接写author.book呢，正是因为一个作者可能有多本书，通过all可以显示所有的书的数据，而如果只写author.book的话，结果显示为None。所以记住，如果是多对多关系，记住别忘记加all哦。</p>
+<p>　　简陋的结果如下图：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/python使用ORM之如何调用多对多关系2.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

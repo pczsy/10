@@ -1,0 +1,99 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修使用Spring Data JPA的Specification构建数据库查询' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>使用Spring Data JPA的Specification构建数据库查询</center></div><div class='banquan'>原文出处:本文由博客园博主字母哥博客提供。<br/>
+原文连接:https://www.cnblogs.com/zimug/p/12016271.html</div><br>
+    <p><img src="./images/使用Spring Data JPA的Specification构建数据库查询0.png" alt="file" /></p>
+<p>Spring Data JPA最为优秀的特性就是可以通过自定义方法名称生成查询来轻松创建查询SQL。Spring Data JPA提供了一个Repository编程模型，最简单的方式就是通过扩展JpaRepository，我们获得了一堆通用的CRUD方法，例如save，findAll，delete等。并且使用这些关键字可以构建很多的数据库单表查询接口：</p>
+<pre><code><code>public interface CustomerRepository extends JpaRepository&lt;Customer, Long&gt; {
+  Customer findByEmailAddress(String emailAddress);
+  List&lt;Customer&gt; findByLastname(String lastname, Sort sort);
+  Page&lt;Customer&gt; findByFirstname(String firstname, Pageable pageable);
+}</code></pre>
+<ul>
+<li>findByEmailAddress生成的SQL是根据email_address字段查询Customer表的数据</li>
+<li>findByLastname根据lastname字段查询Customer表的数据</li>
+<li>findByFirstname根据firstname字段查询Customer表的数据</li>
+</ul>
+<p>以上所有的查询都不用我们手写SQL，查询生成器自动帮我们工作，对于开发人员来说只需要记住一些关键字，如：findBy、delete等等。但是，有时我们需要创建复杂一点的查询，就无法利用查询生成器。可以使用本节介绍的Specification来完成。</p>
+<blockquote>
+<p>笔者还是更愿意手写SQL来完成复杂查询，但是有的时候偶尔使用一下Specification来完成任务，也还是深得我心。不排斥、不盲从。没有最好的方法，只有最合适的方法！</p>
+</blockquote>
+<h2 id="一使用criteria-api构建复杂的查询">一、使用Criteria API构建复杂的查询</h2>
+<p>是的，除了specification，我们还可以使用Criteria API构建复杂的查询，但是没有specification好用。我们来看一下需求：在客户生日当天，我们希望向所有长期客户(2年以上)发送优惠券。我们如何该检索Customer？</p>
+<p>我们有两个谓词查询条件：</p>
+<ul>
+<li>生日</li>
+<li>长期客户-2年以上的客户。</li>
+</ul>
+<p>下面是使用JPA 2.0 Criteria API的实现方式：</p>
+<pre><code><code>LocalDate today = new LocalDate();
+
+CriteriaBuilder builder = em.getCriteriaBuilder();
+CriteriaQuery&lt;Customer&gt; query = builder.createQuery(Customer.class);
+Root&lt;Customer&gt; root = query.from(Customer.class);
+
+Predicate hasBirthday = builder.equal(root.get(Customer_.birthday), today);
+Predicate isLongTermCustomer = builder.lessThan(root.get(Customer_.createdAt), today.minusYears(2); 
+
+query.where(builder.and(hasBirthday, isLongTermCustomer));
+em.createQuery(query.select(root)).getResultList();</code></pre>
+<ul>
+<li>第一行<code>LocalDate</code>用于比较客户的生日和今天的日期。em是javax.persistence.EntityManager</li>
+<li>下三行包含用于查询Customer实体的JPA基础结构实例的样板代码。</li>
+<li>然后，在接下来的两行中，我们将构建谓词查询条件</li>
+<li>在最后两行中，where用于连接两个谓词查询条件，最后一个用于执行查询。</li>
+</ul>
+<p>此代码的主要问题在于，谓词查询条件不易于重用，您需要先设置 <code>CriteriaBuilder, CriteriaQuery</code>，和<code>Root</code>。另外，代码的可读性也很差。</p>
+<h2 id="二specification">二、specification</h2>
+<p>为了能够定义可重用谓词条件，我们引入了Specification接口。</p>
+<pre><code><code>public interface Specification&lt;T&gt; {
+  Predicate toPredicate(Root&lt;T&gt; root, CriteriaQuery query, CriteriaBuilder cb);
+}</code></pre>
+<p>结合Java 8的lambda表达式使用Specification接口时，代码变得非常简单</p>
+<pre><code><code>public CustomerSpecifications {
+   //查询条件：生日为今天
+  public static Specification&lt;Customer&gt; customerHasBirthday() {
+    return (root, query, cb) -&gt;{ 
+        return cb.equal(root.get(Customer_.birthday), today);
+    };
+  }
+  //查询条件：客户创建日期在两年以前
+  public static Specification&lt;Customer&gt; isLongTermCustomer() {
+    return (root, query, cb) -&gt;{ 
+        return cb.lessThan(root.get(Customer_.createdAt), new LocalDate.minusYears(2));
+    };
+  }
+}</code></pre>
+<p>现在可以通过CustomerRepository执行以下操作：</p>
+<pre><code><code>customerRepository.findAll(hasBirthday());
+customerRepository.findAll(isLongTermCustomer());</code></pre>
+<p>我们创建了可以单独执行的可重用谓词查询条件，我们可以结合使用这些单独的谓词来满足我们的业务需求。我们可以使用 <code>and(…)</code>   和 <code>or(…)</code>连接specification。</p>
+<pre><code><code>customerRepository.findAll(where(customerHasBirthday()).and(isLongTermCustomer()));</code></pre>
+<p>与使用JPA Criteria API相比，它读起来很流利，提高了可读性并提供了更多的灵活性。</p>
+<h2 id="期待您的关注">期待您的关注</h2>
+<ul>
+<li>向您推荐博主的系列文档：<a href="http://springboot.zimug.com">《手摸手教您学习SpringBoot系列-16章97节》</a></li>
+<li>本文转载注明出处（必须带连接，不能只转文字）：<a href="http://www.zimug.com">字母哥博客</a>。</li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,283 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修BeetleX之TCP服务应用详解' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>BeetleX之TCP服务应用详解</center></div><div class='banquan'>原文出处:本文由博客园博主开源微服务(BeetleX)提供。<br/>
+原文连接:https://www.cnblogs.com/smark/p/12073263.html</div><br>
+    <p><span style="font-size: 15px;"><code>BeetleX</code>是<code>.net core</code>平台下的一个开源<code>TCP</code>&nbsp;通讯组件，它不仅使用简便还提供了出色性能的支持，可以轻易让你实现上百万级别RPS吞吐的服务应用。组件所提供的基础功能也非常完善，可以让你轻易扩展自己的服务应用，以下提组件集成的功能:</span></p>
+<ul>
+<li>
+<p><span style="font-size: 15px;">完善的会话管理机制，可以根据连接状态和相关日志</span></p>
+</li>
+<li>
+<p><span style="font-size: 15px;">专门针对内存池实现的异步流读写，支持标准Stream的同并提供高效的性能</span></p>
+</li>
+<li>
+<p><span style="font-size: 15px;">消息IO合并，广播序列化合并等性能强化功能</span></p>
+</li>
+<li>
+<p><span style="font-size: 15px;">提供简洁的协议扩展规范，轻易实现http,websocket,mqtt等应用通讯协议</span></p>
+</li>
+<li>
+<p><span style="font-size: 15px;">支持TLS，让你构建的通讯服务更安全可靠</span></p>
+</li>
+</ul>
+<h2 id="h2_1">扩展的组件</h2>
+<p>以下是<code>Beetlex</code>扩展的一些功能组件</p>
+<ul>
+<li><a href="https://github.com/IKende/FastHttpApi" rel="nofollow">https://github.com/IKende/FastHttpApi</a></li>
+<li><a href="https://github.com/IKende/Bumblebee" rel="nofollow">https://github.com/IKende/Bumblebee</a></li>
+<li><a href="https://github.com/IKende/BeetleX.Redis" rel="nofollow">https://github.com/IKende/BeetleX.Redis</a></li>
+<li><a href="https://github.com/IKende/XRPC" rel="nofollow">https://github.com/IKende/XRPC</a></li>
+<li><a href="https://github.com/IKende/HttpClients" rel="nofollow">https://github.com/IKende/HttpClients</a></li>
+</ul>
+<h2 id="h2_2">性能</h2>
+<p><span style="font-size: 15px;">一开始说组可以让你现上百万级别RPS吞吐的服务应用其实一点不假，<code>BeetleX</code>的基础性能有这样的支撑能力；虽然组件不能说是<code>.net core</code>上性能最好的，但在功能和综合性能上绝对非常出色（详细可以https://tfb-status.techempower.com/ 查看测试结果,可惜这个网站提交的<code>.net core</code>组件比较少，大部都是基于aspcore的通讯模块扩展）.以下是<code>JSON serialization</code>基础输出的一个测试结果（<code>Plaintext</code>在官方的测试环境一直没办法跑起来....）&nbsp;</span></p>
+<p><img src="./images/BeetleX之TCP服务应用详解0.png" alt="" /></p>
+<p><span style="font-size: 15px;">在测试中组件只落后于<code>aspcore-rhtx&nbsp;</code>这是红帽专门针对 .net&nbsp;core编写的linux网络驱动.</span></p>
+<p><span style="font-size: 15px;">Single query</span></p>
+<p><img src="./images/BeetleX之TCP服务应用详解1.png" alt="" /></p>
+<h2 id="h2_3">构建基础TCP应用</h2>
+<p><span style="font-size: 15px;">组件在构建TCP服务的时候非常简单，主要归功于它提供了完善的<code>Stream</code>读写功能，而这些功能让你完全不用关心bytes的读写。基于<code>Stream</code>的好处就是可以轻松和第三方序列化的组件进行整合。以下是简单地构建一个<code>Hello</code>服务。</span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">class</span><span style="color: #000000;"> Program : ServerHandlerBase
+    {
+        </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> IServer server;
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> Main(<span style="color: #0000ff;">string</span><span style="color: #000000;">[] args)
+        {
+            server </span>= SocketFactory.CreateTcpServer&lt;Program&gt;<span style="color: #000000;">();
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">server.Options.DefaultListen.Port =9090;
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">server.Options.DefaultListen.Host = "127.0.0.1";</span>
+<span style="color: #000000;">            server.Open();
+            Console.Read();
+        }
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> SessionReceive(IServer server, SessionReceiveEventArgs e)
+        {
+            </span><span style="color: #0000ff;">var</span> pipeStream =<span style="color: #000000;"> e.Stream.ToPipeStream();
+            </span><span style="color: #0000ff;">if</span> (pipeStream.TryReadLine(<span style="color: #0000ff;">out</span> <span style="color: #0000ff;">string</span><span style="color: #000000;"> name))
+            {
+                Console.WriteLine(name);
+                pipeStream.WriteLine(</span><span style="color: #800000;">"</span><span style="color: #800000;">hello </span><span style="color: #800000;">"</span> +<span style="color: #000000;"> name);
+                e.Session.Stream.Flush();
+            }
+            </span><span style="color: #0000ff;">base</span><span style="color: #000000;">.SessionReceive(server, e);
+        }
+    }</span></pre>
+</div>
+<p><span style="font-size: 15px;">以上就是一个简单的<code>TCP</code>服务，让以代码正常运行需要引用<code>Beetlex</code>最新版的组件可以在Nuget上找到。以上服务的功能很简单当接收数据后尝试从流中读取一行字符，如果读取成功则把内容写入到流中提交返回。通过以上代码是不是感觉写个服务比较简单（但是<code>PipeStream</code>并不是线程安全的，所以不能涉及到多线程读写它）</span></p>
+<h2 id="h2_4">协议处理规则</h2>
+<p><span style="font-size: 15px;">其实<code>PipeStream</code>处理数据已经非常方便了，那为什么还需要制定一个协议处理规范呢？前面已经说了<code>PipeStream</code>并不是线程安全的，很容易带来使用上的风险，所以引入协议处理规则来进行一个安全约束的同时可以实现多线程消息处理。组件提供了这样一个接口来规范消息的处理，接口如下：</span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span><span style="color: #000000;"> IPacket : IDisposable
+    {
+
+        EventHandler</span>&lt;EventArgs.PacketDecodeCompletedEventArgs&gt;<span style="color: #000000;"> Completed
+        {
+            </span><span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span><span style="color: #000000;">;
+        }
+
+        IPacket Clone();
+
+        </span><span style="color: #0000ff;">void</span><span style="color: #000000;"> Decode(ISession session, System.IO.Stream stream);
+
+        </span><span style="color: #0000ff;">void</span> Encode(<span style="color: #0000ff;">object</span><span style="color: #000000;"> data, ISession session, System.IO.Stream stream);
+
+        </span><span style="color: #0000ff;">byte</span>[] Encode(<span style="color: #0000ff;">object</span><span style="color: #000000;"> data, IServer server);
+
+        ArraySegment</span>&lt;<span style="color: #0000ff;">byte</span>&gt; Encode(<span style="color: #0000ff;">object</span> data, IServer server, <span style="color: #0000ff;">byte</span><span style="color: #000000;">[] buffer);
+    }</span></pre>
+</div>
+<p><span style="font-size: 15px;">如果你要处理消息对象，则需要实现以上接口（当然这个接口的实现不是必须的，只要把握好<code>PipeStream</code>安全上的控制就好）；但实现这接口来处理消息可以带很多好处，可以多消息合并IO，广播消息合并序列化等高效的功能。不过在不了解组件的情况实现这个接口的确也是有些难度的，所以组件提供了一个基础的类<code>FixedHeaderPacket</code>，它是一个抽像类用于描述有个消息头长的信息流处理。</span></p>
+<h2 id="h2_5">字符消息分包</h2>
+<p><span style="font-size: 15px;">接下来通过<code>FixedHeaderPacket</code>来实现一个简单的字符分包协议消息；主要在发送消息的时候添加一个大小头用来描述消息的长度（这是在TCP中解决粘包的主要手段）。</span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> StringPacket : BeetleX.Packets.FixedHeaderPacket
+    {
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> IPacket Clone()
+        {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> StringPacket();
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">object</span><span style="color: #000000;"> OnReader(ISession session, PipeStream stream)
+        {
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> stream.ReadString(CurrentSize);
+        }
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span> OnWrite(ISession session, <span style="color: #0000ff;">object</span><span style="color: #000000;"> data, PipeStream stream)
+        {
+            stream.Write((</span><span style="color: #0000ff;">string</span><span style="color: #000000;">)data);
+        }
+    }</span></pre>
+</div>
+<p><span style="font-size: 15px;">通过<code>FixedHeaderPacket</code>制定一个分包规则是非常简单的，主要实现读写两个方法。下面即可在服务中引用这个包作为<code>TCP</code>数据流的分析规则:</span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">class</span><span style="color: #000000;"> Program : ServerHandlerBase
+    {
+        </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> IServer server;
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> Main(<span style="color: #0000ff;">string</span><span style="color: #000000;">[] args)
+        {
+            server </span>= SocketFactory.CreateTcpServer&lt;Program,StringPacket&gt;<span style="color: #000000;">();
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">server.Options.DefaultListen.Port =9090;
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">server.Options.DefaultListen.Host = "127.0.0.1";</span>
+<span style="color: #000000;">            server.Open();
+            Console.Read();
+        }
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span> OnReceiveMessage(IServer server, ISession session, <span style="color: #0000ff;">object</span><span style="color: #000000;"> message)
+        {
+            Console.WriteLine(message);
+            server.Send($</span><span style="color: #800000;">"</span><span style="color: #800000;">hello {message}</span><span style="color: #800000;">"</span><span style="color: #000000;">, session);
+        }
+    }</span></pre>
+</div>
+<p><span style="font-size: 15px;">经过分析器包装后，就再也不用流来处理数据了，可以直接进行对像的发送处理。</span></p>
+<h2 id="h2_6">集成Protobuf</h2>
+<p><span style="font-size: 15px;">处理<code>String</code>并不是友好的事情，毕竟没有对象来得直观和操作方便；以下是通过<code>FixedHeaderPacket</code>扩展<code>Protobuf</code>对象传输，以下是针对<code>Protobuf</code>的规则扩展:</span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ProtobufPacket : BeetleX.Packets.FixedHeaderPacket
+    {
+        </span><span style="color: #0000ff;">static</span><span style="color: #000000;"> ProtobufPacket()
+        {
+            TypeHeader.Register(</span><span style="color: #0000ff;">typeof</span><span style="color: #000000;">(ProtobufClientPacket).Assembly);
+        }
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> BeetleX.Packets.CustomTypeHeader TypeHeader { <span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span>; } = <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeetleX.Packets.CustomTypeHeader(BeetleX.Packets.MessageIDType.INT);
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> IPacket Clone()
+        {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> ProtobufPacket();
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">object</span><span style="color: #000000;"> OnReader(ISession session, PipeStream stream)
+        {
+            Type type </span>=<span style="color: #000000;"> TypeHeader.ReadType(stream);
+            </span><span style="color: #0000ff;">var</span> size = CurrentSize - <span style="color: #800080;">4</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">return</span> ProtoBuf.Meta.RuntimeTypeModel.Default.Deserialize(stream, <span style="color: #0000ff;">null</span><span style="color: #000000;">, type, size);
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span> OnWrite(ISession session, <span style="color: #0000ff;">object</span><span style="color: #000000;"> data, PipeStream stream)
+        {
+            TypeHeader.WriteType(data, stream);
+            ProtoBuf.Meta.RuntimeTypeModel.Default.Serialize(stream, data);
+        }
+    }</span></pre>
+</div>
+<p><span style="font-size: 15px;">使用规则分析器</span></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">class</span><span style="color: #000000;"> Program : ServerHandlerBase
+    {
+        </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> IServer server;
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> Main(<span style="color: #0000ff;">string</span><span style="color: #000000;">[] args)
+        {
+            server </span>= SocketFactory.CreateTcpServer&lt;Program, Messages.ProtobufPacket&gt;<span style="color: #000000;">();
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">server.Options.DefaultListen.Port =9090;
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">server.Options.DefaultListen.Host = "127.0.0.1";</span>
+<span style="color: #000000;">            server.Open();
+            Console.Read();
+        }
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span> OnReceiveMessage(IServer server, ISession session, <span style="color: #0000ff;">object</span><span style="color: #000000;"> message)
+        {
+            ((Messages.Register)message).DateTime </span>=<span style="color: #000000;"> DateTime.Now;
+            server.Send(message, session);
+        }
+    }</span></pre>
+</div>
+<h2 id="h2_7">不同序列化的扩展</h2>
+<p><span style="font-size: 15px;">既然有了一个<code>Protobuf</code>作为样本，那针对其他序列化的实现就比较简单了</span></p>
+<ul>
+<li><strong>json</strong></li>
+</ul>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> JsonPacket : BeetleX.Packets.FixedHeaderPacket
+    {
+        </span><span style="color: #0000ff;">static</span><span style="color: #000000;"> JsonPacket()
+        {
+            TypeHeader.Register(</span><span style="color: #0000ff;">typeof</span><span style="color: #000000;">(JsonClientPacket).Assembly);
+        }
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> BeetleX.Packets.CustomTypeHeader TypeHeader { <span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span>; } = <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeetleX.Packets.CustomTypeHeader(BeetleX.Packets.MessageIDType.INT);
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> IPacket Clone()
+        {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> JsonPacket();
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">object</span><span style="color: #000000;"> OnReader(ISession session, PipeStream stream)
+        {
+            Type type </span>=<span style="color: #000000;"> TypeHeader.ReadType(stream);
+            </span><span style="color: #0000ff;">var</span> size = CurrentSize - <span style="color: #800080;">4</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">var</span> buffer = System.Buffers.ArrayPool&lt;<span style="color: #0000ff;">byte</span>&gt;<span style="color: #000000;">.Shared.Rent(size);
+            stream.Read(buffer, </span><span style="color: #800080;">0</span><span style="color: #000000;">, size);
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">
+            {
+                </span><span style="color: #0000ff;">return</span> SpanJson.JsonSerializer.NonGeneric.Utf8.Deserialize(<span style="color: #0000ff;">new</span> ReadOnlySpan&lt;<span style="color: #0000ff;">byte</span>&gt;(buffer, <span style="color: #800080;">0</span><span style="color: #000000;">, size), type);
+            }
+            </span><span style="color: #0000ff;">finally</span><span style="color: #000000;">
+            {
+                System.Buffers.ArrayPool</span>&lt;<span style="color: #0000ff;">byte</span>&gt;<span style="color: #000000;">.Shared.Return(buffer);
+            }
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span> OnWrite(ISession session, <span style="color: #0000ff;">object</span><span style="color: #000000;"> data, PipeStream stream)
+        {
+            TypeHeader.WriteType(data, stream);
+            </span><span style="color: #0000ff;">var</span> buffer =<span style="color: #000000;"> SpanJson.JsonSerializer.NonGeneric.Utf8.SerializeToArrayPool(data);
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">
+            {
+                stream.Write(buffer.Array, buffer.Offset, buffer.Count);
+            }
+            </span><span style="color: #0000ff;">finally</span><span style="color: #000000;">
+            {
+                System.Buffers.ArrayPool</span>&lt;<span style="color: #0000ff;">byte</span>&gt;<span style="color: #000000;">.Shared.Return(buffer.Array);
+            }
+        }
+    }</span></pre>
+</div>
+<ul>
+<li><strong>messagepack</strong></li>
+</ul>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> MsgpackPacket : BeetleX.Packets.FixedHeaderPacket
+    {
+        </span><span style="color: #0000ff;">static</span><span style="color: #000000;"> MsgpackPacket()
+        {
+            TypeHeader.Register(</span><span style="color: #0000ff;">typeof</span><span style="color: #000000;">(MsgpackClientPacket).Assembly);
+        }
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> BeetleX.Packets.CustomTypeHeader TypeHeader { <span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span>; } = <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeetleX.Packets.CustomTypeHeader(BeetleX.Packets.MessageIDType.INT);
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> IPacket Clone()
+        {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> MsgpackPacket();
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">object</span><span style="color: #000000;"> OnReader(ISession session, PipeStream stream)
+        {
+            Type type </span>=<span style="color: #000000;"> TypeHeader.ReadType(stream);
+            </span><span style="color: #0000ff;">var</span> size = CurrentSize - <span style="color: #800080;">4</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">return</span> MessagePackSerializer.NonGeneric.Deserialize(type, stream, <span style="color: #0000ff;">true</span><span style="color: #000000;">);
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span> OnWrite(ISession session, <span style="color: #0000ff;">object</span><span style="color: #000000;"> data, PipeStream stream)
+        {
+            TypeHeader.WriteType(data, stream);
+            MessagePackSerializer.NonGeneric.Serialize(data.GetType(), stream, data);
+        }
+    }</span></pre>
+</div>
+<h2 id="h2_8">更多示例</h2>
+<p><a href="https://github.com/IKende/BeetleX-Samples" rel="nofollow">https://github.com/IKende/BeetleX-Samples</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

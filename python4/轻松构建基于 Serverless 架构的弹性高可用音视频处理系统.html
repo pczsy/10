@@ -1,0 +1,331 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修轻松构建基于 Serverless 架构的弹性高可用音视频处理系统' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>轻松构建基于 Serverless 架构的弹性高可用音视频处理系统</center></div><div class='banquan'>原文出处:本文由博客园博主阿里巴巴云原生提供。<br/>
+原文连接:https://www.cnblogs.com/alisystemsoftware/p/12055117.html</div><br>
+    <h1 id="前言">前言</h1>
+<p>随着计算机技术和 Internet 的日新月异，视频点播技术因其良好的人机交互性和流媒体传输技术倍受教育、娱乐等行业青睐，而在当前， 云计算平台厂商的产品线不断成熟完善， 如果想要搭建视频点播类应用，告别刀耕火种， 直接上云会扫清硬件采购、 技术等各种障碍，以阿里云为例：</p>
+<p><img src="./images/轻松构建基于 Serverless 架构的弹性高可用音视频处理系统0.png" alt="1.png" /></p>
+<p>这是一个非常典型的解决方案， 对象存储 OSS 可以支持海量视频存储，采集上传的视频被转码以适配各种终端，CDN 加速终端设备播放视频的速度。此外还有一些<a href="https://help.aliyun.com/document_detail/28423.html">内容安全</a>审查需求， 比如鉴黄、鉴恐等。</p>
+<p>而在视频点播解决方案中，视频转码是最消耗计算力的一个子系统，虽然您可以使用云上专门的转码服务，但在很多情况下，您会选择自己搭建转码服务。比如：</p>
+<ul>
+<li>您已经在虚拟机/容器平台上基于 FFmpeg 部署了一套视频处理服务，能否在此基础上让它更弹性，更高的可用性？</li>
+<li>您的需求只是简单的转码需求，或是一些极其轻量的需求，比如获取 OSS 上视频前几帧的 GIF、获取视频或者音频的时长，自己搭建成本更低。</li>
+<li>各种格式的音频转换或者各种采样率自定义、音频降噪等功能</li>
+<li>您有更高级的自定义处理需求，比如视频转码完成后， 需要记录转码详情到数据库， 或者在转码完成后， 自动将热度很高的视频预热到 CDN 上， 从而缓解源站压力。</li>
+<li>您有并发处理大量视频的需求。</li>
+<li>自定义视频处理流程中可能会有多种操作组合， 比如转码、加水印和生成视频首页 GIF。后续为视频处理系统增加新需求，比如调整转码参数，希望新功能发布上线对在线服务无影响。</li>
+<li>您的视频源文件存放在 NAS 或者 ECS 云盘上，自建服务可以直接读取源文件处理，而不需要将它们再迁移到 OSS 上。</li>
+</ul>
+<p>如果您的视频处理系统有上述需求，或者您期望实现一个 <strong>弹性</strong>、<strong>高可用</strong>、<strong>低成本</strong>、<strong>免运维</strong>、<strong>灵活支持任意处理逻辑</strong> 的视频处理系统，那么本文则是您期待的最佳实践方案。</p>
+<h1 id="serverless-自定义音视频处理">Serverless 自定义音视频处理</h1>
+<p>在介绍具体方案之前， 先介绍两款产品：</p>
+<ul>
+<li><a href="https://help.aliyun.com/product/50980.html">函数计算</a> ：阿里云函数计算是事件驱动的全托管计算服务。通过函数计算，您无需管理服务器等基础设施，只需编写代码并上传。函数计算会为您准备好计算资源，以弹性、可靠的方式运行您的代码，并提供日志查询、性能监控、报警等功能。</li>
+<li><a href="https://help.aliyun.com/product/113549.html">函数工作流</a>：函数工作流（Function Flow，以下简称 FnF）是一个用来协调多个分布式任务执行的全托管云服务。您可以用顺序，分支，并行等方式来编排分布式任务，FnF 会按照设定好的步骤可靠地协调任务执行，跟踪每个任务的状态转换，并在必要时执行用户定义的重试逻辑，以确保工作流顺利完成。</li>
+</ul>
+<p><a href="https://statistics.functioncompute.com/?title=ServerlessVideo&amp;theme=ServerlessVideo&amp;author=rsong&amp;src=article&amp;url=http://fc.console.aliyun.com">免费开通函数计算</a>，按量付费，函数计算有很大的免费额度。</p>
+<p><a href="https://statistics.functioncompute.com/?title=ServerlessVideo&amp;theme=ServerlessVideo&amp;author=rsong&amp;src=article&amp;url=http://fnf.console.aliyun.com">免费开通函数工作流</a>，按量付费，函数工作流有很大的免费额度。</p>
+<p>函数计算可靠的执行任意逻辑， 逻辑可以是利用 FFmpeg 对视频任何处理操作， 也可以更新视频 meta 数据到数据库等。</p>
+<p>函数工作流对相应的函数进行编排, 比如第一步的函数是转码， 第二步的函数是转码成功后，将相应 meta 数据库写入数据库等。</p>
+<p>至此，您应该初步理解了函数计算的自定义处理能力 + 函数工作流编排能力几乎满足您任何自定义处理的需求，接下来，本文以一个具体的示例展示基于函数计算和函数工作流打造的一个弹性高可用的 Serverless 视频处理系统，并与传统方案进行性能、成本和工程效率的对比。</p>
+<h2 id="简单视频处理系统">简单视频处理系统</h2>
+<p>假设您是对短视频进行简单的处理， 架构方案图如下：</p>
+<p><img src="./images/轻松构建基于 Serverless 架构的弹性高可用音视频处理系统1.png" alt="2.png" /></p>
+<p>如上图所示， 用户上传一个视频到 OSS, OSS 触发器自动触发函数执行， 函数调用 FFmpeg 进行视频转码， 并且将转码后的视频保存回 OSS。</p>
+<blockquote>
+<p><a href="https://help.aliyun.com/document_detail/62922.html">OSS 事件触发器</a>, 阿里云对象存储和函数计算无缝集成。您可以为各种类型的事件设置处理函数，当 OSS 系统捕获到指定类型的事件后，会自动调用函数处理。例如，您可以设置函数来处理 PutObject 事件，当您调用 OSS PutObject API 上传视频到 OSS 后，相关联的函数会自动触发来处理该视频。</p>
+</blockquote>
+<p><a href="https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/simple-video-processing">简单视频处理系统示例工程地址</a></p>
+<p>您可以直接基于示例工程部署您的简单音视频处理系统服务， 但是当您想要处理大视频(比如 <a href="https://fc-hz-demo.oss-cn-hangzhou.aliyuncs.com/fnf_video/inputs/test_huge.mov">test_huge.mov</a> ) 或者对小视频进行多种组合操作的时候， 您会发现函数很大概率会执行失败，原因是函数计算的执行环境存在一些限制， 比如最大执行时间为 10 分钟， 最大内存为 3G。</p>
+<p>为了突破函数计算执行环境的限制，引入函数工作流 FnF 去编排函数实现一个功能强大的全功能视频处理系统。</p>
+<h2 id="全功能视频处理系统">全功能视频处理系统</h2>
+<p><img src="./images/轻松构建基于 Serverless 架构的弹性高可用音视频处理系统2.png" alt="3.png" /></p>
+<p>如上图所示， 假设用户上传一个 mov 格式的视频到 OSS，OSS 触发器自动触发函数执行， 函数调用 FnF，并行进行提取音频文件，同时进行 avi，mp4，flv 格式的转码。 所以您可以实现如下需求：</p>
+<ul>
+<li>一个视频文件可以同时被转码成各种格式以及其他各种自定义处理，比如增加水印处理或者在 after-process 更新信息到数据库等。</li>
+<li>当有多个文件同时上传到 OSS，函数计算会自动伸缩， 并行处理多个文件。</li>
+<li><p>对于每一个视频，先进行切片处理，然后并行转码切片，最后合成，通过设置合理的切片时间，可以大大加速较大视频的转码速度。</p>
+<blockquote>
+<p>所谓的视频切片，是将视频流按指定的时间间隔，切分成一系列分片文件，并生成一个索引文件记录分片文件的信息</p>
+</blockquote></li>
+<li><p>结合 NAS + 视频切片， 可以解决超大视频（大于 3G ）的转码。</p></li>
+</ul>
+<p><a href="https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing">全功能视频处理系统示例工程地址</a></p>
+<p>示例效果:</p>
+<p><img src="./images/轻松构建基于 Serverless 架构的弹性高可用音视频处理系统3.png" alt="4.gif" /></p>
+<h2 id="函数计算-函数工作流-serverless-方案-vs-传统方案">函数计算 + 函数工作流 Serverless 方案 VS 传统方案</h2>
+<h3 id="卓越的工程效率">卓越的工程效率</h3>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th>自建服务</th>
+<th>函数计算 + 函数工作流 Serverless</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>基础设施</td>
+<td>需要用户采购和管理</td>
+<td>无</td>
+</tr>
+<tr class="even">
+<td>开发效率</td>
+<td>除了必要的业务逻辑开发,需要自己建立相同线上运行环境， 包括相关软件的安装、服务配置、安全更新等一系列问题</td>
+<td>只需要专注业务逻辑的开发, 配合 FUN 工具一键资源编排和部署</td>
+</tr>
+<tr class="odd">
+<td>并行&amp;分布式视频处理</td>
+<td>需要很强的开发能力和完善的监控系统来保证稳定性</td>
+<td>通过 FnF 资源编排即可实现多个视频的并行处理以及单个大视频的分布式处理，稳定性和监控交由云平台</td>
+</tr>
+<tr class="even">
+<td>学习上手成本</td>
+<td>除了编程语言开发能力和熟悉 FFmpeg 以外，可能使用 K8S 或弹性伸缩( ESS )，需要了解更多的产品、名词和参数的意义</td>
+<td>会编写对应的语言的函数代码和熟悉 FFmpeg 使用即可</td>
+</tr>
+<tr class="odd">
+<td>项目上线周期</td>
+<td>在具体业务逻辑外耗费大量的时间和人力成本，保守估计大约 30 人天，包括硬件采购、软件和环境配置、系统开发、测试、监控报警、灰度发布系统等</td>
+<td>预计 3 人天， 开发调试（2人天）+ 压测观察（1 人天）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="弹性伸缩免运维性能优异">弹性伸缩免运维，性能优异</h3>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th>自建服务</th>
+<th>函数计算 + 函数工作流  Serverless</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>弹性高可用</td>
+<td>需要自建负载均衡 (SLB)，弹性伸缩，扩容缩容速度较 FC 慢</td>
+<td>FC系统固有毫秒级别弹性伸缩，快速实现底层扩容以应对峰值压力，免运维，<a href="https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/test">全功能视频处理系统 (FnF + FC) 压测</a>；性能优异, 详情见下面的转码性能表</td>
+</tr>
+<tr class="even">
+<td>监控报警查询</td>
+<td>ECS 或者容器级别的 metrics</td>
+<td>提供更细粒度的 FnF 流程执行以及函数执行情况, 同时可以查询每次函数执行的 latency 和日志等， 更加完善的报警监控机制</td>
+</tr>
+</tbody>
+</table>
+<p><strong>函数计算 + 函数工作流  Serverless 方案转码性能表</strong></p>
+<p>实验视频为是 89s 的 mov 文件 4K 视频: <a href="https://fc-hz-demo.oss-cn-hangzhou.aliyuncs.com/fnf_video/inputs/4K.mov">4K.mov</a>，云服务进行 mov -&gt; mp4 普通转码需要消耗的时间为 188s， 将这个参考时间记为 T</p>
+<table>
+<thead>
+<tr class="header">
+<th>视频切片时间</th>
+<th>FC转码耗时</th>
+<th>性能加速百分比</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>45s</td>
+<td>160s</td>
+<td>117.5%</td>
+</tr>
+<tr class="even">
+<td>25s</td>
+<td>100s</td>
+<td>188%</td>
+</tr>
+<tr class="odd">
+<td>15s</td>
+<td>70s</td>
+<td>268.6%</td>
+</tr>
+<tr class="even">
+<td>10s</td>
+<td>45s</td>
+<td>417.8%</td>
+</tr>
+<tr class="odd">
+<td>5s</td>
+<td>35s</td>
+<td>537.1%</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>性能加速百分比 = T / FC转码耗时</p>
+</blockquote>
+<p>从上表可以看出，设置的视频切片时间越短， 视频转码时间越短， 函数计算可以自动瞬时调度出更多的计算资源来一起完成这个视频的转码, 转码性能优异。</p>
+<h3 id="更低的成本">更低的成本</h3>
+<ul>
+<li>具有明显波峰波谷的视频处理场景(比如只有部分时间段有视频处理请求，其他时间很少甚至没有视频处理请求)，选择按需付费，只需为实际使用的计算资源付费。</li>
+<li><p>没有明显波峰波谷的视频处理场景，可以使用预付费（包年包月），成本仍然极具竞争力。</p>
+<blockquote>
+<p><a href="https://help.aliyun.com/document_detail/138831.html">函数计算成本优化最佳实践文档</a>。</p>
+</blockquote></li>
+<li><p>假设有一个基于 ECS 搭建的视频转码服务，由于是 CPU 密集型计算， 因此在这里将平均 CPU 利用率作为核心参考指标对评估成本，以一个月为周期，10 台 C5 ECS 的总计算力为例， 总的计算量约为 30% 场景下, 两个解决方案 CPU 资源利用率使用情况示意图大致如下:</p></li>
+</ul>
+<p><img src="./images/轻松构建基于 Serverless 架构的弹性高可用音视频处理系统4.png" alt="5.png" /></p>
+<p>由上图预估出如下计费模型：</p>
+<ul>
+<li>函数计算预付费 3CU 一个月: 246.27 元， 计算能力等价于 ECS 计算型 C5</li>
+<li>ECS 计算型 C5 (2vCPU,4GB)+云盘: 包月219 元</li>
+<li>函数计算按量付费占整个计算量的占比 &lt;= 10%，费用约为 3×864×10% = 259.2 元，（3G 规格的函数满负载跑满一个月费用为：0.00011108×3×30×24×3600 = 863.8，详情查看<a href="https://help.aliyun.com/document_detail/137980.html?">计费</a>）</li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>ITEM</th>
+<th>平均CPU利用率</th>
+<th>计算费用</th>
+<th>总计</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>函数计算组合付费</td>
+<td>&gt;=80%</td>
+<td>998（246.27×3+259.2）</td>
+<td>&lt;= 998</td>
+</tr>
+<tr class="even">
+<td>按峰值预留ECS</td>
+<td>&lt;=30%</td>
+<td>2190（10*219）</td>
+<td>&gt;=2190</td>
+</tr>
+</tbody>
+</table>
+<p>在这个模型预估里面，可以看出 FC 方案具有很强的成本竞争力，在实际场景中, 基于 ECS 自建的视频转码服务 CPU 利用甚至很难达到 20%， 理由如下:</p>
+<ul>
+<li>可能只有部分时间段有视频转码请求</li>
+<li>为了用户体验，视频转码速度有一定的要求，可能一个视频转码就需要 10 台 ECS 并行处理来转码， 因此只能预备很多 ECS</li>
+</ul>
+<p>因此，在实际场景中， FC 在视频处理上的成本竞争力远强于上述模型。</p>
+<ul>
+<li><p>即使和云厂商视频转码服务单价 PK, 该方案仍有很强的成本竞争力<br />
+<br />经实验验证， 函数内存设置为3G，基于该方案从 mov 转码为 mp4 的费用概览表:</p>
+<blockquote>
+<p>实验视频为是 89s 的 mov 文件视频， 测试视频地址：<br />
+<a href="https://fc-hz-demo.oss-cn-hangzhou.aliyuncs.com/fnf_video/inputs/480P.mov">480P.mov</a> <a href="https://fc-hz-demo.oss-cn-hangzhou.aliyuncs.com/fnf_video/inputs/720P.mov">720P.mov</a>  <a href="https://fc-hz-demo.oss-cn-hangzhou.aliyuncs.com/fnf_video/inputs/1080P.mov">1080P.mov</a>  <a href="https://fc-hz-demo.oss-cn-hangzhou.aliyuncs.com/fnf_video/inputs/4K.mov">4K.mov</a><br />
+测试命令: <code>ffmpeg -i test.mov -preset superfast test.mp4</code></p>
+</blockquote></li>
+<li><p><strong>格式转换</strong></p></li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>分辨率</th>
+<th>bitrate</th>
+<th>帧率</th>
+<th>FC 转码耗费时间</th>
+<th>FC 转码费用</th>
+<th>腾讯云视频处理费用</th>
+<th>成本下降百分比</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>标清 640*480</td>
+<td>618 kb/s</td>
+<td>24</td>
+<td>11s</td>
+<td>0.00366564</td>
+<td>0.032</td>
+<td>88.5%</td>
+</tr>
+<tr class="even">
+<td>高清 1280*720</td>
+<td>1120 kb/s</td>
+<td>24</td>
+<td>31s</td>
+<td>0.01033044</td>
+<td>0.065</td>
+<td>84.1%</td>
+</tr>
+<tr class="odd">
+<td>超清 1920*1080</td>
+<td>1942 kb/s</td>
+<td>24</td>
+<td>66s</td>
+<td>0.02199384</td>
+<td>0.126</td>
+<td>82.5%</td>
+</tr>
+<tr class="even">
+<td>4K  3840*2160</td>
+<td>5250 kb/s</td>
+<td>24</td>
+<td>260s</td>
+<td>0.0866424</td>
+<td>0.556</td>
+<td>84.4%</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>成本下降百分比 = （腾讯云视频处理费用 - FC 转码费用）/ 腾讯云视频处理费用<br />
+<a href="https://cloud.tencent.com/document/product/862/36180">腾讯云视频处理</a>，计费使用普通转码，转码时长不足一分钟，按照一分钟计算，这里计费采用的是 2 min，即使采用 1.5 min 计算， 成本下降百分比也在 80% 左右</p>
+</blockquote>
+<ul>
+<li>从上表可以看出， 基于函数计算 + 函数工作流的方案在计算资源成本上具有显著优势。</li>
+</ul>
+<h1 id="操作部署">操作部署</h1>
+<p><a href="https://statistics.functioncompute.com/?title=ServerlessVideo&amp;theme=ServerlessVideo&amp;author=rsong&amp;src=article&amp;url=http://fc.console.aliyun.com">免费开通函数计算</a>，按量付费，函数计算有很大的免费额度。</p>
+<p><a href="https://statistics.functioncompute.com/?title=ServerlessVideo&amp;theme=ServerlessVideo&amp;author=rsong&amp;src=article&amp;url=http://fnf.console.aliyun.com">免费开通函数工作流</a>，按量付费，函数工作流有很大的免费额度。</p>
+<p><a href="https://nas.console.aliyun.com/">免费开通文件存储服务NAS</a>， 按量付费</p>
+<p>详情见各自示例工程的 README</p>
+<ul>
+<li><a href="https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/simple-video-processing">简单视频处理系统示例工程地址</a></li>
+<li><a href="https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/video-processing">全功能视频处理系统示例工程地址</a></li>
+</ul>
+<h1 id="总结">总结</h1>
+<p><strong>基于函数计算 FC 和函数工作流 FnF 的弹性高可用视频处理系统天然继承了这两个产品的优点:</strong></p>
+<ul>
+<li>无需采购和管理服务器等基础设施，只需专注视频处理业务逻辑的开发，大幅缩短项目交付时间和人力成本</li>
+<li>提供日志查询、性能监控、报警等功能快速排查故障</li>
+<li>以事件驱动的方式触发应用响应用户请求</li>
+<li>免运维，毫秒级别弹性伸缩，快速实现底层扩容以应对峰值压力，性能优异</li>
+<li>成本极具竞争力</li>
+</ul>
+<p><em>最后一一回答一下之前列出的问题：</em></p>
+<p><strong>Q1: 您已经在虚拟机/容器平台上基于 FFmpeg 部署了一套视频处理服务，能否在此基础上让它更弹性，更高的可用性？</strong></p>
+<p>A: 如工程示例所示，在虚拟机/容器平台上基于 FFmpeg 的服务可以轻松切换到函数计算， FFmpeg 相关命令可以直接移值到函数计算，改造成本较低， 同时天然继承了函数计算弹性高可用性特性。</p>
+<p><strong>Q2：您的需求只是简单的转码需求，或是一些极其轻量的需求，比如获取 OSS 上视频前几帧的 GIF 等。 自己搭建成本更低。</strong></p>
+<p>A: 函数计算天生就是解决这些自定义问题， 你的代码你做主, 代码中快速执行几个 FFmpeg 的命令即可完成需求。<br />典型示例: <a href="https://github.com/awesome-fc/fc-oss-ffmpeg">fc-oss-ffmpeg</a></p>
+<p><strong>Q3: 您有更高级的自定义处理需求，比如视频转码完成后， 需要记录转码详情到数据库， 或者在转码完成后， 自动将热度很高的视频预热到 CDN 上， 从而缓解源站压力。</strong></p>
+<p>A: 详情见全功能视频处理系统(函数计算 + 函数工作流方案)，after-process 中可以做一些自定义的操作， 您还可以基于此流程再做一些额外处理等， 比如：</p>
+<ul>
+<li>再增加后续流程</li>
+<li>最开始增加 pre-process</li>
+</ul>
+<p><strong>Q4: 您有并发同时处理大量视频的需求。</strong></p>
+<p>A: 详情见全功能视频处理系统(函数计算 + 函数工作流方案), 当有多个文件同时上传到 OSS, 函数计算会自动伸缩， 并行处理多个文件。详情可以参考 <a href="https://github.com/awesome-fc/fc-fnf-video-processing/tree/master/test">全功能视频处理系统 (FnF + FC) 压测</a></p>
+<p><strong>Q5: 自定义视频处理流程中可能会有多种操作组合， 比如转码、加水印和生成视频首页 GIF，后续为视频处理系统增加新需求，比如调整转码参数，希望新功能发布上线对在线服务无影响。</strong></p>
+<p>A: 详情见全功能视频处理系统(函数计算 + 函数工作流方案), FnF 只负责编排调用函数， 因此只需要更新相应的处理函数即可，同时函数有 version 和 alias 功能， 更好地控制灰度上线， <a href="https://help.aliyun.com/document_detail/96464.html">函数计算版本管理</a></p>
+<p><strong>Q6: 您的视频源文件存放在 NAS 或者 ECS 云盘上，自建服务可以直接读取源文件处理，而不需要将他们再迁移到 OSS 上。</strong></p>
+<p>A: <a href="https://help.aliyun.com/document_detail/87401.html">函数计算可以挂载 NAS</a>, 直接对 NAS 中的文件进行处理</p>
+<blockquote>
+<p>“<a href="https://developer.aliyun.com/group/alisoftwaretech/">阿里巴巴云原生</a>关注微服务、Serverless、容器、Service Mesh 等技术领域、聚焦云原生流行技术趋势、云原生大规模的落地实践，做最懂云原生开发者的技术圈。”</p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

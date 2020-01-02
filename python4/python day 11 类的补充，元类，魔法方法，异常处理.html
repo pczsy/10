@@ -1,0 +1,297 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python day 11 类的补充，元类，魔法方法，异常处理' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python day 11 类的补充，元类，魔法方法，异常处理</center></div><div class='banquan'>原文出处:本文由博客园博主bluestarpin提供。<br/>
+原文连接:https://www.cnblogs.com/lanxing0422/p/pythonday11.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#python-day-11">python day 11</a><ul>
+        <li><a href="#类的补充">1. 类的补充</a><ul>
+        <li><a href="#通过反射来查找类创建对象设置对象的属性与方法">1.1 通过反射来查找类，创建对象，设置对象的属性与方法</a></li>
+        <li><a href="#类的魔法方法getitemsetitem">1.2 类的魔法方法：<strong>getitem</strong>,<strong>setitem</strong></a></li>
+        <li><a href="#元类__metaclass__">1.3 元类__metaclass__</a></li>
+        </ul></li>
+        <li><a href="#exception异常的处理">23. exception异常的处理</a><ul>
+        <li><a href="#引入异常">23.1 引入异常</a></li>
+        <li><a href="#try-except-else-finally">23.2 try-except-else-finally</a></li>
+        <li><a href="#异常的传递过程">23.3 异常的传递过程</a></li>
+        <li><a href="#自定义异常">23.4 自定义异常</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="python-day-11">python day 11</h1>
+<p>2019/10/14</p>
+<p>学习资料来自老男孩与尚学堂</p>
+<h2 id="类的补充">1. 类的补充</h2>
+<h3 id="通过反射来查找类创建对象设置对象的属性与方法">1.1 通过反射来查找类，创建对象，设置对象的属性与方法</h3>
+<pre><code><code>#通过__import__输入字符串文件名的方式导入模块
+m = __import__(&#39;getattr_setattr&#39;, fromlist=True)
+if hasattr(m, &#39;Foo&#39;):
+    # 去模块中找类
+    Foo = getattr(m, &#39;Foo&#39;)
+    # 根据类创建对象
+    obj1 = Foo()
+    # 通过对象找到对象的属性
+    n1 = getattr(obj1, &#39;n1&#39;)
+    # 通过反射找到对象的方法
+    show = getattr(obj1, &#39;show&#39;)
+    obj1.show()
+    print(obj1.n1)
+    # 通过反射设置对象的属性
+    setattr(obj1, &#39;name&#39;, &#39;lanxing&#39;)
+    print(obj1.name)
+
+    # 通过反射设置对象的方法
+    setattr(obj1, &#39;func1&#39;, lambda x: x + 1)
+    # def func1(x):
+    #     return x + 1
+
+    # setattr(obj1, &#39;func1&#39;, func1)
+    print(obj1.func1(2))</code></pre>
+<h3 id="类的魔法方法getitemsetitem">1.2 类的魔法方法：<strong>getitem</strong>,<strong>setitem</strong></h3>
+<pre><code><code>class Foo(object):
+    def __init__(self, key):
+        self.key = key
+
+    def __call__(self, *args, **kwargs):  # __call__定义类的对象可以当作函数来调用
+
+        return 1
+
+    def __getitem__(self, key):  # obj[&#39;item&#39;],obj[1:3]也是用的这种方法
+        if self.key:
+            return self.key
+        else:
+            return None
+
+    def __setitem__(self, key, value):  # obj[key] = value
+        self.key = value
+
+    def __delitem__(self, key):  # del obj[key]
+        pass
+
+    def __iter__(self):  # for循环本质是调用了__itre_方法
+        yield 1
+        yield 2
+
+
+# 本质上使用关键字class创建类时，就是调用了type函数来创建一个名为Foo的类。元组里面是父类，字典里面是类属性。
+# r = Foo(&#39;item&#39;)  # 执行__init__方法
+# # print(r())  # 执行__call__方法
+# r[&#39;item&#39;] = &#39;lanxing&#39;  # r.__setitem__(&#39;item&#39;,&#39;lanxing&#39;)
+# print(r[&#39;item&#39;])  # r.__getitem__(&#39;item&#39;)
+# del r[&#39;item&#39;]  #
+# print(r[1:3])  #
+# r[1:3] = [11, 22, 33]
+# del r[1]
+print(Foo, type(Foo))
+# print(r.__dict__)  # 获取对象的所有属性与值，以字典形式返回
+# {&#39;key&#39;: [11, 22, 33]}
+# print(Foo.__dict__)  # 获取类的所有属性与值，以字典形式返回
+&#39;&#39;&#39;
+{&#39;__module__&#39;: &#39;__main__&#39;, 
+&#39;__init__&#39;: &lt;function Foo.__init__ at 0x0000020458CC08C8&gt;, 
+&#39;__call__&#39;: &lt;function Foo.__call__ at 0x0000020458CC0950&gt;, 
+&#39;__getitem__&#39;: &lt;function Foo.__getitem__ at 0x0000020458CC09D8&gt;, 
+&#39;__setitem__&#39;: &lt;function Foo.__setitem__ at 0x0000020458CC0A60&gt;, 
+&#39;__delitem__&#39;: &lt;function Foo.__delitem__ at 0x0000020458CC0AE8&gt;, 
+&#39;__iter__&#39;: &lt;function Foo.__iter__ at 0x0000020458CC0B70&gt;, 
+&#39;__dict__&#39;: &lt;attribute &#39;__dict__&#39; of &#39;Foo&#39; objects&gt;, 
+&#39;__weakref__&#39;: &lt;attribute &#39;__weakref__&#39; of &#39;Foo&#39; objects&gt;, 
+&#39;__doc__&#39;: None}
+&#39;&#39;&#39;
+# for i in r:  # 本质是调用了__iter__方法
+#     print(i)
+# dic = dict(k1=11, k2=22)
+# print(dic[&#39;k1&#39;])
+# del dic[&#39;k2&#39;]
+# print(dic)</code></pre>
+<h3 id="元类__metaclass__">1.3 元类__metaclass__</h3>
+<p><a href="https://www.cnblogs.com/tkqasn/p/6524879.html">元类的理解</a>，这篇文章有助于理解元类。<br />
+<a href="https://www.liaoxuefeng.com/wiki/1016959663602400/1017592449371072">使用元类</a><br />
+就是函数，方法调过来调过去，得使用几次才能理解元类。</p>
+<pre><code><code>class MyType(type):
+    def __init__(self, what, base=None, dict=None, *args, **kwargs):
+        super().__init__(what, base=None, dict=None, *args, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        obj = self.__new__(self, *args, **kwargs)
+        self.__init__(obj)
+
+
+class classname(metaclass=MyType):
+    __metaclass__ = MyType  # 声明其元类是MyType
+
+    def __init__(self, name, *args, **kwargs):
+        self.name = name
+        super().__init__(*args, **kwargs)
+
+    def __new__(cls, *args, **kwargs):
+        return object.__new__(cls, *args, **kwargs)
+
+
+# 第一阶段，解释器从上到下执行代码创建Foo类
+# 第二阶段，通过Foo类创建obj对象
+
+# Foo2 = type(&#39;Foo2&#39;, (object, ), {&#39;func&#39;: lambda x: x + 2, &#39;name&#39;: &#39;lanxing&#39;}) #关键字class本质是执行了type(class,base,dict=None)方法</code></pre>
+<h2 id="exception异常的处理">23. exception异常的处理</h2>
+<h3 id="引入异常">23.1 引入异常</h3>
+<p>异常的写法，把子类往前放，把父类往后放。可以存在多个except分支，一个except分支执行后，其他的就不会再次执行了。</p>
+<pre><code><code>&#39;&#39;&#39;
+异常处理：
+    需求：
+        从键盘输入被除数与除数，求商并打印结果
+1,输入的数据类型问题：valueError
+2,ZeroDivisionError:division by zero
+try-except-finally
+
+&#39;&#39;&#39;
+# 这种写法太耗费程序员精力了，语法也不简洁。
+# if a.isdigit() and b.isdigit():
+#     a1 = int(a)
+#     b1 = int(b)
+#     if b != 0:
+#         c = a/b
+#         print(&#39;商为:{0}&#39;.format(c))
+#     else:
+#         print(&#39;ZeroDivisionError:division by zero&#39;)
+#         print(&#39;除数不能为0&#39;)
+a = input(&#39;请输入被除数：》》》&#39;)
+b = input(&#39;请输入除数：》》》&#39;)
+try:
+    a1 = int(a)
+    b1 = int(b)
+    c = a/b
+    print(&#39;mod = {0}&#39;.format(c))
+# 一旦捕获到异常，try里面异常后面的语句就不会被执行了。
+# 异常只会执行一次。
+
+# 捕获异常方式用法一：
+# except:
+#     print(&#39;输入类型有误或者除数为0&#39;)
+
+# 捕获异常方式用法二：
+# except Exception as e:#捕获异常并存储到e上
+#     print(type(e))
+#     print(&#39;输入类型有误或者除数为0&#39;)
+
+# 捕获异常方式用法三(提倡这种写法)：
+# except ValueError:
+#     print(&#39;输入类型有误&#39;)
+# except ZeroDivisionError:
+#     print(&#39;除数为0错误&#39;)
+# except Exception:
+#     print(&#39;遇到异常&#39;)
+
+# 捕获异常方式用法四，这种写法与用法三会有区别：
+# except (ValueError,ValueError) as e:
+#     print(&#39;输入类型有误或除数为0&#39;)
+
+# 捕获异常方式用法五：
+except ValueError as e :
+    print(e)
+except Exception:
+    print(&#39;遇到异常&#39;)</code></pre>
+<h3 id="try-except-else-finally">23.2 try-except-else-finally</h3>
+<pre><code><code>&#39;&#39;&#39;
+try:将有可能出异常的代码纳入try语句
+except:捕获异常，有多种写法
+else:可有可无，没有except就执行else
+finally:最后执行，不管前面什么情况，都最终执行。
+&#39;&#39;&#39;
+
+try:
+    file = open(&#39;123.txt&#39;,&#39;r&#39;,encoding=&#39;utf-8&#39;)
+    content = file.read()
+    print(content)
+except Exception as e:
+    print(e.args)
+else:
+    print(&#39;没有异常&#39;)
+finally:
+    file.close()</code></pre>
+<h3 id="异常的传递过程">23.3 异常的传递过程</h3>
+<pre><code><code>def test1():
+    print(&#39;---&#39;*10+&#39;test1开始&#39;+&#39;---&#39;*10)
+    try:
+        print(aa)
+    except:
+        pass
+    print(&#39;---&#39; * 10 + &#39;test1结束&#39; + &#39;---&#39; * 10)
+
+def test2():
+    print(&#39;---&#39;*10+&#39;test2开始&#39;+&#39;---&#39;*10)
+    # try:
+    #     test1()
+    # except:
+    #     pass
+
+    print(&#39;---&#39; * 10 + &#39;test2结束&#39; + &#39;---&#39; * 10)
+
+def test3():
+    print(&#39;---&#39;*10+&#39;test3开始&#39;+&#39;---&#39;*10)
+    # try:
+    #     test2()
+    # except:
+    #     pass
+    print(&#39;---&#39; * 10 + &#39;test3结束&#39; + &#39;---&#39; * 10)
+
+test3()</code></pre>
+<h3 id="自定义异常">23.4 自定义异常</h3>
+<p>先定义一个Exception的子类，然后再在调用处使用raise语句。</p>
+<pre><code><code>&#39;&#39;&#39;
+自定义异常：
+    自己创建异常类，一定要继承自Exception.
+    抛出异常 raise 异常对象
+&#39;&#39;&#39;
+
+class GenderError(Exception):
+    def __init__(self):
+        self.errMsg = &#39;性别异常，只能设置为男或女&#39;
+
+
+class Student():
+    def __init__(self,name,gender):
+        self.name = name
+        self.setGender(gender)
+
+    def setGender(self,gender):
+        if gender in (&#39;男&#39;,&#39;女&#39;):
+            self.__gender = gender
+        else:
+            raise GenderError()
+
+    def getGender(self):
+        return  self.__gender
+
+stu1 = Student(&#39;刘忙&#39;,&#39;男&#39;)
+try:
+    stu1.setGender(&#39;未知&#39;)
+except Exception as e:
+    print(type(e))
+    print(e.args)
+    print(e.errMsg)
+</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,597 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Qt5教程 (9) Qt多线程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Qt5教程 (9) Qt多线程</center></div><div class='banquan'>原文出处:本文由博客园博主Raina_RLN提供。<br/>
+原文连接:https://www.cnblogs.com/raina/p/12050017.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#创建工程">0. 创建工程</a></li>
+        <li><a href="#qthread-源码一览">1. QThread 源码一览</a></li>
+        <li><a href="#qthread相关方法介绍">2. QThread相关方法介绍</a><ul>
+        <li><a href="#启动线程">2.1 启动线程</a></li>
+        <li><a href="#关闭线程">2.2 关闭线程</a></li>
+        <li><a href="#阻塞线程">2.3 阻塞线程</a></li>
+        <li><a href="#线程状态判断">2.4线程状态判断</a></li>
+        <li><a href="#设置优先级">2.5 设置优先级</a></li>
+        <li><a href="#信号">2.6 信号</a></li>
+        </ul></li>
+        <li><a href="#创建线程">3. 创建线程</a><ul>
+        <li><a href="#继承qthread方式">3.1 继承QThread方式</a><ul>
+        <li><a href="#a.-定义mythread类">a. 定义MyThread类</a></li>
+        <li><a href="#b.-重载run">b. 重载run()</a></li>
+        <li><a href="#c.-开始和结束线程">c. 开始和结束线程</a></li>
+        <li><a href="#附-qt4适用写法">附: Qt4适用写法</a></li>
+        <li><a href="#附-exit和requestinterruption区别">附: exit()和requestInterruption()区别</a></li>
+        </ul></li>
+        <li><a href="#movetothread方式qt5新增-官方推荐">3.2 moveToThread方式(Qt5新增 官方推荐)</a><ul>
+        <li><a href="#a.-定义一个继承qobject的类">a. 定义一个继承QObject的类</a></li>
+        <li><a href="#b.-movetothread">b. moveToThread</a></li>
+        <li><a href="#c.-启动线程">c. 启动线程</a></li>
+        <li><a href="#d.-结束后的清理工作">d. 结束后的清理工作</a></li>
+        <li><a href="#附-mainwindow.cpp-完整代码">附: mainwindow.cpp 完整代码</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="创建工程">0. 创建工程</h1>
+<p>先创建一个工程吧, 具体步骤前面讲过很多次了， 就不再细说了。</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程0.png" /></p>
+<p><img src="./images/Qt5教程 (9) Qt多线程1.png" /></p>
+<p><img src="./images/Qt5教程 (9) Qt多线程2.png" /></p>
+<p>然后在Header文件夹下创建添加一个头文件, 右键Headers -&gt; Add New... -&gt; C++ -&gt; C++ Header File -&gt; Choose</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程3.png" /></p>
+<p><img src="./images/Qt5教程 (9) Qt多线程4.png" /></p>
+<p>随便起个名字, 比如<strong>mythread</strong>, 然后点Next-&gt;Finish。</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程5.png" /></p>
+<h1 id="qthread-源码一览">1. QThread 源码一览</h1>
+<p>在<strong>mythread.h</strong>中包含<code>QThread</code>头文件:</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程6.png" /></p>
+<p>按住Ctrl键, 点击<code>QThread</code>, 再按住Ctrl键点击<code>qthread.h</code>进入到<strong>qthread.h</strong>文件, 源码就在这里了, 随便看看就好。哪里不懂就鼠标点一下不懂的地方, 然后按<strong>F1</strong>, 会跳转到相应的帮助文档，里面讲得很详细, 里面的英文也比较简单。</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程7.png" /></p>
+<h1 id="qthread相关方法介绍">2. QThread相关方法介绍</h1>
+<h2 id="启动线程">2.1 启动线程</h2>
+<ul>
+<li><strong><code>void start(Priority = InheritPriority);</code></strong>
+<ul>
+<li><p>通过调用<code>start()</code>方法来启动线程，该方法会调用<code>run()</code>函数(可以看到QThread中<code>run()</code>为虚函数, 需要我们来重载)。</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程8.png" /></p></li>
+<li><p><code>run()</code>函数可调用<code>exec()</code>让该线程进入事件循环。</p></li>
+<li><p>Priority为线程优先级(下面会讲)。</p></li>
+</ul></li>
+</ul>
+<h2 id="关闭线程">2.2 关闭线程</h2>
+<ul>
+<li><strong><code>void exit(int retcode = 0);</code></strong>
+<ul>
+<li>使线程退出事件循环, 如果该线程没有事件循环, 不做任何操作。</li>
+<li>retcode默认为0, 表示正常返回。而非0值表示异常退出。</li>
+</ul></li>
+<li><strong><code>void quit();</code></strong>
+<ul>
+<li>相当于exit(0)</li>
+</ul></li>
+<li><strong><code>void terminate();</code></strong>
+<ul>
+<li>由操作系统强行终止该线程, 可能会导致无法完成一些清理工作, 不推荐使用。</li>
+</ul></li>
+<li><strong><code>void requestInterruption();</code> + <code>bool isInterruptionRequested();</code></strong>
+<ul>
+<li>Qt5的新接口, <code>requestInterruption</code>用于请求线程进行中断。<code>isInterruptionRequested</code>返回true/false, 用于判断是否有终止线程的请求。</li>
+</ul></li>
+</ul>
+<h2 id="阻塞线程">2.3 阻塞线程</h2>
+<ul>
+<li><strong><code>bool wait(unsigned long time = ULONG_MAX);</code></strong>
+<ul>
+<li>阻塞线程time毫秒, 默认永久阻塞;</li>
+<li>只有当线程结束(从run函数返回), 或阻塞超时才会返回;</li>
+<li>线程结束或还未启动, wait返回值为true, 超时的返回值为false。</li>
+</ul></li>
+<li><strong><code>static void sleep(unsigned long);</code></strong>
+<ul>
+<li>阻塞xx秒, 无返回值。</li>
+</ul></li>
+<li><strong><code>static void msleep(unsigned long);</code></strong>
+<ul>
+<li>阻塞xx毫秒, 无返回值。</li>
+</ul></li>
+<li><strong><code>static void usleep(unsigned long);</code></strong>
+<ul>
+<li>阻塞xx微秒, 无返回值。</li>
+</ul></li>
+</ul>
+<h2 id="线程状态判断">2.4线程状态判断</h2>
+<ul>
+<li><strong><code>bool isFinished() const;</code></strong>
+<ul>
+<li>如果线程结束返回true, 否则返回false。</li>
+</ul></li>
+<li><strong><code>bool isRunning() const;</code></strong>
+<ul>
+<li>如果线程正在运行返回true, 否则返回false。</li>
+</ul></li>
+<li><strong><code>bool isInterruptionRequested() const;</code></strong>
+<ul>
+<li>如果有终止线程的请求返回true, 否则返回false; 请求可由<code>requestInterruption()</code>发出。</li>
+</ul></li>
+</ul>
+<h2 id="设置优先级">2.5 设置优先级</h2>
+<ul>
+<li><p><strong><code>void setPriority(Priority priority);</code></strong></p>
+<ul>
+<li><p>用于设置正在运行的线程的优先级, 如果线程未运行, 则该返回不会执行任何操作并立刻返回。可用<code>start(priority)</code>启动带优先级的线程。</p></li>
+<li><p>指定的优先级是否生效取决于操作系统的调度, 如果是不支持线程优先级的系统上, 优先级的设置将被忽略。</p></li>
+<li><p>优先级可以设置为QThread::Priority内除InheritPriortyd的任何值:</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">QThread::Priority枚举元素</th>
+<th style="text-align: center;">值</th>
+<th style="text-align: center;">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">QThread::IdlePriority</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">没有其它线程运行时才调度</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">QThread::LowestPriority</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">比LowPriority调度频率低</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">QThread::LowPriority</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">比NormalPriority调度频率低</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">QThread::NormalPriority</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">操作系统的默认优先级</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">QThread::HighPriority</td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">比NormalPriority调度频繁</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">QThread::HighestPriority</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">比HighPriority调度频繁</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">QThread::TimeCriticalPriority</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">尽可能频繁的调度</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">QThread::InheritPriority</td>
+<td style="text-align: center;">7</td>
+<td style="text-align: center;">使用和创建线程同样的优先级(这是默认值)</td>
+</tr>
+</tbody>
+</table></li>
+</ul></li>
+</ul>
+<h2 id="信号">2.6 信号</h2>
+<ul>
+<li><strong><code>void started(QPrivateSignal);</code></strong>
+<ul>
+<li>在线程<code>start</code>后, 执行<code>run</code>前发出该信号。</li>
+</ul></li>
+<li><strong><code>void finished(QPrivateSignal);</code></strong>
+<ul>
+<li>在线程结束, 完全退出前发送此信号。</li>
+</ul></li>
+</ul>
+<h1 id="创建线程">3. 创建线程</h1>
+<h2 id="继承qthread方式">3.1 继承QThread方式</h2>
+<h3 id="a.-定义mythread类">a. 定义MyThread类</h3>
+<p>在<strong>mythread.h</strong>中定义<code>MyThread</code>类, 并继承<code>QThread</code>, 然后把框架写好:</p>
+<pre><code><code>#ifndef MYTHREAD_H
+#define MYTHREAD_H
+
+#include &lt;QThread&gt;
+
+class MyThread : public QThread
+{
+    Q_OBJECT
+
+public:
+    MyThread();
+
+private:
+
+protected:
+    void run();
+
+signals:
+
+public slots:
+
+
+};
+
+#endif // MYTHREAD_H
+
+</code></pre>
+<h3 id="b.-重载run">b. 重载run()</h3>
+<p>新建一个C++ Source File, 命名为<strong>mythread.cpp</strong></p>
+<p><img src="./images/Qt5教程 (9) Qt多线程9.png" /></p>
+<p><img src="./images/Qt5教程 (9) Qt多线程10.png" /></p>
+<p><strong>mythread.cpp</strong>代码如下, <code>run()</code>函数中我们让它每隔1秒打印一次字符串:</p>
+<pre><code><code>#include &quot;mythread.h&quot;
+
+// 构造函数
+MyThread::MyThread()
+{
+
+}
+
+void MyThread::run()
+{
+    while (!isInterruptionRequested())
+    {
+        qDebug() &lt;&lt; &quot;Running...&quot;;
+        sleep(1);
+    }
+
+    qDebug() &lt;&lt; &quot;Get Interruption Request, I&#39;ll exit.&quot;;
+}
+</code></pre>
+<p>因为用到了<code>qDebug()</code>, 别忘了在<strong>mythread.h</strong>中添加&lt;QDebug&gt;头文件:</p>
+<pre><code><code>#include &lt;QDebug&gt;</code></pre>
+<h3 id="c.-开始和结束线程">c. 开始和结束线程</h3>
+<p>在<strong>mainwindow.h</strong>中添加头文件和声明变量:</p>
+<pre><code><code>#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
+#include &lt;QMainWindow&gt;
+#include &quot;mythread.h&quot;  // 添加头文件
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    MainWindow(QWidget *parent = 0);
+    ~MainWindow();
+
+private:
+    MyThread *my_thread;  // 声明变量
+};
+
+#endif // MAINWINDOW_H</code></pre>
+<p>在<strong>mainwindow.cpp</strong>中开启和结束线程:</p>
+<pre><code><code>#include &quot;mainwindow.h&quot;
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    my_thread = new MyThread;  // 实例化
+    my_thread-&gt;start();  // 开启线程
+
+
+    // 主线程阻塞5秒
+    QDateTime start = QDateTime::currentDateTime();
+    QDateTime now;
+    do {
+        now = QDateTime::currentDateTime();
+    } while(start.secsTo(now) &lt; 5);
+
+
+    // 关闭线程
+    my_thread-&gt;requestInterruption();
+    my_thread-&gt;wait();
+
+}
+
+MainWindow::~MainWindow()
+{
+
+}</code></pre>
+<p>因为用到了&lt;QDateTime&gt;, 别忘了在<strong>mainwindow.h</strong>中添加头文件:</p>
+<pre><code><code>#include &lt;QDateTime&gt;</code></pre>
+<p>运行结果:</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程11.png" /></p>
+<p>可以看到主线程被阻塞了5秒, 之后才弹出窗口。但是在主线程阻塞期间, 我们的my_thread线程仍在运行, 直到线程被关闭。</p>
+<h3 id="附-qt4适用写法">附: Qt4适用写法</h3>
+<p>上面我们结束线程使用的是<code>requestInterruption()</code>和<code>isInterruptionRequested()</code>, 这是Qt5新增的, 那么Qt4要如何结束线程呢?</p>
+<ul>
+<li>首先需要使用一个flag来标识线程的状态(执行还是停止), 比如定义一个变量<code>bool is_stopped</code> 初值赋为false;<br />
+</li>
+<li>然后自己写一个结束线程的函数, 比如<code>stop()</code>, 当调用<code>my_thread-&gt;stop();</code>时将<code>is_stopped</code>改为true;</li>
+<li>在<code>run()</code>中判断, 如果<code>is_stopped</code>为<code>false</code>线程继续执行, 如果为<code>true</code>线程退出; 别忘了退出前再将<code>is_stopped</code>改为<code>false</code>, 不然线程没法再次开启了。</li>
+</ul>
+<p>代码如下:</p>
+<blockquote>
+<p>mythread.h</p>
+</blockquote>
+<pre><code><code>#ifndef MYTHREAD_H
+#define MYTHREAD_H
+
+#include &lt;QThread&gt;
+#include &lt;QDebug&gt;
+
+class MyThread : public QThread
+{
+    Q_OBJECT
+
+public:
+    MyThread();
+    void stop();  // 添加stop()方法
+
+private:
+    volatile bool is_stopped;  // 添加标识变量
+
+protected:
+    void run();
+
+signals:
+
+public slots:
+
+
+};
+
+#endif // MYTHREAD_H</code></pre>
+<blockquote>
+<p>mythread.cpp</p>
+</blockquote>
+<pre><code><code>#include &quot;mythread.h&quot;
+
+// 构造函数
+MyThread::MyThread()
+{
+    is_stopped = false;  // 初始化标识变量
+}
+
+void MyThread::run()
+{
+    while (!is_stopped)  // 更改判断条件
+    {
+        qDebug() &lt;&lt; &quot;Running...&quot;;
+        sleep(1);
+    }
+
+    qDebug() &lt;&lt; &quot;is_stopped is true, I&#39;ll exit.&quot;;
+    is_stopped = false;  // 重置变量值
+}
+
+// 关闭线程
+void MyThread::stop()
+{
+    is_stopped = true;
+}
+</code></pre>
+<blockquote>
+<p>mainwindow.cpp</p>
+</blockquote>
+<pre><code><code>#include &quot;mainwindow.h&quot;
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    my_thread = new MyThread;  // 实例化
+    my_thread-&gt;start();  // 开启线程
+
+
+    // 主线程阻塞5秒
+    QDateTime start = QDateTime::currentDateTime();
+    QDateTime now;
+    do {
+        now = QDateTime::currentDateTime();
+    } while(start.secsTo(now) &lt; 5);
+
+
+    // 关闭线程
+    my_thread-&gt;stop();  // 用自己定义的方法关闭线程
+    my_thread-&gt;wait();
+
+}
+
+MainWindow::~MainWindow()
+{
+
+}
+</code></pre>
+<h3 id="附-exit和requestinterruption区别">附: exit()和requestInterruption()区别</h3>
+<p>看例子, 我们修改一下<code>run()</code>函数和关闭线程部分的代码:</p>
+<blockquote>
+<p>mythread.cpp</p>
+</blockquote>
+<pre><code><code>void MyThread::run()
+{
+    while (!isInterruptionRequested())
+    {
+        qDebug() &lt;&lt; &quot;Running...&quot;;
+        sleep(1);
+    }
+    qDebug() &lt;&lt; &quot;子线程: 我只退出了while循环, 没有真正结束&quot;;
+
+    exec();  // 事件循环
+    qDebug() &lt;&lt; &quot;子线程: 我真的要结束了&quot;;
+}</code></pre>
+<blockquote>
+<p>mainwindow.cpp</p>
+</blockquote>
+<pre><code><code>    // 关闭线程
+    my_thread-&gt;requestInterruption();
+    qDebug() &lt;&lt; &quot;主线程: 发起中断请求&quot;;
+    my_thread-&gt;wait(3000);
+
+    my_thread-&gt;quit();
+    qDebug() &lt;&lt; &quot;主线程: 请求退出线程的事件循环&quot;;
+    my_thread-&gt;wait();  // 等待线程结束</code></pre>
+<p>运行结果:</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程12.png" /></p>
+<p>在主进程<code>requestInterruption()</code>后, 只是使得<code>isInterruptionRequested()</code>变为true, 退出了while循环, 在主线程中调用<code>wait(3000)</code>, 并没有立刻返回, 而是3秒超时后才返回, 说明子线程没有真正结束, 而是执行到了<code>exec()</code>处进行事件循环。通过调用<code>quit()</code>或<code>exit()</code>来结束子线程的事件循环, 子线程才真的结束了。</p>
+<h2 id="movetothread方式qt5新增-官方推荐">3.2 moveToThread方式(Qt5新增 官方推荐)</h2>
+<h3 id="a.-定义一个继承qobject的类">a. 定义一个继承QObject的类</h3>
+<ul>
+<li>首先, 创建一个类并继承<code>QObject</code>, 把要在线程中执行的工作作为类的槽函数:</li>
+</ul>
+<blockquote>
+<p>dowork.h</p>
+</blockquote>
+<pre><code><code>#ifndef DOWORK_H
+#define DOWORK_H
+
+#include &lt;QObject&gt;
+#include &lt;QDateTime&gt;
+#include &lt;QDebug&gt;
+
+class DoWork : public QObject
+{
+    Q_OBJECT
+public:
+    explicit DoWork(QObject *parent = nullptr);
+
+public slots:
+    void do_something();
+};
+
+#endif // DOWORK_H
+</code></pre>
+<blockquote>
+<p>dowork.cpp</p>
+</blockquote>
+<pre><code><code>#include &quot;dowork.h&quot;
+
+DoWork::DoWork(QObject *parent) : QObject(parent)
+{
+
+}
+
+void DoWork::do_something()
+{
+    int a = 5;
+    while(a--)
+    {
+        qDebug() &lt;&lt; &quot;Doing something ...&quot;;
+        QDateTime start = QDateTime::currentDateTime();
+        QDateTime now;
+        do {
+            now = QDateTime::currentDateTime();
+        } while(start.secsTo(now) &lt; 1);
+    }
+    qDebug() &lt;&lt; &quot;Done&quot;;
+}
+</code></pre>
+<h3 id="b.-movetothread">b. moveToThread</h3>
+<ul>
+<li>然后, 创建一个线程对象, 把<code>work1</code>对象移到新线程下:</li>
+</ul>
+<blockquote>
+<p>mainwindow.h</p>
+</blockquote>
+<pre><code><code>#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
+#include &lt;QMainWindow&gt;
+#include &lt;QThread&gt;
+#include &quot;dowork.h&quot;
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    MainWindow(QWidget *parent = 0);
+    ~MainWindow();
+
+private:
+    DoWork *work1;  // 自定义的类
+    QThread *new_thread;  // 新线程
+};
+
+#endif // MAINWINDOW_H</code></pre>
+<blockquote>
+<p>mainwindow.cpp</p>
+</blockquote>
+<pre><code><code>MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    // 实例化
+    work1 = new DoWork;
+    new_thread = new QThread;
+    
+    work1-&gt;moveToThread(new_thread);  // 搬到线程下
+}</code></pre>
+<h3 id="c.-启动线程">c. 启动线程</h3>
+<ul>
+<li><p>绑定线程启动后要做的工作:</p>
+<pre><code><code>connect(new_thread, &amp;QThread::started, work1, &amp;DoWork::do_something);</code></pre>
+<p>使用<code>moveToThread</code>的方法非常灵活, 你不一定要用<code>&amp;QThread::started</code>来触发<code>do_something</code>, 也可以使用自定义的信号, 为了例程简单明了, 这里不举例了。</p></li>
+<li><p>启动线程</p>
+<pre><code><code>new_thread-&gt;start();</code></pre></li>
+</ul>
+<h3 id="d.-结束后的清理工作">d. 结束后的清理工作</h3>
+<ul>
+<li><p>为了更安全, 线程结束后别忘了释放资源:</p>
+<pre><code><code>connect(new_thread, &amp;QThread::finished, work1, &amp;QObject::deleteLater);</code></pre>
+<pre><code><code>MainWindow::~MainWindow()
+{
+    new_thread-&gt;requestInterruption();
+    new_thread-&gt;quit();
+    new_thread-&gt;wait();
+}</code></pre></li>
+</ul>
+<h3 id="附-mainwindow.cpp-完整代码">附: mainwindow.cpp 完整代码</h3>
+<blockquote>
+<p>mainwindow.cpp</p>
+</blockquote>
+<pre><code><code>#include &quot;mainwindow.h&quot;
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    // 实例化
+    work1 = new DoWork;
+    new_thread = new QThread;
+
+    work1-&gt;moveToThread(new_thread);  // 搬到线程下
+
+    connect(new_thread, &amp;QThread::started, work1, &amp;DoWork::do_something);
+    connect(new_thread, &amp;QThread::finished, work1, &amp;QObject::deleteLater);
+
+    new_thread-&gt;start();
+}
+
+MainWindow::~MainWindow()
+{
+    new_thread-&gt;requestInterruption();
+    new_thread-&gt;quit();
+    new_thread-&gt;wait();
+}
+</code></pre>
+<p>运行结果如下:</p>
+<p><img src="./images/Qt5教程 (9) Qt多线程13.png" /></p>
+<hr />
+<p>此文原创禁止转载，转载文章请联系博主并注明来源和出处，谢谢！<br />
+作者: Raina_RLN <a href="https://www.cnblogs.com/raina/" class="uri">https://www.cnblogs.com/raina/</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

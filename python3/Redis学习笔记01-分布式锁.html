@@ -1,0 +1,134 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Redis学习笔记01-分布式锁' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Redis学习笔记01-分布式锁</center></div><div class='banquan'>原文出处:本文由博客园博主__冫冫提供。<br/>
+原文连接:https://www.cnblogs.com/LLBoy/p/11457540.html</div><br>
+    <h1 id="分布式锁的定义与理解">1.分布式锁的定义与理解</h1>
+<p><font size=3><br />
+在并发任务中，当对数据执行修改和删除时为了防止多个任务同时拿到数据而产生的混乱，这时就要用到分布式锁来限制程序的并发执行。<br />
+Redis分布式锁本质上要实现的目标就是在Redis里声明一块暂时领地，当其他进程要来使用这块领地时，发现已经有一个进程在占有这块领地时不得不选择放弃或者等待。<br />
+</font></p>
+<h1 id="redis分布式锁的使用">2.Redis分布式锁的使用</h1>
+<p><font size=3><br />
+在Redis中声明一块领地一般会使用setnx（set if not exists）指令，只允许被一个客户端占据。先到者先得，使用完成时调用del指令离开领地。<br />
+</font></p>
+<pre><code><code>    &gt;setnx island-1 ll
+    (integer) 1
+    &gt;setnx island-1 pp
+    (integer) 0
+    &gt;get island-1
+    &quot;ll&quot;
+    &gt;del island-1
+    (integer) 0
+    &gt;get island-1
+    (nil)          </code></pre>
+<p><font size=3><br />
+但这样使用会出现一些问题，如果占到领地的进程执行到了一半，出现异常导致无法调用后续的del指令来释放，这样就会造成死锁的现象，那这块领地将会一直被占用，锁一直无法释放。<br />
+这时通常的做法是给这个锁添加一个过期时间,比如5s(expire key 5)，这样即使中间出现了异常也可以保证5s之后锁会自动释放。<br />
+</font></p>
+<pre><code><code>    &gt;setnx island-2 ll
+    ok
+    &gt;expire island-2 5
+    &gt;get island-2
+    &quot;ll&quot;
+    ...5s之后...
+    &gt;get island-2
+    (nil)</code></pre>
+<p><font size=3><br />
+但是这样做还是会有问题，如果程序在 setnx指令和expire指令之间挂掉如突然断电或人为操作等，那么同样可能会造成死锁现象。问题的根源在于setnx与expire指令并不是同时执行。<br />
+一般的想法可能会想到用事务来解决，但遗憾的是这种方法并不可行，因为expire是依赖于setnx的执行结果的,如果setnx圈地失败,expire就无法执行，而事务的特点就是要么全部执行， 要么都不执行。所幸在redis2.8以后的版本中添加了set指令的扩展参数，使得这个问题得以解决。<br />
+</font></p>
+<pre><code><code>    &gt;set island-2 ll ex 5 nx
+    ok
+    &gt;get island-2
+    &quot;ll&quot; 
+    ... 5s之后...
+    &gt;get island-2
+    (nil)</code></pre>
+<p><font size=3><br />
+其中 nx( if not exists)， ex即expire<br />
+</font></p>
+<h1 id="redis分布式锁扩展">3. Redis分布式锁扩展</h1>
+<h2 id="超时问题">3.1 超时问题</h2>
+<p><font size=3><br />
+redis的分布式锁不能解决超时问题，原因在于如果加锁与释放锁之间执行的时间太长，以至于超过了设定的超时限制，就会导致第一个线程的逻辑还未执行完，其他线程就会劫持到这把锁。为了避免这种情况，Redis分布式锁一般不用于较长时间的任务。<br />
+</font></p>
+<h2 id="可重入性">3.2 可重入性</h2>
+<p><font size=3><br />
+可重入是指在原先持有锁的情况下再次请求加锁，如果同一线程中的一个锁支持这种特性，那么这个锁就是可重入的。Redis分布式锁要想实现可重入性，就必须对客户端的set方法进行包装，使用线程的Threadlocal变量存储当前持有锁的计数。python版本的代码如下：<br />
+</font></p>
+<pre class="python"><code>    import redis
+    import threading
+
+
+    locks = threading.local()
+    locks.redis = {}
+
+    def key_for(user_id):
+
+    return &#39;account_{}&#39;.format(user_id)
+
+    # 加锁
+    def _lock(client,key):
+
+        return bool(client.set(key,True,nx=True,ex=5))
+    # 解锁
+    def _unlock(client,key):
+
+        client.delete(key)
+
+    # 执行加锁 + 计数
+    def lock(client,user_id):
+        key = key_for(user_id)
+        if key in locks.redis:
+            locks.redis[key] += 1
+            return True
+        ok = _lock(client,key)
+        if not ok:
+            return False
+        locks.redis[key] = 1
+        return True
+
+    # 执行解锁 + 计数
+    def unlock(user_id):
+         key = key_for(user_id)
+         if key in locks.redis:
+             locks.redis[key] -= 1
+             if locks.redis[key] &lt;= 0:
+                 del locks.redis[key]
+                 return True
+         return False
+
+
+    client = redis.StrictRedis()
+    print(&#39;lock&#39;,lock(client,&#39;ll&#39;))    # lock True
+    print(&#39;lock&#39;,lock(client,&#39;ll&#39;))    # lock True
+    print(&#39;unlock&#39;,unlock(&#39;ll&#39;))      # unlock False  未完全解锁
+    print(&#39;unlock&#39;,unlock(&#39;ll&#39;))      # unlock False</code></pre>
+<p><font size=3><br />
+这并不是一个精确的可重入锁，还可以加入过期时间等等，但代码的复杂度会一直增加，所以并不推荐使用可重入锁。<br />
+</font><br />
+-----------------------------------------------------------------------------------------<br />
+文章借鉴于《Redis深度历险:核心原理与应用实践》 --作者：钱文品<br />
+-----------------------------------------------------------------------------------------</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

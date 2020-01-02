@@ -1,0 +1,173 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python--反射机制' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python--反射机制</center></div><div class='banquan'>原文出处:本文由博客园博主梦想一步登天提供。<br/>
+原文连接:https://www.cnblogs.com/june-L/p/11665461.html</div><br>
+    <p><span style="font-size: 18px;">一、反射机制简介：</span></p>
+<p><span style="font-size: 18px;">　　通过字符串的形式导入模块</span></p>
+<p><span style="font-size: 18px;">　　通过字符串的形式，去模块中寻找指定的函数，并执行</span></p>
+<p><span style="font-size: 18px;"> 　　规定用户输入格式 模块名/函数名 通过__import__的形式导入模块，并通过 hasattr和getattr 检查并获取函数返回值。</span><br />	<br /><span style="font-size: 18px;">　　相关方法：</span><br /><span style="font-size: 18px;">　　　　getattr:--根据字符串的形式去某个模块中寻找东西</span><br /><span style="font-size: 18px;">　　　　hasattr:--根据字符串的形式去某个模块中判断东西是否存在</span><br /><span style="font-size: 18px;">　　　　setattr:--根据字符串的形式去某个模块中设置东西</span><br /><span style="font-size: 18px;">　　　　delattr:--根据字符串的形式去某个模块中删除东西</span></p>
+<p><span style="font-size: 18px;"><em id="__mceDel">二、反射机制初识：<br />	<br />test.py	</em></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> f1():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">我是F1，我被调用了</span><span style="color: #800000;">'</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> f2():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">我是F2，我被调用了</span><span style="color: #800000;">'</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> f3():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">我是F3，我被调用了</span><span style="color: #800000;">'</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">index.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+<span style="color: #800000;">"""</span><span style="color: #800000;">
+反射机制
+1.根据字符串的形式导入模块。
+2.根据字符串的形式去对象（某个模块）中操作其成员　
+实现思路：规定用户输入格式 模块名/函数名 通过__import__的形式导入模块，并通过 hasattr和getattr 检查并获取函数返回值。
+</span><span style="color: #800000;">"""</span>
+<span style="color: #008000;">#</span><span style="color: #008000;">通过用户输入的形式， 导入模块</span>
+inp = input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入需要导入的模块名：</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008000;">#</span><span style="color: #008000;">__import__用于以字符串的形式导入模块</span>
+dd = <span style="color: #800080;">__import__</span><span style="color: #000000;">(inp)
+</span><span style="color: #008000;">#</span><span style="color: #008000;">在模块寻找函数并执行函数</span>
+inp_func = input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入需要执行的函数：</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008000;">#</span><span style="color: #008000;">getattr()用于以字符串的形式去某个模块中寻找函数</span>
+tager_func =<span style="color: #000000;"> getattr(dd, inp_func)
+</span><span style="color: #008000;">#</span><span style="color: #008000;">在获取到的函数名后加()表示执行函数</span>
+result =<span style="color: #000000;"> tager_func()
+</span><span style="color: #0000ff;">print</span>(result)</pre>
+</div>
+<p><span style="font-size: 18px;">代码执行结果：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">请输入需要导入的模块名：test
+请输入需要执行的函数：f2
+我是F2，我被调用了</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">实例：基于反射模拟Web框架路由系统（一）</span></p>
+<p><span style="font-size: 18px;">commons.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> login():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">login</span><span style="color: #800000;">'</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> logout():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">logout</span><span style="color: #800000;">'</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> nb():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">很牛逼的网页</span><span style="color: #800000;">'</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">refec_demo.py </span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+<span style="color: #800000;">"""</span><span style="color: #800000;">
+基于反射模拟web框架路由系统
+</span><span style="color: #800000;">"""</span>
+<span style="color: #0000ff;">from</span> lib <span style="color: #0000ff;">import</span><span style="color: #000000;"> commons
+url </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入模拟的url路径：</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+　　</span><span style="color: #0000ff;">if</span> url.endswith(<span style="color: #800000;">'</span><span style="color: #800000;">login</span><span style="color: #800000;">'</span><span style="color: #000000;">):
+　　　　ret </span>=<span style="color: #000000;"> commons.login()
+　　　　</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(ret)
+　　</span><span style="color: #0000ff;">elif</span> url.endswith(<span style="color: #800000;">'</span><span style="color: #800000;">logout</span><span style="color: #800000;">'</span><span style="color: #000000;">):
+　　　　ret </span>=<span style="color: #000000;"> commons.logout()
+　　　　</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(ret)
+　　</span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+　　　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">404</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<p><br /><span style="font-size: 18px;">实例：基于反射模拟Web框架路由系统（二）	</span></p>
+<p><span style="font-size: 18px;">refec_demo1.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+<span style="color: #0000ff;">from</span> lib <span style="color: #0000ff;">import</span><span style="color: #000000;"> commons
+
+inp </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入模拟的url路径：</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+url_inp </span>= inp.split(<span style="color: #800000;">'</span><span style="color: #800000;">/</span><span style="color: #800000;">'</span>)[-1<span style="color: #000000;">]
+　　</span><span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(commons, url_inp):
+　　　　ret </span>=<span style="color: #000000;"> getattr(commons, url_inp)
+　　　　result </span>=<span style="color: #000000;"> ret()
+　　　　</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(result)
+　　</span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+　　　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">404</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p><span style="font-size: 18px;">代码实现结果：</span></p>
+<p><span style="font-size: 18px;">路径正确时结果：</span></p>
+<p><img src="./images/python--反射机制0.png" alt="" /></p>
+<p><span style="font-size: 18px;">路径不正确时结果：</span></p>
+<p><img src="./images/python--反射机制1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">实例：基于反射模拟Web框架路由系统（三）</span></p>
+<p><span style="font-size: 18px;">manager.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> home():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">Home</span><span style="color: #800000;">'</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">order.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> add_order():
+　　</span><span style="color: #0000ff;">return</span> <span style="color: #800000;">'</span><span style="color: #800000;">添加订单</span><span style="color: #800000;">'</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">refec_demo2.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;">用户输入规则：模块名/函数名</span>
+<span style="color: #000000;">
+url </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入模块名/函数名：</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+target_modul, target_func </span>= url.split(<span style="color: #800000;">'</span><span style="color: #800000;">/</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008000;">#</span><span style="color: #008000;">__import__导入模块</span>
+mod = <span style="color: #800080;">__import__</span>(<span style="color: #800000;">'</span><span style="color: #800000;">lib.</span><span style="color: #800000;">'</span> + target_modul, fromlist=<span style="color: #000000;">True)
+</span><span style="color: #008000;">#</span><span style="color: #008000;">hasattr()判断函数是否存在</span>
+　　<span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(mod, target_func):
+　　　　ret </span>=<span style="color: #000000;"> getattr(mod, target_func)
+　　　　result </span>=<span style="color: #000000;"> ret()
+　　　　</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(result)
+　　</span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+　　　　</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">404</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p><span style="font-size: 18px;">当模块和函数都存在时，url路径调用结果：</span></p>
+<p><img src="./images/python--反射机制2.png" alt="" /></p>
+<p><span style="font-size: 18px;">当模块和函数都不存在时，url路径调用结果：</span></p>
+<p><img src="./images/python--反射机制3.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

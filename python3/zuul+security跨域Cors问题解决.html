@@ -1,0 +1,177 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修zuul+security跨域Cors问题解决' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>zuul+security跨域Cors问题解决</center></div><div class='banquan'>原文出处:本文由博客园博主Purgeyao提供。<br/>
+原文连接:https://www.cnblogs.com/Purgeyao/p/12038077.html</div><br>
+    <h1 id="zuulsecurity跨域cors问题解决">zuul+security跨域Cors问题解决</h1>
+<h2 id="简介">简介</h2>
+<p><strong>场景</strong></p>
+<p>在服务后台都会出现跨域cors问题，不过一般spring解决起来比较方便，在框架+框架的基础上，问题就显得特别明显了，各种冲突，不了解源码的运行原理，解决起来也是有心无力。</p>
+<p>这里介绍的是zuul配置了跨域，在前端调用仍然会出现跨域的问题。</p>
+<p>一般没有权限的接口加上cors配置就会通过跨域的问题。不过在服务间调用具有权限的功能，莫名的报跨域问题。</p>
+<p><strong>post特殊请求</strong></p>
+<p>在解决问题时发现 <code>post</code> 请求也有点特殊，这里也需要处理一下。</p>
+<p>post请求分为简单请求和复杂请求。</p>
+<p>在 <code>CORS</code> 中，可以使用 <code>OPTIONS</code> 方法发起一个预检请求，以检测实际请求是否可以被服务器所接受。预检请求报文中的 <code>Access-Control-Request-Method</code> 首部字段告知服务器实际请求所使用的 <code>HTTP</code> 方法；<code>Access-Control-Request-Headers</code> 首部字段告知服务器实际请求所携带的自定义首部字段。服务器基于从预检请求获得的信息来判断，是否接受接下来的实际请求。</p>
+<p>以及 <code>OPTIONS</code> 未携带任何权限相关的内容，会被认证拦截，我们也得放开 <code>OPTIONS</code> 类型请求</p>
+<h2 id="功能使用">功能使用</h2>
+<h3 id="cross-解决">Cross 解决</h3>
+<p><img src="./images/zuul+security跨域Cors问题解决0.png" alt="cross" /></p>
+<p>之前设置很简单，习惯操作把之前的代码复制了过来，第一次操作是创建了一个 <code>CorsFilter</code> bean，但是简单的请求确实通过了，不过权限接口过不了，于是按照一些资料配置了下面的代码 注入了 <code>FilterRegistrationBean</code> bean 还设置了 order 加载顺序。</p>
+<p>解决后无果 仍然和之前的效果一致。</p>
+<pre><code><code>/**
+ * 跨域配置 C - Cross  O - Origin  R - Resource  S - Sharing
+ *
+ * @author purgeyao
+ * @since 1.0
+ */
+@Configuration
+//@Order(Ordered.HIGHEST_PRECEDENCE)
+public class CorsConfig {
+
+  @Bean
+  public FilterRegistrationBean filterRegistrationBean() {
+    final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    final CorsConfiguration config = new CorsConfiguration();
+
+    config.setAllowCredentials(true);
+    config.setAllowedOrigins(Arrays.asList(&quot;*&quot;));
+    config.setAllowedHeaders(Arrays.asList(&quot;*&quot;));
+    config.setAllowedMethods(Arrays.asList(&quot;*&quot;));
+    config.setMaxAge(300L);
+
+    source.registerCorsConfiguration(&quot;/**&quot;, config);
+    CorsFilter corsFilter = new CorsFilter(source);
+    FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(corsFilter);
+    filterRegistrationBean.setOrder(0);
+    return filterRegistrationBean;
+  }
+}</code></pre>
+<p>在一些资料+源码的帮助下，尝试了下面代码：</p>
+<p>这次实现了 <code>CorsFilter</code> 类 加载了 <code>@Order</code> 顺序为 <code>(Ordered.HIGHEST_PRECEDENCE)</code> 最优先。</p>
+<pre><code><code>/**
+ * 解决 zuul+oauth2 跨域配置 C - Cross  O - Origin  R - Resource  S - Sharing
+ *
+ * @author purgeyao
+ * @since 1.0
+ */
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class AjaxCorsFilter extends CorsFilter {
+
+  public AjaxCorsFilter() {
+    super(configurationSource());
+  }
+
+  private static UrlBasedCorsConfigurationSource configurationSource() {
+    CorsConfiguration corsConfig = new CorsConfiguration();
+//        List&lt;String&gt; allowedHeaders = Arrays.asList(&quot;x-auth-token&quot;, &quot;content-type&quot;, &quot;X-Requested-With&quot;, &quot;XMLHttpRequest&quot;);
+    List&lt;String&gt; exposedHeaders = Arrays
+        .asList(&quot;x-auth-token&quot;, &quot;content-type&quot;, &quot;X-Requested-With&quot;, &quot;XMLHttpRequest&quot;);
+//        List&lt;String&gt; allowedMethods = Arrays.asList(&quot;POST&quot;, &quot;GET&quot;, &quot;DELETE&quot;, &quot;PUT&quot;, &quot;OPTIONS&quot;);
+
+    List&lt;String&gt; allowedHeaders = Arrays.asList(&quot;*&quot;);
+    List&lt;String&gt; allowedMethods = Arrays.asList(&quot;*&quot;);
+    List&lt;String&gt; allowedOrigins = Arrays.asList(&quot;*&quot;);
+    corsConfig.setAllowedHeaders(allowedHeaders);
+    corsConfig.setAllowedMethods(allowedMethods);
+    corsConfig.setAllowedOrigins(allowedOrigins);
+    corsConfig.setExposedHeaders(exposedHeaders);
+    corsConfig.setMaxAge(36000L);
+    corsConfig.setAllowCredentials(true);
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration(&quot;/**&quot;, corsConfig);
+    return source;
+  }
+}</code></pre>
+<p>哈哈哈，解决了，但是有没有感觉到莫名其妙啊，经过了解</p>
+<p>发现其实只是一个加载顺序的问题，我们上面注入的 <code>FilterRegistrationBean</code> 也可以使用的，只是在设置order的时候有点问题 需要设置比 <code>security</code> 优先级高，改为 <code>Ordered.HIGHEST_PRECEDENCE</code> 发现成功可以通过跨域了。</p>
+<pre><code><code>/**
+ * 跨域配置 C - Cross  O - Origin  R - Resource  S - Sharing
+ *
+ * @author purgeyao
+ * @since 1.0
+ */
+@Configuration
+//@Order(Ordered.HIGHEST_PRECEDENCE)
+public class CorsConfig {
+
+  @Bean
+  public FilterRegistrationBean filterRegistrationBean() {
+    final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    final CorsConfiguration config = new CorsConfiguration();
+
+    config.setAllowCredentials(true);
+    config.setAllowedOrigins(Arrays.asList(&quot;*&quot;));
+    config.setAllowedHeaders(Arrays.asList(&quot;*&quot;));
+    config.setAllowedMethods(Arrays.asList(&quot;*&quot;));
+    config.setMaxAge(300L);
+
+    source.registerCorsConfiguration(&quot;/**&quot;, config);
+    CorsFilter corsFilter = new CorsFilter(source);
+    FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(corsFilter);
+    // 设置为 Ordered.HIGHEST_PRECEDENCE
+    filterRegistrationBean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+    return filterRegistrationBean;
+  }
+}</code></pre>
+<p>解决解决。。。</p>
+<h3 id="options请求解决">OPTIONS请求解决</h3>
+<p>有关 <a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/OPTIONS">OPTIONS(NDN<br />
+web docs)</a> 介绍。</p>
+<p>在发送 post 请求 会发现在真正发送之前会有一个 <code>OPTIONS</code> 请求。</p>
+<p>因 <code>OPTIONS</code> 为携带任何有状态的认证信息，被权限拦截下来异常，就没有之后的真正请求了。</p>
+<p>我们只需要吧 <code>OPTIONS</code> 请求放开 返回200状态即可。</p>
+<p>有很多办法做到，可以在zuul网关放过，也可以通过 <code>security</code> 添加 忽略拦截列表。</p>
+<pre><code><code>public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
+
+    ...
+    
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        ...
+        // 添加忽略拦截OPTIONS 类型的请求
+        http.authorizeRequests().antMatchers(HttpMethod.OPTIONS).permitAll();
+        ...
+    }
+}</code></pre>
+<p><img src="./images/zuul+security跨域Cors问题解决1.png" alt="options" /></p>
+<p>万事大吉。</p>
+<h2 id="总结">总结</h2>
+<p>简单的bug解决起来简单点，不过遇到交集的bug，有心无力的感觉，莫名其妙的问题，需要耐心观察源码运行原理。</p>
+<blockquote>
+<p>示例代码地址:<a href="https://github.com/purgeteam/middleware-spring-boot-example/tree/master/spring-cloud-example/zuul/src/main/java/com/purgeteam/spring/cloud/zuul">zuul-security</a></p>
+</blockquote>
+<blockquote>
+<p>作者GitHub:<br />
+<a href="https://github.com/purgeyao">Purgeyao</a> 欢迎关注</p>
+</blockquote>
+<blockquote>
+<p>qq交流群: <code>812321371</code> 微信交流群: <code>MercyYao</code></p>
+</blockquote>
+<blockquote>
+<p>微信公众号:</p>
+</blockquote>
+<p><img src="./images/zuul+security跨域Cors问题解决2.png" alt="微信公众号二维码" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

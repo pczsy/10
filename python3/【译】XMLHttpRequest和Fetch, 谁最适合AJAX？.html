@@ -1,0 +1,165 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【译】XMLHttpRequest和Fetch, 谁最适合AJAX？' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【译】XMLHttpRequest和Fetch, 谁最适合AJAX？</center></div><div class='banquan'>原文出处:本文由博客园博主hanks_yao提供。<br/>
+原文连接:https://www.cnblogs.com/hanksyao/p/12089105.html</div><br>
+    <blockquote>
+<p>原文地址：<a href="https://www.sitepoint.com/xmlhttprequest-vs-the-fetch-api-whats-best-for-ajax-in-2019/" class="uri">https://www.sitepoint.com/xmlhttprequest-vs-the-fetch-api-whats-best-for-ajax-in-2019/</a></p>
+</blockquote>
+<h2 id="目录">目录</h2>
+<ul>
+<li><a href="#h2-1">从AJAX到Ajax</a></li>
+<li><a href="#h2-2">XMLHttpRequest</a></li>
+<li><a href="#h2-3">Fetch</a>
+<ul>
+<li><a href="#h3-1">浏览器支持</a></li>
+<li><a href="#h3-2">默认无Cookie</a></li>
+<li><a href="#h3-3">错误不会被拒绝</a></li>
+<li><a href="#h3-4">不支持超时</a></li>
+<li><a href="#h3-5">中止Fetch</a></li>
+<li><a href="#h3-6">没有Progress</a></li>
+</ul></li>
+<li><a href="#h2-4">XMLHttpRequest vs Fetch?</a></li>
+</ul>
+<p>2019年是ajax诞生的20周年。可以说，<code>XMLHttpRequest</code>的第一次实现是在1999年作为IE5.0 ActiveX组件发布。</p>
+<p>在此之前，曾经有一些方法可以在不刷新页面的情况下从服务器获取数据，但是他们通常依赖笨拙的技术，例如<code>&lt;script&gt;</code>注入或第三方插件。微软开发了<code>XMLHttpRequest</code>初始版本, 用于替代Outlook基于浏览器的电子邮件客户端。</p>
+<p><code>XMLHttpRequest</code>直到2006年才成为Web标准，但在此之前已在大多数浏览器中被实现。由于它在Gmail和Google Maps中的采用，Jesse James Garrett在2005年发表了一篇文章：AJAX: A New Approach to Web Applications.这个新术语吸引了开发人员的关注。</p>
+<h2 id="从ajax到ajax"><span id="h2-1">从AJAX到Ajax</span></h2>
+<p>AJAX是Asynchronous JavaScript and XML的简称。&quot;Asynchronous&quot;一词很明显，但是：</p>
+<ol>
+<li>虽然VBScript和Flash也可以实现，但是JavaScript更合适</li>
+<li>有效负载不必是XML，尽管在当时很流行。在今天，可以使用任何的数据格式，通常JSON是首选。</li>
+</ol>
+<p>现在，我们将“Ajax”用作客户端从服务器获取数据并动态更新DOM,而无需刷新整个页面的通用术语。Ajax是大多数Web应用程序和单页应用程序（SPA）的核心技术。</p>
+<h2 id="xmlhttprequest"><span id="h2-2">XMLHttpRequest</span></h2>
+<p>以下JavaScript代码展示了如何使用<code>XMLHttpRequest</code>(通常简称为XHR)向<code>http://domain/service</code>发出的HTTP GET请求。</p>
+<pre><code><code>let xhr = new XMLHttpRequest();
+xhr.open(&#39;GET&#39;, &#39;http://domain/service&#39;);
+
+// request state change event
+xhr.onreadystatechange = function() {
+  // request completed?
+  if (xhr.readyState !== 4) return;
+
+  if (xhr.status === 200) {
+    // request successful - show response
+    console.log(xhr.responseText);
+  } else {
+    // request error
+    console.log(&#39;HTTP error&#39;, xhr.status, xhr.statusText);
+  }
+};
+
+// start request
+xhr.send();</code></pre>
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest"><code>XMLHttpRequest</code></a>对象有许多属性、方法和事件。例如，可以设置和监测以毫秒为单位的超时：</p>
+<pre><code><code>// set timeout
+xhr.timeout = 3000; // 3 seconds
+xhr.ontimeout = () =&gt; console.log(&#39;timeout&#39;, xhr.responseURL);</code></pre>
+<p>并且progress事件可以报告长时间运行的文件上传：</p>
+<pre><code><code>// upload progress
+xhr.upload.onprogress = p =&gt; {
+  console.log( Math.round((p.loaded / p.total) * 100) + &#39;%&#39;) ;
+}</code></pre>
+<p>属性的数量可能令人困惑，而且<code>XMLHttpRequest</code>的早期实现在跨浏览器之间也不一致。因此，很多库和框架都提供了Ajax的封装函数，例如<code>jQuery.ajax()</code>方法：</p>
+<pre><code><code>// jQuery Ajax
+$.ajax(&#39;http://domain/service&#39;)
+  .done(data =&gt; console.log(data))
+  .fail((xhr, status) =&gt; console.log(&#39;error:&#39;, status));</code></pre>
+<h2 id="fetch"><span id="h2-3">Fetch</span></h2>
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API">Fetch API</a>是<code>XMLHttpRequest</code>的现代替代方案。通用的<a href="https://developer.mozilla.org/en-US/docs/Web/API/Headers">Header</a>，<a href="https://developer.mozilla.org/en-US/docs/Web/API/Request">Request</a>和<a href="https://developer.mozilla.org/en-US/docs/Web/API/Response">Response</a>接口提供了一致性，同时Promises允许更简单的的链式调用和不需要回调的async/await。</p>
+<pre><code><code>fetch(
+    &#39;http://domain/service&#39;,
+    { method: &#39;GET&#39; }
+  )
+  .then( response =&gt; response.json() )
+  .then( json =&gt; console.log(json) )
+  .catch( error =&gt; console.error(&#39;error:&#39;, error) );</code></pre>
+<p>Fetch简洁，优雅，易于理解，并且在PWA Service Worker中大量使用。为什么不用它替代古老的XMLHttpRequest呢？</p>
+<p>不幸的是，Web开发从未如此明确。Fetch还不是用于Ajax的完美替代品...</p>
+<h3 id="浏览器支持"><span id="h3-1">浏览器支持</span></h3>
+<p>Fetch API在大部分浏览器中得到了很好的<a href="https://caniuse.com/#search=fetch">支持</a>，但是不支持所有版本的IE。使用2017年之前版本的Chrome，Firefox和Safari的人可能也会遇到问题。这些用户或许只占你用户群的一小部分……也有可能是主要客户。所以编码之前，请务必确认兼容性！</p>
+<p>此外，与成熟的XHR对象相比，Fetch API较新，并且会接收更多正在进行的更新。这些更新不太可能破坏原始代码，但预计未来几年会进行一定的维护工作。</p>
+<h3 id="默认无cookie"><span id="h3-2">默认无Cookie</span></h3>
+<p>与<code>XMLHttpRequest</code>不同，Fetch并不会默认发送cookie，因此应用的身份验证可能会失败。可以通过更改第二个参数中传递的<a href="https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch#Parameters">初始值</a>来解决此问题，例如：</p>
+<pre><code><code>fetch(
+  &#39;http://domain/service&#39;,
+  {
+    method: &#39;GET&#39;,
+    credentials: &#39;same-origin&#39;
+  }
+)</code></pre>
+<h3 id="错误不会被拒绝"><span id="h3-3">错误不会被拒绝</span></h3>
+<p>令人惊讶的是，HTTP错误（例如<code>404 Page Not Found</code> 或 <code>500 Internal Server Error</code>）不会导致Fetch返回的Promise标记为reject；<code>.catch()</code>也不会被执行。想要精确的判断 fetch是否成功，需要包含 promise resolved 的情况，此时再判断 <code>response.ok</code>是不是为 true。如下：</p>
+<pre><code><code>fetch(
+    &#39;http://domain/service&#39;, 
+    { method: &#39;GET&#39; }
+  )
+  .then( response =&gt; {
+    if(response.ok) {
+      return response.json();
+    }
+    throw new Error(&#39;Network response was not ok.&#39;);
+  })
+  .then( json =&gt; console.log(json) )
+  .catch( error =&gt; console.error(&#39;error:&#39;, error) );</code></pre>
+<p>仅当请求无法完成时才触发<code>reject</code>，例如网络故障或请求被阻止。这会使错误捕获更加复杂。</p>
+<h3 id="不支持超时"><span id="h3-14">不支持超时</span></h3>
+<p>Fetch不支持超时，只要浏览器允许，请求将继续。解决方法是可以将Fetch包装在一个Promise中，例如：</p>
+<pre><code><code>// fetch with a timeout
+function fetchTimeout(url, init, timeout = 3000) {
+  return new Promise((resolve, reject) =&gt; {
+    fetch(url, init)
+      .then(resolve)
+      .catch(reject);
+    setTimeout(reject, timeout);
+  }
+}</code></pre>
+<p>或使用<code>Promise.race()</code>决定fetch或timeout何时首先完成，例如：</p>
+<pre><code><code>Promise.race([
+  fetch(&#39;http://url&#39;, { method: &#39;GET&#39; }),
+  new Promise(resolve =&gt; setTimeout(resolve, 3000))
+])
+  .then(response =&gt; console.log(response))</code></pre>
+<h3 id="中止fetch"><span id="h3-5">中止Fetch</span></h3>
+<p>通过<code>xhr.abort()</code>很容易结束一个XHR请求，另外也可以通过<code>xhr.onabort</code>函数监测事件解决。</p>
+<p>之前一直无法中止一个Fetch请求，但是现在实现了<a href="https://developer.mozilla.org/en-US/docs/Web/API/AbortController">AbortController API</a>的浏览器可以支持它。这将触发一个信号，该信号可以传递给Fetch启动对象：</p>
+<pre><code><code>const controller = new AbortController();
+
+fetch(
+  &#39;http://domain/service&#39;,
+  {
+    method: &#39;GET&#39;
+    signal: controller.signal
+  })
+  .then( response =&gt; response.json() )
+  .then( json =&gt; console.log(json) )
+  .catch( error =&gt; console.error(&#39;Error:&#39;, error) );</code></pre>
+<p>Fetch可以通过调用<code>controller.abort()</code>来中止。Promise被标记reject后，会调用<code>.catch()</code>函数。</p>
+<h3 id="没有progress"><span id="h3-6">没有Progress</span></h3>
+<p>在撰写本文时，Fetch仍不支持进度事件。因此，不可能显示文件上传或大型表单提交的进度状态。</p>
+<h2 id="xmlhttprequest-vs-fetch"><span id="h2-4">XMLHttpRequest vs Fetch?</span></h2>
+<p>最后，选择还是看你自己……除非你的应用是要求有上传进度条的IE客户端。你也可以选择将<a href="https://github.github.io/fetch/">Fetch polyfill</a>与<a href="https://www.npmjs.com/package/promise-polyfill">Promise polyfill</a>结合使用，以便在IE中执行Fetch代码。</p>
+<p>对于更简单的Ajax调用，<code>XMLHttpRequest</code>是低级别的，更复杂的，并且你需要封装函数。不幸的是，一旦你开始考虑超时，中止调用和错误捕获的复杂性，Fetch也会如此。</p>
+<p>Fetch的未来可期。但是，该API是相对较新，它不提供所有XHR的功能，并且某些参数设置比较繁琐。因此在以后的使用过程中，请注意上述问题。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

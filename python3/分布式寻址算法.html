@@ -1,0 +1,87 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修分布式寻址算法' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>分布式寻址算法</center></div><div class='banquan'>原文出处:本文由博客园博主超级小小黑提供。<br/>
+原文连接:https://www.cnblogs.com/hello-shf/p/12079986.html</div><br>
+    <p>Redis专题地址：<a href="https://www.cnblogs.com/hello-shf/category/1615909.html">https://www.cnblogs.com/hello-shf/category/1615909.html</a></p>
+<p>SpringBoot读源码系列：<a href="https://www.cnblogs.com/hello-shf/category/1456313.html">https://www.cnblogs.com/hello-shf/category/1456313.html</a></p>
+<p>Elasticsearch系列：<a href="https://www.cnblogs.com/hello-shf/category/1550315.html">https://www.cnblogs.com/hello-shf/category/1550315.html</a></p>
+<p>数据结构系列：<a href="https://www.cnblogs.com/hello-shf/category/1519192.html">https://www.cnblogs.com/hello-shf/category/1519192.html</a></p>
+<h1>一、分布式寻址算法简介</h1>
+<p>分布式寻址算法是很重要的内容，不了解这些算法，也就不能透彻的了解各种分布式中间件的原理。简单说一下这些高大上的寻址到底是个啥意思，比如在elasticsearch中，采用的是多分片，每个分片上存储的是不一样的数据，是一种并集关系。比如我们通过_id去搜索一条数据，elasticsearch怎么知道这个_id的数据是存在哪个分片上？再比如redis cluster中通过key去查询一条数据，redis集群中怎么知道这个key在哪个节点上？所以这就是寻址算法要解决的问题。<br />简单介绍三种分布式寻址算法</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">hash算法
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">一致性hash算法
+</span><span style="color: #008080;">3</span> hash slot</pre>
+</div>
+<p>hash算法比较适合固定分区或者分布式节点的集群架构，比如elasticsearch中primary shard是固定并且不能改变的。所以采用hash算法是一种不错的选择，当然ES确实也是这么做的。感兴趣的可以看我的另一篇关于ES的博客。https://www.cnblogs.com/hello-shf/p/11543480.html<br />shard = hash(routing) % number_of_primary_shards （routing默认_id）</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/分布式寻址算法0.png" alt="" width="420" height="313" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>一致性hash算法比较适合需要动态扩容的分布式架构以及一些动态负载均衡的分布式中间件和RPC中间件。<br />redis cluster应用的是hash slot实现的一致性hash寻址。</p>
+<h1>二、hash算法</h1>
+<p>比如在elasticsearch中，假如有3个primary shard。</p>
+<div class="cnblogs_code">
+<pre><code>shard = hash(_id) % 3;</pre>
+</div>
+<p>插入一条数据，通过以上公式我们很容易能确认该数据存在了哪个分片上。按照_id查询的是有同样通过以上公式很容易找到该数据位于哪个分片上。<br />以上算法看上去一切都是那么美好，然鹅。。。<br />假如primary shard需要扩容意思也就是需要增加一个primary shard怎么办？（仅仅是假如，elasticsearch primary shard是不可变的）hash公式变成下面这样</p>
+<div class="cnblogs_code">
+<pre><code>shard = hash(_id) % 4;</pre>
+</div>
+<p>是不是就会发生寻址错误？<br />这就意味着当增加分区需要将原来各个分区上的数据按照shard = hash(_id) % 4的hash取模结果将数据搬运到对应分区上去。假如当有海量数据怎么办？说实话很难办。当发现一个shard宕机，需要快速容灾处理时候，也是一样的问题。</p>
+<h1>三、一致性hash</h1>
+<p>可以说一致性hash就是解决以上动态扩容和缩容问题而诞生的。在分布式架构中如果不支持动态扩容和容灾，分布式=鸡肋，没毛病吧。<br />其实一致性hash听起来那么牛X，其实也没啥高级的，只不过是一种更加高级的hash取模运算而已。</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/分布式寻址算法1.png" alt="" width="303" height="380" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>如上所示，一般的hash环是hash取模运算的node = hash(key) % n;n取2^32，即形成了一个从0~32的hash环。寻址按照顺时针进行查找最近的一个节点。</p>
+<div class="cnblogs_code">
+<pre><code>node = hash(key) % n</pre>
+</div>
+<p>&nbsp;</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/分布式寻址算法2.png" alt="" width="338" height="374" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>有4个节点按照IP取模即node = hash(IP) % n落在了如上图所示的位置，这时一个请求，根据node = hash(key) % n求出该请求落在了如下图所示位置，按照顺时针查找，找到该请求命中节点2。这就是这么一个简单的寻址过程。</p>
+<p><strong>扩容：</strong><br />在原来4个节点的基础上，增加一个节点5，依然根据根据IP取模即node = hash(IP) % n确定节点在hash环上的位置。如下图所示。</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/分布式寻址算法3.png" alt="" width="320" height="354" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>可见原来的请求就命中了节点5，所以我们依然需要进行数据的迁移，但是只是部分的，只需要迁移1-2节点之间的数据即可。相对hash取模，一致性hash算法减少了扩容带来的数据迁移量太大的问题。容灾同理。</p>
+<p>但是一致性hash算法存在的问题也是很明显的，因为节点很难均匀的落在hash环上。但是有效的减少了动态增删节点带来的数据迁移问题。</p>
+<h1>四、hash slot</h1>
+<p>hash slot即hash槽。redis cluster采用的正式这种hash槽算法实现的寻址。以redis cluster为例。<br />在redis cluster中固定的存在<strong>16384</strong>个hash slot。</p>
+<div class="cnblogs_code">
+<pre><code>hash slot = CRC16（key）%16384；</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;#CRC16算法可以简单的理解为一种hash算法。详见度娘。<br />这样我们就能找到key对应的hash slot。其实按照我的理解，hash slot就是在寻址和节点间加了一层映射关系。当节点动态变化，只需要改变hash slot ==&gt; 节点的映射，然后只需要迁移指定slot到新添加的节点即可。既减少了hash寻址带来的数据全量迁移问题，相对一致性hash也使得负载均衡效果更加明显。</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/分布式寻址算法4.png" alt="" width="691" height="405" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><br />如上图，如果我们有三个节点。redis cluster初始化时会自动均分给每个节点16384个slot。<br />当增加一个节点4，只需要将原来node1~node3节点部分slot上的数据迁移到节点4即可。在redis cluster中数据迁移并不会阻塞主进程。对性能影响是十分有限的。</p>
+<p>&nbsp;</p>
+<p>　　如有错误的地方还请留言指正。<br />　　原创不易，转载请注明原文地址：<a href="https://www.cnblogs.com/hello-shf/p/12079986.html">https://www.cnblogs.com/hello-shf/p/12079986.html</a></p>
+<p>&nbsp;</p>
+<p>　　推荐几篇博文供大家参考：<br />　　https://www.cnblogs.com/myseries/p/10959050.html<br />　　https://www.cnblogs.com/abc-begin/p/8203613.html</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

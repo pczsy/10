@@ -1,0 +1,201 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python爬取旅游数据+matplotlib简单可视化' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python爬取旅游数据+matplotlib简单可视化</center></div><div class='banquan'>原文出处:本文由博客园博主cbowen提供。<br/>
+原文连接:https://www.cnblogs.com/cbowen/p/11722876.html</div><br>
+    <p>题目如下：<br />
+<img src="./images/python爬取旅游数据+matplotlib简单可视化0.png" /></p>
+<p>共由6个函数组成：<br />
+第一个函数爬取数据并转为DataFrame；<br />
+第二个函数爬取数据后存入Excel中，对于解题来说是多余的，仅当练手以及方便核对数据；<br />
+后面四个函数分别对应题目中的四个matplotlib图，为了看起来简洁，所有耦合较高。</p>
+<p>下面对每个函数详细介绍</p>
+<h1 id="包导入">0、包导入</h1>
+<pre><code><code>#!/usr/bin/env python3
+# -*- coding:utf-8 -*-
+
+import requests
+import json
+import openpyxl
+import pandas
+import matplotlib.pyplot as plt
+import re</code></pre>
+<h1 id="爬取数据并转为dataframe">1、爬取数据并转为DataFrame</h1>
+<p>在url1中可以查到数据，由于网站是异步加载，要抓包得到url2，得到json数据。<br />
+用.text方法读取，并使用json.loads()函数转为python对象。<br />
+对数据获取和重组要结合url2的数据结构，分层拆开打印 后就可以轻松看到数据获取和重组的部分了。<br />
+最后一步pandas.DataFrame(df_dict, index=years[1:], columns=names)获取到的DataFrame列名为地区，行索引为年份，<br />
+在使用.stack().unstack(level=0)将其行列互转。</p>
+<pre><code><code>def get_data_to_df():
+    &quot;&quot;&quot;
+    获取国家数据网上的旅游行业数据并转为dataframe返回
+    :return: dataframe
+    &quot;&quot;&quot;
+    url = &quot;http://data.stats.gov.cn/easyquery.htm?cn=C01&quot;  # 数据查询地址
+    # json数据地址
+    url2 = &quot;http://data.stats.gov.cn/easyquery.htm?m=QueryData&amp;dbcode=hgnd&amp;rowcode=zb&amp;colcode=sj&amp;wds=%5B%5D&amp;dfwds=%5B%7B%22wdcode%22%3A%22zb%22%2C%22valuecode%22%3A%22A0K05%22%7D%5D&amp;k1=1571666678154&amp;h=1&quot;
+    headers = {
+        &#39;user-agent&#39;: &#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit&#39;
+                      &#39;/537.36 (KHTML, like Gecko) Chrome/67.0.3396.62 Safari/537.36&#39;}
+
+    html = requests.get(url2, headers=headers).text
+    data = json.loads(html, encoding=&#39;utf-8&#39;)
+
+    names = [i[&quot;name&quot;] for i in data[&quot;returndata&quot;][&quot;wdnodes&quot;][0][&quot;nodes&quot;]]
+    years = [i[&quot;name&quot;] for i in data[&quot;returndata&quot;][&quot;wdnodes&quot;][1][&quot;nodes&quot;]]
+    years.insert(0, &quot;指标&quot;)
+
+    df_dict = {}
+    for num in range(len(names)):
+        sub_data = [i[&quot;data&quot;][&quot;strdata&quot;] for i in data[&quot;returndata&quot;][&quot;datanodes&quot;][num * 10:num * 10 + 10]]
+        sub_data.insert(0, names[num])
+        df_dict[sub_data[0]] = sub_data[1:]
+        # print(sub_data)
+
+    df = pandas.DataFrame(df_dict, index=years[1:], columns=names).stack().unstack(level=0)
+    return df</code></pre>
+<h1 id="爬取数据并存入excel">2、爬取数据并存入Excel</h1>
+<p>url解析部分同上。<br />
+为了简便，对excel写入数据使用append方法，所以年份作为数据的第一行，要在最前面加上一个列名，存入A1单元格。</p>
+<pre><code><code>def get_data_to_excel():
+    &quot;&quot;&quot;
+    获取国家数据网上的旅游行业数据并存到data.xlsx中
+    :return: .xlsx文件
+    &quot;&quot;&quot;
+    # json数据地址
+    url2 = &quot;http://data.stats.gov.cn/easyquery.htm?m=QueryData&amp;dbcode=hgnd&amp;rowcode=zb&amp;colcode=sj&amp;wds=%5B%5D&amp;dfwds=%5B%7B%22wdcode%22%3A%22zb%22%2C%22valuecode%22%3A%22A0K05%22%7D%5D&amp;k1=1571666678154&amp;h=1&quot;
+    headers = {
+        &#39;user-agent&#39;: &#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit&#39;
+                      &#39;/537.36 (KHTML, like Gecko) Chrome/67.0.3396.62 Safari/537.36&#39;}
+
+    html = requests.get(url2, headers=headers).text
+    data = json.loads(html, encoding=&#39;utf-8&#39;)
+
+    names = [i[&quot;name&quot;] for i in data[&quot;returndata&quot;][&quot;wdnodes&quot;][0][&quot;nodes&quot;]]
+    years = [i[&quot;name&quot;] for i in data[&quot;returndata&quot;][&quot;wdnodes&quot;][1][&quot;nodes&quot;]]
+    years.insert(0, &quot;指标&quot;)
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.append(years)
+
+    for num in range(len(names)):
+        sub_data = [i[&quot;data&quot;][&quot;strdata&quot;] for i in data[&quot;returndata&quot;][&quot;datanodes&quot;][num * 10:num * 10 + 10]]
+        sub_data.insert(0, names[num])
+        worksheet.append(sub_data)
+        # print(sub_data)
+    workbook.save(&quot;data.xlsx&quot;)</code></pre>
+<p>因为下面4个图都是matplotlib的，所以直接在这里进行中文和负号乱码问题的处理</p>
+<pre><code><code>plt.rcParams[&#39;font.sans-serif&#39;] = [&#39;Arial Unicode MS&#39;]       # 配置语言
+plt.rcParams[&#39;axes.unicode_minus&#39;] = False    # 解决负号乱码</code></pre>
+<h1 id="matplotlib饼图">3、matplotlib饼图</h1>
+<p>调用get_data_to_df()得到DataFrame，然后取出2018年的一列数据，再转为dict方便数据获取。<br />
+因为DataFrame中的行索引是url上的原始数据 如“朝鲜入境游客”，而要输出的图例只是国家名，所有对countries 加上 “入境游客”来匹配DataFrame中的对应人次。</p>
+<pre><code><code>def asian_countries_pie():
+    countries = [&quot;朝鲜&quot;, &quot;印度&quot;, &quot;印度尼西亚&quot;, &quot;日本&quot;, &quot;马来西亚&quot;, &quot;蒙古&quot;, &quot;菲律宾&quot;, &quot;新加坡&quot;, &quot;韩国&quot;, &quot;泰国&quot;]
+    df = dict(get_data_to_df()[&quot;2018年&quot;])   
+    data = [df[i + &quot;入境游客&quot;] for i in countries]
+    plt.pie(data, labels=countries)
+    plt.title(&#39;2018年亚洲各国入境人次占比&#39;, fontsize=18)
+    plt.show()
+
+# asian_countries_pie()  # 图1</code></pre>
+<p><img src="./images/python爬取旅游数据+matplotlib简单可视化1.png" /></p>
+<h1 id="折线图">4、折线图</h1>
+<p>获取DataFrame的列名后，转为list，并反序排列，得到2009-2018正序的年份列表。<br />
+从DataFrame中获取对应的国家的10年数据，后均反序排列处理，数据要转为float才能传入matplotlib的plot中。</p>
+<pre><code><code>def asian_countries_line():
+    countries = [&quot;朝鲜&quot;, &quot;印度&quot;, &quot;印度尼西亚&quot;, &quot;日本&quot;, &quot;马来西亚&quot;, &quot;蒙古&quot;, &quot;菲律宾&quot;, &quot;新加坡&quot;, &quot;韩国&quot;, &quot;泰国&quot;]
+    df = get_data_to_df()
+    years = df.columns.values.tolist()[::-1]  
+    data1 = [float(i) for i in dict(df.loc[countries[0] + &quot;入境游客&quot;]).values()][::-1]
+    data2 = [float(i) for i in dict(df.loc[countries[1] + &quot;入境游客&quot;]).values()][::-1]
+    data3 = [float(i) for i in dict(df.loc[countries[2] + &quot;入境游客&quot;]).values()][::-1]
+    data4 = [float(i) for i in dict(df.loc[countries[3] + &quot;入境游客&quot;]).values()][::-1]
+    data5 = [float(i) for i in dict(df.loc[countries[4] + &quot;入境游客&quot;]).values()][::-1]
+    data6 = [float(i) for i in dict(df.loc[countries[5] + &quot;入境游客&quot;]).values()][::-1]
+    data7 = [float(i) for i in dict(df.loc[countries[6] + &quot;入境游客&quot;]).values()][::-1]
+    data8 = [float(i) for i in dict(df.loc[countries[7] + &quot;入境游客&quot;]).values()][::-1]
+    data9 = [float(i) for i in dict(df.loc[countries[8] + &quot;入境游客&quot;]).values()][::-1]
+    data10 = [float(i) for i in dict(df.loc[countries[9] + &quot;入境游客&quot;]).values()][::-1]
+
+    plt.plot(years, data1, label=countries[0])
+    plt.plot(years, data2, label=countries[1])
+    plt.plot(years, data3, label=countries[2])
+    plt.plot(years, data4, label=countries[3])
+    plt.plot(years, data5, label=countries[4])
+    plt.plot(years, data6, label=countries[5])
+    plt.plot(years, data7, label=countries[6])
+    plt.plot(years, data8, label=countries[7])
+    plt.plot(years, data9, label=countries[8])
+    plt.plot(years, data10, label=countries[9])
+    plt.title(&quot;近十年亚洲各国入境人次走势图&quot;)
+    plt.ylabel(&#39;入境游客(万人次)&#39;, fontsize=14)  # y轴名称，字号
+    plt.legend(loc=&#39;upper right&#39;)    # 这里为显示图例，并配置图例位置为右上角
+    plt.show()
+
+# asian_countries_line()  # 图2</code></pre>
+<p><img src="./images/python爬取旅游数据+matplotlib简单可视化2.png" /></p>
+<h1 id="又是饼图">5、又是饼图</h1>
+<p>获取行索引，regions<br />
+在行索引中找到名字里带“洲”的，取得去掉后面“入境游客”四个字符的名称即洲名。<br />
+在DataFrame 2018年 一整列数据中 取得洲游客数据。</p>
+<pre><code><code>def continents_pie():
+    df = get_data_to_df()
+    regions = df.index.tolist()
+    continents = [i[:-4] for i in regions if re.search(&quot;洲&quot;, i)]
+    data = [v for k, v in df[&quot;2018年&quot;].to_dict().items() if (k[:-4] in continents)]
+    plt.pie(data, labels=continents)
+    plt.title(&quot;各州入境人次占比&quot;)
+    plt.show()
+# continents_pie()  # 图3</code></pre>
+<p><img src="./images/python爬取旅游数据+matplotlib简单可视化3.png" /></p>
+<h1 id="又是折线图">6、又是折线图</h1>
+<p>获取洲名称列表同上。<br />
+本次要取各大洲的一整行数据，用到DataFrame.loc[行索引] 方法。</p>
+<pre><code><code>def continents_line():
+    df = get_data_to_df()
+    years = df.columns.tolist()[::-1]
+    regions = df.index.tolist()
+    continents = [i[:-4] for i in regions if re.search(&quot;洲&quot;, i)]
+
+    Asia = [float(i) for i in df.loc[continents[0] + &quot;入境游客&quot;].to_dict().values()][::-1]
+    Africa = [float(i) for i in df.loc[continents[1] + &quot;入境游客&quot;].to_dict().values()][::-1]
+    Europe = [float(i) for i in df.loc[continents[2] + &quot;入境游客&quot;].to_dict().values()][::-1]
+    Latin = [float(i) for i in df.loc[continents[3] + &quot;入境游客&quot;].to_dict().values()][::-1]
+    America = [float(i) for i in df.loc[continents[4] + &quot;入境游客&quot;].to_dict().values()][::-1]
+    Oceania = [float(i) for i in df.loc[continents[5] + &quot;入境游客&quot;].to_dict().values()][::-1]
+
+    plt.plot(years, Asia, label=continents[0])
+    plt.plot(years, Africa, label=continents[1])
+    plt.plot(years, Europe, label=continents[2])
+    plt.plot(years, Latin, label=continents[3])
+    plt.plot(years, America, label=continents[4])
+    plt.plot(years, Oceania, label=continents[4])
+    plt.title(&quot;近十年各洲入境人次走势图&quot;)
+    plt.legend(loc=&quot;upper right&quot;)
+    plt.show()
+
+
+continents_line()   # 图4</code></pre>
+<p><img src="./images/python爬取旅游数据+matplotlib简单可视化4.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

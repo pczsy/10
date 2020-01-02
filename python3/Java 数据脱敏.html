@@ -1,0 +1,844 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Java 数据脱敏' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Java 数据脱敏</center></div><div class='banquan'>原文出处:本文由博客园博主ingxx提供。<br/>
+原文连接:https://www.cnblogs.com/ingxx/p/12059235.html</div><br>
+    <h2 id="数据脱敏">数据脱敏</h2>
+<p>数据脱敏又称数据去隐私化或数据变形，是在给定的规则、策略下对敏感数据进行变换、修改的技术机制，能够在很大程度上解决敏感数据在非可信环境中使用的问题。根据数据保护规范和脱敏策略．对业务数据中的敏感信息实施自动变形．实现对敏感信息的隐藏。</p>
+<h2 id="脱敏方法">脱敏方法</h2>
+<p>项目是在controller层进行脱敏，查阅google和github有两种较为方便的方法</p>
+<ol>
+<li>一种是基于注解 <a href="https://github.com/DannyHoo/desensitized">desensitized基于注解的形式进行脱敏 GitHub</a></li>
+<li>一种是基于框架本质上还是注解，但是已经封装好了，当然还提供fastjson的方式进行脱敏 <a href="https://github.com/houbb/sensitive">sensitive框架进行脱敏 GitHub</a><br />
+由于项目原因不想引入框架，所以使用基于注解的方式</li>
+</ol>
+<h2 id="实现">实现</h2>
+<p>新建枚举类型，标明是何种脱敏方式</p>
+<pre><code><code>package com.blgroup.vision.common.enums;
+
+/**
+ * @program: blgroup-scloud-web
+ * @description: 脱敏枚举
+ * @author: ingxx
+ * @create: 2019-12-17 14:32
+ **/
+public enum SensitiveTypeEnum {
+    /**
+     * 中文名
+     */
+    CHINESE_NAME,
+    /**
+     * 身份证号
+     */
+    ID_CARD,
+    /**
+     * 座机号
+     */
+    FIXED_PHONE,
+    /**
+     * 手机号
+     */
+    MOBILE_PHONE,
+    /**
+     * 地址
+     */
+    ADDRESS,
+    /**
+     * 电子邮件
+     */
+    EMAIL,
+    /**
+     * 银行卡
+     */
+    BANK_CARD,
+    /**
+     * 虚拟账号
+     */
+    ACCOUNT,
+    /**
+     * 密码
+     */
+    PASSWORD;
+}</code></pre>
+<p>创建注解，标识需要脱敏的字段</p>
+<pre><code><code>package com.blgroup.vision.common.annotation;
+
+
+import com.blgroup.vision.common.enums.SensitiveTypeEnum;
+
+import java.lang.annotation.*;
+
+/**
+ * @program: blgroup-scloud-web
+ * @description: 脱敏注解
+ * @author: ingxx
+ * @create: 2019-12-17 14:32
+ **/
+@Target({ElementType.FIELD, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+public @interface Desensitized {
+
+    /*脱敏类型(规则)*/
+    SensitiveTypeEnum type();
+
+    /*判断注解是否生效的方法*/
+    String isEffictiveMethod() default &quot;&quot;;
+
+}
+</code></pre>
+<p>创建Object工具类，用于复制对象和对对象的其他操作,<strong>注意使用fastjson实现深拷贝对于复杂的对象会出现栈溢出，本人测试是发生在转换对象时对象会转换成JsonObject对象，在<code>getHash</code>方法中出现递归调用导致栈溢出，具体原因不明</strong></p>
+<pre><code><code>package com.blgroup.vision.common.utils;
+
+import com.alibaba.fastjson.JSON;
+import org.apache.commons.lang3.StringUtils;
+
+import java.io.*;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.util.*;
+/**
+ * @program: blgroup-scloud-web
+ * @description: 脱敏Object工具类
+ * @author: ingxx
+ * @create: 2019-12-17 14:32
+ **/
+public class DesensitizedObjectUtils {
+
+    /**
+     * 用序列化-反序列化方式实现深克隆
+     * 缺点：1、被拷贝的对象必须要实现序列化
+     *
+     * @param obj
+     * @return
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;T&gt; T deepCloneObject(T obj) {
+        T t = (T) new Object();
+        try {
+            ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+            ObjectOutputStream out = new ObjectOutputStream(byteOut);
+            out.writeObject(obj);
+            out.close();
+            ByteArrayInputStream byteIn = new ByteArrayInputStream(byteOut.toByteArray());
+            ObjectInputStream in = new ObjectInputStream(byteIn);
+            t = (T) in.readObject();
+            in.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return t;
+    }
+
+    /**
+     * 用序列化-反序列化的方式实现深克隆
+     * 缺点：1、当实体中存在接口类型的参数，并且这个接口指向的实例为枚举类型时，会报错&quot;com.alibaba.fastjson.JSONException: syntax error, expect {, actual string, pos 171, fieldName iLimitKey&quot;
+     *
+     * @param objSource
+     * @return
+     */
+    public static Object deepCloneByFastJson(Object objSource) {
+        String tempJson = JSON.toJSONString(objSource);
+        Object clone = JSON.parseObject(tempJson, objSource.getClass());
+        return clone;
+    }
+
+    /**
+     * 深度克隆对象
+     *
+     * @throws IllegalAccessException
+     * @throws InstantiationException
+     */
+    public static Object deepClone(Object objSource) throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+        if (null == objSource) return null;
+        //是否jdk类型、基础类型、枚举类型
+        if (isJDKType(objSource.getClass())
+                || objSource.getClass().isPrimitive()
+                || objSource instanceof Enum&lt;?&gt;) {
+            if (&quot;java.lang.String&quot;.equals(objSource.getClass().getName())) {//目前只支持String类型深复制
+                return new String((String) objSource);
+            } else {
+                return objSource;
+            }
+        }
+        // 获取源对象类型
+        Class&lt;?&gt; clazz = objSource.getClass();
+        Object objDes = clazz.newInstance();
+        // 获得源对象所有属性
+        Field[] fields = getAllFields(objSource);
+        // 循环遍历字段，获取字段对应的属性值
+        for (Field field : fields) {
+            field.setAccessible(true);
+            if (null == field) continue;
+            Object value = field.get(objSource);
+            if (null == value) continue;
+            Class&lt;?&gt; type = value.getClass();
+            if (isStaticFinal(field)) {
+                continue;
+            }
+            try {
+
+                //遍历集合属性
+                if (type.isArray()) {//对数组类型的字段进行递归过滤
+                    int len = Array.getLength(value);
+                    if (len &lt; 1) continue;
+                    Class&lt;?&gt; c = value.getClass().getComponentType();
+                    Array newArray = (Array) Array.newInstance(c, len);
+                    for (int i = 0; i &lt; len; i++) {
+                        Object arrayObject = Array.get(value, i);
+                        Array.set(newArray, i, deepClone(arrayObject));
+                    }
+                } else if (value instanceof Collection&lt;?&gt;) {
+                    Collection newCollection = (Collection) value.getClass().newInstance();
+                    Collection&lt;?&gt; c = (Collection&lt;?&gt;) value;
+                    Iterator&lt;?&gt; it = c.iterator();
+                    while (it.hasNext()) {
+                        Object collectionObj = it.next();
+                        newCollection.add(deepClone(collectionObj));
+                    }
+                    field.set(objDes, newCollection);
+                    continue;
+                } else if (value instanceof Map&lt;?, ?&gt;) {
+                    Map newMap = (Map) value.getClass().newInstance();
+                    Map&lt;?, ?&gt; m = (Map&lt;?, ?&gt;) value;
+                    Set&lt;?&gt; set = m.entrySet();
+                    for (Object o : set) {
+                        Map.Entry&lt;?, ?&gt; entry = (Map.Entry&lt;?, ?&gt;) o;
+                        Object mapVal = entry.getValue();
+                        newMap.put(entry.getKey(), deepClone(mapVal));
+                    }
+                    field.set(objDes, newMap);
+                    continue;
+                }
+
+                //是否jdk类型或基础类型
+                if (isJDKType(field.get(objSource).getClass())
+                        || field.getClass().isPrimitive()
+                        || isStaticType(field)
+                        || value instanceof Enum&lt;?&gt;) {
+                    if (&quot;java.lang.String&quot;.equals(value.getClass().getName())) {//目前只支持String类型深复制
+                        field.set(objDes, new String((String) value));
+                    } else {
+                        field.set(objDes, field.get(objSource));
+                    }
+                    continue;
+                }
+
+                //是否枚举
+                if (value.getClass().isEnum()) {
+                    field.set(objDes, field.get(objSource));
+                    continue;
+                }
+
+                //是否自定义类
+                if (isUserDefinedType(value.getClass())) {
+                    field.set(objDes, deepClone(value));
+                    continue;
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return objDes;
+    }
+
+
+    /**
+     * 是否静态变量
+     *
+     * @param field
+     * @return
+     */
+    private static boolean isStaticType(Field field) {
+        return field.getModifiers() == 8 ? true : false;
+    }
+
+    private static boolean isStaticFinal(Field field) {
+        return Modifier.isFinal(field.getModifiers()) &amp;&amp; Modifier.isStatic(field.getModifiers());
+    }
+
+    /**
+     * 是否jdk类型变量
+     *
+     * @param clazz
+     * @return
+     * @throws IllegalAccessException
+     */
+    private static boolean isJDKType(Class clazz) throws IllegalAccessException {
+        //Class clazz = field.get(objSource).getClass();
+        return org.apache.commons.lang3.StringUtils.startsWith(clazz.getPackage().getName(), &quot;javax.&quot;)
+                || org.apache.commons.lang3.StringUtils.startsWith(clazz.getPackage().getName(), &quot;java.&quot;)
+                || org.apache.commons.lang3.StringUtils.startsWith(clazz.getName(), &quot;javax.&quot;)
+                || org.apache.commons.lang3.StringUtils.startsWith(clazz.getName(), &quot;java.&quot;);
+    }
+
+    /**
+     * 是否用户自定义类型
+     *
+     * @param clazz
+     * @return
+     */
+    private static boolean isUserDefinedType(Class&lt;?&gt; clazz) {
+        return
+                clazz.getPackage() != null
+                        &amp;&amp; !org.apache.commons.lang3.StringUtils.startsWith(clazz.getPackage().getName(), &quot;javax.&quot;)
+                        &amp;&amp; !org.apache.commons.lang3.StringUtils.startsWith(clazz.getPackage().getName(), &quot;java.&quot;)
+                        &amp;&amp; !org.apache.commons.lang3.StringUtils.startsWith(clazz.getName(), &quot;javax.&quot;)
+                        &amp;&amp; !StringUtils.startsWith(clazz.getName(), &quot;java.&quot;);
+    }
+
+    /**
+     * 获取包括父类所有的属性
+     *
+     * @param objSource
+     * @return
+     */
+    public static Field[] getAllFields(Object objSource) {
+        /*获得当前类的所有属性(private、protected、public)*/
+        List&lt;Field&gt; fieldList = new ArrayList&lt;Field&gt;();
+        Class tempClass = objSource.getClass();
+        while (tempClass != null &amp;&amp; !tempClass.getName().toLowerCase().equals(&quot;java.lang.object&quot;)) {//当父类为null的时候说明到达了最上层的父类(Object类).
+            fieldList.addAll(Arrays.asList(tempClass.getDeclaredFields()));
+            tempClass = tempClass.getSuperclass(); //得到父类,然后赋给自己
+        }
+        Field[] fields = new Field[fieldList.size()];
+        fieldList.toArray(fields);
+        return fields;
+    }
+
+    /**
+     * 深度克隆对象
+     *
+     * @throws IllegalAccessException
+     * @throws InstantiationException
+     */
+    @Deprecated
+    public static Object copy(Object objSource) throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+
+        if (null == objSource) return null;
+        // 获取源对象类型
+        Class&lt;?&gt; clazz = objSource.getClass();
+        Object objDes = clazz.newInstance();
+        // 获得源对象所有属性
+        Field[] fields = getAllFields(objSource);
+        // 循环遍历字段，获取字段对应的属性值
+        for (Field field : fields) {
+            field.setAccessible(true);
+            // 如果该字段是 static + final 修饰
+            if (field.getModifiers() &gt;= 24) {
+                continue;
+            }
+            try {
+                // 设置字段可见，即可用get方法获取属性值。
+                field.set(objDes, field.get(objSource));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return objDes;
+    }
+}
+</code></pre>
+<p>创建脱敏工具类</p>
+<pre><code><code>package com.blgroup.vision.common.utils;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.blgroup.vision.common.annotation.Desensitized;
+import org.apache.commons.lang3.StringUtils;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.*;
+/**
+ * @program: blgroup-scloud-web
+ * @description: 脱敏工具类
+ * @author: ingxx
+ * @create: 2019-12-17 14:32
+ **/
+public class DesensitizedUtils{
+
+    /**
+     * 获取脱敏json串(递归引用会导致java.lang.StackOverflowError)
+     *
+     * @param javaBean
+     * @return
+     */
+    public static String getJson(Object javaBean) {
+        String json = null;
+        if (null != javaBean) {
+            try {
+                if (javaBean.getClass().isInterface()) return json;
+                /* 克隆出一个实体进行字段修改，避免修改原实体 */
+                //Object clone =DesensitizedObjectUtils.deepCloneObject(javaBean);
+                //Object clone =DesensitizedObjectUtils.deepCloneByFastJson(javaBean);
+                Object clone = DesensitizedObjectUtils.deepClone(javaBean);
+
+                /* 定义一个计数器，用于避免重复循环自定义对象类型的字段 */
+                Set&lt;Integer&gt; referenceCounter = new HashSet&lt;Integer&gt;();
+
+                /* 对克隆实体进行脱敏操作 */
+                DesensitizedUtils.replace(DesensitizedObjectUtils.getAllFields(clone), clone, referenceCounter);
+
+                /* 利用fastjson对脱敏后的克隆对象进行序列化 */
+                json = JSON.toJSONString(clone, SerializerFeature.WriteMapNullValue, SerializerFeature.WriteNullListAsEmpty);
+
+                /* 清空计数器 */
+                referenceCounter.clear();
+                referenceCounter = null;
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+        }
+        return json;
+    }
+
+    public static &lt;T&gt; T getObj(T javaBean) {
+        T clone = null;
+        if (null != javaBean) {
+            try {
+                if (javaBean.getClass().isInterface()) return null;
+                /* 克隆出一个实体进行字段修改，避免修改原实体 */
+                //Object clone =DesensitizedObjectUtils.deepCloneObject(javaBean);
+                //Object clone =DesensitizedObjectUtils.deepCloneByFastJson(javaBean);
+                clone = (T) DesensitizedObjectUtils.deepClone(javaBean);
+
+                /* 定义一个计数器，用于避免重复循环自定义对象类型的字段 */
+                Set&lt;Integer&gt; referenceCounter = new HashSet&lt;Integer&gt;();
+
+                /* 对克隆实体进行脱敏操作 */
+                DesensitizedUtils.replace(DesensitizedObjectUtils.getAllFields(clone), clone, referenceCounter);
+
+                /* 清空计数器 */
+                referenceCounter.clear();
+                referenceCounter = null;
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+        }
+        return clone;
+    }
+
+    /**
+     * 对需要脱敏的字段进行转化
+     *
+     * @param fields
+     * @param javaBean
+     * @param referenceCounter
+     * @throws IllegalArgumentException
+     * @throws IllegalAccessException
+     */
+    private static void replace(Field[] fields, Object javaBean, Set&lt;Integer&gt; referenceCounter) throws IllegalArgumentException, IllegalAccessException {
+        if (null != fields &amp;&amp; fields.length &gt; 0) {
+            for (Field field : fields) {
+                field.setAccessible(true);
+                if (null != field &amp;&amp; null != javaBean) {
+                    Object value = field.get(javaBean);
+                    if (null != value) {
+                        Class&lt;?&gt; type = value.getClass();
+                        //处理子属性，包括集合中的
+                        if (type.isArray()) {//对数组类型的字段进行递归过滤
+                            int len = Array.getLength(value);
+                            for (int i = 0; i &lt; len; i++) {
+                                Object arrayObject = Array.get(value, i);
+                                if (isNotGeneralType(arrayObject.getClass(), arrayObject, referenceCounter)) {
+                                    replace(DesensitizedObjectUtils.getAllFields(arrayObject), arrayObject, referenceCounter);
+                                }
+                            }
+                        } else if (value instanceof Collection&lt;?&gt;) {//对集合类型的字段进行递归过滤
+                            Collection&lt;?&gt; c = (Collection&lt;?&gt;) value;
+                            Iterator&lt;?&gt; it = c.iterator();
+                            while (it.hasNext()) {// TODO: 待优化
+                                Object collectionObj = it.next();
+                                if (isNotGeneralType(collectionObj.getClass(), collectionObj, referenceCounter)) {
+                                    replace(DesensitizedObjectUtils.getAllFields(collectionObj), collectionObj, referenceCounter);
+                                }
+                            }
+                        } else if (value instanceof Map&lt;?, ?&gt;) {//对Map类型的字段进行递归过滤
+                            Map&lt;?, ?&gt; m = (Map&lt;?, ?&gt;) value;
+                            Set&lt;?&gt; set = m.entrySet();
+                            for (Object o : set) {
+                                Map.Entry&lt;?, ?&gt; entry = (Map.Entry&lt;?, ?&gt;) o;
+                                Object mapVal = entry.getValue();
+                                if (isNotGeneralType(mapVal.getClass(), mapVal, referenceCounter)) {
+                                    replace(DesensitizedObjectUtils.getAllFields(mapVal), mapVal, referenceCounter);
+                                }
+                            }
+                        } else if (value instanceof Enum&lt;?&gt;) {
+                            continue;
+                        }
+
+                        /*除基础类型、jdk类型的字段之外，对其他类型的字段进行递归过滤*/
+                        else {
+                            if (!type.isPrimitive()
+                                    &amp;&amp; type.getPackage() != null
+                                    &amp;&amp; !StringUtils.startsWith(type.getPackage().getName(), &quot;javax.&quot;)
+                                    &amp;&amp; !StringUtils.startsWith(type.getPackage().getName(), &quot;java.&quot;)
+                                    &amp;&amp; !StringUtils.startsWith(field.getType().getName(), &quot;javax.&quot;)
+                                    &amp;&amp; !StringUtils.startsWith(field.getName(), &quot;java.&quot;)
+                                    &amp;&amp; referenceCounter.add(value.hashCode())) {
+                                replace(DesensitizedObjectUtils.getAllFields(value), value, referenceCounter);
+                            }
+                        }
+                    }
+
+                    //脱敏操作
+                    setNewValueForField(javaBean, field, value);
+
+                }
+            }
+        }
+    }
+
+    /**
+     * 排除基础类型、jdk类型、枚举类型的字段
+     *
+     * @param clazz
+     * @param value
+     * @param referenceCounter
+     * @return
+     */
+    private static boolean isNotGeneralType(Class&lt;?&gt; clazz, Object value, Set&lt;Integer&gt; referenceCounter) {
+        return !clazz.isPrimitive()
+                &amp;&amp; clazz.getPackage() != null
+                &amp;&amp; !clazz.isEnum()
+                &amp;&amp; !StringUtils.startsWith(clazz.getPackage().getName(), &quot;javax.&quot;)
+                &amp;&amp; !StringUtils.startsWith(clazz.getPackage().getName(), &quot;java.&quot;)
+                &amp;&amp; !StringUtils.startsWith(clazz.getName(), &quot;javax.&quot;)
+                &amp;&amp; !StringUtils.startsWith(clazz.getName(), &quot;java.&quot;)
+                &amp;&amp; referenceCounter.add(value.hashCode());
+    }
+
+    /**
+     * 脱敏操作（按照规则转化需要脱敏的字段并设置新值）
+     * 目前只支持String类型的字段，如需要其他类型如BigDecimal、Date等类型，可以添加
+     *
+     * @param javaBean
+     * @param field
+     * @param value
+     * @throws IllegalAccessException
+     */
+    public static void setNewValueForField(Object javaBean, Field field, Object value) throws IllegalAccessException {
+        //处理自身的属性
+        Desensitized annotation = field.getAnnotation(Desensitized.class);
+        if (field.getType().equals(String.class) &amp;&amp; null != annotation &amp;&amp; executeIsEffictiveMethod(javaBean, annotation)) {
+            String valueStr = (String) value;
+            if (StringUtils.isNotBlank(valueStr)) {
+                switch (annotation.type()) {
+                    case CHINESE_NAME: {
+                        field.set(javaBean, DesensitizedUtils.chineseName(valueStr));
+                        break;
+                    }
+                    case ID_CARD: {
+                        field.set(javaBean, DesensitizedUtils.idCardNum(valueStr));
+                        break;
+                    }
+                    case FIXED_PHONE: {
+                        field.set(javaBean, DesensitizedUtils.fixedPhone(valueStr));
+                        break;
+                    }
+                    case MOBILE_PHONE: {
+                        field.set(javaBean, DesensitizedUtils.mobilePhone(valueStr));
+                        break;
+                    }
+                    case ADDRESS: {
+                        field.set(javaBean, DesensitizedUtils.address(valueStr, 7));
+                        break;
+                    }
+                    case EMAIL: {
+                        field.set(javaBean, DesensitizedUtils.email(valueStr));
+                        break;
+                    }
+                    case BANK_CARD: {
+                        field.set(javaBean, DesensitizedUtils.bankCard(valueStr));
+                        break;
+                    }
+                    case PASSWORD: {
+                        field.set(javaBean, DesensitizedUtils.password(valueStr));
+                        break;
+                    }case ACCOUNT:{
+                        field.set(javaBean, DesensitizedUtils.account(valueStr));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 执行某个对象中指定的方法
+     *
+     * @param javaBean     对象
+     * @param desensitized
+     * @return
+     */
+    private static boolean executeIsEffictiveMethod(Object javaBean, Desensitized desensitized) {
+        boolean isAnnotationEffictive = true;//注解默认生效
+        if (desensitized != null) {
+            String isEffictiveMethod = desensitized.isEffictiveMethod();
+            if (isNotEmpty(isEffictiveMethod)) {
+                try {
+                    Method method = javaBean.getClass().getMethod(isEffictiveMethod);
+                    method.setAccessible(true);
+                    isAnnotationEffictive = (Boolean) method.invoke(javaBean);
+                } catch (NoSuchMethodException e) {
+                    e.printStackTrace();
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return isAnnotationEffictive;
+    }
+
+    private static boolean isNotEmpty(String str) {
+        return str != null &amp;&amp; !&quot;&quot;.equals(str);
+    }
+
+    private static boolean isEmpty(String str) {
+        return !isNotEmpty(str);
+    }
+
+    /**
+     * 【中文姓名】只显示第一个汉字，其他隐藏为2个星号，比如：李**
+     *
+     * @param fullName
+     * @return
+     */
+    public static String chineseName(String fullName) {
+        if (StringUtils.isBlank(fullName)) {
+            return &quot;&quot;;
+        }
+        String name = StringUtils.left(fullName, 1);
+        return StringUtils.rightPad(name, StringUtils.length(fullName), &quot;*&quot;);
+    }
+
+    /**
+     * 【身份证号】显示第一位和最后一位
+     *
+     * @param id
+     * @return
+     */
+    public static String idCardNum(String id) {
+        if (StringUtils.isBlank(id)) {
+            return &quot;&quot;;
+        }
+        return StringUtils.left(id,1).concat(StringUtils.removeStart(StringUtils.leftPad(StringUtils.right(id,1), StringUtils.length(id),&quot;*&quot;),&quot;*&quot;));
+    }
+
+    /**
+     * 【虚拟账号】显示第一位和最后一位
+     *
+     * @param id
+     * @return
+     */
+    public static String account(String id) {
+        if (StringUtils.isBlank(id)) {
+            return &quot;&quot;;
+        }
+        return StringUtils.left(id,1).concat(StringUtils.removeStart(StringUtils.leftPad(StringUtils.right(id,1), StringUtils.length(id),&quot;*&quot;),&quot;*&quot;));
+    }
+
+
+    /**
+     * 【固定电话 后四位，其他隐藏，比如1234
+     *
+     * @param num
+     * @return
+     */
+    public static String fixedPhone(String num) {
+        if (StringUtils.isBlank(num)) {
+            return &quot;&quot;;
+        }
+        return StringUtils.leftPad(StringUtils.right(num, 4), StringUtils.length(num), &quot;*&quot;);
+    }
+
+    /**
+     * 【手机号码】前三位，后四位，其他隐藏，比如135****6810
+     *
+     * @param num
+     * @return
+     */
+    public static String mobilePhone(String num) {
+        if (StringUtils.isBlank(num)) {
+            return &quot;&quot;;
+        }
+        return StringUtils.left(num, 3).concat(StringUtils.removeStart(StringUtils.leftPad(StringUtils.right(num, 4), StringUtils.length(num), &quot;*&quot;), &quot;***&quot;));
+    }
+
+    /**
+     * 【地址】只显示到地区，不显示详细地址，比如：北京市海淀区****
+     *
+     * @param address
+     * @param sensitiveSize 敏感信息长度
+     * @return
+     */
+    public static String address(String address, int sensitiveSize) {
+        if (StringUtils.isBlank(address)) {
+            return &quot;&quot;;
+        }
+        int length = StringUtils.length(address);
+        return StringUtils.rightPad(StringUtils.left(address, length - sensitiveSize), length, &quot;*&quot;);
+    }
+
+    /**
+     * 【电子邮箱 邮箱前缀仅显示第一个字母，前缀其他隐藏，用星号代替，@及后面的地址显示，比如：d**@126.com&gt;
+     *
+     * @param email
+     * @return
+     */
+    public static String email(String email) {
+        if (StringUtils.isBlank(email)) {
+            return &quot;&quot;;
+        }
+        int index = StringUtils.indexOf(email, &quot;@&quot;);
+        if (index &lt;= 1)
+            return email;
+        else
+            return StringUtils.rightPad(StringUtils.left(email, 1), index, &quot;*&quot;).concat(StringUtils.mid(email, index, StringUtils.length(email)));
+    }
+
+    /**
+     * 【银行卡号】前4位，后3位，其他用星号隐藏每位1个星号，比如：6217 **** **** **** 567&gt;
+     *
+     * @param cardNum
+     * @return
+     */
+    public static String bankCard(String cardNum) {
+        if (StringUtils.isBlank(cardNum)) {
+            return &quot;&quot;;
+        }
+            return StringUtils.left(cardNum, 4).concat(StringUtils.removeStart(StringUtils.leftPad(StringUtils.right(cardNum, 3), StringUtils.length(cardNum), &quot;*&quot;), &quot;****&quot;));
+    }
+
+    /**
+     * 【密码】密码的全部字符都用*代替，比如：******
+     *
+     * @param password
+     * @return
+     */
+    public static String password(String password) {
+        if (StringUtils.isBlank(password)) {
+            return &quot;&quot;;
+        }
+        String pwd = StringUtils.left(password, 0);
+        return StringUtils.rightPad(pwd, StringUtils.length(password), &quot;*&quot;);
+    }
+
+    /**
+     * 遍历List脱敏数据
+     * @param content
+     * @return
+     */
+    public static &lt;T&gt; List getList(List&lt;T&gt; content){
+        if (content == null || content.size() &lt;= 0) {
+            return content;
+        }
+        List list = new ArrayList&lt;T&gt;();
+        for (T t : content) {
+            list.add(getObj(t));
+        }
+        return list;
+    }
+}</code></pre>
+<h2 id="效果展示">效果展示</h2>
+<p>因生产项目中不能展示 所以采用Demo的形式</p>
+<p>创建测试实体类</p>
+<pre><code><code>package top.ingxx.pojo;
+
+import lombok.Data;
+import top.ingxx.annotation.Desensitized;
+import top.ingxx.enums.SensitiveTypeEnum;
+
+@Data
+public class UserInfo {
+    @Desensitized(type = SensitiveTypeEnum.CHINESE_NAME)
+    private String realName;
+
+    @Desensitized(type = SensitiveTypeEnum.ID_CARD)
+    private String idCardNo;
+
+    @Desensitized(type = SensitiveTypeEnum.MOBILE_PHONE)
+    private String mobileNo;
+
+    @Desensitized(type = SensitiveTypeEnum.ADDRESS)
+    private String address;
+
+    @Desensitized(type = SensitiveTypeEnum.PASSWORD)
+    private String password;
+
+    @Desensitized(type = SensitiveTypeEnum.BANK_CARD)
+    private String bankCard;
+}</code></pre>
+<p>测试实体字段</p>
+<pre><code><code>package top.ingxx.pojo;
+
+import lombok.Data;
+
+/**
+ * @program: demo
+ * @description: 测试
+ * @author: ingxx
+ * @create: 2019-12-18 09:16
+ **/
+@Data
+public class Test {
+    private UserInfo userInfo;
+}</code></pre>
+<p>测试主方法</p>
+<pre><code><code>import com.alibaba.fastjson.JSON;
+import top.ingxx.pojo.Test;
+import top.ingxx.pojo.UserInfo;
+import top.ingxx.utils.DesensitizedUtils;
+
+public class Main {
+
+    public static void main(String[] args) {
+        UserInfo userInfo = new UserInfo();
+        userInfo.setAddress(&quot;上海浦东新区未知地址12号&quot;);
+        userInfo.setIdCardNo(&quot;111521444474441411&quot;);
+        userInfo.setMobileNo(&quot;13555551141&quot;);
+        userInfo.setPassword(&quot;123456&quot;);
+        userInfo.setRealName(&quot;张三&quot;);
+        userInfo.setBankCard(&quot;111521444474441411&quot;);
+        Test test = new Test();
+        test.setUserInfo(userInfo);
+        System.out.println(JSON.toJSONString(test));
+        Test obj = DesensitizedUtils.getObj(test);
+        System.out.println(JSON.toJSONString(obj));
+    }
+}
+</code></pre>
+<p><img src="./images/Java 数据脱敏0.png" /></p>
+<p>使用时可以对单个字段脱敏 也可以直接使用 <code>getObj</code> <code>getJson</code> <code>getList</code>等方法</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,220 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python数据库-MySQL与python的交互(52)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python数据库-MySQL与python的交互(52)</center></div><div class='banquan'>原文出处:本文由博客园博主Se7eN_HOU提供。<br/>
+原文连接:https://www.cnblogs.com/Se7eN-HOU/p/11173618.html</div><br>
+    <p>&nbsp;</p>
+<h3>一、python3中安装PyMySQL模块</h3>
+<p>命令安装：</p>
+<div class="cnblogs_code">
+<pre><code>sudo apt-get install python-mysql</pre>
+</div>
+<p>或者</p>
+<div class="cnblogs_code">
+<pre><code>pip install pymysql</pre>
+</div>
+<p>2、使用在pyCharm中安装PyMySQL模块</p>
+<p><img src="./images/python数据库-MySQL与python的交互(52)0.png" alt="" width="600" /></p>
+<p>&nbsp;</p>
+<h3>二、PyMysql对象说明</h3>
+<h4 id="connection对象">1、Connection对象</h4>
+<ul>
+<li>用于建立与数据库的连接</li>
+<li>创建对象：调用connect()方法</li>
+</ul>
+<div class="cnblogs_code">
+<pre><code>conn=connect(参数列表)</pre>
+</div>
+<ul>
+<li>参数host：连接的mysql主机，如果本机是'localhost'</li>
+<li>参数port：连接的mysql主机的端口，默认是3306</li>
+<li>参数database：数据库的名称</li>
+<li>参数user：连接的用户名</li>
+<li>参数password：连接的密码</li>
+<li>参数charset：通信采用的编码方式，默认是'gb2312'，要求与数据库创建时指定的编码一致，否则中文会乱码</li>
+</ul>
+<h4 id="对象的方法">　　对象的方法</h4>
+<ul>
+<li style="list-style-type: none;">
+<ul>
+<li>close()关闭连接</li>
+<li>commit()事务，所以需要提交才会生效</li>
+<li>rollback()事务，放弃之前的操作</li>
+<li>cursor()返回Cursor对象，用于执行sql语句并获得结果</li>
+</ul>
+</li>
+</ul>
+<h4 id="cursor对象">2、Cursor对象</h4>
+<ul>
+<li>执行sql语句</li>
+<li>创建对象：调用Connection对象的cursor()方法</li>
+</ul>
+<div class="cnblogs_code">
+<pre><code>cursor1=conn.cursor()</pre>
+</div>
+<h4 id="对象的方法">&nbsp; &nbsp; 对象的方法</h4>
+<ul>
+<li>close()关闭</li>
+<li>execute(operation [, parameters ])执行语句，返回受影响的行数</li>
+<li>fetchone()执行查询语句时，获取查询结果集的第一个行数据，返回一个元组</li>
+<li>next()执行查询语句时，获取当前行的下一行</li>
+<li>fetchall()执行查询时，获取结果集的所有行，一行构成一个元组，再将这些元组装入一个元组返回</li>
+<li>scroll(value[,mode])将行指针移动到某个位置
+<ul>
+<li>mode表示移动的方式</li>
+<li>mode的默认值为relative，表示基于当前行移动到value，value为正则向下移动，value为负则向上移动</li>
+<li>mode的值为absolute，表示基于第一条数据的位置，第一条数据的位置为0</li>
+</ul>
+</li>
+</ul>
+<h4 id="对象的属性">　　对象的属性</h4>
+<ul>
+<li>rowcount只读属性，表示最近一次execute()执行后受影响的行数</li>
+<li>connection获得当前连接对象</li>
+</ul>
+<p>&nbsp;</p>
+<h3>三、对Mysql基本操作的封装</h3>
+<p>1、我们创建MySQLManager.py模块，对Mysql的基本操作封装</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> coding=utf-8;</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> 导入模块pymysql模块</span>
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> pymysql
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 封装MySQL数据库管理类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> MySQL_Manager(object):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 初始化方法</span>
+    <span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span>(self,host,port,database,user,password,charset=<span style="color: #800000;">'</span><span style="color: #800000;">utf8</span><span style="color: #800000;">'</span><span style="color: #000000;">):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 配置连接MySQL数据库的基本信息</span>
+        self.host =<span style="color: #000000;"> host
+        self.port </span>=<span style="color: #000000;"> port
+        self.database </span>=<span style="color: #000000;"> database
+        self.user </span>=<span style="color: #000000;"> user
+        self.password </span>=<span style="color: #000000;"> password
+        self.charset </span>=<span style="color: #000000;"> charset
+        
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 使用python3链接MySQL数据库</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> connect(self):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 链接</span>
+        self.connect = pymysql.connect(host = self.host, port = self.port, database = self.database, user = self.user, password = self.password,charset =<span style="color: #000000;"> self.charset)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 得到一个可以执行SQL语句的光标对象</span>
+        self.cursor =<span style="color: #000000;"> self.connect.cursor()
+    
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 操作完毕后关闭</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> close(self):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 关闭执行语句</span>
+<span style="color: #000000;">        self.cursor.close()
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 关闭连接</span>
+<span style="color: #000000;">        self.connect.close()
+        
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 创建表操作</span>
+    <span style="color: #0000ff;">def</span> create_table(self,sql,params=<span style="color: #000000;">()):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 先连接</span>
+<span style="color: #000000;">        self.connect()
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 执行创建语句</span>
+<span style="color: #000000;">        self.cursor.execute(sql,params)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 关闭连接</span>
+<span style="color: #000000;">        self.close()
+        
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 查询一条数据</span>
+    <span style="color: #0000ff;">def</span> select_one(self,sql,params=<span style="color: #000000;">()):
+        result </span>=<span style="color: #000000;"> None
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            self.connect()
+            self.cursor.execute(sql,params)
+            result </span>=<span style="color: #000000;"> self.cursor.fetchone()
+            self.close()
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+            </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> result
+    
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 查询全部数据    </span>
+    <span style="color: #0000ff;">def</span> select_all(self,sql,params=<span style="color: #000000;">()):
+        list</span>=<span style="color: #000000;">()
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            self.connect()
+            self.cursor.execute(sql,params)
+            list </span>=<span style="color: #000000;"> self.cursor.fetchall()
+            self.close()
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+            </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> list
+    
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 插入</span>
+    <span style="color: #0000ff;">def</span> insert(self, sql, params=<span style="color: #000000;">()):
+        </span><span style="color: #0000ff;">return</span> self.<span style="color: #800080;">__edit</span><span style="color: #000000;">(sql, params)
+    
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 修改</span>
+    <span style="color: #0000ff;">def</span> update(self, sql, params=<span style="color: #000000;">()):
+        </span><span style="color: #0000ff;">return</span> self.<span style="color: #800080;">__edit</span><span style="color: #000000;">(sql, params)
+    
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 删除</span>
+    <span style="color: #0000ff;">def</span> delete(self, sql, params=<span style="color: #000000;">()):
+        </span><span style="color: #0000ff;">return</span> self.<span style="color: #800080;">__edit</span><span style="color: #000000;">(sql, params)
+    
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 插入、修改、删除其实一样的，只是sql代码不同，但是为了代码的阅读性更高，还是分开写</span>
+    <span style="color: #0000ff;">def</span> <span style="color: #800080;">__edit</span><span style="color: #000000;">(self, sql, params):
+        count </span>=<span style="color: #000000;"> 0
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            self.connect()
+            count </span>=<span style="color: #000000;"> self.cursor.execute(sql, params)
+            self.connect.commit()
+            self.close()
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+            </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> count
+        </span></pre>
+</div>
+<p>2.创建testMySQL.py模块对我们创建的MySQLManager.py模块测试</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> coding = utf-8</span>
+
+<span style="color: #0000ff;">from</span> MySQLManager <span style="color: #0000ff;">import</span> *<span style="color: #000000;">
+
+mysql_manager </span>= MySQL_Manager(<span style="color: #800000;">"</span><span style="color: #800000;">192.168.100.114</span><span style="color: #800000;">"</span>,3306,<span style="color: #800000;">"</span><span style="color: #800000;">Hero</span><span style="color: #800000;">"</span>,<span style="color: #800000;">"</span><span style="color: #800000;">root</span><span style="color: #800000;">"</span>,<span style="color: #800000;">"</span><span style="color: #800000;">123456</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 创建表</span>
+create_sql = <span style="color: #800000;">"</span><span style="color: #800000;">create table hero(id int auto_increment primary key,name varchar(20) not null unique,skill varchar(20) not null) engine=innodb default charset=utf8;</span><span style="color: #800000;">"</span><span style="color: #000000;">
+mysql_manager.create_table(create_sql)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 添加数据</span>
+insert_sql = <span style="color: #800000;">"</span><span style="color: #800000;">insert into hero(id,name,skill) values(1,'李白','青莲剑歌');</span><span style="color: #800000;">"</span><span style="color: #000000;">
+mysql_manager.insert(insert_sql)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 查询语句</span>
+select_sql = <span style="color: #800000;">"</span><span style="color: #800000;">select * from hero;</span><span style="color: #800000;">"</span><span style="color: #000000;">
+list </span>=<span style="color: #000000;"> mysql_manager.select_all(select_sql)
+</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(list)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 修改</span>
+update_sql = <span style="color: #800000;">"</span><span style="color: #800000;">update hero set name='韩信' where id=1;</span><span style="color: #800000;">"</span><span style="color: #000000;">
+mysql_manager.update(update_sql)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 删除语句</span>
+delete_sql = <span style="color: #800000;">"</span><span style="color: #800000;">delete from hero where id=1;</span><span style="color: #800000;">"</span><span style="color: #000000;">
+mysql_manager.delete(delete_sql)</span></pre>
+</div>
+<p>说明：</p>
+<ul>
+<li>为什么MySQLManager里面的方法都有params参数，这里却没用？因为这只是测试，我把所有的参数都直接写在了sql语句中，但是为了程序的可扩展性，建议大家还是使用参数params</li>
+<li>testMysql.py文件每运行一次里面对数据库的操作就会执行一次，例如创建表的操作只需要执行一次，当我们创建表成功之后，就可以把创建表的方法注释掉，不用再创建了，同样的，添加，删除也是一样。</li>
+</ul>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

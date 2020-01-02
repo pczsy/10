@@ -1,0 +1,122 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Kubernetes 时代的安全软件供应链' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Kubernetes 时代的安全软件供应链</center></div><div class='banquan'>原文出处:本文由博客园博主阿里巴巴云原生提供。<br/>
+原文连接:https://www.cnblogs.com/alisystemsoftware/p/12009531.html</div><br>
+    <p><a href="https://developer.aliyun.com/article/728327">点击下载《不一样的 双11 技术：阿里巴巴经济体云原生实践》</a></p>
+<p><a href="https://developer.aliyun.com/article/728327"><img src="./images/Kubernetes 时代的安全软件供应链0.png" alt="ban.jpg" /></a></p>
+<p><strong>本文节选自《不一样的 双11 技术：阿里巴巴经济体云原生实践》一书，点击上方图片即可下载！</strong></p>
+<p>作者<br />
+汤志敏  阿里云容器服务高级技术专家<br />
+汪圣平  阿里云云平台安全高级安全专家</p>
+<blockquote>
+<p><strong>导读</strong>：从 Docker image 到 Helm, 从企业内部部署到全球应用分发，作为开发者的我们如何来保障应用的交付安全。本文会从软件供应链的攻击场景开始，介绍云原生时代的应用交付标准演进和阿里云上的最佳实践。</p>
+</blockquote>
+<p>“没有集装箱，就不会有全球化”。在软件行业里，Docker 和 Kubernetes 也扮演了类似的角色，加速了软件行业的社会化分工和交付运维的效率。2013 年, Docker 公司提出了容器应用打包规范 Docker Image，帮助开发者将应用和依赖打包到一个可移植的镜像里。2015 年，Google 将 Kubernetes 捐献给 CNCF，进一步普及了大规模容器编排调度的标准。</p>
+<p>Kubernetes 以一种声明式的容器编排与管理体系，屏蔽了底层基础架构的差异，让软件交付变得越来越标准化。随着 K8s 为代表的云原生技术的大规模运用，越来越多的容器化应用被分发到 IDC、公共云、边缘等全球各地。</p>
+<p>在 2019 年，阿里云容器镜像服务 ACR 的月镜像下载量超过了 3 亿次。同年 10 月，阿里云云市场的容器镜像类目发布，越来越多的企业将其软件以容器的方式进行上架和销售。11 月，天猫 双11 的所有核心系统 100% 上云，容器镜像服务 ACR 除了支持 双11 的内部镜像托管以外，也将内部的能力在云上透出，支持更多的 双11 生态公司。</p>
+<p>接下来我们看下如何保证容器和 Kubernetes 下的软件供应链安全，并先熟悉下软件供应链的常见攻击场景。</p>
+<h1 id="软件供应链攻击面和典型攻击场景">软件供应链攻击面和典型攻击场景</h1>
+<p>软件供应链通常包括三个阶段：</p>
+<ul>
+<li>软件研发阶段</li>
+<li>软件交付阶段</li>
+<li>软件使用阶段</li>
+</ul>
+<p>在不同阶段的攻击面如下：</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链1.png" alt="1.png" /></p>
+<p>历史上著名的 APPLE Xcode IDE 工具攻击就是发生在软件研发阶段的攻击，攻击者通过向 Xcode 中注入恶意后门，在非官方网站提供下载，所有使用此 Xcode 的开发者编译出来的 APP 将被感染后门。同样著名的还有美国的棱镜门事件，亦是在大量的软件中植入后门程序，进行数据获取等恶意操作。</p>
+<p>Kubernetes 中的软件供应链攻击面也包括在以上范围之中，以软件使用阶段为例，今年 RunC 漏洞 CVE-2019-5736，漏洞本身与 RunC 的运行设计原理相关，Container 之外的动态编译 Runc 被触发运行时会引用 Conainer 内部的动态库，造成 RunC 自身被恶意注入从而运行恶意程序，攻击者只需要在一个 Container 镜像中放入恶意的动态库和恶意程序，诱发受攻击者恶意下载运行进行模糊攻击，一旦受攻击者的 Container 环境符合攻击条件，既可完成攻击。</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链2.png" alt="2.png" /></p>
+<p>同样的攻击面还存在于 Kubernetes 自身服务组件之中，前段时间爆出的 HTTP2 CVE-2019-9512、CVE-2019-9514 漏洞就是一个非常好的软件研发阶段脆弱性的例子，漏洞存在于 GO 语言的基础 LIB 库中，任何依赖 GO 版本（&lt;1.2.9）所编译的 KubernetesHTTP2 服务组件都受此漏洞影响，因此当时此漏洞影响了 K8s 全系列版本，攻击者可以远程 DOS Kubernetes API Server。同时在 Kubernetes 组件的整个交付过程中也存在着攻击面，相关组件存在被恶意替换以及植入的可能性。</p>
+<p>不同于传统的软件供应链，镜像作为统一交付的标准如在容器场景下被大规模应用，因此关注镜像的使用周期可以帮助攻击者更好的设计攻击路径。</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链3.png" alt="3.png" /></p>
+<p>攻击者可以在镜像生命周期的任何一个阶段对镜像进行污染，包括对构建文件的篡改、对构建平台的后门植入、对传输过程中的劫持替换和修改、对镜像仓库的攻击以替换镜像文件、对镜像运行下载和升级的劫持攻击等。</p>
+<p>整个攻击过程可以借助云化场景中相关的各种依赖，如 Kubernetes 组件漏洞、仓库的漏洞，甚至基础设施底层漏洞。对于防御者来说，对于镜像的整个生命周期的安全保障，是容器场景中攻击防范的重中之重。</p>
+<h1 id="云原生时代的应用交付标准演进从-image-到-artifacts">云原生时代的应用交付标准演进（从 Image 到 Artifacts）</h1>
+<p>在云原生时代之前，应用交付的方式比较多样化，比如脚本、RPM 等等。而在云原生时代，为了屏蔽异构环境的差异，提供统一的部署抽象，大家对应用交付标准的统一也迫切起来。</p>
+<h2 id="helm">Helm</h2>
+<p>Helm 是 Kubernetes 的包管理工具，它提出了 Chart 这个概念。</p>
+<ul>
+<li>一个 Chart 描述了一个部署应用的多个 Kubernetes 资源的 YAML 文件，包括文档、配置项、版本等信息；</li>
+<li>提供 Chart 级别的版本管理、升级和回滚能力。</li>
+</ul>
+<h2 id="cnab">CNAB</h2>
+<p>CNAB 是 Docker 和微软在 2018 年底联合推出平台无关的 Cloud Native Application Bundle 规范。相比于 Helm，有额外几个定义：</p>
+<ul>
+<li>在 thick 模式时，CNAB 的 bundle 可以包含依赖的镜像二进制，从而不需要额外去镜像仓库下载，作为一个整体打包；</li>
+<li>CNAB 定义了扩展的安全标准，定义了 bundle 的签名（基于 TUF ）和来源证明（基于 In-Toto）描述；</li>
+<li>CNAB 的部署是平台无关性，可以部署在 K8s 之上，也可以通过 terraform 等方式来部署。</li>
+</ul>
+<p>CNAB 的这些特性，可以在可信软件分发商与消费者之间进行跨平台（包括云和本地 PC）的应用打包和分发。</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链4.png" alt="4.png" /></p>
+<h2 id="ociartifacts">OCI Artifacts</h2>
+<p>2019 年 9 月，开放容器标准组织（OCI）在 OCI 分发标准之上，为了支持更多的分发格式，推出了 OCI Artifacts 项目来定义<strong>云原生制品(Cloud Native Artifacts)</strong>的规范。我们可以通过扩展 media-type 来定义一种新的 Artifacts 规范，并通过标准的镜像仓库来统一管理。</p>
+<h1 id="kubernetes-时代的安全软件供应链">Kubernetes 时代的安全软件供应链</h1>
+<p>在之前章节也提到过，相对于传统软件的安全软件供应链管理，容器和 Kubernetes 的引入使得：</p>
+<ul>
+<li>发布和迭代更加频繁，容器的易变性也使得安全风险稍纵即逝；</li>
+<li>更多的不可控三方依赖，一旦一个底层基础镜像有了安全漏洞，会向病毒一样传递到上层；</li>
+<li>更大范围的全球快速分发，在分发过程中的攻击也会使得在末端执行的时造成大规模安全风险。</li>
+</ul>
+<p>在传统的软件安全和安全准则之上，我们可以结合一些最佳实践，沉淀一个新的端到端安全软件供应链：</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链5.png" alt="5.png" /></p>
+<p>我们来看一些和安全软件供应链相关的社区技术进展：</p>
+<h2 id="grafeas">Grafeas</h2>
+<p>2017 年 10 月，Google 联合 JFrog、IBM 等公司推出了 Grafeas。Grafeas（希腊语中的&quot;scribe&quot;）旨在定义统一的方式来审核和管理现代软件供应链，提供<strong>云原生制品的元数据管理能力</strong>。可以使用 Grafeas API 来存储，查询和检索有关各种软件组件的综合元数据，包括合规和风险状态。</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链6.png" alt="6.png" /></p>
+<h2 id="in-toto">In-toto</h2>
+<p>In-toto 提供了一个<strong>框架或策略引擎来保护软件供应链的完整性</strong>。</p>
+<p>通过验证链中的每个任务是否按计划执行（仅由授权人员执行）以及产品在运输过程中未被篡改来做到这一点。In-toto 要求项目所有者创建布局 (Layout)。布局列出了软件供应链的步骤 (Step) 顺序，以及授权执行这些步骤的工作人员。当工作人员执行跨步操作时，将收集有关所使用的命令和相关文件的信息，并将其存储在链接 (Link) 元数据文件中。通过在完整的供应链中定义每个 Step，并对 Step 进行验证，可以充分完整的完整整个供应链的安全。</p>
+<h2 id="kritis">Kritis</h2>
+<p>为强化 Kubernetes 的安全性，Google 引入了二进制授权 (Binary Authorization)，确保使用者只能将受信任的工作负责部署到 Kubernetes 中。二进制授权可以基于 Kubernetes 的 Admission Controller 来插入部署准入检测，让只有授权后的镜像在环境中运作。</p>
+<p>下图为一个策略示例：</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链7.png" alt="7.png" /></p>
+<p>同时对于在安全软件供应链中占比很大的第三方软件，需要有完善的基线机制和模糊安全测试机制来保障分发过程中的安全风险，避免带已知漏洞上线，阿里云正在与社区积极贡献帮助演进一些开源的工具链。</p>
+<p>关于基础镜像优化、安全扫描、数字签名等领域也有非常多的工具和开源产品，在此不一一介绍。</p>
+<h1 id="云端的安全软件供应链最佳安全实践">云端的安全软件供应链最佳安全实践</h1>
+<p>在阿里云上，我们可以便捷地基于容器服务 ACK、容器镜像服务 ACR、云安全中心打造一个完整的安全软件供应链。</p>
+<p>安全软件供应链全链路以云原生应用托管为始，以云原生应用分发为终，全链路可观测、可追踪、可自主设置。可以帮助安全需求高、业务多地域大规模部署的企业级客户，实现一次应用变更，全球化多场景自动交付，极大提升云原生应用交付的效率及安全性。</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链8.png" alt="8.png" /></p>
+<p>在云原生应用的安全托管阶段，容器镜像服务 ACR 支持容器镜像、Helm Chart 等云原生资产的直接上传托管；也支持从源代码（Github、Bitbucket、阿里云 Code、GitLab 来源）智能构建成容器镜像。在安全软件供应用链中，支持自动静态安全扫描并自定义配置安全阻断策略。一旦识别到静态应用中存在高危漏洞后，可自动阻断后续部署链路，通知客户失败的事件及相关漏洞报告。客户可基于漏洞报告中的修复建议，一键更新优化构建成新的镜像版本，再次触发自动安全扫描。</p>
+<ul>
+<li>在云原生应用的分发阶段，当安全漏洞扫描完成且应用无漏洞，应用将被自动同步分发至全球多地域。</li>
+</ul>
+<p>由于使用了基于分层的调度、公网链路优化以及免公网入口开启的优化，云原生应用的全球同步效率，相比本地下载后再上传提升了 7 倍。云原生应用同步到全球多地域后，可以自动触发多场景的应用重新部署，支持在 ACK、ASK、ACK<a href="#">@Edge</a> 集群中应用自动更新。针对集群内大规模节点分发场景，可以实现基于镜像快照的秒级分发，支持 3 秒 500 Pod 的镜像获取，实现业务在弹性场景下的极速更新。</p>
+<ul>
+<li>在云原生应用运行阶段，可实现基于云安全中心的应用运行时威胁检测与阻断，实时保障每个应用 Pod 的安全运行。</li>
+</ul>
+<p>云安全中心基于云原生的部署能力，实现威胁的数据自动化采集、识别、分析、响应、处置和统一的安全管控。利用多日志关联和上下文分析方案，实时检测命令执行、代码执行、SQL 注入、数据泄露等风险，覆盖业务漏洞入侵场景。结合 K8s 日志和云平台操作日志实时进行行为审计和风险识别，实现容器服务和编排平台存在的容器逃逸、AK 泄露、未授权访问风险。</p>
+<h2 id="总结">总结</h2>
+<p>随着云原生的不断发展，云原生应用也会在安全、交付、全球分发等领域持续演进。我们可以预见一个新的时代：越来越多的大型软件以积木的方式由全球开发者独立开发而最终合并组装。</p>
+<p><img src="./images/Kubernetes 时代的安全软件供应链9.png" alt="ban.jpg" /></p>
+<p><strong>本书亮点</strong></p>
+<ul>
+<li>双11 超大规模 K8s 集群实践中，遇到的问题及解决方法详述</li>
+<li>云原生化最佳组合：Kubernetes+容器+神龙，实现核心系统 100% 上云的技术细节</li>
+<li>双 11 Service Mesh 超大规模落地解决方案</li>
+</ul>
+<blockquote>
+<p>“<a href="http://mp.weixin.qq.com/s?__biz=MzUzNzYxNjAzMg==&amp;mid=2247488061&amp;idx=1&amp;sn=cf45017a7e561a30bd42b829cc0981ea&amp;chksm=fae519f2cd9290e4d3550d856e4d6adeb35d287acc821d812342077478989d731c59e91c4701&amp;token=338472548&amp;lang=zh_CN#rd">阿里巴巴云原生</a>微信公众号（ID：Alicloudnative）关注微服务、Serverless、容器、Service Mesh等技术领域、聚焦云原生流行技术趋势、云原生大规模的落地实践，做最懂云原生开发者的技术公众号。”</p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

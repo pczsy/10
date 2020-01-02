@@ -1,0 +1,95 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修如何测试这个方法--性能篇' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>如何测试这个方法--性能篇</center></div><div class='banquan'>原文出处:本文由博客园博主FunTester提供。<br/>
+原文连接:https://www.cnblogs.com/FunTester/p/12005614.html</div><br>
+    <blockquote>
+<p>本文题目来自于知识星球，后台回复“知识星球”可参与问答。</p>
+</blockquote>
+<p>书接上回，继续说说这个生成唯一订单号的方法，这次来讲讲性能问题。<br />
+先贴原始代码：</p>
+<pre><code><code> /**
+     * 生产唯一的交易订单号
+     *
+     * @return
+     */
+    public static String createUniqueOrderNo() {
+        SimpleDateFormat nyrsfm = new SimpleDateFormat(&quot;yyyyMMddHHmmss&quot;);
+        return nyrsfm.format(new Date()) + getRandomLengthCode(4);
+    }
+
+
+    /**
+     * 获取随机的短信验证码
+     *
+     * @return
+     */
+    public static String getRandomLengthCode(int length) {
+        return String.valueOf((int) ((Math.random() * 9 + 1) * Math.pow(10, length - 1)));
+    }</code></pre>
+<p>首先来看第一个方法，第一眼看过去，发现一个问题：该类是一个工具类，方法都是静态的。在第一个方法中，SimpleDateFormat对象每次调用的时候都会创建，而且是一样的对象，这里既浪费内存又浪费CPU，总体来讲浪费时间。<br />
+修改如下：</p>
+<pre><code><code>  static SimpleDateFormat nyrsfm = new SimpleDateFormat(&quot;yyyyMMddHHmmss&quot;);
+
+    /**
+     * 生产唯一的交易订单号
+     *
+     * @return
+     */
+    public static String createUniqueOrderNo() {
+        return nyrsfm.format(new Date()) + getRandomLengthCode(4);
+    }</code></pre>
+<p>测试代码如下：</p>
+<pre><code><code>public static void main(String[] args) {
+        List&lt;String&gt; list = new ArrayList&lt;&gt;();
+        long nanoMark = getNanoMark();
+        range(10000).forEach(x -&gt;
+        {
+            createUniqueOrderNo();
+        });
+        output(getFormatNumber(getNanoMark() - nanoMark));
+    }</code></pre>
+<p>这是测试结果：</p>
+<p><img src="./images/如何测试这个方法--性能篇0.png" /></p>
+<p><img src="./images/如何测试这个方法--性能篇1.png" /></p>
+<p>可以很明显看出来，修改过之后的方法的确快了很多。</p>
+<p>下面再研究一下获取时间的方法，暂时也没找到太好的办法，暂且忽略了。下面看看第二个方法，获取随机四位数的，首先对于int转成string还有一种方法就是直接使用<code>+</code>连接，下面是测试代码：</p>
+<pre><code><code> public static void main(String[] args) {
+        List&lt;String&gt; list = new ArrayList&lt;&gt;();
+        long nanoMark = getNanoMark();
+        range(100000).forEach(x -&gt;
+        {
+//            String ss = String.valueOf(1211);
+            String ss = 1121 + &quot;&quot;;
+        });
+        output(getFormatNumber(getNanoMark() - nanoMark));
+    }</code></pre>
+<p>这是测试结果：</p>
+<p><img src="./images/如何测试这个方法--性能篇2.png" /></p>
+<p><img src="./images/如何测试这个方法--性能篇3.png" /></p>
+<p>差别并不是很大，查阅资料显示用<code>+</code>连接的会多创建对象，占用更多内容资源。所以使用valueof()方法也许会更合适一些。经过一些尝试，发现第二个方法没啥可以优化的。性能方面的暂且如此吧。</p>
+<hr />
+<ul>
+<li><strong>郑重声明</strong>：文章禁止第三方（腾讯云除外）转载、发表，事情原委<a href="https://mp.weixin.qq.com/s/ke5avkknkDMCLMAOGT7wiQ">测试窝，首页抄我七篇原创还拉黑，你们的良心不会痛吗？</a></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

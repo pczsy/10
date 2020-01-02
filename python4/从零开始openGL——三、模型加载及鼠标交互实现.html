@@ -1,0 +1,362 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修从零开始openGL——三、模型加载及鼠标交互实现' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>从零开始openGL——三、模型加载及鼠标交互实现</center></div><div class='banquan'>原文出处:本文由博客园博主ITryagain提供。<br/>
+原文连接:https://www.cnblogs.com/csu-lmw/p/12006050.html</div><br>
+    <h1>前言</h1>
+<p>&nbsp;在<a href="https://www.cnblogs.com/csu-lmw/p/11759527.html" target="_blank">上篇文章</a>中，介绍了基本图形的绘制。这篇博客中将介绍模型的加载、绘制以及鼠标交互的实现。</p>
+<h1>模型加载</h1>
+<h2>模型存储</h2>
+<p>要实现模型的读取、绘制，我们首先需要知道模型是如何存储在文件中的。</p>
+<p>通常模型是由网格组成的，且一般为三角网格。原因为：</p>
+<ol>
+<li>其它多边形网格可以容易地剖分为三角形</li>
+<li>三点共面：保证平面性</li>
+<li>可以容易地定义内外方向，进行插值等操作</li>
+</ol>
+<p><img src="./images/从零开始openGL——三、模型加载及鼠标交互实现0.png" alt="" width="681" height="279" /></p>
+<p>可采用地数据结构包括：</p>
+<ol>
+<li>面列表
+<ul>
+<li>存储面中顶点的三元组（v1, v2, v3）</li>
+<li>优点：方便而紧凑，可表达非流行网格</li>
+<li>缺点：不能有效地支持点、面之间的邻接关系查询</li>
+</ul>
+</li>
+<li>邻接矩阵
+<ul>
+<li>优点：支持顶点之间的邻接信息(VV)的高效查询、支持非流行网格</li>
+<li>缺点：没有边的显示表达、不支持VF（vertex to face），VE(vertex to edge)，EV(edge to vertex)，FE(face to edge)，EF(edge to face)的快速查询</li>
+</ul>
+</li>
+<li>半边结构等
+<ul>
+<li>纪律所有的面、边和顶点，包括几何信息、拓扑信息、附属属性，流行于大部分集合建模应用</li>
+<li>优点：所有查询操作时间复杂度均为o(1)，所有编辑操作时间复杂度均为o(1)</li>
+<li>缺点：只能表达流行网格</li>
+<li>常用半边结构实现：CGAL（<a href="http://www.cgal.org/">http://www.cgal.org/</a>），Open Mesh（<a href="http://www.openmesh.org/">http://www.openmesh.org/</a>）</li>
+</ul>
+</li>
+</ol>
+<p>在这里，我使用的是面列表。</p>
+<p>先定义头文件</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">#ifndef OBJ_CLASS
+</span><span style="color: #0000ff;">#define</span> OBJ_CLASS<span style="color: #000000;">
+
+#include </span>&lt;vector&gt;<span style="color: #000000;">
+#include </span>&lt;cmath&gt;
+
+<span style="color: #0000ff;">struct</span><span style="color: #000000;"> Vector3;
+Vector3 </span><span style="color: #0000ff;">operator</span> + (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">const</span> Vector3&amp;<span style="color: #000000;"> two);
+Vector3 </span><span style="color: #0000ff;">operator</span> - (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">const</span> Vector3&amp;<span style="color: #000000;"> two);
+Vector3 </span><span style="color: #0000ff;">operator</span> * (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">double</span><span style="color: #000000;"> scale);
+Vector3 </span><span style="color: #0000ff;">operator</span> / (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">double</span><span style="color: #000000;"> scale);
+Vector3 Cross(Vector3</span>&amp; one, Vector3&amp;<span style="color: #000000;"> two);
+
+</span><span style="color: #0000ff;">struct</span><span style="color: #000000;"> Vector3
+{
+    </span><span style="color: #0000ff;">double</span><span style="color: #000000;"> fX;
+    </span><span style="color: #0000ff;">double</span><span style="color: #000000;"> fY;
+    </span><span style="color: #0000ff;">double</span><span style="color: #000000;"> fZ;
+    Vector3(</span><span style="color: #0000ff;">double</span> x = <span style="color: #800080;">0.0</span>, <span style="color: #0000ff;">double</span> y = <span style="color: #800080;">0.0</span>, <span style="color: #0000ff;">double</span> z = <span style="color: #800080;">0.0</span><span style="color: #000000;">) : fX(x), fY(y), fZ(z) {}
+    Vector3 </span><span style="color: #0000ff;">operator</span> +=(<span style="color: #0000ff;">const</span> Vector3&amp; v) { <span style="color: #0000ff;">return</span> *<span style="color: #0000ff;">this</span> = *<span style="color: #0000ff;">this</span> +<span style="color: #000000;"> v; }
+    </span><span style="color: #0000ff;">double</span> Length() { <span style="color: #0000ff;">return</span> sqrt(fX * fX + fY * fY + fZ *<span style="color: #000000;"> fZ); }
+    </span><span style="color: #0000ff;">void</span> Normalize()<span style="color: #008000;">//</span><span style="color: #008000;">归一化</span>
+<span style="color: #000000;">    {
+        </span><span style="color: #0000ff;">double</span> fLen =<span style="color: #000000;"> Length();
+        </span><span style="color: #0000ff;">if</span> (fLen == <span style="color: #800080;">0.0f</span><span style="color: #000000;">)
+            fLen </span>= <span style="color: #800080;">1.0f</span><span style="color: #000000;">;
+        </span><span style="color: #0000ff;">if</span> (fabs(fLen) &gt; 1e-<span style="color: #800080;">6</span><span style="color: #000000;">)
+        {
+            fX </span>/=<span style="color: #000000;"> fLen;
+            fY </span>/=<span style="color: #000000;"> fLen;
+            fZ </span>/=<span style="color: #000000;"> fLen;
+        }
+    }
+};
+
+</span><span style="color: #0000ff;">struct</span><span style="color: #000000;"> Point
+{
+    Vector3 pos;
+    Vector3 normal;
+};
+
+</span><span style="color: #0000ff;">struct</span><span style="color: #000000;"> Face
+{
+    </span><span style="color: #0000ff;">int</span> pts[<span style="color: #800080;">3</span><span style="color: #000000;">];
+    Vector3 normal;
+};
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> CObj
+{
+</span><span style="color: #0000ff;">public</span><span style="color: #000000;">:
+    CObj(</span><span style="color: #0000ff;">void</span><span style="color: #000000;">);
+    </span>~CObj(<span style="color: #0000ff;">void</span><span style="color: #000000;">);
+
+    std::vector</span>&lt;Point&gt; m_pts; <span style="color: #008000;">//</span><span style="color: #008000;">顶点</span>
+    std::vector&lt;Face&gt; m_faces;<span style="color: #008000;">//</span><span style="color: #008000;">面</span>
+
+<span style="color: #0000ff;">public</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">bool</span> ReadObjFile(<span style="color: #0000ff;">const</span> <span style="color: #0000ff;">char</span>* pcszFileName);<span style="color: #008000;">//</span><span style="color: #008000;">读入模型文件</span>
+
+<span style="color: #0000ff;">private</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">void</span> UnifyModel();<span style="color: #008000;">//</span><span style="color: #008000;">单位化模型</span>
+    <span style="color: #0000ff;">void</span> ComputeFaceNormal(Face&amp; f);<span style="color: #008000;">//</span><span style="color: #008000;">计算面的法线</span>
+<span style="color: #000000;">};
+
+</span><span style="color: #0000ff;">#endif</span></pre>
+</div>
+<p>然后是一些简单的运算符重载以及向量计算</p>
+<div class="cnblogs_code">
+<pre><code>#include <span style="color: #800000;">"</span><span style="color: #800000;">Obj.h</span><span style="color: #800000;">"</span><span style="color: #000000;">
+#include </span>&lt;iostream&gt;<span style="color: #000000;">
+#include </span>&lt;sstream&gt;<span style="color: #000000;">
+#include </span>&lt;algorithm&gt;
+
+<span style="color: #0000ff;">using</span><span style="color: #000000;"> std::min;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> std::max;
+
+Vector3 </span><span style="color: #0000ff;">operator</span> + (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">const</span> Vector3&amp; two) <span style="color: #008000;">//</span><span style="color: #008000;">两个向量相加</span>
+<span style="color: #000000;">{
+    </span><span style="color: #0000ff;">return</span> Vector3(one.fX + two.fX, one.fY + two.fY, one.fZ +<span style="color: #000000;"> two.fZ);
+}
+
+Vector3 </span><span style="color: #0000ff;">operator</span> - (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">const</span> Vector3&amp; two) <span style="color: #008000;">//</span><span style="color: #008000;">两个向量相减</span>
+<span style="color: #000000;">{
+    </span><span style="color: #0000ff;">return</span> Vector3(one.fX - two.fX, one.fY - two.fY, one.fZ -<span style="color: #000000;"> two.fZ);
+}
+
+Vector3 </span><span style="color: #0000ff;">operator</span> * (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">double</span> scale) <span style="color: #008000;">//</span><span style="color: #008000;">向量与数的乘操作</span>
+<span style="color: #000000;">{
+    </span><span style="color: #0000ff;">return</span> Vector3(one.fX * scale, one.fY * scale, one.fZ *<span style="color: #000000;"> scale);
+}
+
+Vector3 </span><span style="color: #0000ff;">operator</span> / (<span style="color: #0000ff;">const</span> Vector3&amp; one, <span style="color: #0000ff;">double</span> scale) <span style="color: #008000;">//</span><span style="color: #008000;">向量与数的除操作</span>
+<span style="color: #000000;">{
+    </span><span style="color: #0000ff;">return</span> one * (<span style="color: #800080;">1.0</span> /<span style="color: #000000;"> scale);
+}
+
+Vector3 Cross(Vector3</span>&amp; one, Vector3&amp;<span style="color: #000000;"> two) 
+{</span><span style="color: #008000;">//</span><span style="color: #008000;">计算两个向量的叉积</span>
+<span style="color: #000000;">    Vector3 vCross;                                
+
+    vCross.fX </span>= ((one.fY * two.fZ) - (one.fZ *<span style="color: #000000;"> two.fY));
+    vCross.fY </span>= ((one.fZ * two.fX) - (one.fX *<span style="color: #000000;"> two.fZ));
+    vCross.fZ </span>= ((one.fX * two.fY) - (one.fY *<span style="color: #000000;"> two.fX));
+
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> vCross;        
+}
+
+CObj::CObj(</span><span style="color: #0000ff;">void</span><span style="color: #000000;">)
+{
+}
+
+
+CObj::</span>~CObj(<span style="color: #0000ff;">void</span><span style="color: #000000;">)
+{
+}</span></pre>
+</div>
+<p>下面来讲讲模型的读取等操作</p>
+<h2>模型读取</h2>
+<p>一般在模型存储文件中会有这么几个标识符：</p>
+<ul>
+<li>v 表示顶点位置</li>
+<li>vt 表示顶点纹理坐标</li>
+<li>vn 表示顶点法向量</li>
+<li>f 表示一个面</li>
+</ul>
+<p>打开一看，大概是这样的</p>
+<p><img src="./images/从零开始openGL——三、模型加载及鼠标交互实现1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;那么，就可以开始考虑如何读取并将数据存储到列表里面了，读文件还是简单的，fopen(), fgets(), feof()，剩下关键便是将字符串转成数字，c++中还是有现成的函数可以调用的，sstream头文件中的istringstream。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">bool</span> CObj::ReadObjFile(<span style="color: #0000ff;">const</span> <span style="color: #0000ff;">char</span>*<span style="color: #000000;"> pcszFileName) 
+{</span><span style="color: #008000;">//</span><span style="color: #008000;">读取模型文件</span>
+<span style="color: #000000;">
+    FILE</span>* fpFile = fopen(pcszFileName, <span style="color: #800000;">"</span><span style="color: #800000;">r</span><span style="color: #800000;">"</span>); <span style="color: #008000;">//</span><span style="color: #008000;">以只读方式打开文件</span>
+    <span style="color: #0000ff;">if</span> (fpFile ==<span style="color: #000000;"> NULL)
+    {
+        </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+    }
+
+    m_pts.clear(); 
+    m_faces.clear();
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">TODO：将模型文件中的点和面数据分别存入m_pts和m_faces中</span>
+    <span style="color: #0000ff;">char</span> strLine[<span style="color: #800080;">1024</span><span style="color: #000000;">];
+    Point point;
+    Face face;
+    std::</span><span style="color: #0000ff;">string</span><span style="color: #000000;"> s1;
+    </span><span style="color: #0000ff;">while</span> (!<span style="color: #000000;">feof(fpFile))
+    {
+        fgets(strLine, </span><span style="color: #800080;">1024</span><span style="color: #000000;">, fpFile);
+        </span><span style="color: #0000ff;">if</span> (strLine[<span style="color: #800080;">0</span>] == <span style="color: #800000;">'</span><span style="color: #800000;">v</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        {
+            </span><span style="color: #0000ff;">if</span> (strLine[<span style="color: #800080;">1</span>] == <span style="color: #800000;">'</span><span style="color: #800000;">n</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            {</span><span style="color: #008000;">//</span><span style="color: #008000;">vn 我使用的文件中没有vn的数据，就没有实现</span>
+<span style="color: #000000;">                
+            }
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">
+            {</span><span style="color: #008000;">//</span><span style="color: #008000;">v 点</span>
+<span style="color: #000000;">                std::istringstream sin(strLine);
+                sin </span>&gt;&gt; s1 &gt;&gt; point.pos.fX &gt;&gt; point.pos.fY &gt;&gt;<span style="color: #000000;"> point.pos.fZ;
+                m_pts.push_back(point);
+            }
+        }
+        </span><span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (strLine[<span style="color: #800080;">0</span>] == <span style="color: #800000;">'</span><span style="color: #800000;">f</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        {</span><span style="color: #008000;">//</span><span style="color: #008000;"> 面</span>
+<span style="color: #000000;">            std::istringstream sin(strLine);
+            sin </span>&gt;&gt; s1 &gt;&gt; face.pts[<span style="color: #800080;">0</span>] &gt;&gt; face.pts[<span style="color: #800080;">1</span>] &gt;&gt; face.pts[<span style="color: #800080;">2</span><span style="color: #000000;">];
+            ComputeFaceNormal(face);
+            m_faces.push_back(face);
+        }
+        printf(</span><span style="color: #800000;">"</span><span style="color: #800000;">%s\n</span><span style="color: #800000;">"</span><span style="color: #000000;">, strLine);
+    }
+
+    fclose(fpFile);
+
+    UnifyModel(); </span><span style="color: #008000;">//</span><span style="color: #008000;">将模型归一化</span>
+
+    <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+}</span></pre>
+</div>
+<p>通过上一篇文章绘制圆环和圆柱，知道了法向量是十分重要的，因此计算每个面的法向量也是不可少的</p>
+<p>原理很简单，叉乘即可</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">void</span> CObj::ComputeFaceNormal(Face&amp;<span style="color: #000000;"> f)
+{</span><span style="color: #008000;">//</span><span style="color: #008000;">TODO:计算面f的法向量，并保存</span>
+    f.normal = Cross(m_pts[f.pts[<span style="color: #800080;">1</span>]-<span style="color: #800080;">1</span>].pos - m_pts[f.pts[<span style="color: #800080;">0</span>]-<span style="color: #800080;">1</span>].pos, m_pts[f.pts[<span style="color: #800080;">2</span>]-<span style="color: #800080;">1</span>].pos - m_pts[f.pts[<span style="color: #800080;">1</span>]-<span style="color: #800080;">1</span><span style="color: #000000;">].pos);
+    f.normal.Normalize();
+}</span></pre>
+</div>
+<p>对于模型归一化，为何要归一化呢？想象一下，你拿手机拍照，如果拍照对象离摄像头很近，那在手机中展示出来的图像会是什么样？但是如果能不在移动相机和对象之间的距离的情况下该怎么做？把对象等比压缩！</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">void</span><span style="color: #000000;"> CObj::UnifyModel()
+{</span><span style="color: #008000;">//</span><span style="color: #008000;">为统一显示不同尺寸的模型，将模型归一化，将模型尺寸缩放到0.0-1.0之间
+</span><span style="color: #008000;">//</span><span style="color: #008000;">原理：找出模型的边界最大和最小值，进而找出模型的中心
+</span><span style="color: #008000;">//</span><span style="color: #008000;">以模型的中心点为基准对模型顶点进行缩放
+</span><span style="color: #008000;">//</span><span style="color: #008000;">TODO:添加模型归一化代码</span>
+<span style="color: #000000;">
+    Vector3 vec_max, vec_min(1e5, 1e5, 1e5), vec;
+    </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = <span style="color: #800080;">0</span>; i &lt; m_pts.size(); i++<span style="color: #000000;">)
+    {
+        vec_max.fX </span>=<span style="color: #000000;"> std::max(vec_max.fX, m_pts[i].pos.fX);
+        vec_max.fY </span>=<span style="color: #000000;"> std::max(vec_max.fY, m_pts[i].pos.fY);
+        vec_max.fZ </span>=<span style="color: #000000;"> std::max(vec_max.fZ, m_pts[i].pos.fZ);
+
+        vec_min.fX </span>=<span style="color: #000000;"> std::min(vec_min.fX, m_pts[i].pos.fX);
+        vec_min.fY </span>=<span style="color: #000000;"> std::min(vec_min.fY, m_pts[i].pos.fY);
+        vec_min.fZ </span>=<span style="color: #000000;"> std::min(vec_min.fZ, m_pts[i].pos.fZ);
+    }
+
+    vec.fX </span>= vec_max.fX -<span style="color: #000000;"> vec_min.fX;
+    vec.fY </span>= vec_max.fY -<span style="color: #000000;"> vec_min.fY;
+    vec.fZ </span>= vec_max.fZ -<span style="color: #000000;"> vec_min.fZ;
+
+    </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = <span style="color: #800080;">0</span>; i &lt; m_pts.size(); i++<span style="color: #000000;">)
+    {
+        m_pts[i].normal </span>=<span style="color: #000000;"> m_pts[i].pos;
+        m_pts[i].normal.fX </span>= (m_pts[i].normal.fX - vec_min.fX) / vec.fX - <span style="color: #800080;">0.5f</span><span style="color: #000000;">;
+        m_pts[i].normal.fY </span>= (m_pts[i].normal.fY - vec_min.fY) / vec.fY - <span style="color: #800080;">0.5f</span><span style="color: #000000;">;
+        m_pts[i].normal.fZ </span>= (m_pts[i].normal.fZ - vec_min.fZ) / vec.fZ - <span style="color: #800080;">0.5f</span><span style="color: #000000;">;
+    }
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">m_pts.push_back(vec);</span>
+}</pre>
+</div>
+<h2>模型绘制</h2>
+<p>对于模型的绘制，实现起来十分容易，因为有了各个面片的信息了。</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">void</span> DrawModel(CObj &amp;<span style="color: #000000;">model)
+{</span><span style="color: #008000;">//</span><span style="color: #008000;">TODO: 绘制模型</span>
+    <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = <span style="color: #800080;">0</span>; i &lt; model.m_faces.size(); i++<span style="color: #000000;">)
+    {
+        glBegin(GL_TRIANGLES);
+        glNormal3f(model.m_faces[i].normal.fX, model.m_faces[i].normal.fY, model.m_faces[i].normal.fZ);
+        glVertex3f(model.m_pts[model.m_faces[i].pts[</span><span style="color: #800080;">0</span>] - <span style="color: #800080;">1</span>].normal.fX, model.m_pts[model.m_faces[i].pts[<span style="color: #800080;">0</span>] - <span style="color: #800080;">1</span>].normal.fY, model.m_pts[model.m_faces[i].pts[<span style="color: #800080;">0</span>] - <span style="color: #800080;">1</span><span style="color: #000000;">].normal.fZ);
+        glVertex3f(model.m_pts[model.m_faces[i].pts[</span><span style="color: #800080;">1</span>] - <span style="color: #800080;">1</span>].normal.fX, model.m_pts[model.m_faces[i].pts[<span style="color: #800080;">1</span>] - <span style="color: #800080;">1</span>].normal.fY, model.m_pts[model.m_faces[i].pts[<span style="color: #800080;">1</span>] - <span style="color: #800080;">1</span><span style="color: #000000;">].normal.fZ);
+        glVertex3f(model.m_pts[model.m_faces[i].pts[</span><span style="color: #800080;">2</span>] - <span style="color: #800080;">1</span>].normal.fX, model.m_pts[model.m_faces[i].pts[<span style="color: #800080;">2</span>] - <span style="color: #800080;">1</span>].normal.fY, model.m_pts[model.m_faces[i].pts[<span style="color: #800080;">2</span>] - <span style="color: #800080;">1</span><span style="color: #000000;">].normal.fZ);
+        glEnd();
+    }
+
+}
+
+
+</span><span style="color: #0000ff;">if</span> (g_draw_content ==<span style="color: #000000;"> SHAPE_MODEL)
+    {</span><span style="color: #008000;">//</span><span style="color: #008000;">绘制模型</span>
+<span style="color: #000000;">        glTranslatef(g_x_offset, g_y_offset, g_z_offset);
+        glRotatef(g_rquad_x, </span><span style="color: #800080;">0.0f</span>, <span style="color: #800080;">1.0f</span>, <span style="color: #800080;">0.0f</span><span style="color: #000000;">);
+        glRotatef(g_rquad_y, </span><span style="color: #800080;">1.0f</span>, <span style="color: #800080;">0.0f</span>, <span style="color: #800080;">0.0f</span><span style="color: #000000;">);
+        glScalef(g_scale_size, g_scale_size, g_scale_size);
+        DrawModel(g_obj);
+        
+    }</span></pre>
+</div>
+<p>运行，加载模型！</p>
+</div>
+<p><img src="./images/从零开始openGL——三、模型加载及鼠标交互实现2.png" alt="" /></p>
+<p>嗯，好的，它成功出来了。</p>
+<p>等等！为啥是头对着我的，我怎么调整角度？看起来有点小，我能不能把它放大点？</p>
+<p>下面，将介绍鼠标交互的实现。</p>
+<h1>鼠标交互</h1>
+<p>opengl中的鼠标交互还是比较好做的，首先需要的是在初始化的时候注册鼠标输出实现回调函数和鼠标移动事件的回调函数。这些在上篇文章中给的框架代码里都实现了。那剩下的就是如何实现旋转、缩放和拖动了</p>
+<h2>旋转</h2>
+<p>首先我们要注意的是，在给出的代码框架里，摄像机的lookat是这样的</p>
+<p>gluLookAt(0.0, 0.0, 8.0, 0, 0, 0, 0, 1.0, 0);</p>
+<p>该函数定义一个视图矩阵，并与当前矩阵相乘.<br />第一组eyex, eyey,eyez 相机在世界坐标的位置;第二组centerx,centery,centerz 相机镜头对准的物体在世界坐标的位置;第三组upx,upy,upz 相机向上的方向在世界坐标中的方向。</p>
+<p>所以，这里摄像机是从z轴看下去的，那么初始看到的二维平面分为为x轴和y轴。理解了这个，旋转就很简单了。水平拖动的时候让模型绕y轴转，竖直拖动的时候让模型绕x轴转。按下左键旋转。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">if</span> (g_xform_mode == TRANSFORM_ROTATE) <span style="color: #008000;">//</span><span style="color: #008000;">旋转</span>
+    {<span style="color: #008000;">//</span><span style="color: #008000;">TODO:添加鼠标移动控制模型旋转参数的代码</span>
+        g_rquad_x += (x - g_press_x) * <span style="color: #800080;">0.5f</span><span style="color: #000000;">;
+        g_rquad_y </span>+= (y - g_press_y) * <span style="color: #800080;">0.5f</span><span style="color: #000000;">;
+        g_press_x </span>=<span style="color: #000000;"> x;
+        g_press_y </span>=<span style="color: #000000;"> y;
+    }</span></pre>
+</div>
+<h2>&nbsp;平移</h2>
+<p>平移的实现十分简单，计算鼠标移动的距离即可，按下右键拖动</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span>(g_xform_mode == TRANSFORM_TRANSLATE) <span style="color: #008000;">//</span><span style="color: #008000;">平移</span>
+    {<span style="color: #008000;">//</span><span style="color: #008000;">TODO:添加鼠标移动控制模型平移参数的代码</span>
+        g_x_offset += (x - g_press_x) * <span style="color: #800080;">0.002f</span><span style="color: #000000;">;
+        g_y_offset </span>+= -(y - g_press_y) * <span style="color: #800080;">0.002f</span><span style="color: #000000;">;
+        g_press_x </span>=<span style="color: #000000;"> x;
+        g_press_y </span>=<span style="color: #000000;"> y;
+    }</span></pre>
+</div>
+<h2>缩放</h2>
+<p>缩放与平移相似，按下滚轮键滑动鼠标</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span>(g_xform_mode == TRANSFORM_SCALE) <span style="color: #008000;">//</span><span style="color: #008000;">缩放</span>
+    {<span style="color: #008000;">//</span><span style="color: #008000;">TODO:添加鼠标移动控制模型缩放参数的代码</span>
+        g_scale_size += (x - g_press_x) * <span style="color: #800080;">0.01f</span><span style="color: #000000;">;
+    }</span></pre>
+</div>
+<p>至此，我们的鼠标交互也实现完了，下面就来试试效果</p>
+<p><img src="./images/从零开始openGL——三、模型加载及鼠标交互实现3.png" alt="" /></p>
+<h1>小节</h1>
+<p>&nbsp;这样，模型的加载及鼠标交互也就介绍完了，但是是不是还缺些什么？好像这个模型跟想象当中的还是有很大区别的，表面的图案呢？？下一篇将介绍纹理贴图和曲线绘制。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

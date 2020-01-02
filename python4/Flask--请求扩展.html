@@ -1,0 +1,224 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask--请求扩展' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask--请求扩展</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11781182.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#请求扩展">请求扩展</a><ul>
+        <li><a href="#before_request">before_request</a></li>
+        <li><a href="#after_request">after_request</a></li>
+        <li><a href="#before_first_request">before_first_request</a></li>
+        <li><a href="#teardown_request">teardown_request</a></li>
+        <li><a href="#errorhandler">errorhandler</a></li>
+        <li><a href="#template_global">template_global</a></li>
+        <li><a href="#template_filter">template_filter</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="请求扩展">请求扩展</h1>
+<h2 id="before_request">before_request</h2>
+<p>类似于django中的process_request，在收到请求之后，进入视图函数之前，进行一些数据或者怎样的处理</p>
+<ul>
+<li>可写多个before_request函数</li>
+<li>从上往下执行的</li>
+<li>一旦有返回值，请求的视图函数不会执行，已经剩下的before_request不会执行</li>
+</ul>
+<pre><code><code>from flask import Flask,render_template,request,redirect,session,url_for
+
+app = Flask(__name__)
+app.debug = True
+app.secret_key = &quot;123#234&quot;
+
+USERS = {
+    1:{&quot;name&quot;:&quot;老大&quot;, &quot;age&quot;:19,&quot;gender&quot;:&quot;男&quot;, &quot;resume&quot;:&quot;言语措辞间都能体会到今日头条的谨小慎微，生怕再出现任何问题…….&quot;},
+    2:{&quot;name&quot;:&quot;老二&quot;, &quot;age&quot;:18,&quot;gender&quot;:&quot;女&quot;, &quot;resume&quot;:&quot;当打开这款APP之后，就会发现这跟已经“死”去的内涵段子简直是一模一样。更厉害的地方是，它还支持用用户迁移内涵段子上的内容信息。&quot;},
+    3:{&quot;name&quot;:&quot;老三&quot;, &quot;age&quot;:17,&quot;gender&quot;:&quot;男&quot;, &quot;resume&quot;:&quot;如果狒狒会说人话，他肯定是在说：喂…你怎么只给我吃了一口就跑了呀，我还没吃饱啊…喂喂喂…给我回来呀！哈哈哈&quot;},
+}
+
+# 基于flask里请求扩展来做
+@app.before_request
+def process_request(*args, **kwargs):
+    # 验证表示，任何地址请求都会先执行before_request，所以登录验证就可以在before_request里做用户认证功能了
+    print(&quot;其他请求之前就执行了process_request&quot;)
+    # 4.访问/login的时候还没有登录，就会一直重定向到登录页，所以就要设置个白名单,如果请求地址是/login,就返回None
+    if request.path == &quot;/login&quot;:
+        return None
+    # 1.登录验证功能
+    user = session.get(&#39;user_info&#39;)
+    # 2.如果登录信息正常，什么都不做，程序继续其他执行
+    if user:
+        return None
+    # 3.如果登录验证不通过，就重定向到登录页面
+    return redirect(&quot;/login&quot;)
+
+
+@app.route(&quot;/detail/&lt;int:nid&gt;&quot;, methods=[&#39;GET&#39;])
+def detail(nid):
+    detail_info = USERS.get(nid)
+    # 如果有值，就跳到详情页
+    return render_template(&quot;detail.html&quot;,info = detail_info)
+
+
+@app.route(&quot;/index&quot;, methods=[&#39;GET&#39;])
+def index():
+    return render_template(&quot;index.html&quot;, user_dict=USERS)
+
+
+@app.route(&quot;/login&quot;, methods=[&#39;GET&#39;, &#39;POST&#39;], endpoint=&#39;l1&#39;)
+def login():
+    if request.method ==&quot;GET&quot;:
+        return render_template(&quot;login.html&quot;)
+    else:
+        user = request.form.get(&quot;username&quot;)
+        pwd = request.form.get(&quot;password&quot;)
+        if user == &quot;alex&quot; and pwd ==&quot;123456&quot;:
+            session[&#39;user_info&#39;] = user
+            return redirect(&quot;/index&quot;)
+        return render_template(&quot;login.html&quot;, **{&quot;error&quot;:&quot;用户名和密码错误&quot;})
+
+if __name__ == &quot;__main__&quot;:
+    app.run()</code></pre>
+<h2 id="after_request">after_request</h2>
+<p>类比django中间件中的process_response，每一个请求之后绑定一个函数，如果请求没有异常</p>
+<ul>
+<li>可以写多个after_request函数</li>
+<li>所有的after_request是从下往上执行，和before_request相反</li>
+<li>无论 before_request有没有返回值，我的after_request都会执行</li>
+<li>必须接受response，而且必须返回response</li>
+</ul>
+<pre><code><code>from flask import Flask,render_template,request,redirect,session,url_for
+app = Flask(__name__)
+app.debug = True
+app.secret_key = &#39;siuljskdjfs&#39;
+
+@app.before_request
+def process_request1(*args,**kwargs):
+    print(&#39;process_request1 进来了&#39;)
+
+@app.after_request
+def process_response1(response):
+    print(&#39;process_response1 走了&#39;)
+    # after_request 必须返回 response
+    return response
+
+# 视图函数
+@app.route(&#39;/index&#39;,methods=[&#39;GET&#39;])
+def index():
+    print(&#39;index函数&#39;)
+    return &quot;Index&quot;
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<h2 id="before_first_request">before_first_request</h2>
+<p>项目启动后，接受到的第一个请求，会执行该函数，后面就不会在执行</p>
+<p>​ 比如：数据库的连接，初始化操作</p>
+<pre><code><code>from flask import Flask,request
+app = Flask(__name__)
+app.debug = True
+
+# 内部其实就有个判断，初始值是FALSE，第一次执行后将值改变为True,以后判断后就不执行了
+@app.before_first_request
+def before_first_request2():
+    print(&#39;before_first_request2&#39;)
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<h2 id="teardown_request">teardown_request</h2>
+<p>每一个请求之后绑定一个函数，即使遇到了异常 ，也不会终止函数的执行</p>
+<ul>
+<li>这是e 是接收我服务器抛出的异常</li>
+<li>无论我服务器有没有错误，都会执行该函数</li>
+<li>虽然能接收异常，但是没有办法处理异常</li>
+<li>可以用来监控程序是否报错，记录日志</li>
+</ul>
+<pre><code><code>#如论有无异常都执行，如果没有异常这个e就是None
+@app.teardown_request
+def ter(e):
+    # if e:
+        #logingh
+    # return &quot;wo si l&quot;
+    print(&quot;我抛异常&quot;)</code></pre>
+<h2 id="errorhandler">errorhandler</h2>
+<p>定制错误信息:</p>
+<ul>
+<li>参数的中值为错误码</li>
+<li>当服务器抛出对应状态码的异常，就会执行该函数</li>
+<li>并且该函数可以处理异常，让用户无法感知，服务器错误</li>
+<li>每一个错误码，都需要一个对应的函数进行处理</li>
+</ul>
+<pre><code><code>from flask import Flask,render_template,request,redirect,session,url_for
+app = Flask(__name__)
+app.debug = True
+app.secret_key = &#39;siuljskdjfs&#39;
+
+# 经常会出现url不存在的情况，一般会有错误信息
+# 而这个错误信息也是可以进行定制的，根据错误码定制错误信息方法如下：
+@app.errorhandler(404)
+def error_404(arg):
+    return &quot;404错误了&quot;
+
+# 视图函数
+@app.route(&#39;/index&#39;,methods=[&#39;GET&#39;])
+def index():
+    print(&#39;index函数&#39;)
+    return &quot;Index&quot;
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<h2 id="template_global">template_global</h2>
+<p>模板中定制方法/定制模板方法:</p>
+<pre><code><code>from flask import Flask,request
+app = Flask(__name__)
+app.debug = True
+
+# 这就是基于请求扩展的 定制模板方法
+# 相对于在模板里定制了一个函数
+
+@app.template_global()
+def sb(a1, a2):
+    return a1 + a2
+
+# 在HTML里调用的方式：{{sb(1,2)}}
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<h2 id="template_filter">template_filter</h2>
+<p>过滤器</p>
+<pre><code><code>from flask import Flask,request
+app = Flask(__name__)
+app.debug = True
+
+# 这就是基于请求扩展的 定制模板方法
+@app.template_filter()
+def db(a1, a2, a3):
+    return a1 + a2 + a3
+
+#在HTML里调用的方式如下：
+# {{ 1|db(2,3)}   # 参数 a1 = 1,是第一个参数； a2=2 是第二个参数;   a3=3 是第三个参数
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

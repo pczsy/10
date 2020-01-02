@@ -1,0 +1,241 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Mac上通过docker配置PHP开发环境' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Mac上通过docker配置PHP开发环境</center></div><div class='banquan'>原文出处:本文由博客园博主程序媛的明天提供。<br/>
+原文连接:https://www.cnblogs.com/a609251438/p/12098931.html</div><br>
+    <p>这篇文章介绍的内容是关于Mac上通过docker配置PHP开发环境，有着一定的参考价值，现在分享给大家，有需要的朋友可以参考一下</p>
+<p>更多PHP相关知识请关注我的专栏<a class="LinkCard LinkCard--hasImage" href="https://zhuanlan.zhihu.com/c_1178338184454402048" target="_blank" data-draft-node="block" data-draft-type="link-card" data-image="https://pic1.zhimg.com/v2-6d5629b58339ca2004f6e86d41594670_ipico.jpg" data-image-width="293" data-image-height="293" data-za-detail-view-id="172"><span class="LinkCard-backdrop"><span class="LinkCard-content"><span class="LinkCard-text"><span class="LinkCard-title" data-text="true">PHP<span class="LinkCard-meta">​zhuanlan.zhihu.com</span></span></span></span></span></a></p>
+<p>安装docker</p>
+<p>关于MAC上安装docker网上有很多文章介绍，这里我就不在做描述了，顺便提一句，建议使用阿里云或Daocloud提供的加速器。</p>
+<h2>使用docker-compose配置开发环境</h2>
+<p>一般一个基本的PHP开发环境包括PHP、PHP-FPM、WEB服务器、MySQL数据库，另外还会有Redis或memcache等相关NoSQL服务。我主要是通过docker-compose来配置服务。</p>
+<h2>什么是docker-compose</h2>
+<p>docker-compose是一个通过YAML文件来定义项目，项目中包含单个或多个容器服务。一般配置文件名为：docker-compose.yml。</p>
+<h2>目录结构</h2>
+<p>你可以按自己的喜好组织项目，下面是我用的方法，app 目录放的是应用的代码，services 下面是创建服务需要用的东西，有些服务需要我们自己去创建镜像，在一个 Dockerfile 文件里说明一下你想要的镜像是什么样的。在创建自定义镜像的时候也可能需要用到一些额外的文件，比如一些配置文件，一般在创建镜像的时候会把这些配置文件复制到镜像里。</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" src="./images/Mac上通过docker配置PHP开发环境0.png" alt="" width="626" data-caption="" data-size="normal" data-rawwidth="626" data-rawheight="394" data-original="https://pic4.zhimg.com/v2-412a6b4978a8320c65d043de32cc57c3_r.jpg" data-actualsrc="https://pic4.zhimg.com/v2-412a6b4978a8320c65d043de32cc57c3_b.jpg" data-lazy-status="ok" /></p>
+<h2>MySQL</h2>
+<p>mysql是数据服务，先去给这个服务添加一个数据卷，然后在这个服务里使用一下这个数据卷，把数据库生成的数据放到这里，这样即使我们删除容器，数据服务里的数据也会保留在主机上，下回创建容器的时候，可以继续使用已有的数据。在 volumes 下面，添加一个名字是 mysql 的数据卷：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>volumes: mysql:   driver: local</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>然后再去添加一个名字是 MySQL的服务，指定一下服务使用的镜像，这个镜像我们也可以用自己创建的 Dockerfile 去创建一下，或者你不打算定制镜像，也可以直接使用现成的，这里我用了 mysql:5.7 这个镜像。注意最好设置具体要使用的版本。</p>
+<p>这个镜像里有一些环境变量，我们可以在定义服务的时候去设置一下它们的值，这里我设置了 root 用户的密码，要创建的数据库，用户名，还有密码，你可以 根据自己的需求去修改这些变量的值。</p>
+<p>在 mysql 服务上我用了 volumes 为它指定了一个 MySQL 数据卷，挂载的位置是容器的 /var/lib/mysql ，这是存储数据库的默认的地方。因为我本机安装了MySQL服务，3306端口被占用了，所以指定6306端口映射到容器的3306</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>version: <span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span>services:  mysql:    image: mysql:<span style="color: #800080;">5.7</span>    environment:       MYSQL_ROOT_PASSWORD: <span style="color: #800000;">"</span><span style="color: #800000;">root</span><span style="color: #800000;">"</span>      MYSQL_DATABASE: <span style="color: #800000;">"</span><span style="color: #800000;">app</span><span style="color: #800000;">"</span>      MYSQL_USER: <span style="color: #800000;">"</span><span style="color: #800000;">app</span><span style="color: #800000;">"</span>      MYSQL_PASSWORD: <span style="color: #800000;">"</span><span style="color: #800000;">123456</span><span style="color: #800000;">"</span><span style="color: #000000;">    volumes:
+
+      </span>- ./services/mysql/data:/<span style="color: #0000ff;">var</span>/lib/<span style="color: #000000;">mysql    ports:
+
+      </span>- <span style="color: #800000;">"</span><span style="color: #800000;">6306:3306</span><span style="color: #800000;">"</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<h2>测试</h2>
+<p>在我们的 compose 文件里现在已经有了一个叫 mysql 的服务，在命令行工具下，进入到项目所在的目录，执行：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>docker-compose up</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>然后你就会在终端上看到安装镜像和启动容器的过程，然后另开一个命令终端，执行：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>docker-compose execmysql bash </pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>进入mysql容器中，然后进入数据库检查一下：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>mysql -uroot -<span style="color: #000000;">pshow databases;
+
+</span>+--------------------+| Database           |
+
++--------------------+| information_schema |
+
+| app                |
+
+| mysql              |
+
+| performance_schema || sys                |
+
++--------------------+<span style="color: #800080;">5</span> rows <span style="color: #0000ff;">in</span> <span style="color: #0000ff;">set</span> (<span style="color: #800080;">0.03</span> sec)</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>这个时候我们发现mysql容器已经可用了</p>
+<h2>php</h2>
+<p>定义一个解释 php 的服务，我打算自己创建这个服务用的镜像，所以用了 build，而不是 image 。我告诉了 docker 自己要创建的这个镜像要使用的那个 Dockerfile 文件的位置（./services/php/Dockerfile）。</p>
+<p>volumes 下面是服务用的数据卷，我把 compose 文件所在目录下的 app 这个目录，挂载到了容器的 /www/html/app 这个位置上了。这样我可以直接修改项目的代码，然后立即看到结果；同时由于本机9000端口被占用，指定9090端口映射到容器的9000端口</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>php:    build:       context: ./services/<span style="color: #000000;">php      dockerfile: Dockerfile    volumes:
+
+      </span>- ./app:/www/html/<span style="color: #000000;">app    ports:
+
+      </span>- <span style="color: #800000;">"</span><span style="color: #800000;">9090:9000</span><span style="color: #800000;">"</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<h3>Dockerfile</h3>
+<p>构建 php 服务的镜像用的 Dockerfile 是 ./services/php/Dockerfile。FROM，设置了一下这个镜像要基于哪个镜像去创建，我用了 php:7.1-fpm 这个官方提供的镜像。RUN 了几行命令，主要是去安装一些软件包，比如一些额外的 php 扩展。在安装这些扩展之前 ，你需要先安装扩展依赖的一些其它的软件包，这里的 libpng12-dev，libjpeg-dev，就是 gd 这个 php 扩展需要的软件包。然后我又 COPY 了配置文件到镜像里面。</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>FROM php:<span style="color: #800080;">7.1</span>-<span style="color: #000000;">fpm
+
+RUN apt</span>-<span style="color: #0000ff;">get</span> update &amp;&amp; apt-<span style="color: #0000ff;">get</span> install -y libpng12-dev libjpeg-<span style="color: #000000;">dev \
+
+  </span>&amp;&amp; rm -rf /<span style="color: #0000ff;">var</span>/lib/apt/lists<span style="color: #008000;">/*</span><span style="color: #008000;"> \
+
+  &amp;&amp; docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr \
+
+  &amp;&amp; docker-php-ext-install gd mysqli pdo_mysql zip opcache
+
+COPY ./config/php.ini /usr/local/etc/php/conf.d/php.ini</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<h3>php服务中遇到的坑</h3>
+<p>PHP这个镜像中软件是使用的Debian的源，因为众所周知的缘故会导致镜像安装不成功，如图所示：</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" src="./images/Mac上通过docker配置PHP开发环境1.png" alt="" width="800" data-caption="" data-size="normal" data-rawwidth="800" data-rawheight="233" data-original="https://pic3.zhimg.com/v2-3d646ea6f7ce5430e89b22428da947e2_r.jpg" data-actualsrc="https://pic3.zhimg.com/v2-3d646ea6f7ce5430e89b22428da947e2_b.jpg" data-lazy-status="ok" /></p>
+<p>这个时候我们就需要更换源了，第一次换成了中科大的源，然后发现不行，第二次更换成了阿里云的源，完美完成镜像安装，修改过后的Dockerfile如下：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>FROM php:<span style="color: #800080;">7.1</span>-<span style="color: #000000;">fpm
+
+RUN sed </span>-i <span style="color: #800000;">'</span><span style="color: #800000;">s/deb.debian.org/mirrors.aliyun.com/g</span><span style="color: #800000;">'</span> /etc/apt/<span style="color: #000000;">sources.list \
+
+  </span>&amp;&amp; apt-<span style="color: #0000ff;">get</span> update &amp;&amp; apt-<span style="color: #0000ff;">get</span> install -y libpng12-dev libjpeg-<span style="color: #000000;">dev \
+
+  </span>&amp;&amp; rm -rf /<span style="color: #0000ff;">var</span>/lib/apt/lists<span style="color: #008000;">/*</span><span style="color: #008000;"> \
+
+  &amp;&amp; docker-php-ext-configure gd --with-png-dir=/usr --with-jpeg-dir=/usr \
+
+  &amp;&amp; docker-php-ext-install gd mysqli pdo_mysql zip opcache
+
+COPY ./config/php.ini /usr/local/etc/php/conf.d/php.ini</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>使用sed命令搜索软件源文件，把Debian域名修改为阿里云域名</p>
+<h3>php.ini</h3>
+<p>自定义的 php 配置。把你想要的 php 配置放到这个文件里，重新 build 镜像，然后再次启动 php 服务的时候会用新的镜像重新创建容器，这样配置就会生效了。</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>memory_limit = 256Mpost_max_size = 100Mupload_max_filesize = 100M</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<h2>Nginx</h2>
+<p>用 image 指定了要使用的镜像，ports 设置了发布的端口号，让主机上的 8000 对应容器的 80 。depends_on 可以设置服务的依赖，我让 nginx 服务依赖之前定义的 php ，这样会先启动 php ，然后再启动 nginx 。</p>
+<p>另外我又用了 volumes 自己设置了一个数据卷，让主机上包含 nginx 配置文件的目录，对应容器里的 nginx 服务的配置文件目录，这样我就可以直接在本机上修改 nginx 的配置文件，然后重新启动一下 nginx 服务，配置就可以生效了。这种方法适用在开发环境上，因为修改了配置不需要重新 build 镜像，在生产环境中，你需要自己 build 这个 nginx 镜像，把想要的配置直接复制到镜像里去。在开发阶段有的时候我们需要查看nginx的日志，然后我配置了日志目录映射到容器，最后一个地址是代码目录</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>nginx:    image: nginx:<span style="color: #800080;">1.12</span>.<span style="color: #800080;">2</span><span style="color: #000000;">    ports:
+
+      </span>- <span style="color: #800000;">"</span><span style="color: #800000;">8000:80</span><span style="color: #800000;">"</span><span style="color: #000000;">    depends_on:
+
+      </span>-<span style="color: #000000;"> php    volumes:
+
+      </span>- ./services/nginx/config:/etc/nginx/<span style="color: #000000;">conf.d
+
+      </span>- ./services/nginx/logs:/etc/nginx/logs/
+
+      - ./app:/www/html/app</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<h3>app.conf</h3>
+<p>./services/nginx/config/app.conf，这是一个最基本的 nginx 配置文件，设置了应用的 root 是在 /www/html/app 这里，我们已经把主机上的 app 目录挂载到了容器里的 /www/html/app 这个地方。</p>
+<p>注意这条指令：fastcgi_pass php:9000; 这里的 php 是我们定义的 php 这个服务的名字，在 compose 文件里定义的服务，它们之间可以使用服务的名字相互进行沟通，因为 docker 内置了 DNS 功能。</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>server {    listen       <span style="color: #800080;">80</span>;    server_name  localhost;    root         /www/html/app;    # access_log  /etc/nginx/logs/<span style="color: #000000;">app.access.log  main;
+
+ 
+
+    location </span>/<span style="color: #000000;"> {        
+
+    index  index.html index.htm index.php;       autoindex   on;
+
+    #        include     </span>/usr/local/etc/nginx/conf.d/php-fpm;#        include     /usr/local/etc/nginx/conf.d/<span style="color: #000000;">pathinfo.conf;
+
+     </span><span style="color: #0000ff;">if</span> (!-<span style="color: #000000;">e $request_filename) {                        ###一级目录下
+
+                        rewrite </span>^/(.*)$ /index.php/$<span style="color: #800080;">1</span><span style="color: #000000;"> last;                        ###域名下的二级目录
+
+                        #rewrite </span>^/html/(.*)$ /uuabc_home/index.php/$<span style="color: #800080;">1</span><span style="color: #000000;"> last;
+
+                }   
+
+    }    location </span>= /info {        allow   <span style="color: #800080;">127.0</span>.<span style="color: #800080;">0.1</span><span style="color: #000000;">;        deny    all;
+
+    }   location </span>~ \.php(.*)$  {            # comment try_files $uri =<span style="color: #800080;">404</span><span style="color: #000000;">; to enable pathinfo
+
+            # try_files $uri </span>=<span style="color: #800080;">404</span><span style="color: #000000;">;
+
+            fastcgi_pass                php:</span><span style="color: #800080;">9000</span>;            fastcgi_index               index.php;            fastcgi_split_path_info ^((?U).+\.php)(/?.+)$;            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;            fastcgi_param PATH_INFO $fastcgi_path_info;            fastcgi_param PATH_TRANSLATED $document_root$fastcgi_path_info;            include /etc/nginx/<span style="color: #000000;">fastcgi_params;
+
+        }   # error_page  </span><span style="color: #800080;">404</span>     /<span style="color: #800080;">404</span><span style="color: #000000;">.html;
+
+   # error_page  </span><span style="color: #800080;">403</span>     /<span style="color: #800080;">403</span>.html;}</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<h2>启动</h2>
+<p>经过上面几个步骤，我们已经把PHP开发最基本的搞好了，下面我们准备看下成果。<br />在 app 目录下创建一个 index.php ，内容是：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>&lt;?<span style="color: #000000;">php 
+
+ 
+
+    phpinfo();</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>进入到项目下面，执行：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>docker-compose up</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>打开浏览器访问<code>http://localhost:8000/</code>，结果如图所示：</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" src="./images/Mac上通过docker配置PHP开发环境2.png" alt="" width="670" data-caption="" data-size="normal" data-rawwidth="670" data-rawheight="591" data-original="https://pic3.zhimg.com/v2-9fdae8d738ce876a194ccdab5f6d2d3e_r.jpg" data-actualsrc="https://pic3.zhimg.com/v2-9fdae8d738ce876a194ccdab5f6d2d3e_b.jpg" data-lazy-status="ok" /></p>
+<h2>连接数据库</h2>
+<p>在app目录有一个adminer.php文件，这个文件是一个类似于PHPmyadmin的数据库管理工具，比较轻量级，访问<code>http://localhost:8000/adminer.php</code>，如图所示：</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" src="./images/Mac上通过docker配置PHP开发环境3.png" alt="" width="650" data-caption="" data-size="normal" data-rawwidth="650" data-rawheight="266" data-original="https://pic2.zhimg.com/v2-f43b01cd035210e7f978b2848115d9ed_r.jpg" data-actualsrc="https://pic2.zhimg.com/v2-f43b01cd035210e7f978b2848115d9ed_b.jpg" data-lazy-status="ok" /></p>
+<p>在表单服务器选项中填写mysql,用户名root,密码填写安装MySQL服务时的root密码，然后登陆进去，如图所示：</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" src="./images/Mac上通过docker配置PHP开发环境4.png" alt="" width="760" data-caption="" data-size="normal" data-rawwidth="760" data-rawheight="343" data-original="https://pic2.zhimg.com/v2-40a0c2f5e0e380d47f4f1ca7514f8831_r.jpg" data-actualsrc="https://pic2.zhimg.com/v2-40a0c2f5e0e380d47f4f1ca7514f8831_b.jpg" data-lazy-status="ok" /></p>
+<p>然后我们就可以愉快的管理数据库了。</p>
+<h2>总结</h2>
+<p>至此，我们对PHP基本开发环境已经安装好了，如果需要安装比如Redis或memcache等服务的话，可以自行度娘，自己动手。</p>
+<p>更多PHP相关知识请关注我的专栏<a class="LinkCard LinkCard--hasImage" href="https://zhuanlan.zhihu.com/c_1178338184454402048" target="_blank" data-draft-node="block" data-draft-type="link-card" data-image="https://pic1.zhimg.com/v2-6d5629b58339ca2004f6e86d41594670_ipico.jpg" data-image-width="293" data-image-height="293" data-za-detail-view-id="172"><span class="LinkCard-backdrop"><span class="LinkCard-content"><span class="LinkCard-text"><span class="LinkCard-title" data-text="true">PHP<span class="LinkCard-meta">​zhuanlan.zhihu.com</span></span></span></span></span></a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,400 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Spring Cloud（二）：Eureka 服务注册中心' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Spring Cloud（二）：Eureka 服务注册中心</center></div><div class='banquan'>原文出处:本文由博客园博主朝雾轻寒提供。<br/>
+原文连接:https://www.cnblogs.com/zwqh/p/12008993.html</div><br>
+    <h2 id="前言">前言</h2>
+<h3 id="服务治理">服务治理</h3>
+<blockquote>
+<p>随着业务的发展，微服务应用也随之增加，这些服务的管理和治理会越来越难，并且集群规模、服务位置、服务命名都会发生变化，手动维护的方式极易发生错误或是命名冲突等问题。而服务治理正是为了解决这个问题，服务治理是微服务架构中最为核心和基础的模块，它主要实现各个微服务实例的<strong>自动化注册和发现</strong>。</p>
+</blockquote>
+<h4 id="服务注册">服务注册</h4>
+<blockquote>
+<p>在服务治理框架中，都会构建一个或多个服务注册中心。</p>
+</blockquote>
+<blockquote>
+<p>每个服务模块向注册中心登记自己所提供的服务，将主机host、端口号、版本号、通信协议等一些附加信息告知注册中心，注册中心按服务名分类组织服务清单。</p>
+</blockquote>
+<blockquote>
+<p>服务注册中心还需要以心跳的方式去监测清单中的服务是否可用，若不可用需要从服务清单中剔除，达到排除故障服务的效果。</p>
+</blockquote>
+<h4 id="服务发现">服务发现</h4>
+<blockquote>
+<p>服务间调用不再通过指定具体实例地址来实现，而是通过向服务名发起请求调用实现。</p>
+</blockquote>
+<blockquote>
+<p>服务调用方需要先从服务注册中心获取所有服务的实例清单，才能实现对具体服务实例的访问。</p>
+</blockquote>
+<blockquote>
+<p>服务调用方在发起调用时，会以某种策略取出一个具体的服务实例进行服务调用(客户端负载均衡)。</p>
+</blockquote>
+<blockquote>
+<p>在生产环境中为了考虑性能等因素，不会采用每次都向服务注册中心获取服务的方式，并且不同的应用场景在缓存和服务剔除等机制上也会采用不同的实现策略。</p>
+</blockquote>
+<h2 id="spring-cloud-eureka">Spring Cloud Eureka</h2>
+<p>Spring Cloud Eureka 是基于 Netflix Eureka 来实现服务注册和发现的。它主要包括两个组件：</p>
+<ul>
+<li><strong>Eureka Server（服务端）</strong>：服务注册中心，支持高可用配置，依托于强一致性提供良好的服务实例可用性，服务注册中心之间可以通过异步模式互相复制各自的状态。</li>
+<li><strong>Eureka Client（客户端）</strong>：处理服务的注册与发现，客户端可以通过注解和参数配置的方式实现注册与发现，客户端向注册中心注册自身提供的服务并周期性地发送心跳来更新它的服务租约，Eureka客户端从服务端查询当前注册的服务信息并把它们缓存到本地并周期性的刷新服务状态。</li>
+</ul>
+<p>Eureka 基础架构</p>
+<ul>
+<li><strong>服务注册中心（Eureka Server）</strong>：服务端，提供服务注册和发现功能。</li>
+<li><strong>服务提供者（Service Provider）</strong>：提供服务的应用，将自己提供的服务注册到 Eureka Server，供其他应用发现。</li>
+<li><strong>服务消费者（Service Consumer）</strong>：消费者应用从 Eureka Server 获取服务列表，从而调用对应的服务（ribbon或者feign）。</li>
+</ul>
+<p>基础架构图<br />
+<img src="./images/Spring Cloud（二）：Eureka 服务注册中心0.png" /><br />
+<img src="./images/Spring Cloud（二）：Eureka 服务注册中心1.png" /></p>
+<h3 id="快速搭建服务注册中心eureka-server">快速搭建服务注册中心（Eureka Server）</h3>
+<h4 id="创建-spring-boot-项目添加依赖">1. 创建 Spring Boot 项目，添加依赖</h4>
+<pre><code><code>&lt;properties&gt;
+        &lt;java.version&gt;1.8&lt;/java.version&gt;
+        &lt;spring-cloud.version&gt;Hoxton.RELEASE&lt;/spring-cloud.version&gt;
+    &lt;/properties&gt;
+
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-server&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+            &lt;exclusions&gt;
+                &lt;exclusion&gt;
+                    &lt;groupId&gt;org.junit.vintage&lt;/groupId&gt;
+                    &lt;artifactId&gt;junit-vintage-engine&lt;/artifactId&gt;
+                &lt;/exclusion&gt;
+            &lt;/exclusions&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;dependencyManagement&gt;
+        &lt;dependencies&gt;
+            &lt;dependency&gt;
+                &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-cloud-dependencies&lt;/artifactId&gt;
+                &lt;version&gt;${spring-cloud.version}&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+            &lt;/dependency&gt;
+        &lt;/dependencies&gt;
+    &lt;/dependencyManagement&gt;</code></pre>
+<h4 id="enableeurekaserver-注解启动服务注册中心">2. @EnableEurekaServer 注解启动服务注册中心</h4>
+<pre><code><code>@SpringBootApplication
+@EnableEurekaServer
+public class SpringCloudEurekaServerApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringCloudEurekaServerApplication.class, args);
+    }
+
+}</code></pre>
+<h4 id="配置文件-application.properties">3. 配置文件 application.properties</h4>
+<pre><code><code>server.port=9999
+#eureka
+eureka.instance.hostname=127.0.0.1
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+eureka.client.serviceUrl.defaultZone=http://${eureka.instance.hostname}:${server.port}/eureka/</code></pre>
+<ul>
+<li>eureka.client.register-with-eureka：当前应用为服务注册中心，所以设置为false，代表不向注册中心注册自己。</li>
+<li>eureka.client.fetch-registry：注册中心的职责主要是维护服务实例，所以设置为false，代表不去检索当前应用的服务。</li>
+<li>eureka.client.serviceUrl.defaultZone：用于与 Eureka Server 交互的地址，注册服务和发现服务都需要依赖这个地址。</li>
+</ul>
+<h4 id="启动应用访问http127.0.0.19999">4.启动应用，访问：http://127.0.0.1:9999/</h4>
+<p>可以看到 Eureka 的信息面板，其中 Instances currently registered with Eureka 中列表显示 No instances available，说明该注册中心还没有注册任何服务。<br />
+<img src="./images/Spring Cloud（二）：Eureka 服务注册中心2.png" /></p>
+<h3 id="服务提供者service-provider">服务提供者（Service Provider）</h3>
+<h4 id="创建-spring-boot-项目添加依赖-1">1. 创建 Spring Boot 项目，添加依赖</h4>
+<pre><code><code>&lt;properties&gt;
+        &lt;java.version&gt;1.8&lt;/java.version&gt;
+        &lt;spring-cloud.version&gt;Hoxton.RELEASE&lt;/spring-cloud.version&gt;
+    &lt;/properties&gt;
+
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-client&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+            &lt;exclusions&gt;
+                &lt;exclusion&gt;
+                    &lt;groupId&gt;org.junit.vintage&lt;/groupId&gt;
+                    &lt;artifactId&gt;junit-vintage-engine&lt;/artifactId&gt;
+                &lt;/exclusion&gt;
+            &lt;/exclusions&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;dependencyManagement&gt;
+        &lt;dependencies&gt;
+            &lt;dependency&gt;
+                &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-cloud-dependencies&lt;/artifactId&gt;
+                &lt;version&gt;${spring-cloud.version}&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+            &lt;/dependency&gt;
+        &lt;/dependencies&gt;
+    &lt;/dependencyManagement&gt;</code></pre>
+<h4 id="enablediscoveryclient-注解启动-eureka-客户端">2. @EnableDiscoveryClient 注解启动 Eureka 客户端</h4>
+<pre><code><code>@SpringBootApplication
+//@EnableEurekaClient  该注解在采用eureka作为注册中心时使用，场景较为单一
+@EnableDiscoveryClient //场景更为广泛
+public class SpringCloudEurekaServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringCloudEurekaServiceApplication.class, args);
+    }
+
+}</code></pre>
+<p><code>@EnableEurekaClient</code> 和 <code>@EnableDiscoveryClient</code> 在当前示例中使用效果好是一样的，<code>@EnableEurekaClient</code> 注解在采用eureka作为注册中心时使用，场景较为单一，<code>@EnableDiscoveryClient</code> 场景更为广泛。</p>
+<h4 id="配置文件-application.properties-1">3. 配置文件 application.properties</h4>
+<pre><code><code>server.port=8888
+spring.application.name=spring-cloud-eureka-service
+#info 应用信息
+info.app.name=spring-cloud-eureka-service
+info.app.version=v1.0.0
+info.app.description=spring-cloud-eureka-service
+#eureka
+eureka.instance.hostname=127.0.0.1
+#每隔5s心跳一次,证明本服务还活着
+eureka.instance.lease-renewal-interval-in-seconds=5
+#本服务10s内没有心跳,就将该服务从服务端剔除
+eureka.instance.lease-expiration-duration-in-seconds=10
+eureka.client.serviceUrl.defaultZone=http://127.0.0.1:9999/eureka/
+</code></pre>
+<ul>
+<li>eureka.instance.lease-renewal-interval-in-seconds：设置心跳间隔秒数</li>
+<li>eureka.instance.lease-expiration-duration-in-seconds：设置秒数内无心跳，则剔除服务</li>
+</ul>
+<h4 id="启动应用访问http127.0.0.19999-1">4. 启动应用，访问：http://127.0.0.1:9999/</h4>
+<p>在服务注册中心的控制台中我们可以看到如下输出，说明服务被注册成功了。</p>
+<pre><code><code> c.n.e.registry.AbstractInstanceRegistry  : Registered instance SPRING-CLOUD-EUREKA-SERVICE/192.168.101.201:spring-cloud-eureka-service:8888 with status UP (replication=false)</code></pre>
+<p>而在 Eureka 的信息面板上，在 Instances currently registered with Eureka 列表中同样可以看到服务的注册信息。如下图：</p>
+<p><img src="./images/Spring Cloud（二）：Eureka 服务注册中心3.png" /></p>
+<h3 id="高可用注册中心集群">高可用注册中心（集群）</h3>
+<p>上面介绍了单节点模式的服务注册中心，不过在实际生产环境中，通常不会采用这种模式。在分布式系统中，服务注册中心是非常重要的组成部分，如果是单节点模式，发生故障的话将会是毁灭性的灾害。所以为了维护服务的高可用性，通常采用集群的解决方案。</p>
+<p>Eureka 的服务治理设计中，所有的节点既是服务提供方，也是服务消费方，服务注册中心也不例外。Eureka 通过互相注册服务的方式，以实现服务清单的互相同步，达到高可用的效果。</p>
+<h4 id="双节点注册中心">双节点注册中心</h4>
+<ol>
+<li>搭建服务注册中心 A，配置文件如下：</li>
+</ol>
+<pre><code><code>server.port=9991
+spring.application.name=eureka-server
+spring.profiles.active=nodea
+#eureka
+eureka.instance.hostname=nodea
+#设置微服务调用地址为IP优先（缺省为false）
+#eureka.instance.prefer-ip-address=true
+eureka.client.serviceUrl.defaultZone=http://nodeb:9992/eureka/</code></pre>
+<ol>
+<li>搭建服务注册中心 B，配置文件如下：</li>
+</ol>
+<pre><code><code>server.port=9992
+spring.application.name=eureka-server
+spring.profiles.active=nodeb
+#eureka
+eureka.instance.hostname=nodeb
+#设置微服务调用地址为IP优先（缺省为false）
+#eureka.instance.prefer-ip-address=true
+eureka.client.serviceUrl.defaultZone=http://nodea:9991/eureka/</code></pre>
+<ol>
+<li>在 /etc/hosts（windows系统路径为 C:\Windows\System32\drivers\etc\hosts） 文件中添加 nodea 和 nodeb 的转换，如下：</li>
+</ol>
+<pre><code><code>127.0.0.1 nodea
+127.0.0.1 nodeb</code></pre>
+<ol>
+<li>启动两个项目，分别访问<code>http://nodea:9991/</code>和<code>http://nodeb:9992/</code>，我们可以看到两个节点都已经被注册，如下图所示：</li>
+</ol>
+<p><img src="./images/Spring Cloud（二）：Eureka 服务注册中心4.png" /></p>
+<ol>
+<li>搭建完多节点服务注册中心之后，服务提供者也需要做一些简单的配置，以上面的服务提供者为例，修改如下:</li>
+</ol>
+<pre><code><code>eureka.client.serviceUrl.defaultZone=http://nodea:9991/eureka/,http://nodeb:9992/eureka/</code></pre>
+<p>启动项目后，访问两个服务注册中心，我们看到服务被注册到这两个节点内。</p>
+<p><img src="./images/Spring Cloud（二）：Eureka 服务注册中心5.png" /></p>
+<ol>
+<li>这时我们关闭服务注册中心节点 A，我们可以看到服务注册中心节点 B 依然可以提供服务，而节点 A 从 available-replicas（可以分片） 变为 unavailable-replicas（不可用分片）。</li>
+</ol>
+<p><img src="./images/Spring Cloud（二）：Eureka 服务注册中心6.png" /></p>
+<h3 id="服务消费者service-consumer">服务消费者（Service Consumer）</h3>
+<h4 id="使用-ribbon-调用服务">使用 Ribbon 调用服务</h4>
+<h5 id="pom-相关依赖配置">1. pom 相关依赖配置</h5>
+<pre><code><code>&lt;properties&gt;
+        &lt;java.version&gt;1.8&lt;/java.version&gt;
+        &lt;spring-cloud.version&gt;Hoxton.RELEASE&lt;/spring-cloud.version&gt;
+    &lt;/properties&gt;
+
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-server&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-netflix-ribbon&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;dependencyManagement&gt;
+        &lt;dependencies&gt;
+            &lt;dependency&gt;
+                &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-cloud-dependencies&lt;/artifactId&gt;
+                &lt;version&gt;${spring-cloud.version}&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+            &lt;/dependency&gt;
+        &lt;/dependencies&gt;
+    &lt;/dependencyManagement&gt;
+</code></pre>
+<h5 id="配置文件-application.properties-2">2. 配置文件 application.properties</h5>
+<pre><code><code>spring.application.name=spring-cloud-ribbon-consumer
+server.port=8081
+eureka.client.serviceUrl.defaultZone=http://nodea:9991/eureka/,http://nodeb:9992/eureka/</code></pre>
+<h5 id="启动类配置">3. 启动类配置</h5>
+<p>通过 <code>@EnableDiscoveryClient</code> 注解将应用注册为 Eureka 客户端，获得服务发现能力。</p>
+<p>创建 RestTemplate 的 Spring Bean 实例用来调用服务。</p>
+<p>通过 <code>@LoadBalanced</code> 注解来开启客户端的负载均衡。</p>
+<pre><code><code>@SpringBootApplication
+@EnableDiscoveryClient
+public class SpringCloudRibbonConsumerApplication {
+
+    @Bean
+    @LoadBalanced
+    RestTemplate restTemplate(){
+        return new RestTemplate();
+    }
+    
+    public static void main(String[] args) {
+        SpringApplication.run(SpringCloudRibbonConsumerApplication.class, args);
+    }
+
+}</code></pre>
+<h5 id="consumercontroller-来实现服务调用">4. ConsumerController 来实现服务调用</h5>
+<pre><code><code>@RestController
+public class ConsumerController {
+
+    @Autowired
+    RestTemplate restTemplate;
+    
+    @RequestMapping(&quot;/test&quot;)
+    public String test() {
+        return restTemplate.getForEntity(&quot;http://spring-cloud-eureka-service/test&quot;, String.class).getBody();
+    }
+}</code></pre>
+<p>spring-cloud-eureka-service 为服务注册中心的应用名称，大小写均可。</p>
+<h4 id="使用-feign-调用服务">使用 Feign 调用服务</h4>
+<h5 id="pom-相关依赖配置-1">1. pom 相关依赖配置</h5>
+<pre><code><code>&lt;properties&gt;
+        &lt;java.version&gt;1.8&lt;/java.version&gt;
+        &lt;spring-cloud.version&gt;Hoxton.RELEASE&lt;/spring-cloud.version&gt;
+    &lt;/properties&gt;
+
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-netflix-eureka-server&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-openfeign&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;dependencyManagement&gt;
+        &lt;dependencies&gt;
+            &lt;dependency&gt;
+                &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-cloud-dependencies&lt;/artifactId&gt;
+                &lt;version&gt;${spring-cloud.version}&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+            &lt;/dependency&gt;
+        &lt;/dependencies&gt;
+    &lt;/dependencyManagement&gt;</code></pre>
+<h5 id="配置文件-application.properties-3">2. 配置文件 application.properties</h5>
+<pre><code><code>spring.application.name=spring-cloud-feign-consumer
+server.port=8080
+eureka.client.serviceUrl.defaultZone=http://nodea:9991/eureka/,http://nodeb:9992/eureka/</code></pre>
+<h5 id="启动类配置-1">3. 启动类配置</h5>
+<p>通过 <code>@EnableDiscoveryClient</code> 注解将应用注册为 Eureka 客户端，获得服务发现能力。</p>
+<p>通过 <code>@EnableFeignClients</code> 注解来启用feign进行远程调用。</p>
+<pre><code><code>@SpringBootApplication
+@EnableDiscoveryClient//启用服务注册与发现
+@EnableFeignClients//启用feign进行远程调用
+public class SpringCloudFeignConsumerApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringCloudFeignConsumerApplication.class, args);
+    }
+
+}</code></pre>
+<h5 id="实现服务调用接口">4. 实现服务调用接口</h5>
+<pre><code><code>@FeignClient(name = &quot;spring-cloud-eureka-service&quot;)
+public interface TestService {
+
+    @RequestMapping(&quot;/test&quot;)
+    public String test();
+}
+</code></pre>
+<p>spring-cloud-eureka-service 为服务注册中心的应用名称，大小写均可。</p>
+<p>此接口中的方法和远程服务中contoller中的方法名和参数需保持一致。</p>
+<h5 id="consumercontroller-来实现服务调用-1">5. ConsumerController 来实现服务调用</h5>
+<pre><code><code>@RestController
+public class ConsumerController {
+
+    @Autowired
+    private TestService testService;
+    
+    @RequestMapping(&quot;/test&quot;)
+    public String test() {
+        return testService.test();
+    }
+}</code></pre>
+<h2 id="示例代码">示例代码</h2>
+<p><a href="https://github.com/zwqh1992/Spring-Cloud/tree/master/spring-cloud-eureka" title="github">github</a></p>
+<p><a href="https://gitee.com/zwqh/Spring-Cloud/tree/master/spring-cloud-eureka" title="码云">码云</a></p>
+<blockquote>
+<p>非特殊说明，本文版权归 <a href="https://www.zwqh.top" title="朝雾轻寒">朝雾轻寒</a> 所有，转载请注明出处.</p>
+</blockquote>
+<blockquote>
+<p>原文标题：Spring Cloud（二）：Eureka 服务注册中心</p>
+</blockquote>
+<blockquote>
+<p>原文地址：<a href="https://www.zwqh.top/article/info/28" class="uri">https://www.zwqh.top/article/info/28</a></p>
+</blockquote>
+<p>如果文章有不足的地方，欢迎提点建议，后续会完善~</p>
+<p>如果文章对您有帮助，请给我点个赞哦~</p>
+<p>关注下我的公众号，文章持续更新中...</p>
+<p><img src="./images/Spring Cloud（二）：Eureka 服务注册中心7.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

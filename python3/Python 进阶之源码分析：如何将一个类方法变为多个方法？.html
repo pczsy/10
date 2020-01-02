@@ -1,0 +1,136 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python 进阶之源码分析：如何将一个类方法变为多个方法？' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python 进阶之源码分析：如何将一个类方法变为多个方法？</center></div><div class='banquan'>原文出处:本文由博客园博主豌豆花下猫提供。<br/>
+原文连接:https://www.cnblogs.com/pythonista/p/12079623.html</div><br>
+    <p>前一篇文章《<a href="https://mp.weixin.qq.com/s/lF-ba4RvINoodWYd5qKEOQ">Python 中如何实现参数化测试？</a>》中，我提到了在 Python 中实现参数化测试的几个库，并留下一个问题：</p>
+<blockquote>
+<p>它们是如何做到把一个方法变成多个方法，并且将每个方法与相应的参数绑定起来的呢？</p>
+</blockquote>
+<p>我们再提炼一下，原问题等于是：<strong>在一个类中，如何使用装饰器把一个类方法变成多个类方法（或者产生类似的效果）？</strong></p>
+<pre><code><code># 带有一个方法的测试类
+class TestClass:
+    def test_func(self):
+        pass
+
+# 使用装饰器，生成多个类方法
+class TestClass:
+    def test_func1(self):
+        pass
+    def test_func2(self):
+        pass
+    def test_func3(self):
+        pass</code></pre>
+<p>Python 中装饰器的本质就是移花接木，用一个新的方法来替代被装饰的方法。在实现参数化的过程中，我们介绍过的几个库到底用了什么手段/秘密武器呢？</p>
+<h2 id="ddt-如何实现参数化">1、ddt 如何实现参数化？</h2>
+<p>先回顾一下上篇文章中 ddt 库的写法：</p>
+<pre><code><code>import unittest
+from ddt import ddt,data,unpack
+@ddt
+class MyTest(unittest.TestCase):
+    @data((3, 1), (-1, 0), (1.2, 1.0))
+    @unpack
+    def test(self, first, second):
+        pass</code></pre>
+<p>ddt 可提供 4 个装饰器：1 个加在类上的 @ddt，还有 3 个加在类方法上的 @data、@unpack 和 @file_data（前文未提及）。</p>
+<p>先看看加在类方法上的三个装饰器的作用：</p>
+<pre><code><code># ddt 版本（win）：1.2.1
+def data(*values):
+    global index_len
+    index_len = len(str(len(values)))
+    return idata(values)
+
+def idata(iterable):
+    def wrapper(func):
+        setattr(func, DATA_ATTR, iterable)
+        return func
+    return wrapper
+
+def unpack(func):
+    setattr(func, UNPACK_ATTR, True)
+    return func
+
+def file_data(value):
+    def wrapper(func):
+        setattr(func, FILE_ATTR, value)
+        return func
+    return wrapper</code></pre>
+<p>它们的共同作用是在类方法上 setattr() 添加属性。至于这些属性在什么时候使用？下面看看加在类上的 @ddt 装饰器源码：</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？0.png" /></p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？1.png" /></p>
+<p>第一层 for 循环遍历了所有的类方法，然后是 if/elif 两条分支，分别对应 DATA_ATTR/FILE_ATTR，即对应参数的两种来源：数据（@data）和文件（@file_data）。</p>
+<p>elif 分支有解析文件的逻辑，之后跟处理数据相似，所以我们把它略过，主要看前面的 if 分支。这部分的逻辑很清晰，主要完成的任务如下：</p>
+<ul>
+<li>遍历类方法的参数键值对</li>
+<li>根据原方法及参数对，创建新的方法名</li>
+<li>获取原方法的文档字符串</li>
+<li>对元组和列表类型的参数作解包</li>
+<li>在测试类上添加新的测试方法，并绑定参数与文档字符串</li>
+</ul>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？2.png" /></p>
+<p>分析源码，可以看出，@data、@unpack 和 @file_data 这三个装饰器主要是设置属性并传参，而 @ddt 装饰器才是核心的处理逻辑。</p>
+<p>这种将装饰器分散（分别加在类与类方法上），再组合使用的方案，很不优雅。为什么就不能统一起来使用呢？后面我们会分析它的难言之隐，先按下不表，看看其它的实现方案是怎样的？</p>
+<h2 id="parameterized-如何实现参数化">2、parameterized 如何实现参数化？</h2>
+<p>先回顾一下上篇文章中 parameterized 库的写法：</p>
+<pre><code><code>import unittest
+from parameterized import parameterized
+class MyTest(unittest.TestCase):
+    @parameterized.expand([(3,1), (-1,0), (1.5,1.0)])
+    def test_values(self, first, second):
+        self.assertTrue(first &gt; second)</code></pre>
+<p>它提供了一个装饰器类 @parameterized，源码如下（版本 0.7.1），主要做了一些初始的校验和参数解析，并非我们关注的重点，略过。</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？3.png" /></p>
+<p>我们主要关注这个装饰器类的 expand() 方法，它的文档注释中写到：</p>
+<blockquote>
+<p>A &quot;brute force&quot; method of parameterizing test cases. Creates new test cases and injects them into the namespace that the wrapped function is being defined in. Useful for parameterizing tests in subclasses of 'UnitTest', where Nose test generators don't work.</p>
+</blockquote>
+<p>关键的两个动作是：“creates new test cases（创建新的测试单元）”和“inject them into the namespace…（注入到原方法的命名空间）”。</p>
+<p>关于第一点，它跟 ddt 是相似的，只是一些命名风格上的差异，以及参数的解析及绑定不同，不值得太关注。</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？4.png" /></p>
+<p>最不同的则是，怎么令新的测试方法生效？</p>
+<p>parameterized 使用的是一种“注入”的方式：</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？5.png" /></p>
+<p><code>inspect</code> 是个功能强大的标准库，在此用于获取程序调用栈的信息。前三句代码的目的是取出 f_locals，它的含义是“local namespace seen by this frame”，此处 f_locals 指的就是类的局部命名空间。</p>
+<p>说到局部命名空间，你可能会想到 locals()，但是，我们之前有文章提到过“locals() 与 globals() 的读写问题”，locals() 是可读不可写的，所以这段代码才用了 f_locals。</p>
+<h2 id="pytest-如何实现参数化">3、pytest 如何实现参数化？</h2>
+<p>按惯例先看看上篇文章中的写法：</p>
+<pre><code><code>import pytest
+@pytest.mark.parametrize(&quot;first,second&quot;, [(3,1), (-1,0), (1.5,1.0)])
+def test_values(first, second):
+    assert(first &gt; second)</code></pre>
+<p>首先看到“mark”，pytest 里内置了一些标签，例如 parametrize、timeout、skipif、xfail、tryfirst、trylast 等，还支持用户自定义的标签，可以设置执行条件、分组筛选执行，以及修改原测试行为等等。</p>
+<p>用法也是非常简单的，然而，其源码可复杂多了。我们这里只关注 parametrize，先看看核心的一段代码：</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？6.png" /></p>
+<p>根据传入的参数对，它复制了原测试方法的调用信息，存入待调用的列表里。跟前面分析的两个库不同，它并没有在此创建新的测试方法，而是复用了已有的方法。在 parametrize() 所属的 Metafunc 类往上查找，可以追踪到 _calls 列表的使用位置：</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？7.png" /></p>
+<p>最终是在 Function 类中执行：</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？8.png" /></p>
+<p>好玩的是，在这里我们可以看到几行神注释……</p>
+<p><img src="./images/Python 进阶之源码分析：如何将一个类方法变为多个方法？9.png" /></p>
+<p>阅读（粗浅涉猎） pytest 的源码，真的是自讨苦吃……不过，依稀大致可以看出，它在实现参数化时，使用的是生成器的方案，遍历一个参数则调用一次测试方法，而前面的 ddt 和 parameterized 则是一次性把所有参数解析完，生成 n 个新的测试方法，再交给测试框架去调度。</p>
+<p>对比一下，前两个库的思路很清晰，而且由于其设计单纯是为了实现参数化，不像 pytest 有什么标记和过多的抽象设计，所以更易读易懂。前两个库发挥了 Python 的动态特性，设置类属性或者注入局部命名空间，而 pytest 倒像是从什么静态语言中借鉴的思路，略显笨拙。</p>
+<h2 id="最后小结">4、最后小结</h2>
+<p>回到标题中的问题“如何将一个方法变为多个方法？”除了在参数化测试中，不知还有哪些场景会有此诉求？欢迎留言讨论。</p>
+<p>本文分析了三个测试库的装饰器实现思路，通过阅读源码，我们可以发现它们各有千秋，这个发现本身还挺有意思。在使用装饰器时，表面看它们差异不大，但是真功夫的细节都隐藏在底下。</p>
+<p>源码分析的意义在于探究其所以然，在这次探究之旅中，读者们可有什么收获啊？一起来聊聊吧！（PS：在“Python猫”公众号后台发送“学习群”，获取加群暗号。）</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

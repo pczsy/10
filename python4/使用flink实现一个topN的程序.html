@@ -1,0 +1,576 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修使用flink实现一个topN的程序' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>使用flink实现一个topN的程序</center></div><div class='banquan'>原文出处:本文由博客园博主黄青石提供。<br/>
+原文连接:https://www.cnblogs.com/huangqingshi/p/12041032.html</div><br>
+    <p>　　topN功能是一个非常常见的功能，比如查看最近几分钟的阅读最高数，购买最高数。</p>
+<p>　　flink实现topN的功能也非常方便，下面就开始构建一个flink topN的程序。</p>
+<p>　　还是像上篇<a href="https://www.cnblogs.com/huangqingshi/p/12003453.html" target="_blank">博客</a>一样，从kafka读取数据，然后进行计算和数据转换，最后sink到mysql中。</p>
+<p>　　假设有个需求，实现一个统计每5分钟最高购买数的商品。</p>
+<p>　　使用maven创建一个工程，具体步骤可以参考上边博文。然后创建一个数据库表，用于存储最终的结果集。语句如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">CREATE</span> <span style="color: #0000ff;">TABLE</span><span style="color: #000000;"> `itembuycount` (
+  `id` mediumint </span><span style="color: #808080;">NOT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;"> auto_increment,
+  `itemId` </span><span style="color: #0000ff;">bigint</span>(<span style="color: #800000; font-weight: bold;">255</span>) <span style="color: #808080;">NOT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;">,
+  `buyCount` </span><span style="color: #0000ff;">bigint</span>(<span style="color: #800000; font-weight: bold;">11</span>) <span style="color: #0000ff;">DEFAULT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;">,
+  `createDate` </span><span style="color: #0000ff;">timestamp</span> <span style="color: #0000ff;">NULL</span> <span style="color: #0000ff;">DEFAULT</span> <span style="color: #0000ff;">NULL</span><span style="color: #000000;">,
+  </span><span style="color: #0000ff;">PRIMARY</span> <span style="color: #0000ff;">KEY</span><span style="color: #000000;"> (`id`)
+) ENGINE</span><span style="color: #808080;">=</span>InnoDB <span style="color: #0000ff;">DEFAULT</span> CHARSET<span style="color: #808080;">=</span>utf8mb4 COLLATE<span style="color: #808080;">=</span>utf8mb4_general_ci</pre>
+</div>
+<p>　　创建一个表对应的pojo类文件UserAction。里边主要是用户id，商品id，用户的行为，pv用户浏览，buy用户购买，cart加购物车，fav加入收藏。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflinktopn.pojo;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-13
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> UserAction {
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span> userId; <span style="color: #008000;">//</span><span style="color: #008000;">用户id</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span> itemId; <span style="color: #008000;">//</span><span style="color: #008000;">商品id</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span> categoryId; <span style="color: #008000;">//</span><span style="color: #008000;">商品分类id</span>
+    <span style="color: #0000ff;">public</span> String behavior; <span style="color: #008000;">//</span><span style="color: #008000;">用户行为（pv, buy, cart, fav)</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span> timestamp; <span style="color: #008000;">//</span><span style="color: #008000;">操作时间戳</span>
+
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> getUserId() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> userId;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setUserId(<span style="color: #0000ff;">long</span><span style="color: #000000;"> userId) {
+        </span><span style="color: #0000ff;">this</span>.userId =<span style="color: #000000;"> userId;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> getItemId() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> itemId;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setItemId(<span style="color: #0000ff;">long</span><span style="color: #000000;"> itemId) {
+        </span><span style="color: #0000ff;">this</span>.itemId =<span style="color: #000000;"> itemId;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> getCategoryId() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> categoryId;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setCategoryId(<span style="color: #0000ff;">int</span><span style="color: #000000;"> categoryId) {
+        </span><span style="color: #0000ff;">this</span>.categoryId =<span style="color: #000000;"> categoryId;
+    }
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> String getBehavior() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> behavior;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setBehavior(String behavior) {
+        </span><span style="color: #0000ff;">this</span>.behavior =<span style="color: #000000;"> behavior;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> getTimestamp() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> timestamp;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setTimestamp(<span style="color: #0000ff;">long</span><span style="color: #000000;"> timestamp) {
+        </span><span style="color: #0000ff;">this</span>.timestamp =<span style="color: #000000;"> timestamp;
+    }
+}</span></pre>
+</div>
+<p>　　接下来创建一个kafka主题，存储发送和接受数据使用。</p>
+<div class="cnblogs_code">
+<pre><code>./bin/kafka-topics.<span style="color: #0000ff;">sh</span> --create --zookeeper localhost:<span style="color: #800080;">2181</span> --replication-factor <span style="color: #800080;">1</span> --partitions <span style="color: #800080;">1</span> --topic USER_ACTION</pre>
+</div>
+<p>　　kafka的主题创建好了之后，写一个程序往kafka里边写数据，一秒写一条。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflinktopn.kafka;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> com.alibaba.fastjson.JSON;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflinktopn.pojo.UserAction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.commons.lang3.RandomUtils;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.kafka.clients.producer.KafkaProducer;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.kafka.clients.producer.ProducerRecord;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Arrays;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.List;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Properties;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.concurrent.TimeUnit;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-07
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> KafkaWriter {
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">本地的kafka机器列表</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String BROKER_LIST = "localhost:9092"<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">kafka的topic</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String TOPIC_USER_ACTION = "USER_ACTION"<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">key序列化的方式，采用字符串的形式</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String KEY_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer"<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">value的序列化的方式</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String VALUE_SERIALIZER = "org.apache.kafka.common.serialization.StringSerializer"<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">用户的行为列表</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> List&lt;String&gt; userBehaviors = Arrays.asList("pv", "buy", "cart", "fav"<span style="color: #000000;">);
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> writeToKafka() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception{
+        Properties props </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Properties();
+        props.put(</span>"bootstrap.servers"<span style="color: #000000;">, BROKER_LIST);
+        props.put(</span>"key.serializer"<span style="color: #000000;">, KEY_SERIALIZER);
+        props.put(</span>"value.serializer"<span style="color: #000000;">, VALUE_SERIALIZER);
+
+        KafkaProducer</span>&lt;String, String&gt; producer = <span style="color: #0000ff;">new</span> KafkaProducer&lt;&gt;<span style="color: #000000;">(props);
+
+        UserAction userAction </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> UserAction();
+        userAction.setUserId(RandomUtils.nextLong(</span>1, 100<span style="color: #000000;">));
+        userAction.setItemId(RandomUtils.nextLong(</span>1, 1000<span style="color: #000000;">));
+        userAction.setCategoryId(RandomUtils.nextInt(</span>1, 30<span style="color: #000000;">));
+        userAction.setBehavior(userBehaviors.get(RandomUtils.nextInt(</span>0, 3<span style="color: #000000;">)));
+        userAction.setTimestamp(System.currentTimeMillis());
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">转换成JSON</span>
+        String userActionJson =<span style="color: #000000;"> JSON.toJSONString(userAction);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">包装成kafka发送的记录</span>
+        ProducerRecord&lt;String, String&gt; record = <span style="color: #0000ff;">new</span> ProducerRecord&lt;String, String&gt;(TOPIC_USER_ACTION, <span style="color: #0000ff;">null</span><span style="color: #000000;">,
+                </span><span style="color: #0000ff;">null</span><span style="color: #000000;">, userActionJson);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">发送到缓存</span>
+<span style="color: #000000;">        producer.send(record);
+        System.out.println(</span>"向kafka发送数据:" +<span style="color: #000000;"> userActionJson);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">立即发送</span>
+<span style="color: #000000;">        producer.flush();
+
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args) {
+        </span><span style="color: #0000ff;">while</span>(<span style="color: #0000ff;">true</span><span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">每1秒写一条数据</span>
+                TimeUnit.SECONDS.sleep(1<span style="color: #000000;">);
+                writeToKafka();
+            } </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Exception e) {
+                e.printStackTrace();
+            }
+
+        }
+    }
+
+}</span></pre>
+</div>
+<p>　　接下来还是创建数据库的连接工具类。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflinktopn.db;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> com.alibaba.druid.pool.DruidDataSource;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.Connection;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-07
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> DbUtils {
+
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> DruidDataSource dataSource;
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> Connection getConnection() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        dataSource </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> DruidDataSource();
+        dataSource.setDriverClassName(</span>"com.mysql.cj.jdbc.Driver"<span style="color: #000000;">);
+        dataSource.setUrl(</span>"jdbc:mysql://localhost:3306/testdb"<span style="color: #000000;">);
+        dataSource.setUsername(</span>"root"<span style="color: #000000;">);
+        dataSource.setPassword(</span>"root"<span style="color: #000000;">);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">设置初始化连接数，最大连接数，最小闲置数</span>
+        dataSource.setInitialSize(10<span style="color: #000000;">);
+        dataSource.setMaxActive(</span>50<span style="color: #000000;">);
+        dataSource.setMinIdle(</span>5<span style="color: #000000;">);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">返回连接</span>
+        <span style="color: #0000ff;">return</span><span style="color: #000000;">  dataSource.getConnection();
+    }
+
+}</span></pre>
+</div>
+<p>　　接下来写sink到数据库的MySqlSink类，用于将结果接数据保存到数据库。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflinktopn.sink;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflinktopn.TopNJob;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflinktopn.db.DbUtils;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflinktopn.pojo.UserAction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.configuration.Configuration;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.Connection;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.PreparedStatement;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.Timestamp;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.List;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-07
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> MySqlSink <span style="color: #0000ff;">extends</span> RichSinkFunction&lt;List&lt;TopNJob.ItemBuyCount&gt;&gt;<span style="color: #000000;"> {
+
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> PreparedStatement ps;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Connection connection;
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> open(Configuration parameters) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #0000ff;">super</span><span style="color: #000000;">.open(parameters);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">获取数据库连接，准备写入数据库</span>
+        connection =<span style="color: #000000;"> DbUtils.getConnection();
+        String sql </span>= "insert into itembuycount(itemId, buyCount, createDate) values (?, ?, ?); "<span style="color: #000000;">;
+        ps </span>=<span style="color: #000000;"> connection.prepareStatement(sql);
+        System.out.println(</span>"-------------open------------"<span style="color: #000000;">);
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> close() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #0000ff;">super</span><span style="color: #000000;">.close();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">关闭并释放资源</span>
+        <span style="color: #0000ff;">if</span>(connection != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            connection.close();
+        }
+
+        </span><span style="color: #0000ff;">if</span>(ps != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            ps.close();
+        }
+        System.out.println(</span>"-------------close------------"<span style="color: #000000;">);
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> invoke(List&lt;TopNJob.ItemBuyCount&gt; topNItems, Context context) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #0000ff;">for</span><span style="color: #000000;">(TopNJob.ItemBuyCount itemBuyCount : topNItems) {
+            ps.setLong(</span>1<span style="color: #000000;">, itemBuyCount.itemId);
+            ps.setLong(</span>2<span style="color: #000000;">, itemBuyCount.buyCount);
+            ps.setTimestamp(</span>3, <span style="color: #0000ff;">new</span><span style="color: #000000;"> Timestamp(itemBuyCount.windowEnd));
+            ps.addBatch();
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">一次性写入</span>
+        <span style="color: #0000ff;">int</span>[] count =<span style="color: #000000;"> ps.executeBatch();
+        System.out.println(</span>"-------------invoke------------"<span style="color: #000000;">);
+        System.out.println(</span>"成功写入Mysql数量：" +<span style="color: #000000;"> count.length);
+
+    }
+}</span></pre>
+</div>
+<p>　　接下来咱们看一下实现TopNJob的全部代码，然后再继续分析下里边的细节。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> myflinktopn;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> com.alibaba.fastjson.JSONObject;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflinktopn.kafka.KafkaWriter;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflinktopn.pojo.UserAction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> myflinktopn.sink.MySqlSink;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.common.functions.AggregateFunction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.common.functions.FilterFunction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.common.serialization.SimpleStringSchema;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.common.state.ListState;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.common.state.ListStateDescriptor;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.java.tuple.Tuple;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.api.java.tuple.Tuple1;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.configuration.Configuration;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.TimeCharacteristic;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.datastream.DataStream;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.datastream.DataStreamSource;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.functions.KeyedProcessFunction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.functions.windowing.WindowFunction;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.windowing.time.Time;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.api.windowing.windows.TimeWindow;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.apache.flink.util.Collector;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.sql.Timestamp;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.ArrayList;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Comparator;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.List;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Properties;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> huangqingshi
+ * @Date 2019-12-13
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> TopNJob {
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">最对延迟到达的时间</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">long</span> MAX_EVENT_DELAY = 10L<span style="color: #000000;">;
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> main(String[] args) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">构建流执行环境</span>
+        StreamExecutionEnvironment env  =<span style="color: #000000;"> StreamExecutionEnvironment.getExecutionEnvironment();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">设置并行度1，方便打印</span>
+        env.setParallelism(1<span style="color: #000000;">);
+
+        </span><span style="color: #008000;">/**</span><span style="color: #008000;"> ProcessingTime：事件被处理的时间。也就是由机器的系统时间来决定。
+         EventTime：事件发生的时间。一般就是数据本身携带的时间。
+         </span><span style="color: #008000;">*/</span>
+        <span style="color: #008000;">//</span><span style="color: #008000;">设置下eventTime，默认为processTime即系统处理时间，我们需要统计一小时内的数据，也就是数据带的时间eventTime</span>
+<span style="color: #000000;">        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">kafka</span>
+        Properties prop = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Properties();
+        prop.put(</span>"bootstrap.servers"<span style="color: #000000;">, KafkaWriter.BROKER_LIST);
+        prop.put(</span>"zookeeper.connect", "localhost:2181"<span style="color: #000000;">);
+        prop.put(</span>"group.id"<span style="color: #000000;">, KafkaWriter.TOPIC_USER_ACTION);
+        prop.put(</span>"key.serializer"<span style="color: #000000;">, KafkaWriter.KEY_SERIALIZER);
+        prop.put(</span>"value.serializer"<span style="color: #000000;">, KafkaWriter.VALUE_SERIALIZER);
+        prop.put(</span>"auto.offset.reset", "latest"<span style="color: #000000;">);
+
+        DataStreamSource</span>&lt;String&gt; dataStreamSource = env.addSource(<span style="color: #0000ff;">new</span> FlinkKafkaConsumer010&lt;&gt;<span style="color: #000000;">(
+                KafkaWriter.TOPIC_USER_ACTION,
+                </span><span style="color: #0000ff;">new</span><span style="color: #000000;"> SimpleStringSchema(),
+                prop
+        ));
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">从kafka里读取数据，转换成UserAction对象</span>
+        DataStream&lt;UserAction&gt; dataStream = dataStreamSource.map(value -&gt; JSONObject.parseObject(value, UserAction.<span style="color: #0000ff;">class</span><span style="color: #000000;">));
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">将乱序的数据进行抽取出来，设置watermark，数据如果晚到10秒的会被丢弃</span>
+        DataStream&lt;UserAction&gt; timedData = dataStream.assignTimestampsAndWatermarks(<span style="color: #0000ff;">new</span><span style="color: #000000;"> UserActionTSExtractor());
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">为了统计5分钟购买的最多的，所以我们需要过滤出购买的行为</span>
+        DataStream&lt;UserAction&gt; filterData = timedData.filter(<span style="color: #0000ff;">new</span> FilterFunction&lt;UserAction&gt;<span style="color: #000000;">() {
+            @Override
+            </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">boolean</span> filter(UserAction userAction) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+                </span><span style="color: #0000ff;">return</span> userAction.getBehavior().contains("buy"<span style="color: #000000;">);
+            }
+        });
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">窗口统计点击量 滑动的窗口 5分钟一次  统计一小时最高的  比如 [09:00, 10:00), [09:05, 10:05), [09:10, 10:10)&hellip;</span>
+        DataStream&lt;ItemBuyCount&gt; windowedData =<span style="color: #000000;"> filterData
+                .keyBy(</span>"itemId"<span style="color: #000000;">)
+                .timeWindow(Time.minutes(</span>60L), Time.minutes(5L<span style="color: #000000;">))
+                .aggregate(</span><span style="color: #0000ff;">new</span> CountAgg(), <span style="color: #0000ff;">new</span><span style="color: #000000;"> WindowResultFunciton());
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">Top N 计算最热门的商品</span>
+        DataStream&lt;List&lt;ItemBuyCount&gt;&gt; topItems =<span style="color: #000000;"> windowedData
+                .keyBy(</span>"windowEnd"<span style="color: #000000;">)
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">点击前3的商品</span>
+                .process(<span style="color: #0000ff;">new</span> TopNHotItems(3<span style="color: #000000;">));
+
+        topItems.addSink(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> MySqlSink());
+        //topItems.print();
+        env.execute(</span>"Top N Job"<span style="color: #000000;">);
+    }
+
+    </span><span style="color: #008000;">/**</span><span style="color: #008000;">
+     * 用于行为时间戳抽取器，最多十秒延迟，也就是晚到10秒的数据会被丢弃掉
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span> UserActionTSExtractor <span style="color: #0000ff;">extends</span> BoundedOutOfOrdernessTimestampExtractor&lt;UserAction&gt;<span style="color: #000000;"> {
+
+
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> UserActionTSExtractor() {
+            </span><span style="color: #0000ff;">super</span><span style="color: #000000;">(Time.seconds(MAX_EVENT_DELAY));
+        }
+
+        @Override
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> extractTimestamp(UserAction userAction) {
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> userAction.getTimestamp();
+        }
+    }
+
+    </span><span style="color: #008000;">/**</span><span style="color: #008000;">
+     * 商品购买量（窗口操作的输出类型）
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ItemBuyCount {
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span> itemId; <span style="color: #008000;">//</span><span style="color: #008000;">商品ID;</span>
+        <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span> windowEnd; <span style="color: #008000;">//</span><span style="color: #008000;">窗口结束时间戳</span>
+        <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span> buyCount; <span style="color: #008000;">//</span><span style="color: #008000;">购买数量</span>
+
+        <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> ItemBuyCount of(<span style="color: #0000ff;">long</span> itemId, <span style="color: #0000ff;">long</span> windowEnd, <span style="color: #0000ff;">long</span><span style="color: #000000;"> buyCount) {
+            ItemBuyCount itemBuyCount </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> ItemBuyCount();
+            itemBuyCount.itemId </span>=<span style="color: #000000;"> itemId;
+            itemBuyCount.windowEnd </span>=<span style="color: #000000;"> windowEnd;
+            itemBuyCount.buyCount </span>=<span style="color: #000000;"> buyCount;
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> itemBuyCount;
+        }
+    }
+
+    </span><span style="color: #008000;">/**</span><span style="color: #008000;">
+     *
+     * COUNT 聚合函数实现，每出现一条记录加一。AggregateFunction&lt;输入，汇总，输出&gt;
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span> CountAgg <span style="color: #0000ff;">implements</span> AggregateFunction&lt;UserAction, Long, Long&gt;<span style="color: #000000;"> {
+
+        @Override
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Long createAccumulator() {
+            </span><span style="color: #0000ff;">return</span> 0L<span style="color: #000000;">;
+        }
+
+        @Override
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Long add(UserAction userAction, Long acc) {
+            </span><span style="color: #0000ff;">return</span> acc + 1<span style="color: #000000;">;
+        }
+
+        @Override
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Long getResult(Long acc) {
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> acc;
+        }
+
+        @Override
+        </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Long merge(Long acc1, Long acc2) {
+            </span><span style="color: #0000ff;">return</span> acc1 +<span style="color: #000000;"> acc2;
+        }
+    }
+
+    </span><span style="color: #008000;">/**</span><span style="color: #008000;">
+     * 用于输出结果的窗口WindowFunction&lt;输入，输出，键，窗口&gt;
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span> WindowResultFunciton <span style="color: #0000ff;">implements</span> WindowFunction&lt;Long, ItemBuyCount, Tuple, TimeWindow&gt;<span style="color: #000000;"> {
+
+        @Override
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> apply(
+                Tuple key, </span><span style="color: #008000;">//</span><span style="color: #008000;">窗口主键即itemId</span>
+                TimeWindow window, <span style="color: #008000;">//</span><span style="color: #008000;">窗口</span>
+                Iterable&lt;Long&gt; aggregationResult, <span style="color: #008000;">//</span><span style="color: #008000;">集合函数的结果，即count的值</span>
+                Collector&lt;ItemBuyCount&gt; collector <span style="color: #008000;">//</span><span style="color: #008000;">输出类型collector</span>
+        ) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+
+            Long itemId </span>= ((Tuple1&lt;Long&gt;<span style="color: #000000;">) key).f0;
+            Long count </span>=<span style="color: #000000;">aggregationResult.iterator().next();
+            collector.collect(ItemBuyCount.of(itemId, window.getEnd(), count));
+
+        }
+    }
+
+
+    </span><span style="color: #008000;">/**</span><span style="color: #008000;">
+     * 求某个窗口中前N名的热门点击商品，key为窗口时间戳，输出为Top N 的结果字符串
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span> TopNHotItems <span style="color: #0000ff;">extends</span> KeyedProcessFunction&lt;Tuple, ItemBuyCount, List&lt;ItemBuyCount&gt;&gt;<span style="color: #000000;"> {
+
+        </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> topSize;
+
+        </span><span style="color: #0000ff;">public</span> TopNHotItems(<span style="color: #0000ff;">int</span><span style="color: #000000;"> topSize) {
+            </span><span style="color: #0000ff;">this</span>.topSize =<span style="color: #000000;"> topSize;
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">用于存储商品与购买数的状态，待收齐同一个窗口的数据后，再触发 Top N 计算</span>
+        <span style="color: #0000ff;">private</span> ListState&lt;ItemBuyCount&gt;<span style="color: #000000;"> itemState;
+
+        @Override
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> open(Configuration parameters) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+            </span><span style="color: #0000ff;">super</span><span style="color: #000000;">.open(parameters);
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">状态注册</span>
+            ListStateDescriptor&lt;ItemBuyCount&gt; itemViewStateDesc = <span style="color: #0000ff;">new</span> ListStateDescriptor&lt;ItemBuyCount&gt;<span style="color: #000000;">(
+                    </span>"itemState-state", ItemBuyCount.<span style="color: #0000ff;">class</span><span style="color: #000000;">
+            );
+            itemState </span>=<span style="color: #000000;"> getRuntimeContext().getListState(itemViewStateDesc);
+        }
+
+        @Override
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> processElement(
+                ItemBuyCount input,
+                Context context,
+                Collector</span>&lt;List&lt;ItemBuyCount&gt;&gt;<span style="color: #000000;"> collector
+        ) </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">每条数据都保存到状态</span>
+<span style="color: #000000;">            itemState.add(input);
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">注册 windowEnd+1 的 EventTime Timer, 当触发时，说明收集好了所有 windowEnd的商品数据</span>
+            context.timerService().registerEventTimeTimer(input.windowEnd + 1<span style="color: #000000;">);
+        }
+
+
+        @Override
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> onTimer(<span style="color: #0000ff;">long</span> timestamp, OnTimerContext ctx, Collector&lt;List&lt;ItemBuyCount&gt;&gt; out) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">获取收集到的所有商品点击量</span>
+            List&lt;ItemBuyCount&gt; allItems = <span style="color: #0000ff;">new</span> ArrayList&lt;ItemBuyCount&gt;<span style="color: #000000;">();
+            </span><span style="color: #0000ff;">for</span><span style="color: #000000;">(ItemBuyCount item : itemState.get()) {
+                allItems.add(item);
+            }
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">提前清除状态中的数据，释放空间</span>
+<span style="color: #000000;">            itemState.clear();
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">按照点击量从大到小排序</span>
+            allItems.sort(<span style="color: #0000ff;">new</span> Comparator&lt;ItemBuyCount&gt;<span style="color: #000000;">() {
+                @Override
+                </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> compare(ItemBuyCount o1, ItemBuyCount o2) {
+                    </span><span style="color: #0000ff;">return</span> (<span style="color: #0000ff;">int</span>) (o2.buyCount -<span style="color: #000000;"> o1.buyCount);
+                }
+            });
+
+            List</span>&lt;ItemBuyCount&gt; itemBuyCounts = <span style="color: #0000ff;">new</span> ArrayList&lt;&gt;<span style="color: #000000;">();
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">将排名信息格式化成String，方便打印</span>
+            StringBuilder result = <span style="color: #0000ff;">new</span><span style="color: #000000;"> StringBuilder();
+            result.append(</span>"========================================\n"<span style="color: #000000;">);
+            result.append(</span>"时间：").append(<span style="color: #0000ff;">new</span> Timestamp(timestamp-1)).append("\n"<span style="color: #000000;">);
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i=0;i&lt;topSize;i++<span style="color: #000000;">) {
+                ItemBuyCount currentItem </span>=<span style="color: #000000;"> allItems.get(i);
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> No1:  商品ID=12224  购买量=2</span>
+                result.append("No").append(i).append(":"<span style="color: #000000;">)
+                        .append(</span>"  商品ID="<span style="color: #000000;">).append(currentItem.itemId)
+                        .append(</span>"  购买量="<span style="color: #000000;">).append(currentItem.buyCount)
+                        .append(</span>"\n"<span style="color: #000000;">);
+                itemBuyCounts.add(currentItem);
+            }
+            result.append(</span>"====================================\n\n"<span style="color: #000000;">);
+
+            out.collect(itemBuyCounts);
+
+        }
+    }
+
+}</span></pre>
+</div>
+<p>　　以上里边的步骤：</p>
+<p>　　1. 构建流执行的环境。</p>
+<p>　　2. 设置并行度为1，为了方便下边打印。但是实际上可以不用设置并行度。</p>
+<p>　　3. 设置流时间的特性，即EventTime。流时间一共有三种时间：</p>
+<p>　　　　1）ProcessingTime时间，即算子处理的时间，默认flink的时间特性。</p>
+<p>　　　　2）EventTime，事件处理时间，也就是程序所带的时间戳。此例子将使用由业务产生的时间戳作为时间戳。</p>
+<p>　　　　3）IntestionTime，即到达flink的时间。</p>
+<p>　　4. 连接kafka的属性读取数据。将kafka的数据转换成pojo对象。</p>
+<p>　　5. 将乱序的数据使用BoundedOutOfOrdernessTimestampExtractor进行时间戳抽取和设置watermark。</p>
+<p>　　6. 进行数据过滤，将useAction为buy的数据进行过滤出来，其他的直接丢弃。</p>
+<p>　　7. 采用滑动窗口的方式对数据进行汇总并返回指定类型的数据。一小时为一个窗口，每五分钟往后滑动一下。数据的形式为[9:00 10:00), [9:05 10:05), [9:10 10:10)依次类推。</p>
+<p>　　8. 最后是将数据排序，然后获取topN的数据。</p>
+<p>　　接下来咱们再针对里边的细节看一下，如果数据是生序的数据，则采用AscendingTimestampExtractor进行时间戳抽取，无序可以采用上边5条说的类。有序的只需要进行时间戳抽取，抽取的时间戳就认为是整个的时间，也就是watermark时间，可以理解为全局时间。无序抽取的时候设置一个最晚到达的时间。举个例子，如果一条数据时间为9:04:55, 到达的时间为9:05:05，这样这条数据还是属于窗口[9:00 9:05:01)里边的，而不是[9:05:01 9:10:01)。</p>
+<p>　　这个聚合方法aggregate(new CountAgg(), new WindowResultFunciton())里边声明了两个类，一个是聚合功能类，一个是结果窗口功能类。也就是使用第一个类将数据进行汇聚，第二个类将数据进行合并汇总并且输出自己定义的窗口结果集ItemBuyCount。</p>
+<p>　　最后就是topN功能，这个类实现了KeyedProcessFunction，里边有三个方法 open, processElement, onTimer, 里边还有一个ListState&lt;ItemBuyCount&gt;，用于收集和记录状态信息，保证数据exactly-once语义。</p>
+<p>　　open方法用于进行状态注册。</p>
+<p>　　processElement把数据状态进行添加到list里边，然后注册时间时间windowEnd+1，即数据超过了windowEnd的时候就会触发onTimer时间。</p>
+<p>　　onTimer用于把五分钟收集好的数据进行处理，从数据状态记录中把数据拿出来，然后清理数据状态，释放空间。然后将拿出来的数据进行排序，最后整理成sink所需要的结果集。</p>
+<p>　　最后就把数据进行sink，保存到数据库。</p>
+<p>　　下面看一下数据运行的结果，kafkaWriter打印的日志。</p>
+<div class="cnblogs_code">
+<pre><code>向kafka发送数据:{"behavior":"pv","categoryId":7,"itemId":19,"timestamp":1576325365016,"userId":56}</pre>
+</div>
+<p>　　执行TopNJob，MysqlSink执行的日志打印。</p>
+<div class="cnblogs_code">
+<pre><code>-------------invoke------------<span style="color: #000000;">
+成功写入Mysql数量：</span>3<span style="color: #000000;">
+[myflinktopn.TopNJob$ItemBuyCount@611553e4, myflinktopn.TopNJob$ItemBuyCount@</span>19739780<span style="color: #000000;">, myflinktopn.TopNJob$ItemBuyCount@a76f1f0]
+</span>-------------invoke------------<span style="color: #000000;">
+成功写入Mysql数量：</span>3<span style="color: #000000;">
+[myflinktopn.TopNJob$ItemBuyCount@3db32bd3, myflinktopn.TopNJob$ItemBuyCount@10f855ae, myflinktopn.TopNJob$ItemBuyCount@6a022d0b]
+</span>-------------invoke------------<span style="color: #000000;">
+成功写入Mysql数量：</span>3<span style="color: #000000;">
+[myflinktopn.TopNJob$ItemBuyCount@4ae16ab8, myflinktopn.TopNJob$ItemBuyCount@6a8a29a3, myflinktopn.TopNJob$ItemBuyCount@2326adfb]</span></pre>
+</div>
+<p>　　写入到数据库的记录如下：</p>
+<p><img src="./images/使用flink实现一个topN的程序0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;　&nbsp; 写入的时间都在同一个时刻，获取前三条购买最多的，所以三条写入的时间都一样的。</p>
+<p>　　还有在运行的时候要注意kafkaWriter要多谢一些，因为要收集5分钟的数据，所以至少得跑5分钟。</p>
+<p>　　最后我把代码放到git上了，可以进行访问：<a href="https://github.com/stonehqs/flink-topn">https://github.com/stonehqs/flink-topn</a>&nbsp;，有不对的地方，欢迎指正。&nbsp;</p>
+<p>&nbsp;</p>
+<p>　　</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

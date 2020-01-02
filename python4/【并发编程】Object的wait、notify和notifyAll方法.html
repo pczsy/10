@@ -1,0 +1,221 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【并发编程】Object的wait、notify和notifyAll方法' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【并发编程】Object的wait、notify和notifyAll方法</center></div><div class='banquan'>原文出处:本文由博客园博主写代码的木公提供。<br/>
+原文连接:https://www.cnblogs.com/54chensongxia/p/11995981.html</div><br>
+    <hr />
+<p>本博客系列是学习并发编程过程中的记录总结。由于文章比较多，写的时间也比较散，所以我整理了个目录贴（传送门），方便查阅。</p>
+<p><a href="https://www.cnblogs.com/54chensongxia/p/11935423.html">并发编程系列博客传送门</a></p>
+<hr />
+<h2 id="方法简介">方法简介</h2>
+<h3 id="wait方法">wait方法</h3>
+<p>wait方法是Object类中的一个方法，调用这个方法会让调用线程进入waiting状态，直到另一个线程调用了当前对象上的notify()或者notifyAll()方法。（如果其他线程调用了该线程的interrupt（）方法，会中断这种waiting状态，同时该线程抛出InterruptedException异常返回）。如果当前线程已经获取了锁资源，调用wait方法之后会释放这个锁资源。</p>
+<p>wait方法还有一个重载方法wait（long time）,这个方法会等待time时间，如果在这个时间内没有其他线程来唤醒它的话，这个线程会自己唤醒继续获得执行机会。</p>
+<p>另外需要注意的是，如果调用wait（）方法的线程没有事先获取该对象的监视器锁，则调用wait（）方法时调用线程会抛出IllegalMonitorStateException异常。</p>
+<h3 id="notify方法">notify方法</h3>
+<p>notify方法会唤醒等待对象监视器的单个线程，如果等待对象监视器的有多个线程，则选取其中一个线程进行唤醒到底选择唤醒哪个线程是任意的，由CPU自己决定。</p>
+<p>notify方法还有个兄弟方法notifyAll，这个方法会唤醒所有等待监视器对象的线程。</p>
+<h2 id="wait-notify模式的典型应用">wait-notify模式的典型应用</h2>
+<p>wait-notify模式的一个典型应用就是可以实现生产者-消费者模式。让我印象很深是我毕业那年阿里巴巴年校园招聘的一个笔试题：</p>
+<blockquote>
+<p>有一个苹果箱，有10个人向这个箱子中每次随机放入一个苹果，有10个人每次随机从这个箱子中随机拿走一个苹果，同时需要满足箱子中的苹果总数不能超过50个。请用代码实现上面的场景（不能使用并发集合框架）</p>
+</blockquote>
+<p>现在看来，这道题不就是为wait-notify模式量身打造的一道题目么。当时水平有限，又急急忙忙的，所以记得当时写的不太好。这边重新整理下这个代码</p>
+<pre><code><code>
+public class AppleBox {
+
+    private int appleCount;
+
+    public synchronized void putApple() {
+        while (appleCount &gt;= 50) {
+            try {
+                //会释放锁
+                this.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        appleCount++;
+        String name = Thread.currentThread().getName();
+        System.out.println(&quot;[&quot; + name + &quot;]放入一个,当前盒子中苹果数:&quot; + appleCount);
+        this.notifyAll();
+    }
+
+
+    public synchronized void takeApple() {
+        while (appleCount &lt;= 0) {
+            try {
+                //会释放锁
+                this.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        appleCount--;
+        String name = Thread.currentThread().getName();
+        System.out.println(&quot;[&quot; + name + &quot;]拿走一个,当前盒子中苹果数:&quot; + appleCount);
+        this.notifyAll();
+    }
+
+    private static class AppleTaker implements Runnable {
+
+        private AppleBox appleBox;
+
+        public AppleTaker(AppleBox appleBox) {
+            this.appleBox = appleBox;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                appleBox.takeApple();
+                try {
+                    TimeUnit.MILLISECONDS.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    private static class ApplePutter implements Runnable {
+
+        private AppleBox appleBox;
+
+        public ApplePutter(AppleBox appleBox) {
+            this.appleBox = appleBox;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                appleBox.putApple();
+                try {
+                    TimeUnit.MILLISECONDS.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    public static void main(String[] args) {
+        AppleBox appleBox = new AppleBox();
+
+        for (int i = 0; i &lt; 20; i++) {
+            Thread t = new Thread(new ApplePutter(appleBox));
+            t.setName(&quot;ApplePutter:&quot; + i);
+            t.start();
+        }
+
+        for (int i = 0; i &lt; 20; i++) {
+            Thread t = new Thread(new AppleTaker(appleBox));
+            t.setName(&quot;AppleTaker:&quot; + i);
+            t.start();
+        }
+
+    }
+}
+</code></pre>
+<p>执行结果如下：</p>
+<pre><code><code>
+[ApplePutter:0]放入一个,当前盒子中苹果数:1
+[ApplePutter:1]放入一个,当前盒子中苹果数:2
+[ApplePutter:5]放入一个,当前盒子中苹果数:3
+[ApplePutter:9]放入一个,当前盒子中苹果数:4
+[ApplePutter:13]放入一个,当前盒子中苹果数:5
+[ApplePutter:2]放入一个,当前盒子中苹果数:6
+[ApplePutter:6]放入一个,当前盒子中苹果数:7
+[ApplePutter:10]放入一个,当前盒子中苹果数:8
+[ApplePutter:17]放入一个,当前盒子中苹果数:9
+[ApplePutter:14]放入一个,当前盒子中苹果数:10
+[ApplePutter:18]放入一个,当前盒子中苹果数:11
+[ApplePutter:3]放入一个,当前盒子中苹果数:12
+[ApplePutter:7]放入一个,当前盒子中苹果数:13
+[ApplePutter:11]放入一个,当前盒子中苹果数:14
+[ApplePutter:8]放入一个,当前盒子中苹果数:15
+[ApplePutter:15]放入一个,当前盒子中苹果数:16
+[ApplePutter:19]放入一个,当前盒子中苹果数:17
+[ApplePutter:4]放入一个,当前盒子中苹果数:18
+[AppleTaker:3]拿走一个,当前盒子中苹果数:17
+[ApplePutter:12]放入一个,当前盒子中苹果数:18
+[AppleTaker:1]拿走一个,当前盒子中苹果数:17
+[AppleTaker:5]拿走一个,当前盒子中苹果数:16
+[ApplePutter:16]放入一个,当前盒子中苹果数:17
+[AppleTaker:0]拿走一个,当前盒子中苹果数:16
+[AppleTaker:12]拿走一个,当前盒子中苹果数:15
+[AppleTaker:8]拿走一个,当前盒子中苹果数:14
+[AppleTaker:16]拿走一个,当前盒子中苹果数:13
+[AppleTaker:7]拿走一个,当前盒子中苹果数:12
+[AppleTaker:11]拿走一个,当前盒子中苹果数:11
+[AppleTaker:19]拿走一个,当前盒子中苹果数:10
+[AppleTaker:9]拿走一个,当前盒子中苹果数:9
+[AppleTaker:13]拿走一个,当前盒子中苹果数:8
+[AppleTaker:2]拿走一个,当前盒子中苹果数:7
+[AppleTaker:6]拿走一个,当前盒子中苹果数:6
+[AppleTaker:10]拿走一个,当前盒子中苹果数:5
+[AppleTaker:14]拿走一个,当前盒子中苹果数:4
+[AppleTaker:4]拿走一个,当前盒子中苹果数:3
+[AppleTaker:15]拿走一个,当前盒子中苹果数:2
+[AppleTaker:18]拿走一个,当前盒子中苹果数:1
+[AppleTaker:17]拿走一个,当前盒子中苹果数:0
+[ApplePutter:0]放入一个,当前盒子中苹果数:1
+[ApplePutter:1]放入一个,当前盒子中苹果数:2
+[ApplePutter:5]放入一个,当前盒子中苹果数:3
+[ApplePutter:9]放入一个,当前盒子中苹果数:4
+[ApplePutter:13]放入一个,当前盒子中苹果数:5
+[ApplePutter:17]放入一个,当前盒子中苹果数:6
+[ApplePutter:2]放入一个,当前盒子中苹果数:7
+[ApplePutter:6]放入一个,当前盒子中苹果数:8
+[ApplePutter:10]放入一个,当前盒子中苹果数:9
+[ApplePutter:14]放入一个,当前盒子中苹果数:10
+[ApplePutter:18]放入一个,当前盒子中苹果数:11
+[ApplePutter:3]放入一个,当前盒子中苹果数:12
+[ApplePutter:7]放入一个,当前盒子中苹果数:13
+[ApplePutter:11]放入一个,当前盒子中苹果数:14
+[ApplePutter:15]放入一个,当前盒子中苹果数:15
+[ApplePutter:19]放入一个,当前盒子中苹果数:16
+[AppleTaker:3]拿走一个,当前盒子中苹果数:15
+[ApplePutter:4]放入一个,当前盒子中苹果数:16
+[ApplePutter:8]放入一个,当前盒子中苹果数:17
+[ApplePutter:12]放入一个,当前盒子中苹果数:18
+</code></pre>
+<h2 id="wait-notify模式的经典写法">wait-notify模式的经典写法</h2>
+<p>生产者和消费者的逻辑都可以统一抽象成以下几个步骤：</p>
+<ul>
+<li>step1：获得对象的锁；</li>
+<li>step2：循环判断是否需要进行生产活动，如果不需要进行生产就调用wait方法，暂停当前线程；如果需要进行生产活动，进行对应的生产活动；</li>
+<li>step3：通知等待线程</li>
+</ul>
+<p>伪代码如下：</p>
+<pre><code><code>synchronized(对象) {
+    while(条件){
+        对象.wait();
+    }
+    //进行生产或者消费活动
+    doSomething();
+    对象.notifyAll();
+}</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

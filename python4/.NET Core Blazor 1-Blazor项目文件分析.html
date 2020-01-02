@@ -1,0 +1,106 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修.NET Core Blazor 1-Blazor项目文件分析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>.NET Core Blazor 1-Blazor项目文件分析</center></div><div class='banquan'>原文出处:本文由博客园博主WarrenRyan提供。<br/>
+原文连接:https://www.cnblogs.com/WarrenRyan/p/11995553.html</div><br>
+    <h1 id="net-core-blazor-1-blazor项目文件分析"><em>.NET Core Blazor</em> 1-Blazor项目文件分析</h1>
+<blockquote>
+<p>本节内容为Blazor的基本文件</p>
+</blockquote>
+<h2 id="简介">简介</h2>
+<p>Blazor是一个使用.NET技术用于代替JavaScript/typescript的前端WEB框架。在前端开发中使用.NET语言进行书写逻辑有利于我们的性能、可靠性和安全性。并且对于使用.NET开发人员而言，全栈的成本更低。</p>
+<p>截止文章发布时，.NET Core已经发布了3.1版本，Blazor已经正式发布了Server-Side的框架，基于WebAssembly的Client-Side已经进入测试，预计2020年发布。Blazor实现了 <em>.NET Standard2.0</em> 。</p>
+<p>Blazor你可以简单的理解为使用C#写Angular框架，Blazor是基于组件化开发的一款框架，Blazor的组件和页面通常使用Razor标记页的形式进行编码，因此我们也成为Razor组件(.razor)，借助Razor引擎，我们可以将html文件和C#语法进行切换。不过对于Blazor而言，它的设计思路和传统MVC是完全不同的，即使他们都使用Razor进行页面的开发，Blazor更倾向于客户端UI和逻辑的构成。</p>
+<h2 id="blazor的运行模式">Blazor的运行模式</h2>
+<p>我们知道，Blazor目前有两种运行方式，他们有着很本质的区别，如下文</p>
+<h3 id="server-side">Server-Side</h3>
+<p><strong><em>Server-Side</em></strong> 也被称为Blazor服务器，它是完全运行于服务器上面，也就是说客户端的浏览器只是一个空壳页面，它不包含任何的逻辑和除了首页（通常会被称为‘_Host’）以外的任何页面，该种模式完全托管于服务器，UI的修改已经前端所发生的一切事件都需要传往服务器进行计算。传输的过程使用的是SignalR的方式。</p>
+<p><img src="./images/.NET Core Blazor 1-Blazor项目文件分析0.png" /></p>
+<p>使用这种方式意味着对于服务器的带宽以及性能要求会极其之高，但是对于一些需要使用到SignalR的应用以及一些访问量不大的地方使用SignalR也许会有不小的用途。</p>
+<p>一次点击事件在websockets中的传输</p>
+<p><img src="./images/.NET Core Blazor 1-Blazor项目文件分析1.png" /></p>
+<p>并且在无操作的情况下，网页仍需要定期发送心跳包确认服务器状态，若服务器无响应，则整个网页停止服务</p>
+<p><img src="./images/.NET Core Blazor 1-Blazor项目文件分析2.png" /></p>
+<h2 id="clientside">ClientSide</h2>
+<p>Client-Side是SPA(Single Page Application)应用，基于一种叫WebAssembly的技术，WebAssembly(wasm)是一个开发的web标准，它是一种很底层的类似于字节码的东西，WebAssembly可以通过JavaScript访问浏览器的完整功能。在我们.NET运行在浏览器之前，Blazor会提前向浏览器发送一个可以运行在WebAssembly上的迷你版本的mono，我们知道.NET中的语言是可以运行在mono之上的，因此我们就等于变相的实现了在浏览器中运行.NET。并且所有代码都是在JavaScript沙盒中运行，也防御了许多不安全操作。</p>
+<p>对于客户端模式，Blazor是将整个项目程序集和运行时(mono)一同发送到了浏览器，通过WebAssembly对JavaScript互操作处理DOM节点和相关api的调用。</p>
+<p><img src="./images/.NET Core Blazor 1-Blazor项目文件分析3.png" /></p>
+<h2 id="两种方式对比">两种方式对比</h2>
+<p>事实上两种方式都有其优缺点，ServerSide在访问量并不是那么大的时候，或者说你的服务器足够好的时候，可以很轻松的完成需要的任务，并且在网络聊天这种需要保持长期的网络连接的时候，ServerSide显然是首选，对于一些博客、或者一些普通的以页面展示为目的的网站，ClientSide显然要比ServerSide好一些，但是ClientSide有一个致命的缺点，也就是你的代码质量必须高，代码需要精简。因为你的程序集的大小会影响你的加载速度，因此我们应当尽可能缩小程序集。</p>
+<h2 id="serverside项目文件解析">ServerSide项目文件解析</h2>
+<p>在微软提供的模板上面，大体上还是和我们的ASP.NET Core是接近的。在依赖注入中，因为我们利用了Razor来实现C#和html的混合编码以及我们使用的是ServerSide的Blazor，注入代码如下：</p>
+<pre><code><code>    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddRazorPages();
+        services.AddServerSideBlazor();
+    }</code></pre>
+<p>中间件如下</p>
+<pre><code><code>    app.UseEndpoints(endpoints =&gt;
+    {
+        //匹配我们的signalR的连接
+        endpoints.MapBlazorHub();
+        //会自动的去pages/下寻找
+        endpoints.MapFallbackToPage(&quot;/_Host&quot;);
+    });</code></pre>
+<p>'_Host.cshtml'中</p>
+<pre class="razor"><code>    &lt;app&gt;
+        &lt;component type=&quot;typeof(App)&quot; render-mode=&quot;ServerPrerendered&quot; /&gt;
+    &lt;/app&gt;</code></pre>
+<p>这种方式会自动的去寻找App组件作为根组件，并且还有另一种方式</p>
+<pre class="razor"><code>    &lt;app&gt;
+        @(await Html.RenderComponentAsync&lt;App&gt;(RenderMode.ServerPrerendered))
+    &lt;/app&gt;</code></pre>
+<p>这种方式可以无缝将你的MVC或者其他模式下的ASP.NET Core应用迁移到Blazor，这种方式是设置预渲染，使用Html.RenderComponentAsync<TComponent>() HTML帮助器预呈现应用程序内容。</p>
+<p>而对于其他文件的布局是和我们经典的MVC模式一样的。</p>
+<h2 id="clientside项目文件解析">ClientSide项目文件解析</h2>
+<p>对于ClientSide，就类似我们使用ASP.NET Core进行SPA应用开发的格式，对于Client的页面需要单独的一个项目去村，内部和普通的mvc或者serverside的写法类似，但是需要将中间件的服务修改以及我们的WebHost进行修改</p>
+<pre><code><code>    // 替换为IBlazorApplicationBuilder
+    public void Configure(IBlazorApplicationBuilder app)
+    {
+        //添加根组件
+        app.AddComponent&lt;App&gt;(&quot;app&quot;);
+    }
+    // 更换webhost
+    public static IWebAssemblyHostBuilder CreateHostBuilder(string[] args) =&gt;
+        BlazorWebAssemblyHost.CreateDefaultBuilder()
+            .UseBlazorStartup&lt;Startup&gt;();</code></pre>
+<p>随后你需要添加一个Server项目用于启动我们的服务，只需要在依赖注入中添加以下配置，中间件中激活我们的Blazor即可。</p>
+<pre><code><code>    services.AddResponseCompression(options =&gt;
+    {
+        options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+        {
+            MediaTypeNames.Application.Octet,
+            WasmMediaTypeNames.Application.Wasm,
+        });
+    });
+    // 中间件
+    app.UseBlazor&lt;Client.Startup&gt;();
+</code></pre>
+<p>如果我的文章帮助了您，请您在github.NETCoreGuide项目帮我点一个star，在博客园中点一个关注和推荐。</p>
+<blockquote>
+<p><a href="https://github.com/StevenEco/.NetCoreGuide">Github</a></p>
+<p><a href="https://space.bilibili.com/33311288">BiliBili主页</a></p>
+<p><a href="https://blog.tity.xyz">WarrenRyan'sBlog</a></p>
+<p><a href="https://cnblogs.com/warrenryan">博客园</a></p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

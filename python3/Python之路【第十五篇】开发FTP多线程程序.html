@@ -1,0 +1,792 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python之路【第十五篇】开发FTP多线程程序' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python之路【第十五篇】开发FTP多线程程序</center></div><div class='banquan'>原文出处:本文由博客园博主Simon92提供。<br/>
+原文连接:https://www.cnblogs.com/hackerer/p/11355665.html</div><br>
+    <div class="cnblogs_code">
+<pre><code><span style="color: #000000;">要求：
+</span>1<span style="color: #000000;">.用户加密认证
+</span>2<span style="color: #000000;">.允许同时多用户登录
+</span>3<span style="color: #000000;">.每个用户有自己的家目录，且只能访问自己的家目录
+</span>4<span style="color: #000000;">.对用户进行磁盘配额，每个用户的可用空间不同
+</span>5<span style="color: #000000;">.允许用户在ftp server上随意切换目录
+</span>6<span style="color: #000000;">.允许用户查看当前目录下的文件
+</span>7<span style="color: #000000;">.允许上传和下载文件，并保证文件的一致性md5
+</span>8<span style="color: #000000;">.文件传输过程中显示进度条
+</span>9.支持文件的断点续传</pre>
+</div>
+<pre><code><strong>使用：</strong><br />1.启动ftp_server.py<br />2.创建用户，输入:用户名（默认密码是zhurui）<br />3.启动FTP服务器<br />4.启动客户端ftp_client.py<br />5.输入用户名和密码:alex zhurui | william zhurui<br />6.与服务器server交互：</pre>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;<img src="./images/Python之路【第十五篇】开发FTP多线程程序0.png" alt="" /></p>
+<p>&nbsp;</p>
+<h2>server服务端</h2>
+<h3>bin下的文件&nbsp;</h3>
+<p>ftp_server.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">_*_ coding:utf-8 _*_</span><span style="color: #008000;">
+#</span><span style="color: #008000;">Author :simon</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> sys
+
+BASE_DIR </span>= os.path.dirname(os.path.dirname(os.path.abspath(<span style="color: #800080;">__file__</span><span style="color: #000000;">)))
+
+sys.path.append(BASE_DIR)
+
+</span><span style="color: #0000ff;">from</span> core.main <span style="color: #0000ff;">import</span><span style="color: #000000;"> Manager
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    Manager().run()</span></pre>
+</div>
+<h3>conf下的文件</h3>
+<p>accounts.ini（这个可以在执行中创建）</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">[william]
+password </span>=<span style="color: #000000;"> 39da56d2e7a994d38b9aaf329640fc6e
+homedir </span>= home/<span style="color: #000000;">william
+quota </span>= 10<span style="color: #000000;">
+
+[zhurui]
+password </span>=<span style="color: #000000;"> 39da56d2e7a994d38b9aaf329640fc6e
+homedir </span>= home/<span style="color: #000000;">zhurui
+quota </span>= 10<span style="color: #000000;">
+
+[simon]
+password </span>=<span style="color: #000000;"> 39da56d2e7a994d38b9aaf329640fc6e
+homedir </span>= home/<span style="color: #000000;">simon
+quota </span>= 10</pre>
+</div>
+<p>settings.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">_*_ coding:utf-8 _*_</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Author:Simon</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Datetime:2019/8/14 11:00</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Software:PyCharm</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+BASE_DIR </span>= os.path.dirname(os.path.dirname(os.path.abspath(<span style="color: #800080;">__file__</span><span style="color: #000000;">)))
+ACCOUNTS_FILE </span>= os.path.join(BASE_DIR, <span style="color: #800000;">'</span><span style="color: #800000;">conf</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">accounts.ini</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+HOST </span>= <span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span><span style="color: #000000;">
+PORT </span>= 8080<span style="color: #000000;">
+
+MAX_CONCURRENT_COUNT </span>= 10</pre>
+</div>
+<h3>core下的文件</h3>
+<p>main.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> _*_ coding:utf-8 _*_</span><span style="color: #008000;">
+#</span><span style="color: #008000;">Author:Simon</span>
+
+<span style="color: #0000ff;">from</span> core.user_handle <span style="color: #0000ff;">import</span><span style="color: #000000;"> UserHandle
+</span><span style="color: #0000ff;">from</span> core.server <span style="color: #0000ff;">import</span><span style="color: #000000;"> Ftpserver
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Manager():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">pass</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> start_ftp(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">启动ftp_server端</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        server </span>=<span style="color: #000000;"> Ftpserver()
+        server.run()
+        server.close()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> create_user(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">创建用户</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        username </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入要创建的用户&gt;:</span><span style="color: #800000;">'</span><span style="color: #000000;">).strip()
+        UserHandle(username).add_user()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> quit_func(self):
+        quit(</span><span style="color: #800000;">'</span><span style="color: #800000;">get out...</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        msg </span>= <span style="color: #800000;">'''</span><span style="color: #800000;">\033[31;0m
+        1、启动ftp服务器
+        2、创建用户
+        3、退出\033[0m\n
+        </span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        msg_dic </span>= {<span style="color: #800000;">'</span><span style="color: #800000;">1</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">start_ftp</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">2</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">create_user</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">3</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">quit_func</span><span style="color: #800000;">'</span><span style="color: #000000;">}
+        </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+            </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(msg)
+            num </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入数字num&gt;&gt;&gt;&gt;:</span><span style="color: #800000;">'</span><span style="color: #000000;">).strip()
+            </span><span style="color: #0000ff;">if</span> num <span style="color: #0000ff;">in</span><span style="color: #000000;"> msg_dic:
+                getattr(self,msg_dic[num])()
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m请重新选择\033[0m</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>server.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">-*- coding:utf-8 -*-</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Author:Simon</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Datetime:2019/8/13 21:02</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Software:PyCharm</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> struct
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> pickle
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> hashlib
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> subprocess
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> queue
+</span><span style="color: #0000ff;">from</span> conf <span style="color: #0000ff;">import</span><span style="color: #000000;"> settings
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> from core.user_handle import UserHandle</span>
+<span style="color: #0000ff;">from</span> core.user_handle <span style="color: #0000ff;">import</span><span style="color: #000000;"> UserHandle
+
+</span><span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Thread, Lock
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Ftpserver():
+    MAX_SOCKET_LISTEN </span>= 5<span style="color: #000000;">
+    MAX_RECV_SIZE </span>= 8192
+
+    <span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        self.socket </span>=<span style="color: #000000;"> socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.bind((settings.HOST, settings.PORT))
+        self.socket.listen(self.MAX_SOCKET_LISTEN)
+
+        self.q </span>= queue.Queue(settings.MAX_CONCURRENT_COUNT) <span style="color: #008000;">#</span><span style="color: #008000;"> 可以配置最大并发数</span>
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> server_accept(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">等待client连接</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">starting...</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+            self.conn,self.client_addr </span>=<span style="color: #000000;"> self.socket.accept()
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">客户端地址:</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.client_addr)
+
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">pool.submit(self.get_recv, self.conn)</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">self.server_accept.close()</span>
+            <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> t = Thread(target=self.server_handle, args=(self.conn, )) #报这个错(TypeError: server_handle() takes 1 positional argument but 2 were given)</span>
+                t = Thread(target=self.server_handle(), args=<span style="color: #000000;">(self.conn, ))
+                self.q.put(t)
+                t.start()
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+                </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+                self.conn.close()
+                self.q.get()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_recv(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">接收client发来的数据</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">return</span><span style="color: #000000;"> pickle.loads(self.conn.recv(self.MAX_RECV_SIZE))
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> auth(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">处理用户的认证请求
+        1、根据username读取accounts.ini文件，password相比，判断用户是否存在
+        2、将程序运行的目录从bin/ftp_server.py修改到用户home/alice,方便之后查询ls
+        3、给client返回用户的详细信息
+        </span><span style="color: #800000;">'''</span>
+
+        <span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+            user_dic </span>=<span style="color: #000000;"> self.get_recv()
+            username </span>= user_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">username</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            user_handle </span>=<span style="color: #000000;"> UserHandle(username)
+            user_data </span>=<span style="color: #000000;"> user_handle.judge_user()
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 判断用户是否存在，返回列表</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> 如[('password','202cb962ac59075b964b07152d234b70'),('homedir','home/alex'),('quota','100')]</span>
+            <span style="color: #0000ff;">if</span><span style="color: #000000;"> user_data:
+                </span><span style="color: #0000ff;">if</span> user_data[0][1] == hashlib.md5(user_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">password</span><span style="color: #800000;">'</span>).encode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span>)).hexdigest(): <span style="color: #008000;">#</span><span style="color: #008000;"> 密码也相同</span>
+                    self.conn.send(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1))  <span style="color: #008000;">#</span><span style="color: #008000;">登录成功返回</span>
+                    self.username =<span style="color: #000000;"> username
+                    self.homedir_path </span>= <span style="color: #800000;">'</span><span style="color: #800000;">%s %s %s</span><span style="color: #800000;">'</span> %(settings.BASE_DIR, <span style="color: #800000;">'</span><span style="color: #800000;">home</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.username)
+                    os.chdir(self.homedir_path) </span><span style="color: #008000;">#</span><span style="color: #008000;">将程序运行的目录名修改到用户home目录下</span>
+                    self.quota_bytes = int(user_data[2][1]) * 1024 * 1024 <span style="color: #008000;">#</span><span style="color: #008000;">将用户配额大小从M改到字节</span>
+                    user_info_dic =<span style="color: #000000;"> {
+                        </span><span style="color: #800000;">'</span><span style="color: #800000;">username</span><span style="color: #800000;">'</span><span style="color: #000000;">: username,
+                        </span><span style="color: #800000;">'</span><span style="color: #800000;">homedir</span><span style="color: #800000;">'</span>: user_data[1][1<span style="color: #000000;">],
+                        </span><span style="color: #800000;">'</span><span style="color: #800000;">quota</span><span style="color: #800000;">'</span>: user_data[2][1<span style="color: #000000;">]
+                    }
+                    self.conn.send(pickle.dumps(user_info_dic))   </span><span style="color: #008000;">#</span><span style="color: #008000;">用户的详细信息发送到客户端</span>
+                    <span style="color: #0000ff;">return</span><span style="color: #000000;"> True
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> readfile(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">读取文件，得到文件内容的bytes型</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        with open(self.filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+            filedata </span>=<span style="color: #000000;"> f.read()
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> filedata
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> getfile_md5(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">对文件内容md5</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">return</span><span style="color: #000000;"> hashlib.md5(self.readfile()).hexdigest()
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">从server下载文件到client
+        </span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            filename </span>= self.cmds[1<span style="color: #000000;">]
+            filepath </span>= os.path.join(os.getcwd(),filename)  <span style="color: #008000;">#</span><span style="color: #008000;">os.getcwd()得到当前工作目录</span>
+            <span style="color: #0000ff;">if</span> os.path.isfile(filepath):  <span style="color: #008000;">#</span><span style="color: #008000;">判断文件是否存在</span>
+                exist_file_size = struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.conn.recv(4<span style="color: #000000;">))[0]
+                self.filepath </span>=<span style="color: #000000;"> filepath
+                header_dic </span>=<span style="color: #000000;"> {
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">filename</span><span style="color: #800000;">'</span><span style="color: #000000;">: filename,
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">file_md5</span><span style="color: #800000;">'</span><span style="color: #000000;">: self.getfile_md5(),
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">file_size</span><span style="color: #800000;">'</span><span style="color: #000000;">: os.path.getsize(self.filepath)
+                }
+                header_bytes </span>=<span style="color: #000000;"> pickle.dumps(header_dic)
+                </span><span style="color: #0000ff;">if</span> exist_file_size:  <span style="color: #008000;">#</span><span style="color: #008000;">表示之前被下载过一部分</span>
+                    self.conn.send(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, len(header_bytes)))
+                    self.conn.send(header_bytes)
+                    </span><span style="color: #0000ff;">if</span> exist_file_size !=<span style="color: #000000;"> os.path.getsize(self.filepath):
+                        with open(self.filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                            f.seek(exist_file_size)
+                            </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> f:
+                                self.conn.send(line)
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">断电和文件本身大小一样</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">else</span>:    <span style="color: #008000;">#</span><span style="color: #008000;">文件第一次下载</span>
+                    self.conn.send(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, len(header_bytes)))
+                    self.conn.send(header_bytes)
+                    with open(self.filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as  f:
+                        </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> f:
+                            self.conn.send(line)
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">当前目录下文件不存在</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">,0))
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">用户没用输入文件名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> recursion_file(self,menu):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">递归查询用户home/alice目录下的所有文件，算出文件的大小</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        res </span>= os.listdir(menu) <span style="color: #008000;">#</span><span style="color: #008000;">指定目录下所有的文件和目录名</span>
+        <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> res:
+            path </span>= <span style="color: #800000;">'</span><span style="color: #800000;">%s %s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> (menu, i)
+            </span><span style="color: #0000ff;">if</span> os.path.isdir(path): <span style="color: #008000;">#</span><span style="color: #008000;">判断指定对象是否为目录</span>
+<span style="color: #000000;">                self.recursion_file(path)
+            </span><span style="color: #0000ff;">elif</span><span style="color: #000000;"> os.path.isfile(path):
+                self.home_bytes_size </span>+=<span style="color: #000000;"> os.path.getsize(path)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> current_home_size(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">得到当前用户home/alice目录的大小，字节/M</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        self.home_bytes_size </span>=<span style="color: #000000;"> 0
+        self.recursion_file(self.homedir_path)
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">字节：</span><span style="color: #800000;">'</span>, self.home_bytes_size)  <span style="color: #008000;">#</span><span style="color: #008000;"> 单位是字节</span>
+        home_m_size = round(self.home_bytes_size / 1024 /1024, 1<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">单位M:</span><span style="color: #800000;">'</span>, home_m_size)  <span style="color: #008000;">#</span><span style="color: #008000;">单位是: M</span>
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> put(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">从client上传文件到server当前工作目录下</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            state_size </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,self.conn.recv(4<span style="color: #000000;">))[0]
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> state_size:
+                self.current_home_size()  </span><span style="color: #008000;">#</span><span style="color: #008000;">算出了home下已被占用的大小self.home_bytes_size</span>
+                header_bytes = self.conn.recv(struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.conn.recv(4<span style="color: #000000;">))[0])
+                header_dic </span>=<span style="color: #000000;"> pickle.loads(header_bytes)
+                </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(header_dic)
+                filename </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">filename</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                file_size </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">file_size</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                file_md5 </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">file_md5</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+                upload_filepath </span>=<span style="color: #000000;"> os.path.join(os.getcwd(), filename)
+                self.filepath </span>= upload_filepath  <span style="color: #008000;">#</span><span style="color: #008000;">为了全局变量读取文件算md5时方便</span>
+                <span style="color: #0000ff;">if</span> os.path.exists(upload_filepath): <span style="color: #008000;">#</span><span style="color: #008000;">文件已经存在</span>
+                    self.conn.send(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+                    has_size </span>=<span style="color: #000000;"> os.path.getsize(upload_filepath)
+                    </span><span style="color: #0000ff;">if</span> has_size ==<span style="color: #000000;"> file_size:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">文件已经存在</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                        self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+                    </span><span style="color: #0000ff;">else</span>: <span style="color: #008000;">#</span><span style="color: #008000;">上次没有传完，接着继续传</span>
+                        self.conn.send(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+                        </span><span style="color: #0000ff;">if</span> self.home_bytes_size + int(file_size - has_size) &gt;<span style="color: #000000;"> self.quota_bytes:
+                            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">超出了用户的配额</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                            self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+                        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                            self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,1<span style="color: #000000;">))
+                            self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, has_size))
+                            with open(upload_filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">ab</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                                f.seek(has_size)
+                                </span><span style="color: #0000ff;">while</span> has_size &lt;<span style="color: #000000;"> file_size:
+                                    recv_bytes </span>=<span style="color: #000000;"> self.conn.recv(self.MAX_RECV_SIZE)
+                                    f.write(recv_bytes)
+                                    has_size </span>+=<span style="color: #000000;"> len(recv_bytes)
+                                    self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, has_size))  <span style="color: #008000;">#</span><span style="color: #008000;">为了显示进度条</span>
+                            <span style="color: #0000ff;">if</span> self.getfile_md5() == file_md5:  <span style="color: #008000;">#</span><span style="color: #008000;">判断下载下来的文件MD5值和server传过来的MD5值是否一致</span>
+                                <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m上传成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+                            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m上传失败\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+                </span><span style="color: #0000ff;">else</span>: <span style="color: #008000;">#</span><span style="color: #008000;">第一次上传</span>
+                    self.conn.send(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+                    </span><span style="color: #0000ff;">if</span> self.home_bytes_size + int(file_size) &gt;<span style="color: #000000;"> self.quota_bytes:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m超出了用户的配额\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                        self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+                        with open(upload_filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                            recv_size </span>=<span style="color: #000000;"> 0
+                            </span><span style="color: #0000ff;">while</span> recv_size &lt;<span style="color: #000000;"> file_size:
+                                file_bytes </span>=<span style="color: #000000;"> self.conn.recv(self.MAX_RECV_SIZE)
+                                f.write(file_bytes)
+                                recv_size </span>+=<span style="color: #000000;"> len(file_bytes)
+                                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, recv_size)) <span style="color: #008000;">#</span><span style="color: #008000;">为了进度条的显示</span>
+
+                        <span style="color: #0000ff;">if</span> self.getfile_md5() == file_md5:  <span style="color: #008000;">#</span><span style="color: #008000;">判断下载下来的文件MD5值和server传过来的MD5值是否一致</span>
+                            <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m上传成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                            self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+                        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m上传失败\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                            self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">待传的文件不存在</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">用户没有输入文件名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> ls(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">查询当前工作目录下，先返回文件列表的大小，再返回查询的结果</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        subpro_obj </span>= subprocess.Popen(<span style="color: #800000;">'</span><span style="color: #800000;">dir</span><span style="color: #800000;">'</span>, shell=<span style="color: #000000;">True,
+                                      stdout</span>=<span style="color: #000000;">subprocess.PIPE,
+                                      stderr</span>=<span style="color: #000000;">subprocess.PIPE)
+        stdout </span>=<span style="color: #000000;"> subpro_obj.stdout.read()
+        stderr </span>=<span style="color: #000000;"> subpro_obj.stderr.read()
+        self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, len(stdout +<span style="color: #000000;"> stderr)))
+        self.conn.send(stdout)
+        self.conn.send(stderr)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> mkdir(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">在当前目录下，增加目录</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            mkdir_path </span>= os.path.join(os.getcwd(),self.cmds[1<span style="color: #000000;">])
+            </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span> os.path.exists(mkdir_path): <span style="color: #008000;">#</span><span style="color: #008000;">查看目录名是否存在</span>
+<span style="color: #000000;">                os.mkdir(mkdir_path)
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">增加目录成功</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1)) <span style="color: #008000;">#</span><span style="color: #008000;">增加目录成功，返回1</span>
+            <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">目录名已存在</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 0))  <span style="color: #008000;">#</span><span style="color: #008000;">失败返回0</span>
+        <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">用户没有输入目录名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> cd(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">切换目录</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            dir_path </span>= os.path.join(os.getcwd(), self.cmds[1<span style="color: #000000;">])
+            </span><span style="color: #0000ff;">if</span> os.path.isdir(dir_path) :<span style="color: #008000;">#</span><span style="color: #008000;">查看是否是目录名</span>
+                previous_path = os.getcwd() <span style="color: #008000;">#</span><span style="color: #008000;">拿到当前工作的目录</span>
+                os.chdir(dir_path) <span style="color: #008000;">#</span><span style="color: #008000;">改变工作目录到 . . .</span>
+                target_dir =<span style="color: #000000;"> os.getcwd()
+                </span><span style="color: #0000ff;">if</span> self.homedir_path <span style="color: #0000ff;">in</span> target_dir: <span style="color: #008000;">#</span><span style="color: #008000;">判断homedir_path是否在目标目录</span>
+                    <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">切换成功</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1)) <span style="color: #008000;">#</span><span style="color: #008000;">切换成功返回1</span>
+                <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">切换失败</span><span style="color: #800000;">'</span>)   <span style="color: #008000;">#</span><span style="color: #008000;">切换失败后，返回到之前的目录下</span>
+<span style="color: #000000;">                    os.chdir(previous_path)
+                    self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">要切换的目录不在该目录下</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">没有传入切换的目录名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> remove(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">删除指定的文件，或者空文件夹</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            file_name </span>= self.cmds[1<span style="color: #000000;">]
+            file_path </span>= <span style="color: #800000;">'</span><span style="color: #800000;">%s\%s</span><span style="color: #800000;">'</span> %<span style="color: #000000;">(os.getcwd(), file_name)
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> os.path.isfile(file_path):
+                os.remove(file_path)
+                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+            </span><span style="color: #0000ff;">elif</span> os.path.isdir(file_path):  <span style="color: #008000;">#</span><span style="color: #008000;">删除空目录</span>
+                <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> len(os.listdir(file_path)):
+                    os.removedirs(file_path)
+                    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">删除成功</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">文件夹非空，不能删除</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">不是文件也不是文件夹</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                self.conn.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">没有输入要删除的文件</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> server_handle(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">处理与用户的交互指令</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> self.auth():
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m用户登陆成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+                </span><span style="color: #0000ff;">try</span>:    <span style="color: #008000;">#</span><span style="color: #008000;">try ...except 适合windows client断开</span>
+                    user_input = self.conn.recv(self.MAX_RECV_SIZE).decode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    </span><span style="color: #008000;">#</span><span style="color: #008000;"> if not user_input: continue #这里适合 linux client断开</span>
+                    self.cmds =<span style="color: #000000;"> user_input.split()
+                    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(self,self.cmds[0]):
+                        getattr(self,self.cmds[0])()
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31请用户重复输入\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception:
+                    </span><span style="color: #0000ff;">break</span>
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        self.server_accept()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;">  close(self):
+        self.socket.close()
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">if __name__ == '__main__':</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;">pool = ThreadPoolExecutor(10)</span></pre>
+</div>
+<p>user_handle.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">_*_ coding:utf-8 _*_</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Author:Simon</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Datetime:2019/8/14 10:26</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Software:PyCharm</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> configparser
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> hashlib
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+
+</span><span style="color: #0000ff;">from</span> conf <span style="color: #0000ff;">import</span><span style="color: #000000;"> settings
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> UserHandle():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self,username):
+        self.username</span>=<span style="color: #000000;"> username
+        self.config </span>= configparser.ConfigParser() <span style="color: #008000;">#</span><span style="color: #008000;">先生成一个对象</span>
+<span style="color: #000000;">        self.config.read(settings.ACCOUNTS_FILE)
+    @property
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> password(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">生成用户的默认密码 zhurui</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">return</span> hashlib.md5(<span style="color: #800000;">'</span><span style="color: #800000;">zhurui</span><span style="color: #800000;">'</span>.encode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)).hexdigest()
+    @property
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> quota(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">生成每个用户的磁盘配额</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        quota </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入用户的磁盘配额大小&gt;&gt;&gt;:</span><span style="color: #800000;">'</span><span style="color: #000000;">).strip()
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> quota.isdigit():
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> quota
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            exit(</span><span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m磁盘配额必须是整数\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> add_user(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">创建用户，存到accounts.ini</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> self.config.has_section(self.username):
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">creating username is : </span><span style="color: #800000;">'</span><span style="color: #000000;">, self.username)
+            self.config.add_section(self.username)
+            self.config.set(self.username, </span><span style="color: #800000;">'</span><span style="color: #800000;">password</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.password)
+            self.config.set(self.username, </span><span style="color: #800000;">'</span><span style="color: #800000;">homedir</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">home/</span><span style="color: #800000;">'</span>+<span style="color: #000000;">self.username)
+            self.config.set(self.username, </span><span style="color: #800000;">'</span><span style="color: #800000;">quota</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.quota)
+            with open(settings.ACCOUNTS_FILE, </span><span style="color: #800000;">'</span><span style="color: #800000;">w</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                self.config.write(f)
+            os.mkdir(os.path.join(settings.BASE_DIR, </span><span style="color: #800000;">'</span><span style="color: #800000;">home</span><span style="color: #800000;">'</span>, self.username)) <span style="color: #008000;">#</span><span style="color: #008000;">创建用户的home文件夹</span>
+            <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m创建用户成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m用户已存在\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> judge_user(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">判断用户是否存在</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> self.config.has_section(self.username):
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.config.items(self.username)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">return</span></pre>
+</div>
+<h2>client客户端</h2>
+<p>download文件是储存下载的文件；upload是上传文件的储存库（download里边可以不放东西，等待下载即可；upload里边放你准备上传给服务端的文件）</p>
+<p>ftp_client.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">_*_ coding:utf-8 _*_</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Author:Simon</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Datetime:2019/8/14 11:12</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> Software:PyCharm</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> sys
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> struct
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> pickle
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> hashlib
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Ftpclient():
+    HOST </span>= <span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>  <span style="color: #008000;">#</span><span style="color: #008000;">服务器IP</span>
+    PORT = 8080 <span style="color: #008000;">#</span><span style="color: #008000;">服务端的端口</span>
+    MAX_RECV_SIZE = 8192<span style="color: #000000;">
+    DOWNLOAD_PATH </span>= os.path.join(os.path.dirname(os.path.abspath(<span style="color: #800080;">__file__</span>)), <span style="color: #800000;">'</span><span style="color: #800000;">download</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    UPLOAD_PATH </span>= os.path.join(os.path.dirname(os.path.abspath(<span style="color: #800080;">__file__</span>)), <span style="color: #800000;">'</span><span style="color: #800000;">upload</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        self.socket </span>=<span style="color: #000000;"> socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connect()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> connect(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">连接服务端server</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            self.socket.connect((self.HOST, self.PORT))
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception:
+            exit(</span><span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31mserver还未启动\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_recv(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">获取server返回的数据</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">return</span><span style="color: #000000;"> pickle.loads(self.socket.recv(self.MAX_RECV_SIZE))
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> auth(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">用户认证</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        count </span>=<span style="color: #000000;"> 0
+        </span><span style="color: #0000ff;">while</span> count &lt; 3<span style="color: #000000;">:
+            name </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入用户名&gt;&gt;:</span><span style="color: #800000;">'</span><span style="color: #000000;">).strip()
+            </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span> name: <span style="color: #0000ff;">continue</span><span style="color: #000000;">
+            password </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入密码&gt;&gt;:</span><span style="color: #800000;">'</span><span style="color: #000000;">).strip()
+            user_dic </span>=<span style="color: #000000;"> {
+                </span><span style="color: #800000;">'</span><span style="color: #800000;">username</span><span style="color: #800000;">'</span><span style="color: #000000;">:name,
+                </span><span style="color: #800000;">'</span><span style="color: #800000;">password</span><span style="color: #800000;">'</span><span style="color: #000000;">:password
+            }
+            self.socket.send(pickle.dumps(user_dic))   </span><span style="color: #008000;">#</span><span style="color: #008000;">把用户名和密码发送给server</span>
+            res = struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,self.socket.recv(4<span style="color: #000000;">))[0]
+            </span><span style="color: #0000ff;">if</span> res:   <span style="color: #008000;">#</span><span style="color: #008000;">接收返回的信息，并判断</span>
+                <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">welcome</span><span style="color: #800000;">'</span>.center(20,<span style="color: #800000;">'</span><span style="color: #800000;">-</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+                user_info_dic </span>=<span style="color: #000000;"> self.get_recv()
+                self.username </span>= user_info_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">username</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(user_info_dic)
+                </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> True
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m用户名或者密码不对！\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            count </span>+= 1
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> readfile(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">读取文件，得到的文件内容的bytes型</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        with open(self.filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+            filedata </span>=<span style="color: #000000;"> f.read()
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> filedata
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> getfile_md5(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">对文件内容md5</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">return</span><span style="color: #000000;"> hashlib.md5(self.readfile()).hexdigest()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> progress_bar(self, num, get_size, file_size):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">进度条显示</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        float_rate </span>= get_size /<span style="color: #000000;"> file_size
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> rate = str(float_rate * 100)[:5]  #  95.85%</span>
+        rate = round(float_rate * 100,2)   <span style="color: #008000;">#</span><span style="color: #008000;"> 95.85%</span>
+
+        <span style="color: #0000ff;">if</span> num == 1: <span style="color: #008000;">#</span><span style="color: #008000;">1表示下载</span>
+            sys.stdout.write(<span style="color: #800000;">'</span><span style="color: #800000;">\r已下载:\033[1;32m{0}%\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">.format(rate))
+        </span><span style="color: #0000ff;">elif</span> num == 2:   <span style="color: #008000;">#</span><span style="color: #008000;">2 表示上传</span>
+            sys.stdout.write(<span style="color: #800000;">'</span><span style="color: #800000;">\r已上传:\033[1;32m{0}%\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">.format(rate))
+        sys.stdout.flush()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">从server下载文件到client</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            filename </span>= self.cmds[1<span style="color: #000000;">]
+            self.filepath </span>= os.path.join(self.DOWNLOAD_PATH, filename) <span style="color: #008000;">#</span><span style="color: #008000;">结合目录名和文件名</span>
+            <span style="color: #0000ff;">if</span> os.path.isfile(self.filepath): <span style="color: #008000;">#</span><span style="color: #008000;">如果文件存在，支持断点续传</span>
+                temp_file_size =<span style="color: #000000;"> os.path.getsize(self.filepath)
+                self.socket.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, temp_file_size))
+                header_size </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                </span><span style="color: #0000ff;">if</span> header_size:  <span style="color: #008000;">#</span><span style="color: #008000;">如果存在</span>
+                    header_dic =<span style="color: #000000;"> pickle.loads(self.socket.recv(header_size))
+                    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(header_dic)
+                    filename </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">filename</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    file_size </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">file_size</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    file_md5 </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">file_md5</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+                    </span><span style="color: #0000ff;">if</span> temp_file_size ==<span style="color: #000000;"> file_size:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m文件已经存在\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;33m正在进行断点续传....\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                        download_filepath </span>=<span style="color: #000000;"> os.path.join(self.DOWNLOAD_PATH, filename)
+                        with open(download_filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">ab</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                            f.seek(temp_file_size)
+                            get_size </span>=<span style="color: #000000;"> temp_file_size
+                            </span><span style="color: #0000ff;">while</span> get_size &lt;<span style="color: #000000;"> file_size:
+                                file_bytes </span>=<span style="color: #000000;"> self.socket.recv(self.MAX_RECV_SIZE)
+                                f.write(file_bytes)
+                                get_size </span>+=<span style="color: #000000;"> len(file_bytes)
+                                self.progress_bar(</span>1, get_size, file_size) <span style="color: #008000;">#</span><span style="color: #008000;"> 1表示下载</span>
+                        <span style="color: #0000ff;">if</span> self.getfile_md5() == file_md5:  <span style="color: #008000;">#</span><span style="color: #008000;">判断下载下来的文件MD5值和server传过来的MD5值是否一致</span>
+                            <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m下载成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m下载文件大小与源文件大小不一致，请重新下载，将会支持断点续传033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;31m该文件，之前被下载了一部分，但是server端的该文件，已被删除，无法再次下载\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            </span><span style="color: #0000ff;">else</span>:  <span style="color: #008000;">#</span><span style="color: #008000;">文件第一次下载</span>
+                self.socket.send(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 0))  <span style="color: #008000;">#</span><span style="color: #008000;"> 0 表示之前没有下载过</span>
+                header_size = struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> header_size:
+                    header_dic </span>=<span style="color: #000000;"> pickle.loads(self.socket.recv(header_size))
+                    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(header_dic)
+                    filename </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">filename</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    file_size </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">file_size</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    file_md5 </span>= header_dic.get(<span style="color: #800000;">'</span><span style="color: #800000;">file_md5</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+                    download_filepath </span>=<span style="color: #000000;"> os.path.join(self.DOWNLOAD_PATH, filename)
+                    with open(download_filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                        get_size </span>=<span style="color: #000000;"> 0
+                        </span><span style="color: #0000ff;">while</span> get_size &lt;<span style="color: #000000;"> file_size:
+                            file_bytes </span>=<span style="color: #000000;"> self.socket.recv(self.MAX_RECV_SIZE)
+                            f.write(file_bytes)
+                            get_size </span>+=<span style="color: #000000;"> len(file_bytes)
+                            self.progress_bar(</span>1, get_size, file_size) <span style="color: #008000;">#</span><span style="color: #008000;">1表示下载</span>
+                            <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">总大小:%s已下载:%s</span><span style="color: #800000;">'</span>%<span style="color: #000000;"> (file_size, get_size))
+                    </span><span style="color: #0000ff;">if</span> self.getfile_md5() == file_md5:  <span style="color: #008000;">#</span><span style="color: #008000;">判断下载下来的文件MD5值和server传过来的MD5值是否一致</span>
+                        <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m恭喜你，下载成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m下载失败，再次下载支持断点续传\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m当前目录下，文件不存在\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">用户没有输入文件名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> put(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">往server自己的home/alice目录下，当前工作的目录下上传文件</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1:   <span style="color: #008000;">#</span><span style="color: #008000;">确保用户输入了文件名</span>
+            filename = self.cmds[1<span style="color: #000000;">]
+            filepath </span>=<span style="color: #000000;"> os.path.join(self.UPLOAD_PATH, filename)
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> os.path.isfile(filepath):
+                self.socket.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, 1<span style="color: #000000;">))
+                self.filepath </span>=<span style="color: #000000;"> filepath
+                filesize </span>=<span style="color: #000000;"> os.path.getsize(self.filepath)
+                header_dic </span>=<span style="color: #000000;"> {
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">filename</span><span style="color: #800000;">'</span><span style="color: #000000;">: filename,
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">file_md5</span><span style="color: #800000;">'</span><span style="color: #000000;">: self.getfile_md5(),
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">file_size</span><span style="color: #800000;">'</span><span style="color: #000000;">: filesize
+                }
+                header_bytes </span>=<span style="color: #000000;"> pickle.dumps(header_dic)
+                self.socket.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">,len(header_bytes)))
+                self.socket.send(header_bytes)
+
+                state </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                </span><span style="color: #0000ff;">if</span> state: <span style="color: #008000;">#</span><span style="color: #008000;">已经存在了</span>
+                    has_state = struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> has_state:
+                        quota_state </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,self.socket.recv(4<span style="color: #000000;">))[0]
+                        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> quota_state:
+                            has_size </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                            with open(self.filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                                f.seek(has_size)
+                                </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> f:
+                                    self.socket.send(line)
+                                    recv_size </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                                    self.progress_bar(</span>2<span style="color: #000000;">, recv_size, filesize)
+                            success_state </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                            </span><span style="color: #800000;">'''</span><span style="color: #800000;">这里一定要判断，因为最后一次send(line)之后等待server返回，
+                            server返回，最后一次的recv_size==file_size，但client已经跳出了循环，
+                            所以在for外面接收的success_state其实时file_size,这种情况只针对大文件
+                            </span><span style="color: #800000;">'''</span>
+                            <span style="color: #0000ff;">if</span> success_state ==<span style="color: #000000;"> filesize:
+                                success_state </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+
+                            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> success_state:
+                                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m恭喜您，上传成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m上传失败\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                        </span><span style="color: #0000ff;">else</span>:  <span style="color: #008000;">#</span><span style="color: #008000;">超出了配额</span>
+                            <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m超出了用户的配额\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    </span><span style="color: #0000ff;">else</span>:  <span style="color: #008000;">#</span><span style="color: #008000;">存在的大小和文件大小一致，不必再传</span>
+                        <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m当前目录下，文件已经存在\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">else</span>:  <span style="color: #008000;">#</span><span style="color: #008000;">第一次传</span>
+                    quota_state = struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+                    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> quota_state:
+                        with open(self.filepath, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                            send_bytes </span>= b<span style="color: #800000;">''</span>
+                            <span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> f:
+                                self.socket.send(line)
+                                send_bytes </span>+=<span style="color: #000000;"> line
+                                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">总大小:%s 已上传：%s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> (filesize, len(send_bytes)))
+
+                                recv_size </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,self.socket.recv(4<span style="color: #000000;">))[0]
+                                self.progress_bar(</span>2<span style="color: #000000;">, recv_size, filesize)
+                        succes_state </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,self.socket.recv(4<span style="color: #000000;">))[0]
+
+                        </span><span style="color: #0000ff;">if</span> succes_state ==<span style="color: #000000;"> filesize:
+                            succes_state </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,self.socket.recv(4<span style="color: #000000;">))[0]
+                        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> succes_state:
+                            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m恭喜您，上传成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\n\033[1;32m上传失败\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    </span><span style="color: #0000ff;">else</span>:   <span style="color: #008000;">#</span><span style="color: #008000;">超出了配额</span>
+                        <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m超出了用户的配额\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            </span><span style="color: #0000ff;">else</span>:  <span style="color: #008000;">#</span><span style="color: #008000;">文件不存在</span>
+                <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m文件不存在\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                self.socket.send(struct.pack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">, 0))
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">用户没有输入文件名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> ls(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">查询当前工作目录下，文件列表</span><span style="color: #800000;">'''</span><span style="color: #000000;">
+        dir_size </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+        recv_size </span>=<span style="color: #000000;"> 0
+        recv_bytes </span>= b<span style="color: #800000;">''</span>
+        <span style="color: #0000ff;">while</span> recv_size &lt;<span style="color: #000000;"> dir_size:
+            temp_bytes </span>=<span style="color: #000000;"> self.socket.recv(self.MAX_RECV_SIZE)
+            recv_bytes </span>+=<span style="color: #000000;"> temp_bytes
+            recv_size </span>+=<span style="color: #000000;"> len(temp_bytes)
+        </span><span style="color: #0000ff;">print</span>(recv_bytes.decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span>))  <span style="color: #008000;">#</span><span style="color: #008000;">gbk适合windows，utf-8适合linux</span>
+
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> mkdir(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">增加目录</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            res </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> res:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m在当前目录下，增加目录: %s 成功\033[0m</span><span style="color: #800000;">'</span>% self.cmds[1<span style="color: #000000;">])
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m增加目录失败\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">没有输入要增加的目录名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> cd(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">切换目录</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            res </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> res:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m切换成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m切换失败\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">没有输入要切换的目录名</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> remove(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">删除指定的文件，或者文件夹</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span> len(self.cmds) &gt; 1<span style="color: #000000;">:
+            res </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>, self.socket.recv(4<span style="color: #000000;">))[0]
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> res:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32m删除成功\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;31m删除失败\033[0m</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">没有输入要删除的文件</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> interactive(self):
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">与server交互</span><span style="color: #800000;">'''</span>
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> self.auth():
+            </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+                </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                    user_input </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">[%s]&gt;&gt;&gt;:</span><span style="color: #800000;">'</span>%<span style="color: #000000;">self.username)
+                    </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span> user_input:<span style="color: #0000ff;">continue</span><span style="color: #000000;">
+                    self.socket.send(user_input.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+                    self.cmds </span>=<span style="color: #000000;"> user_input.split()
+                    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> hasattr(self, self_cmds[0]):
+                        getattr(self, self.cmds[0])()
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">请重新输入</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">except</span> Exception as e: <span style="color: #008000;">#</span><span style="color: #008000;">server关闭了</span>
+                    <span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+                    </span><span style="color: #0000ff;">break</span>
+
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> close(self):
+        self.socket.close()
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    ftp_client </span>=<span style="color: #000000;"> Ftpclient()
+    ftp_client.interactive()
+    ftp_client.close()</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

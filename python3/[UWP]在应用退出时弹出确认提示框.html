@@ -1,0 +1,107 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[UWP]在应用退出时弹出确认提示框' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[UWP]在应用退出时弹出确认提示框</center></div><div class='banquan'>原文出处:本文由博客园博主dino.c提供。<br/>
+原文连接:https://www.cnblogs.com/dino623/p/uwp_close_confirmation.html</div><br>
+    <h2 id="需求">1. 需求</h2>
+<p>在应用退出时（点击右上角的关闭按钮）弹出一个确认按钮可以说是一个最常见的操作了，例如记事本的“你是否保存”：</p>
+<p><img src="./images/[UWP]在应用退出时弹出确认提示框0.png" /></p>
+<p>但这个功能在UWP上居然有点小复杂。这篇文章将解释如何实现这个功能。</p>
+<h2 id="closerequested">2. CloseRequested</h2>
+<p>为了监视应用退出事件，我本来使用了<a href="https://docs.microsoft.com/en-us/uwp/api/windows.applicationmodel.core.coreapplication.exiting">CoreApplication.Exiting</a>，但好像并不起作用，后来我就没再研究它的触发机制了。在Windows 10 Creators Update (15063)以后UWP提供了一个新的API:<a href="https://docs.microsoft.com/en-us/uwp/api/windows.ui.core.preview.systemnavigationmanagerpreview.closerequested">SystemNavigationManagerPreview.CloseRequested</a>事件。这个事件会在用户点击窗体右上角的<code>关闭</code>按钮时触发，开发者可以在这个事件里处理保存数据、确认关闭等。最好在<code>App.xaml.cs</code>中的<code>Window.Current.Activate();</code>前后订阅这个事件。</p>
+<pre><code><code>Window.Current.Activate();
+
+SystemNavigationManagerPreview.GetForCurrentView().CloseRequested += (s, e) =&gt;
+{
+    //DO STH
+};</code></pre>
+<h2 id="弹出确认提示框">3. 弹出确认提示框</h2>
+<p><code>CloseRequested</code>事件包含一个名为<code>SystemNavigationCloseRequestedPreviewEventArgs</code>的EventArgs（名字真是超级长），它包含一个<code>Handled</code>属性，如果要取消关闭事件，可以将<code>Handled</code>设置为Ture，这点和WPF很像。<code>SystemNavigationCloseRequestedPreviewEventArgs</code>还提供了<code>GetDeferral</code>函数，它返回一个<a href="https://docs.microsoft.com/en-us/uwp/api/windows.foundation.deferral">Deferral</a>对象，它可以在异步操作中延迟UWP应用生命周期事件的执行，知道调用它的<code>Complete</code>方法。配合异步的<code>ContentDialog</code>，具体代码如下：</p>
+<pre><code><code>Windows.UI.Core.Preview.SystemNavigationManagerPreview.GetForCurrentView().CloseRequested +=
+async (sender, args) =&gt;
+{
+    var deferral = args.GetDeferral();
+
+    var messageDialog = new ContentDialog
+    {
+        Title = &quot;记事本&quot;,
+        Content = &quot;你想要保存更改吗?&quot;,
+        PrimaryButtonText = &quot;保存&quot;,
+        SecondaryButtonText = &quot;不保存&quot;,
+        CloseButtonText = &quot;取消&quot;
+    };
+
+    messageDialog.DefaultButton = ContentDialogButton.Primary;
+
+    var result = await messageDialog.ShowAsync();
+    switch (result)
+    {
+        case ContentDialogResult.None:
+            args.Handled = true;
+            break;
+        case ContentDialogResult.Primary:
+            await SaveDataAsync();
+            break;
+        case ContentDialogResult.Secondary:
+            break;
+        default:
+            break;
+    }
+
+    deferral.Complete();
+};
+
+private async Task SaveDataAsync()
+{
+
+}</code></pre>
+<p>在上面的代码中，如果点击<code>取消</code>按钮，则将<code>Handled</code>设置为true以取消关闭。点击<code>确认</code>则保存数据再关闭应用。无论选择哪个，最后都需要调用<code>Deferral.Complete</code>。最终运行效果<strong>应该</strong>如下（讲真，ContentDialog真的丑）：</p>
+<p><img src="./images/[UWP]在应用退出时弹出确认提示框1.png" /></p>
+<h2 id="添加应用功能声明">4. 添加应用功能声明</h2>
+<p>有没有发现上面&quot;最终运行效果<strong>应该</strong>如下&quot;中的<code>应该</code>两字是粗体？因为这时候上面的代码还是没有效果。究其原因，是因为<code>confirmAppClose</code>是一个<a href="https://docs.microsoft.com/zh-cn/windows/uwp/packaging/app-capability-declarations#restricted-capabilities">受限功能</a>，必须修改<a href="https://docs.microsoft.com/zh-cn/uwp/schemas/appxpackage/appx-package-manifest">应用程序包清单</a>源文件（Package.appxmanifest）， 添加xmlns： rescap XML 命名空间声明，并声明受限功能。</p>
+<pre class="xml"><code>&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+&lt;Package
+    ...
+    xmlns:rescap=&quot;http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities&quot;
+    IgnorableNamespaces=&quot;... rescap&quot;&gt;
+...
+&lt;Capabilities&gt;
+    &lt;rescap:Capability Name=&quot;confirmAppClose&quot;/&gt;
+&lt;/Capabilities&gt;
+&lt;/Package&gt;</code></pre>
+<p>这样，在<strong>本地运行</strong>的时候，应用终于可以弹出确认提示框了。一旦使用了受限功能，应在提交应用到Microsoft Store的时候提供信息以便获得批准，有一些功能只在极其特殊和有限的情况下才获准在提交到 Microsoft Store 的应用中使用，幸好这里时候的<code>confirmAppClose</code>很容易通过。在<code>提交选项</code>里会出现<code>受限的功能</code>这一节，如实填写就可以了，中文也可以。</p>
+<p><img src="./images/[UWP]在应用退出时弹出确认提示框2.png" /></p>
+<p>这样，所有工作都做了，<code>确认提示框</code>功能终于完成了。</p>
+<h2 id="然而还有bug">5. 然而还有BUG</h2>
+<p><img src="./images/[UWP]在应用退出时弹出确认提示框3.png" /></p>
+<p>我们知道UWP的应用生命周期中，在background 运行和suspended状态时应用基本处于暂停状态，也不会处理UI功能，这时候让它弹框？“除非你叫醒我，否则我罢工”。所以在应用不可视的状态下关闭应用，例如最小化的情况下在任务栏点击<code>关闭窗口</code>，程序能怎么办？</p>
+<p>弹框是不可能弹的，只能装死了。</p>
+<p>所以这时候程序就完全没有反应。当应用重新回到前台运行，确认框才会弹出来。不过只是个小小的bug，我们可以选择原谅它：</p>
+<p><img src="./images/[UWP]在应用退出时弹出确认提示框4.png" /></p>
+<h2 id="参考">6. 参考</h2>
+<p><a href="https://docs.microsoft.com/zh-cn/windows/uwp/packaging/app-capability-declarations">应用功能声明 - UWP apps Microsoft Docs</a></p>
+<p><a href="https://docs.microsoft.com/zh-cn/uwp/schemas/appxpackage/appx-package-manifest">App package manifest - Windows UWP applications Microsoft Docs</a></p>
+<p><a href="https://docs.microsoft.com/ZH-CN/uwp/api/windows.ui.core.preview.systemnavigationmanagerpreview.closerequested">SystemNavigationManagerPreview.CloseRequested Event (Windows.UI.Core.Preview) - Windows UWP applications Microsoft Docs</a></p>
+<p><a href="https://docs.microsoft.com/en-us/uwp/api/windows.foundation.deferral">Deferral Class (Windows.Foundation) - Windows UWP applications Microsoft Docs</a></p>
+<p><a href="https://docs.microsoft.com/zh-cn/windows/uwp/launch-resume/app-lifecycle">Windows 10 UWP 应用生命周期 - UWP apps Microsoft Docs</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

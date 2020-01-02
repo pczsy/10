@@ -1,0 +1,332 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修从零实现一个ReactLuster(一)JSX解析器' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>从零实现一个ReactLuster(一)JSX解析器</center></div><div class='banquan'>原文出处:本文由博客园博主dejavudwh提供。<br/>
+原文连接:https://www.cnblogs.com/secoding/p/12080641.html</div><br>
+    <h2 id="前言">前言</h2>
+<p>这是之前在掘金发的两条沸点，懒得写了，直接复制过来作为前言了。然后这个项目可能之后还会继续写，增加一些路由或者模板引擎的指令什么的，但是再过没多久寒假就有大块时间了就可能不摸这个鱼去开其它坑了，随缘吧。所以先写JSX的解析器吧，这个部分也比较独立</p>
+<p><a href="https://juejin.im/user/5b72ded8e51d45664c23a662">掘金沸点</a>里有一些代码截图，就不发在markdown里</p>
+<p>算是利用期末考这段碎片时间摸一个水项目吧</p>
+<p>项目地址：</p>
+<ol>
+<li><p><a href="https://github.com/dejavudwh/jsx-parser">jsx-parser</a></p></li>
+<li><p><a href="https://github.com/dejavudwh/luster">luster</a></p></li>
+</ol>
+<h3 id="section">12.21</h3>
+<p>最近心情比较低落，摸鱼也摸到恐慌，然后昨天就想着随便写点东西吧。然后就先选了用JavaScript写，就顺便想到了React。所以有了这个小破轮子，一个前端算是view层的框架吧，算是一个乞丐弱智版的React吧，只有两百多行。</p>
+<p>然后又想着竟然都造轮子了，那干脆JSX语法的转译也不用babel了，所以今天就摸了一个jsx的解析器，也只有两百多行</p>
+<p>算是一个学习的过程吧，虽然以后也不打算干前端，也都看看</p>
+<p>反正也快期末考了，没大块时间了，就继续摸这个项目吧，可能会再加上state和dom diff之类的吧，再做点创新？</p>
+<p>代码很水）不是前端）玩具而已）大佬轻喷）</p>
+<h3 id="section-1">12.22</h3>
+<p>继上一条，这个乞丐版React昨天又增加了setState和dom-diff算法。成功的实现了功能，然后把代码写成了一坨💩，估计还有我还没发现的bug。所以下面可能会稍微重构一下代码，然后写一下路由和模板引擎的指令？</p>
+<p>这两天可能去找找有没有更好玩的可以写，不过这两天最大的收获就是清楚的了解了工整的代码变成💩堆的过程</p>
+<h2 id="jsx到javascript对象">Jsx到JavaScript对象</h2>
+<blockquote>
+<p>其实这个JavaScript对象就是虚拟dom，最后我们再根据这个虚拟dom进行渲染，后面的dom-diff也是根据这个数据结构来计算的。我们解析器的目标就是把下面这一段JSX转换成相应的JavaScript对象。</p>
+</blockquote>
+<pre><code><code>&lt;div name=&quot;{{jsx-parse}}&quot; class=&quot;{{fuck}}&quot; id=&quot;1&quot;&gt;
+    Life is too difficult
+    &lt;span name=&quot;life&quot; like=&quot;rape&quot;&gt;
+        &lt;p&gt;Life is like rape&lt;/p&gt;
+    &lt;/span&gt; 
+    &lt;div&gt;
+        &lt;span name=&quot;live&quot; do=&quot;{{gofuck}}&quot;&gt;
+            &lt;p&gt;Looking away, everything is sad&lt;/p&gt;
+        &lt;/span&gt; 
+        &lt;Counter me=&quot;excellent&quot;&gt;
+            I am awesome
+        &lt;/Counter&gt;
+    &lt;/div&gt;  
+&lt;/div&gt;</code></pre>
+<pre class="json"><code>{
+  &quot;type&quot;: &quot;div&quot;,
+  &quot;props&quot;: {
+    &quot;childrens&quot;: [
+      {
+        &quot;type&quot;: &quot;span&quot;,
+        &quot;props&quot;: {
+          &quot;childrens&quot;: [
+            {
+              &quot;type&quot;: &quot;p&quot;,
+              &quot;props&quot;: {
+                &quot;childrens&quot;: [],
+                &quot;text&quot;: &quot;Life is like rape&quot;
+              }
+            }
+          ],
+          &quot;name&quot;: &quot;life&quot;,
+          &quot;like&quot;: &quot;rape&quot;
+        }
+      },
+      {
+        &quot;type&quot;: &quot;div&quot;,
+        &quot;props&quot;: {
+          &quot;childrens&quot;: [
+            {
+              &quot;type&quot;: &quot;span&quot;,
+              &quot;props&quot;: {
+                &quot;childrens&quot;: [
+                  {
+                    &quot;type&quot;: &quot;p&quot;,
+                    &quot;props&quot;: {
+                      &quot;childrens&quot;: [],
+                      &quot;text&quot;: &quot;Looking away, everything is sad&quot;
+                    }
+                  }
+                ],
+                &quot;name&quot;: &quot;live&quot;,
+                &quot;do&quot;: &quot;{{gofuck}}&quot;
+              }
+            },
+            {
+              &quot;type&quot;: &quot;Counter&quot;,
+              &quot;props&quot;: {
+                &quot;childrens&quot;: [],
+                &quot;me&quot;: &quot;excellent&quot;,
+                &quot;text&quot;: &quot;I am awesome&quot;
+              }
+            }
+          ]
+        }
+      }
+    ],
+    &quot;name&quot;: &quot;{{jsx-parse}}&quot;,
+    &quot;class&quot;: &quot;{{fuck}}&quot;,
+    &quot;id&quot;: &quot;1&quot;,
+    &quot;text&quot;: &quot;Life is too difficult&quot;
+  }
+}</code></pre>
+<h2 id="词法分析">词法分析</h2>
+<blockquote>
+<p>其实这个解析器一共也就是240多行，就只要简单词法分析，然后直接递归下降生成了</p>
+</blockquote>
+<p>如果简单的区分，Jsx里，我们也可以说成html吧。就是就只有两种token，开始标签、结束标签和文本，然后开始标签里面有各种属性。</p>
+<pre class="js"><code>let token = {
+    startTag: &#39;startTag&#39;,
+    endTag: &#39;endTag&#39;,
+    text: &#39;text&#39;,
+    eof: &#39;eof&#39;
+}</code></pre>
+<p>词法分析的主体逻辑就在lex()方法里，其实这个对于之前写的C语言的编译器，一对比就非常简单，没有什么情况好考虑的</p>
+<p>只有这几种情况：</p>
+<ul>
+<li>如果是&lt;开头的话，那只有两种情况，要么是开始标签，要么是结束标签，所以直接再进一步判断有没有斜杠就可以知道是开始标签还是结束标签</li>
+<li>像回车制表符这些直接跳过就可以了</li>
+<li>如果是空格的话还需要判断是不是在当前的文本里</li>
+</ul>
+<p>然后就交由各个函数处理了</p>
+<pre class="js"><code>lex() {
+    let text = &#39;&#39;
+    while (true) {
+        let t = this.advance()
+        let token = &#39;&#39;
+        switch (t) {
+            case &#39;&lt;&#39;:
+                if (this.lookAhead() === &#39;/&#39;) {
+                    token = this.handleEndTag()
+                } else {
+                    token = this.handleStartTag()
+                }
+                break
+            case &#39;\n&#39;:
+                break
+            case &#39; &#39;:
+                if (text != &#39;&#39;) {
+                    text += t
+                } else {
+                    break
+                }
+            case undefined:
+                if (this.pos &gt;= this.string.length) {
+                    token = [this.token[&#39;eof&#39;], &#39;eof&#39;, []]
+                }
+                break
+            default:
+                text += t
+                token = this.handleTextTag(text)
+                break
+        }
+        this.string = this.string.slice(this.pos)
+        this.pos = 0
+        if (token != &#39;&#39;) {
+            return token
+        }
+    }
+}</code></pre>
+<h3 id="处理开始标签">处理开始标签</h3>
+<p>处理开始标签也非常简单，比较复杂的是需要处理开始标签里的属性</p>
+<ul>
+<li>首先是先处理标签名</li>
+<li>然后是处理开始标签里的属性</li>
+</ul>
+<pre class="js"><code>handleStartTag() {
+    let idx = this.string.indexOf(&#39;&gt;&#39;)
+    if (idx == -1) {
+        throw new Error(&#39;parse err! miss match &#39;&gt;&#39;&#39;)
+    }
+    let str = this.string.slice(this.pos, idx)
+    let s = &#39;&#39;
+    if (str.includes(&#39; &#39;)) {
+        s = this.string.split(&#39; &#39;).filter((str) =&gt; {
+            return str != &#39;&#39;
+        })[0]
+    } else {
+        s = this.string.split(&#39;&gt;&#39;)[0]
+    }
+    let type = s.slice(1)
+    this.pos += type.length
+    let props = this.handlePropTag()
+    this.advance()
+    return [token.startTag, type, props]
+}</code></pre>
+<h3 id="处理开始标签的属性">处理开始标签的属性</h3>
+<p>处理属性也很简单，每一个属性的键值对都是用空格分隔的，所以直接用split获取每个键值对，最后返回一个键值对数组</p>
+<p>这里上面注意token返回的格式，开始标签token的返回是一个数组，第一个元素是token类型，第二个元素是这个标签的类型，第三个元素就是这个开始标签的属性</p>
+<pre class="js"><code>handlePropTag() {
+    let idx = this.string.indexOf(&#39;&gt;&#39;)
+    if (idx == -1) {
+        throw new Error(&#39;parse err! miss match &#39;&gt;&#39;&#39;)
+    }
+    let string = this.string.slice(this.pos, idx)
+    let pm = []
+    if (string != &#39; &#39;)  {
+        let props = string.split(&#39; &#39;)
+        pm = props.filter((props) =&gt; {
+            return props != &#39;&#39;
+        }).map((prop) =&gt; {
+            let kv = prop.split(&#39;=&#39;)
+            let o = {}
+            o[kv[0]] = this.trimQuotes(kv[1])
+            return o
+        })
+        this.pos += string.length
+    }
+    
+    return pm
+}</code></pre>
+<h3 id="处理结束标签">处理结束标签</h3>
+<p>结束标签非常简单，直接进行字符串的切割就完事了</p>
+<pre class="js"><code>handleEndTag() {
+    this.advance()
+    let idx = this.string.indexOf(&#39;&gt;&#39;)
+    let type = this.string.slice(this.pos, idx)
+    this.pos += type.length
+    if (this.advance() != &#39;&gt;&#39;) {
+        throw new Error(&#39;parse err! miss match &#39;&gt;&#39;&#39;)
+    }
+    return [token.endTag, type, []]
+}</code></pre>
+<h3 id="处理文本节点">处理文本节点</h3>
+<p>文本节点需要稍微处理一下，需要判断后面的是不是&lt;来判断文本是不是结束了</p>
+<pre class="js"><code>handleTextTag(text) {
+    let t = text.trim()
+    if (this.lookAhead() == &#39;&lt;&#39;) {
+        return [this.token[&#39;text&#39;], t, []]
+    } else {
+        return &#39;&#39;
+    }
+}</code></pre>
+<h2 id="语法分析生成javascript对象">语法分析生成JavaScript对象</h2>
+<blockquote>
+<p>这个过程其实就是一个递归下降的过程，如果碰到语法不正确的时间抛出异常就结束了</p>
+</blockquote>
+<p>先定义一下这个JavaScript对象的结构，其实就和上面的json对象是一致的</p>
+<pre class="js"><code>class Jsx {
+    constructor(type, props) {
+        this.type = type
+        this.props = props
+    }
+}</code></pre>
+<h3 id="入口函数">入口函数</h3>
+<ul>
+<li>首先就是先拿到词法分析传过来的token的三个属性</li>
+<li>然后就是根据不同的token类型调用不同的处理函数</li>
+</ul>
+<pre class="js"><code>parse() {
+    this.currentToken = this.lexer.lex()
+    let type = this.currentToken[0]
+    let tag = this.currentToken[1]
+    let props = this.mergeObj(this.currentToken[2])
+    let func = this.parseMap[type]
+    if (func != undefined) {
+        func(tag, props)
+    } else {
+        this.parseMap[&#39;error&#39;]()
+    }
+
+    if (this.tags.length &gt; 0) {
+        throw new Error(&#39;parse error! Mismatched start and end tags&#39;)
+    }
+
+    return this.jsx
+}</code></pre>
+<h3 id="处理开始标签-1">处理开始标签</h3>
+<ul>
+<li>首先开始先要判断这个tags的长度，因为我们可以注意到我们转换的JavaScript对象其实是一个嵌套结构，但是内部的结构并不是很一致，所以就需要一些特殊处理。（这里这样写不太好）</li>
+<li>最后把这个标签名放到一个栈里，这里需要注意，因为jsx的标签是可以无限嵌套的，所以需要维护一个栈来判断开始结束标签是否匹配。</li>
+</ul>
+<pre class="js"><code>parseStart(tag, props) {
+    let len = this.tags.length
+    let jsx = this.jsx
+    if (len &gt;= 1) {
+        for (let i = 0; i &lt; len; i++) {
+            if (len &gt;= 2 &amp;&amp; i &gt;= 1) {
+                jsx = jsx[jsx.length - 1][&#39;props&#39;][&#39;childrens&#39;]
+            } else {
+                jsx = jsx.props[&#39;childrens&#39;]
+            }
+        }
+        this.currentJsx = new Jsx(tag, {
+            &#39;childrens&#39;: []
+        })
+        Object.assign(this.currentJsx[&#39;props&#39;], props)
+        jsx.push(this.currentJsx)
+    } else {
+        this.currentJsx = jsx = new Jsx(tag, {
+            &#39;childrens&#39;: []
+        })
+        Object.assign(jsx[&#39;props&#39;], props)
+        this.jsx = jsx
+    }
+    this.tags.push(tag)
+    this.parse()
+}</code></pre>
+<h3 id="处理结束标签-1">处理结束标签</h3>
+<p>结束标签的处理就非常简单了，只要弹出对应的前一个开始标签，用来后面判断开始结束标签是否匹配</p>
+<pre class="js"><code>parseEnd(tag) {
+    if (tag == this.tags[this.tags.length - 1]) {
+        this.tags.pop()
+    }
+    this.parse()
+}</code></pre>
+<h3 id="处理文本节点-1">处理文本节点</h3>
+<p>处理文本节点就只要简单的把对应的文本内容放到对象的childrens属性中就可以了</p>
+<pre class="js"><code>parseText(tag) {
+    this.currentJsx[&#39;props&#39;][&#39;text&#39;] = tag
+    this.parse()
+}</code></pre>
+<h2 id="小结">小结</h2>
+<p>又水了一篇博客:)</p>
+<p>这个系列的下一篇啥时候写呢？我也不知道，先去摸会鱼。看是不是去稍微重构一下这个项目的代码，因为从一开始简单的只有渲染功能，再到后面加入类组件、setState、dom-diff后代码就变成了XXX了，虽然写的时候知道这样不好，但是还是想偷懒，所以现在就看看能不能改一改了</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

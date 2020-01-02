@@ -1,0 +1,160 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django--路由系统' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django--路由系统</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11383121.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#django--路由系统">Django--路由系统</a><ul>
+        <li><a href="#创建app">创建app</a></li>
+        <li><a href="#路由的分组">路由的分组</a></li>
+        <li><a href="#路由的分发">路由的分发</a></li>
+        <li><a href="#反向路由解析">反向路由解析</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="django--路由系统">Django--路由系统</h1>
+<p>之前通过django写了一个简单地学生管理系统，将所有的业务逻辑都写在了urls.py文件中，这样虽然使得逻辑简单明了，但是存在诸多问题</p>
+<ol>
+<li>业务逻辑混乱，不同子项目都放在了一起</li>
+<li>当接口变得很多时，会使得urls.py文件很乱</li>
+<li>违反了<strong>高内聚低耦合</strong>的原则</li>
+</ol>
+<p>所以我们就需要对一个大项目进行区分，划分为一个个小的项目，即创建一个个app</p>
+<h2 id="创建app">创建app</h2>
+<ul>
+<li><p>第一步：创建app</p>
+<ol>
+<li>使用pycharm创建，在新建django项目的时候，创建app，但此时只能创建一个app</li>
+<li>通过命令行进行创建app，<code>python manage.py startapp app名字</code>，这是可以创建多个app的</li>
+</ol></li>
+<li><p>第二步：settings配置</p>
+<p>当我们通过pycharm进行创建app的时候，在生成django项目的时候，会自动在settings.py中生成配置，但如果通过命令行进行创建项目，就需要在settings.py文件中进行配置</p>
+<pre><code><code># settings.py
+
+INSTALLED_APPS = [
+    &#39;django.contrib.admin&#39;,
+    &#39;django.contrib.auth&#39;,
+    &#39;django.contrib.contenttypes&#39;,
+    &#39;django.contrib.sessions&#39;,
+    &#39;django.contrib.messages&#39;,
+    &#39;django.contrib.staticfiles&#39;,
+    &#39;app01.apps.App01Config&#39;,  # 通过pycharm创建app自动生成
+    &#39;classes&#39;,  # 命令行创建app，不会自动生成，需要手动添加，直接写app的名字就可以了
+]</code></pre></li>
+</ul>
+<h2 id="路由的分组">路由的分组</h2>
+<ul>
+<li><p>第一种：将业务逻辑写在app中的views.py文件中，通过模块导入到urls.py中</p>
+<pre><code><code># urls.py:
+from app01 import views
+urlpatterns = [
+    url(r&#39;^test/&#39;, views.test),
+]</code></pre>
+<pre><code><code># views.py
+
+from django.shortcuts import render,HttpResponse,redirect
+
+def test(request):
+    return HttpResponse(&#39;ok&#39;)</code></pre></li>
+<li><p>第二种：使用include来进行app分组</p>
+<pre><code><code># urls.py:
+from django.conf.urls import url, include
+
+urlpatterns = [
+    url(r&#39;^classes/&#39;, include(&quot;classes.urls&quot;)),
+    url(r&#39;^staudent/&#39;, include(&quot;staudent.urls&quot;)),
+    url(r&#39;^teachers/&#39;, include(&quot;teachers.urls&quot;)),
+]</code></pre>
+<p>在classes这个app中，添加你urls.py文件</p>
+<pre><code><code># classes.urls.py
+
+from django.conf.urls import url
+from classes import views
+urlpatterns = [
+    url(r&#39;^get_classes/&#39;, views.get_classes),
+    url(r&#39;^get_class/&#39;, views.GetClass.as_views()),
+]</code></pre>
+<p>在classes的app中views.py中添加业务逻辑</p>
+<pre><code><code># classes.views.py
+
+from django.shortcuts import render,HttpResponse
+
+# FBV方式
+def get_classes(request):
+    if request.method == &#39;GET&#39;:
+        return HttpResponse(&#39;get&#39;)
+    else:
+      return HttpResponse(&#39;post&#39;)
+
+# CBV方式
+class GetClass(request):
+    def get(self,request):
+        return HttpResponse(&#39;get&#39;)
+    def post(self,request):
+        return HttpResponse(&#39;post&#39;)</code></pre></li>
+</ul>
+<h2 id="路由的分发">路由的分发</h2>
+<p>django中的路由分发本质就是正则表达式匹配</p>
+<pre><code><code># urls.py
+
+urlpatterns = [
+    # 匹配以get_classes/开头
+    url(r&#39;^get_classes/&#39;, views.get_classes),
+    # 匹配以get_classes/开头，get_classes/结尾
+    url(r&#39;^get_classes/$&#39;, views.get_classes),
+    # 获取括号里面的值，比如test/abc/qwe123/这个url，会获取到abc、qwe123这两个值
+    url(r&#39;^test/(\w+)/(\w+)/&#39;, views.test),
+    # 也是获取括号里面的值，但此时获取的值会带上名字，如id--&gt;abc,name--&gt;qwe123
+    url(r&#39;^test1/(?P&lt;id&gt;\w+)/(?P&lt;name&gt;\w+)/&#39;, views.test1),
+]</code></pre>
+<pre><code><code># views.py
+
+def test(request,name,id):
+    print(name)  # abc
+    print(id)  # qwe123
+    return HttpResponse(&#39;test&#39;)
+
+def test1(request,name,id):
+    print(name)  # qwe123
+    print(id)  # abc
+    return HttpResponse(&#39;test1&#39;) </code></pre>
+<p>注意：</p>
+<ul>
+<li>没有?P约束，传参的时候，会根据顺序来获取参数对应的值</li>
+<li>有?P约束的话， 传参的时候， 会固定的将获取的值传给所对应的的约束</li>
+</ul>
+<h2 id="反向路由解析">反向路由解析</h2>
+<p>在使用Django 项目时，一个常见的需求是获得URL 的最终形式，以用于嵌入到生成的内容中（视图中和显示给用户的URL等）或者用于处理服务器端的导航（重定向等）。人们强烈希望不要硬编码这些URL（费力、不可扩展且容易产生错误）或者设计一种与URLconf 毫不相关的专门的URL 生成机制，因为这样容易导致一定程度上产生过期的URL。</p>
+<p>此时我们就需要给url起一个别名</p>
+<pre><code><code># urls.py
+
+urlpatterns = [
+    url(r&#39;^get_classes/&#39;, views.get_classes, name = &#39;class&#39;),
+]</code></pre>
+<pre class="html"><code>&lt;form action=&quot;{% url &quot;class&quot; %}&quot; method=&quot;post&quot;&gt;
+    &lt;input type=&quot;text&quot;&gt;
+&lt;/form&gt;</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

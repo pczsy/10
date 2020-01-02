@@ -1,0 +1,60 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修kafka命令总结' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>kafka命令总结</center></div><div class='banquan'>原文出处:本文由博客园博主shizs25提供。<br/>
+原文连接:https://www.cnblogs.com/pshik/p/11440016.html</div><br>
+    <p>kafka知识总结</p>
+<p>//切换到安装路径命令<br />cd /home/kafka/kafka_2.11-0.10.2.1/bin   </p>
+<p><br />//启动kafka服务，三台主机分别输入此指令：<br />./kafka-server-start.sh $KAFKA_HOME/config/server.properties &amp;</p>
+<p><br />//以后台的方式启动<br />nohup ./kafka-server-start.sh $KAFKA_HOME/config/server.properties &amp;</p>
+<p><br />//查看topic名<br />./kafka-topics.sh --list --zookeeper 10.101.22.41:2181<br />./kafka-topics.sh --list --zookeeper 10.101.22.41:2181,10.101.22.42:2181,10.101.22.43:2181</p>
+<p><br />//查询topic内容<br />./kafka-console-consumer.sh --bootstrap-server  10.101.22.41:9092,10.101.22.42:9093,10.101.22.43:9094 --topic oth_cpd_active_realtime_data  --from-beginning</p>
+<p><br />//查看某个Topic的详情<br />./kafka-topics.sh --topic oth_cpd_active_realtime_data --describe  --zookeeper 10.101.22.41:2181<br />./kafka-topics.sh --topic stat_cpd-flow_cv-data  --describe  --zookeeper 10.101.22.41:2181</p>
+<p><br />//查看消费者<br />./kafka-consumer-groups.sh --bootstrap-server 10.101.22.41:9092 --list </p>
+<p><br />//查看消息队列生产队列堆积情况<br />./kafka-consumer-groups.sh --bootstrap-server 10.101.22.41:9092 --group ad-statistics-state-press --describe</p>
+<p><br />//修改分区数<br />./kafka-topics.sh --zookeeper 10.101.22.41:2181 -alter --partitions 4 --topic oth_cpd_active_realtime_data</p>
+<p>&nbsp;</p>
+<p>//kafka删除topic的数据<br />修改server.properties，添加以下内容<br />delete.topic.enable=true  <br />删除命令：./kafka-run-class.sh kafka.admin.TopicCommand --delete --topicstat_cpd-flow_cv-data  --zookeeper 10.101.22.41:2181,10.101.22.42:2181,10.101.22.43:2181<br />删除kafka存储目录（server.properties文件log.dirs配置）相关topic的数据目录。如果有多个分区，要到kafka群里的每台机器上，删除相关topic的数据目录。<br />进入到zk的bin目录<br />sh zkCli.sh -server 10.101.22.41:2181,10.101.22.42:2181,10.101.22.43:2181<br />ls /brokers/topics<br />rmr /brokers/topics/stat_cpd-flow_cv-data<br />ls /admin/delete_topics <br />rmr /admin/delete_topics/stat_cpd-flow_cv-data<br />ls /config/topics <br />rmr /config/topics/stat_cpd-flow_cv-dataa </p>
+<p><br />//创建topic<br />./kafka-topics.sh --create --zookeeper 10.101.22.41:2181 --replication-factor 1 --partitions 4 --topic oth_cpd_active_realtime_data</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>//kafka重启步骤：<br />1、kill掉kafka进程（集群中每台机器都要）<br />ps -ef|grep kafka    (查看进程PID)<br />kill -9 PID          (可能需要root权限)</p>
+<p>2、清空kafka 的data文件和log文件（集群中每台机器都要）<br />rm -rf /home/press/kafka/kafka-2.11-Cluster/kafka-2.11-1/kafka-logs/ *</p>
+<p><br />3、 启动三个zookeeper及kafka服务<br />cd /home/kafka/zookeeper-3.4.10/bin<br />./zkServer.sh restart</p>
+<p>cd /home/kafka/kafka_2.11-0.10.2.1/bin<br />./kafka-server-start.sh  -daemon ../config/server.properties</p>
+<p># 4、查询es进程<br />ps -ef|grep kafka</p>
+<p>&nbsp;</p>
+<p>踩坑总结：</p>
+<p>#问题一：启动kafaka集群，必须先要启动zookeeper集群。<br />#问题二：kafka端口查看及修改，配置文件路径： vim /home/kafka/kafka_2.11-0.10.2.1/config/server.properties    IP+端口号：listeners=PLAINTEXT://10.101.22.41:9092<br />#问题三：配置中心的kafka配置中ip：port是kafka的端口，不是zookeeper的端口<br />#问题四：测试topic不同分区的消费的性能时，建议从分区数小开始（分区数不可修改变小，只能删除后新建topic重新分区）<br />#问题五：消费者数量和topic分区数不是倍数时，会出现消费不均的情况（正常现象）</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>python生成数据脚本：</p>
+<p>#-*- coding:utf-8 -*-<br /># 向kafka发送数据进行测试<br />import sys<br />import time<br />import json<br />import threading, logging, time<br />from kafka import SimpleProducer<br />from kafka import KafkaProducer<br />from kafka import KafkaConsumer<br />from kafka.client import KafkaClient<br />from kafka.errors import KafkaError</p>
+<p>#file=open('D:\\My Documents\\Desktop\\t_adId_materialUUID.txt')<br />#dataMat=[]<br />#for line in file.readlines():<br />#curLine=line.strip().split("\t")<br /># floatLine=map(float,curLine)#这里使用的是map函数直接把数据转化成为float类型<br />#dataMat.append(curLine[0:2])<br />#print ("dataMat = " +str(len(dataMat)))</p>
+<p><br /># 对应kafka的IP：端口<br />producer = KafkaProducer(bootstrap_servers='10.101.22.41:9092')<br /># 填写对应的topic<br />topic = 'oth_cpd_active_realtime_data'<br />def test1():<br />    # 只执行一次<br />    a1 = time.strftime("%H:%M:%S", time.localtime())<br />    # 每分钟统计速率<br />    num1 = 0<br />    # 消息总数初始化<br />    countSum = 0<br />    # 发送消息的速率/min<br />    rate = 60</p>
+<p>    while(1):<br />        t = round(time.time() * 1000)  # 当前时间戳<br />        #print("时间戳 = "+str(t))<br />        ideaId = 20009677              #创意id,需参数化<br />        adsResp = '{"cfrom": "219","cvTime":' + str(t) + ',"cvType":7,"ideaId":' + str(ideaId) + ',"appId": "1695285","appPackage": "com.jzyd.coupon","changeId": "","channelType": 1,"chargeMode": -1,"cp": "23","cpdps": "20190815085536,20384,,72c19c1c35444d5aa6c1297d72d4f53b,tt-300,5.05E-4,59760801D3E3762F,afterDownloadRecommend","cvDate": "20190828","cvTs": 1565923987000,"downloadTime": 1565830560000,"imei": "864092048676953","page": "others","placeType": "afterDownloadRecommend","price": 3.8,"reqId": "72c19c1c35444d5aa6c1297d72d4f53b"}'</p>
+<p>        # 循环体<br />        a2 = time.strftime("%H:%M:%S", time.localtime())<br />        if (a1 == a2):<br />            # 每分钟消息总数<br />            if (num1 &lt; rate // 60):<br />                num1 = num1 + 1;<br />                # kafka 发送生产者消息<br />                producer.send(topic, adsResp.encode())<br />                # 消息总数<br />                countSum = countSum + 1<br />                print ('发送总的消息&mdash;&mdash;计数：' + str(countSum))<br />                #print ("end ： 当前时间 = " + a2 + '__每分钟速率=' + str(rate // 60 * 60) + '/min__每秒钟速率current=' + str(<br />                #num1) + "/秒__当前发送消息总数=" + str(countSum))<br />        else:<br />            print ('end ： 当前时间 = ' + a2 + '每分钟理论速率=' + str(rate // 60 * 60) +'/min__每秒钟理论速率=' +str(rate//60)+'/秒__每分钟实际速率='+ str(num1*60) +'/min__每秒钟实际速率='+str(num1)+'/秒__当前发送消息总数=' + str(countSum))<br />            # 每分钟消息&mdash;&mdash;清零<br />            num1 = 0<br />            print ("start ：重新计时 = " + a2 + '__清空计数：' + str(num1))<br />            # 重新获取当前时间<br />            a1 = time.strftime("%H:%M:%S", time.localtime())<br />            print ('发送总的消息&mdash;&mdash;计数：' + str(countSum))</p>
+<p>if __name__ == '__main__':<br />    # 循环调用<br />    print('send to kafka start!----- ')<br />    test1()<br />    print('send to kafka finished! ----- ')</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,310 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修AQS系列（三）- ReentrantReadWriteLock读写锁的加锁' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>AQS系列（三）- ReentrantReadWriteLock读写锁的加锁</center></div><div class='banquan'>原文出处:本文由博客园博主张曾经提供。<br/>
+原文连接:https://www.cnblogs.com/zzq6032010/p/12037854.html</div><br>
+    <p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>前言</strong></span></p>
+<p>&nbsp; &nbsp; 前两篇我们讲述了ReentrantLock的加锁释放锁过程，相对而言比较简单，本篇进入深水区，看看ReentrantReadWriteLock-读写锁的加锁过程是如何实现的，继续拜读老Lea凌厉的代码风。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>一、读写锁的类图</strong></span></p>
+<p>&nbsp; &nbsp; 读锁就是共享锁，而写锁是独占锁。读锁与写锁之间的互斥关系为：<strong>读读可同时执行(有条件的)；读写与写写均互斥执行</strong>。注意此处读读可并行我用了有条件的并行，后文会对此做介绍。</p>
+<p>&nbsp; &nbsp; 继续奉上一张丑陋的类图：</p>
+<p><img src="./images/AQS系列（三）- ReentrantReadWriteLock读写锁的加锁0.png" alt="" width="913" height="431" /></p>
+<p>&nbsp; &nbsp; &nbsp;可以看到ReentrantReadWriteLock维护了五个内部类，ReentrantReadWriteLock中存放了Sync、ReadLock、WriteLock三个成员变量，如下截图所示：</p>
+<p><img src="./images/AQS系列（三）- ReentrantReadWriteLock读写锁的加锁1.png" alt="" width="744" height="356" /></p>
+<p>&nbsp; &nbsp; &nbsp;而ReadLock和WriteLock中又存放了Sync变量，截图如下所示，这样一组合，有了四种锁，公平读锁、公平写锁、非公平读锁、非公平写锁。对于公平与非公平的实现区别，我们上一篇已经做过讲解，本文将着重关注读锁和写锁的实现区别。</p>
+<p><img src="./images/AQS系列（三）- ReentrantReadWriteLock读写锁的加锁2.png" alt="" width="742" height="305" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;"><strong><span style="background-color: #c0c0c0;">二、加锁源码</span></strong></span></p>
+<p>&nbsp; &nbsp; 在前文中我们知道，ReentrantLock中用state来判断当前锁是否被占用，而读写锁ReentrantReadWriteLock中由于同时存在两种锁，所以老Lea用state的高16位来存放读锁的占用状态以及重入次数，低16位存放写锁的占用状态和重入次数。</p>
+<p><strong>1、读锁加锁，即共享锁加锁</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> lock() {
+</span><span style="color: #008080;">2</span>             sync.acquireShared(1<span style="color: #000000;">); // 获取共享锁方法
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 上述lock方法中调用的获取共享锁方法是在AbstractQueuedSynchronizer中实现的，代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">void</span> acquireShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;">2</span>         <span style="color: #0000ff;">if</span> (tryAcquireShared(arg) &lt; 0<span style="color: #000000;">)
+</span><span style="color: #008080;">3</span> <span style="color: #000000;">            doAcquireShared(arg);
+</span><span style="color: #008080;">4</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 可以看到获取共享锁分成了两步，第一步是尝试获取，如果获取不到再进入if里面执行doAcquireShared方法，下面分别追踪。</p>
+<p><strong>1)、tryAcquireShared方法</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">int</span> tryAcquireShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> unused) {
+</span><span style="color: #008080;"> 2</span>             Thread current =<span style="color: #000000;"> Thread.currentThread();
+</span><span style="color: #008080;"> 3</span>             <span style="color: #0000ff;">int</span> c =<span style="color: #000000;"> getState();
+</span><span style="color: #008080;"> 4</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 1.有写锁占用并且不是当前线程，则直接返回获取失败</span>
+<span style="color: #008080;"> 5</span>             <span style="color: #0000ff;">if</span> (exclusiveCount(c) != 0 &amp;&amp;
+<span style="color: #008080;"> 6</span>                 getExclusiveOwnerThread() !=<span style="color: #000000;"> current)
+</span><span style="color: #008080;"> 7</span>                 <span style="color: #0000ff;">return</span> -1<span style="color: #000000;">;
+</span><span style="color: #008080;"> 8</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 执行到这里，有两种情况 没有写锁占用或者是当前线程</span>
+<span style="color: #008080;"> 9</span>             <span style="color: #0000ff;">int</span> r = sharedCount(c); <span style="color: #008000;">//</span><span style="color: #008000;"> 获取读锁次数
+</span><span style="color: #008080;">10</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 2、不应该阻塞则获取锁  @此方法有点意思，需着重讲解，作用：判断读锁是否需要阻塞</span>
+<span style="color: #008080;">11</span>             <span style="color: #0000ff;">if</span> (!readerShouldBlock() &amp;&amp;
+<span style="color: #008080;">12</span>                 r &lt; MAX_COUNT &amp;&amp;
+<span style="color: #008080;">13</span>                 compareAndSetState(c, c +<span style="color: #000000;"> SHARED_UNIT)) {
+</span><span style="color: #008080;">14</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 如果CAS成功，则将当前线程对应的计数+1</span>
+<span style="color: #008080;">15</span>                 <span style="color: #0000ff;">if</span> (r == 0<span style="color: #000000;">) { // 如果读锁持有数为0，则说明当前线程是第一个reader，分别给firstReader和firstReaderHoldCount初始化
+</span><span style="color: #008080;">16</span>                     firstReader =<span style="color: #000000;"> current;
+</span><span style="color: #008080;">17</span>                     firstReaderHoldCount = 1<span style="color: #000000;">;
+</span><span style="color: #008080;">18</span>                 } <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (firstReader ==<span style="color: #000000;"> current) { // 如果读锁持有数不为0且当前线程就是firstReader，那么直接给firstReaderHoldCount+1，表示读锁重入
+</span><span style="color: #008080;">19</span>                     firstReaderHoldCount++<span style="color: #000000;">;
+</span><span style="color: #008080;">20</span>                 } <span style="color: #0000ff;">else</span><span style="color: #000000;"> { // 其他情况，即当前线程不是firstReader且还有其他线程持有读锁，则要获取到当前线程对应的HoldCounter，然后给里面的计数+1
+</span><span style="color: #008080;">21</span>                     HoldCounter rh =<span style="color: #000000;"> cachedHoldCounter;
+</span><span style="color: #008080;">22</span>                     <span style="color: #0000ff;">if</span> (rh == <span style="color: #0000ff;">null</span> || rh.tid !=<span style="color: #000000;"> getThreadId(current))
+</span><span style="color: #008080;">23</span>                         cachedHoldCounter = rh =<span style="color: #000000;"> readHolds.get();
+</span><span style="color: #008080;">24</span>                     <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (rh.count == 0<span style="color: #000000;">)
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">                        readHolds.set(rh);
+</span><span style="color: #008080;">26</span>                     rh.count++<span style="color: #000000;">;
+</span><span style="color: #008080;">27</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">28</span>                 <span style="color: #0000ff;">return</span> 1<span style="color: #000000;">;
+</span><span style="color: #008080;">29</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">30</span>             <span style="color: #008000;">//</span> 3、应该阻塞或者CAS失败则进入此方法获取锁
+<span style="color: #008080;">31</span>             <span style="color: #0000ff;">return</span><span style="color: #000000;"> fullTryAcquireShared(current);
+</span><span style="color: #008080;">32</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; &nbsp;结合上述代码中的注释，将逻辑分三部分，我们一步步分析此方法的逻辑。</p>
+<p>&nbsp; &nbsp; 首先第一步，判断如果有写锁并且当前线程不是写锁的线程，则直接退出获取读锁的尝试，因为读写是互斥的，退出此方法后就会进入doAcquireShared方法，后续逻辑见下面的2)。但此处还是要看一下写锁状态统计方法exclusiveCount和读锁状态统计方法sharedCount，方法源码如下截图所示：</p>
+<p><img src="./images/AQS系列（三）- ReentrantReadWriteLock读写锁的加锁3.png" alt="" width="796" height="235" /></p>
+<p>&nbsp; &nbsp; 可以看到，exclusiveCount方法是将c和独占掩码进行与操作，独占掩码EXCLUSIVE_MASK高16位均为0，低16位均为1，按位与计算之后就剩下c的低16位，这就是第二部分一开始说的低16位存放写锁重入次数；同理看sharedCount方法，将c有符号右移16位，这样移位之后低16位就是原来的高16位，即读锁的加锁次数。老Lea通过这两个方法实现了用一个int类型的state存放写锁读锁两个加锁次数的结果，是不是看起来就很高端！</p>
+<p>&nbsp; &nbsp; 然后看第二步，判断读不应该阻塞（即readerShouldBlock方法返回false）且读锁持有次数小于最大值且CAS成功，则进入方法中尝试获取读锁。先看看重点方法readerShouldBlock什么时候会返回false（不阻塞）什么时候返回true（阻塞）。此方法在非公平模式和公平模式中有不同的实现，公平模式代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> readerShouldBlock() {
+</span><span style="color: #008080;">2</span>             <span style="color: #0000ff;">return</span><span style="color: #000000;"> hasQueuedPredecessors();
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 看到了一个熟悉的身影，hashQueuedPredecessors方法，这不就是在ReentrantLock中公平锁加锁时的方法么？详细可看我的AQS系列（一）中的讲解，总结一下就是该方法判断队列前面是否有在排队的非当前线程，意思就是按排队顺序获取锁，不要争抢。</p>
+<p>&nbsp; &nbsp; 非公平模式代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> readerShouldBlock() {
+</span><span style="color: #008080;">2</span>             <span style="color: #0000ff;">return</span><span style="color: #000000;"> apparentlyFirstQueuedIsExclusive();
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> apparentlyFirstQueuedIsExclusive() {
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">        Node h, s;
+</span><span style="color: #008080;">3</span>         <span style="color: #0000ff;">return</span> (h = head) != <span style="color: #0000ff;">null</span> &amp;&amp;
+<span style="color: #008080;">4</span>             (s = h.next)  != <span style="color: #0000ff;">null</span> &amp;&amp;
+<span style="color: #008080;">5</span>             !s.isShared()         &amp;&amp;
+<span style="color: #008080;">6</span>             s.thread != <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;">7</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 在后面的方法中，返回了一个四个条件组成的布尔值，逻辑为头节点不为空并且头节点后的第一个节点不为空并且这个节点是独占的并且线程不为空，此时返回true即当前这个读操作应该阻塞，不让它获取到锁。那么问题来了，为什么要有这个逻辑？此处是为了避免一种异常情况的发生，如果后面有一个排队的写锁在等待获取锁，而这时有一个读锁正在执行中，若在读锁执行完之前又来了一个读锁，因为读锁与读锁不阻塞所以后来的的读锁又获取到了锁，这时在队列第一个位置排队的写锁仍然在傻傻的等着，没办法，谁让你没关系。就这样，如果一直有读锁在当前正在执行的读锁执行完之前进来获取读锁，那么后面的写锁就会一直傻等在那，永远都没法获取锁。所以Lea就设计了这个方法来避免这种情况的发生，即如果判断队列第一位排队的是写锁，那么后面的读锁就先等一等，等这个写锁执行完了你们再执行。这也就是我在文章的开始讲的-读读同时执行是有条件的，这个条件就是指这里。</p>
+<p>&nbsp; &nbsp; 看第二步之前要先说说读锁的处理逻辑，因为是可重入的读锁，所以需要记录每个获取读锁线程的重入次数，即每个读的线程都有一个与其对应的重入次数。然后继续看第二步中读锁获取锁成功（即CAS成功）之后的逻辑：如果读锁持有数为0，则说明当前线程是第一个reader，分别给firstReader和firstReaderHoldCount初始化；如果读锁持有数不为0且当前线程就是firstReader，那么直接给firstReaderHoldCount+1，表示读锁重入；否则，即当前线程不是firstReader且还有其他线程持有读锁，则要获取到当前线程对应的HoldCounter，然后给里面的计数+1。</p>
+<p>&nbsp; &nbsp; 下面再一起看看【否则】中的逻辑，粘贴一下Sync中的部分代码</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">abstract</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span> Sync <span style="color: #0000ff;">extends</span><span style="color: #000000;"> AbstractQueuedSynchronizer {
+</span><span style="color: #008080;"> 2</span>        <span style="color: #008000;">//</span><span style="color: #008000;"> ...</span>
+<span style="color: #008080;"> 3</span>        <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> HoldCounter {
+</span><span style="color: #008080;"> 4</span>             <span style="color: #0000ff;">int</span> count = 0<span style="color: #000000;">;
+</span><span style="color: #008080;"> 5</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> Use id, not reference, to avoid garbage retention</span>
+<span style="color: #008080;"> 6</span>             <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">long</span> tid =<span style="color: #000000;"> getThreadId(Thread.currentThread());
+</span><span style="color: #008080;"> 7</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;"> 8</span> 
+<span style="color: #008080;"> 9</span>         <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ThreadLocalHoldCounter
+</span><span style="color: #008080;">10</span>             <span style="color: #0000ff;">extends</span> ThreadLocal&lt;HoldCounter&gt;<span style="color: #000000;"> {
+</span><span style="color: #008080;">11</span>             <span style="color: #0000ff;">public</span><span style="color: #000000;"> HoldCounter initialValue() {
+</span><span style="color: #008080;">12</span>                 <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> HoldCounter();
+</span><span style="color: #008080;">13</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">15</span> 
+<span style="color: #008080;">16</span>         <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">transient</span><span style="color: #000000;"> ThreadLocalHoldCounter readHolds;
+</span><span style="color: #008080;">17</span> 
+<span style="color: #008080;">18</span>         <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">transient</span><span style="color: #000000;"> HoldCounter cachedHoldCounter;
+</span><span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span>         <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">transient</span> Thread firstReader = <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;">21</span>         <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">transient</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> firstReaderHoldCount;
+</span><span style="color: #008080;">22</span> 
+<span style="color: #008080;">23</span> <span style="color: #000000;">        Sync() {
+</span><span style="color: #008080;">24</span>             readHolds = <span style="color: #0000ff;">new</span><span style="color: #000000;"> ThreadLocalHoldCounter();
+</span><span style="color: #008080;">25</span>             setState(getState()); <span style="color: #008000;">//</span><span style="color: #008000;"> ensures visibility of readHolds</span>
+<span style="color: #008080;">26</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">27</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> ...</span>
+<span style="color: #008080;">28</span> }</pre>
+</div>
+<p>&nbsp; &nbsp; 可以看到，Sync中缓存了一个HoldCounter，存放的是最近一次读锁记录。而如果当前线程不是最近一次记录的HoldCounter，则去readHolds中取，readHolds是ThreadLocalHoldCounter类型，在Sync的无参构造器中初始化，它与HoldCounter都是Sync的内部类，ThreadLocalHoldCounter就是一个ThreadLocal，内部维护了一个线程与HoldCounter的键值对map，一个线程对应一个HoldCounter。所以【否则】中的逻辑加注释如下所示：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span>                     HoldCounter rh =<span style="color: #000000;"> cachedHoldCounter; // 获取最近一次记录的HoldCounter，此缓存是为了提高效率，不用每次都去ThreadLocal中取
+</span><span style="color: #008080;">2</span>                     <span style="color: #0000ff;">if</span> (rh == <span style="color: #0000ff;">null</span> || rh.tid !=<span style="color: #000000;"> getThreadId(current)) // 判断当前线程是不是最近一次记录的HoldCounter
+</span><span style="color: #008080;">3</span>                         cachedHoldCounter = rh =<span style="color: #000000;"> readHolds.get(); // 如果不是，则去Sync中的ThreadLocal中获取，然后再放在缓存中
+</span><span style="color: #008080;">4</span>                     <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (rh.count == 0<span style="color: #000000;">) // 如果count计数为0，说明是第一次重入，则将HoldCounter加入ThreadLocal中
+</span><span style="color: #008080;">5</span> <span style="color: #000000;">                        readHolds.set(rh);
+</span><span style="color: #008080;">6</span>                     rh.count++; // 当前线程重入次数+1</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp; &nbsp; 下面进入第三步，fullTryAcquireShared方法，进入此方法的前提条件是没有写锁且 (读应该阻塞或者读锁CAS失败)。看这个full方法的逻辑：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> fullTryAcquireShared(Thread current) {
+</span><span style="color: #008080;"> 2</span>             
+<span style="color: #008080;"> 3</span>             HoldCounter rh = <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 4</span>             <span style="color: #0000ff;">for</span> (;;) { <span style="color: #008000;">//</span><span style="color: #008000;"> 无限循环直到有确定的结果返回</span>
+<span style="color: #008080;"> 5</span>                 <span style="color: #0000ff;">int</span> c =<span style="color: #000000;"> getState();
+</span><span style="color: #008080;"> 6</span>                 <span style="color: #0000ff;">if</span> (exclusiveCount(c) != 0) { <span style="color: #008000;">//</span><span style="color: #008000;"> 1、有独占锁且不是当前线程，直接返回读锁加锁失败</span>
+<span style="color: #008080;"> 7</span>                     <span style="color: #0000ff;">if</span> (getExclusiveOwnerThread() !=<span style="color: #000000;"> current)
+</span><span style="color: #008080;"> 8</span>                         <span style="color: #0000ff;">return</span> -1<span style="color: #000000;">;
+</span><span style="color: #008080;"> 9</span>                     <span style="color: #008000;">//</span><span style="color: #008000;"> else we hold the exclusive lock; blocking here
+</span><span style="color: #008080;">10</span>                     <span style="color: #008000;">//</span><span style="color: #008000;"> would cause deadlock.</span>
+<span style="color: #008080;">11</span>                 } <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (readerShouldBlock()) { <span style="color: #008000;">//</span><span style="color: #008000;"> 2、判断读是否应该阻塞
+</span><span style="color: #008080;">12</span>                     <span style="color: #008000;">//</span><span style="color: #008000;"> Make sure we're not acquiring read lock reentrantly</span>
+<span style="color: #008080;">13</span>                     <span style="color: #0000ff;">if</span> (firstReader ==<span style="color: #000000;"> current) { // 判断如果当前线程就是firstReader，那么什么都不做，进入3中尝试获取锁，why？ 因为这说明当前线程之前就持有了锁还没释放，所以可以继续获取
+</span><span style="color: #008080;">14</span>                         <span style="color: #008000;">//</span><span style="color: #008000;"> assert firstReaderHoldCount &gt; 0;</span>
+<span style="color: #008080;">15</span>                     } <span style="color: #0000ff;">else</span><span style="color: #000000;"> { // 2.5 此处逻辑需要仔细研读，乍看时看的一头雾水
+</span><span style="color: #008080;">16</span>                         <span style="color: #0000ff;">if</span> (rh == <span style="color: #0000ff;">null</span><span style="color: #000000;">) { // 第一次进来时rh肯定==null
+</span><span style="color: #008080;">17</span>                             rh =<span style="color: #000000;"> cachedHoldCounter;
+</span><span style="color: #008080;">18</span>                             <span style="color: #0000ff;">if</span> (rh == <span style="color: #0000ff;">null</span> || rh.tid !=<span style="color: #000000;"> getThreadId(current)) {
+</span><span style="color: #008080;">19</span>                                 rh =<span style="color: #000000;"> readHolds.get();
+</span><span style="color: #008080;">20</span>                                 <span style="color: #0000ff;">if</span> (rh.count == 0<span style="color: #000000;">) // 如果当前线程没获取到过读锁，则从本地线程变量中移除HoldCounter，因为下一步就要判定它获取锁失败先不让它获取了
+</span><span style="color: #008080;">21</span> <span style="color: #000000;">                                    readHolds.remove();
+</span><span style="color: #008080;">22</span> <span style="color: #000000;">                            }
+</span><span style="color: #008080;">23</span> <span style="color: #000000;">                        }// 能走到这里，说明当前读锁应该阻塞且不是firstReader
+</span><span style="color: #008080;">24</span>                         <span style="color: #0000ff;">if</span> (rh.count == 0<span style="color: #000000;">) // 再加上当前线程没获取到过读锁，则先不让它尝试获取锁了，直接返回获取失败
+</span><span style="color: #008080;">25</span>                             <span style="color: #0000ff;">return</span> -1<span style="color: #000000;">;
+</span><span style="color: #008080;">26</span> <span style="color: #000000;">                    }
+</span><span style="color: #008080;">27</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">28</span>                 <span style="color: #0000ff;">if</span> (sharedCount(c) ==<span style="color: #000000;"> MAX_COUNT)
+</span><span style="color: #008080;">29</span>                     <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> Error("Maximum lock count exceeded"<span style="color: #000000;">);
+</span><span style="color: #008080;">30</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 3、再次尝试获取锁</span>
+<span style="color: #008080;">31</span>                 <span style="color: #0000ff;">if</span> (compareAndSetState(c, c +<span style="color: #000000;"> SHARED_UNIT)) {
+</span><span style="color: #008080;">32</span>                     <span style="color: #0000ff;">if</span> (sharedCount(c) == 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">33</span>                         firstReader =<span style="color: #000000;"> current;
+</span><span style="color: #008080;">34</span>                         firstReaderHoldCount = 1<span style="color: #000000;">;
+</span><span style="color: #008080;">35</span>                     } <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (firstReader ==<span style="color: #000000;"> current) {
+</span><span style="color: #008080;">36</span>                         firstReaderHoldCount++<span style="color: #000000;">;
+</span><span style="color: #008080;">37</span>                     } <span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">38</span>                         <span style="color: #0000ff;">if</span> (rh == <span style="color: #0000ff;">null</span><span style="color: #000000;">)
+</span><span style="color: #008080;">39</span>                             rh =<span style="color: #000000;"> cachedHoldCounter;
+</span><span style="color: #008080;">40</span>                         <span style="color: #0000ff;">if</span> (rh == <span style="color: #0000ff;">null</span> || rh.tid !=<span style="color: #000000;"> getThreadId(current))
+</span><span style="color: #008080;">41</span>                             rh =<span style="color: #000000;"> readHolds.get();
+</span><span style="color: #008080;">42</span>                         <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (rh.count == 0<span style="color: #000000;">)
+</span><span style="color: #008080;">43</span> <span style="color: #000000;">                            readHolds.set(rh);
+</span><span style="color: #008080;">44</span>                         rh.count++<span style="color: #000000;">;
+</span><span style="color: #008080;">45</span>                         cachedHoldCounter = rh; <span style="color: #008000;">//</span><span style="color: #008000;"> cache for release</span>
+<span style="color: #008080;">46</span> <span style="color: #000000;">                    }
+</span><span style="color: #008080;">47</span>                     <span style="color: #0000ff;">return</span> 1<span style="color: #000000;">;
+</span><span style="color: #008080;">48</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">49</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">50</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 详细看看注解以及源代码注释、代码逻辑，相信能理解这个过程。</p>
+<p><strong>&nbsp;2）、doAcquireShared方法</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span> doAcquireShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 将当前读锁加到队列后面</span>
+<span style="color: #008080;"> 3</span>         <span style="color: #0000ff;">final</span> Node node =<span style="color: #000000;"> addWaiter(Node.SHARED);
+</span><span style="color: #008080;"> 4</span>         <span style="color: #0000ff;">boolean</span> failed = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 5</span>         <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 6</span>             <span style="color: #0000ff;">boolean</span> interrupted = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 7</span>             <span style="color: #0000ff;">for</span><span style="color: #000000;"> (;;) {
+</span><span style="color: #008080;"> 8</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 得到前一个节点</span>
+<span style="color: #008080;"> 9</span>                 <span style="color: #0000ff;">final</span> Node p =<span style="color: #000000;"> node.predecessor();
+</span><span style="color: #008080;">10</span>                 <span style="color: #0000ff;">if</span> (p == head) { <span style="color: #008000;">//</span><span style="color: #008000;"> 如果前一个节点是头节点，则尝试获取锁</span>
+<span style="color: #008080;">11</span>                     <span style="color: #0000ff;">int</span> r =<span style="color: #000000;"> tryAcquireShared(arg);
+</span><span style="color: #008080;">12</span>                     <span style="color: #0000ff;">if</span> (r &gt;= 0) { <span style="color: #008000;">//</span><span style="color: #008000;"> 设置头节点并且激活后续的节点</span>
+<span style="color: #008080;">13</span> <span style="color: #000000;">                        setHeadAndPropagate(node, r);
+</span><span style="color: #008080;">14</span>                         p.next = <span style="color: #0000ff;">null</span>; <span style="color: #008000;">//</span><span style="color: #008000;"> help GC</span>
+<span style="color: #008080;">15</span>                         <span style="color: #0000ff;">if</span><span style="color: #000000;"> (interrupted)
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">                            selfInterrupt();
+</span><span style="color: #008080;">17</span>                         failed = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">18</span>                         <span style="color: #0000ff;">return</span><span style="color: #000000;">;
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">                    }
+</span><span style="color: #008080;">20</span>                 }<span style="color: #008000;">//</span><span style="color: #008000;"> 判断应该挂起则挂起线程</span>
+<span style="color: #008080;">21</span>                 <span style="color: #0000ff;">if</span> (shouldParkAfterFailedAcquire(p, node) &amp;&amp;
+<span style="color: #008080;">22</span> <span style="color: #000000;">                    parkAndCheckInterrupt())
+</span><span style="color: #008080;">23</span>                     interrupted = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">25</span>         } <span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">26</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> (failed)
+</span><span style="color: #008080;">27</span> <span style="color: #000000;">                cancelAcquire(node);
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">29</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 该方法跟之前系列中ReentrantLock的加锁过程类似，在此就不做过多的解释了，总之还是通过park来挂起。</p>
+<p><span style="font-size: 16px;"><strong>&nbsp;2、写锁加锁，即独占锁加锁</strong></span></p>
+<p>&nbsp; &nbsp; 进入lock方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> lock() {
+</span><span style="color: #008080;">2</span>             sync.acquire(1<span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 熟悉的样子，继续 点进去：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">void</span> acquire(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;">2</span>         <span style="color: #0000ff;">if</span> (!tryAcquire(arg) &amp;&amp;
+<span style="color: #008080;">3</span> <span style="color: #000000;">            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+</span><span style="color: #008080;">4</span> <span style="color: #000000;">            selfInterrupt();
+</span><span style="color: #008080;">5</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 还是原先的方法，但是各个方法的实现有区别了。先看第一个tryAcquire：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> tryAcquire(<span style="color: #0000ff;">int</span><span style="color: #000000;"> acquires) {
+</span><span style="color: #008080;"> 2</span>             Thread current =<span style="color: #000000;"> Thread.currentThread();
+</span><span style="color: #008080;"> 3</span>             <span style="color: #0000ff;">int</span> c =<span style="color: #000000;"> getState();
+</span><span style="color: #008080;"> 4</span>             <span style="color: #0000ff;">int</span> w =<span style="color: #000000;"> exclusiveCount(c);
+</span><span style="color: #008080;"> 5</span>             <span style="color: #0000ff;">if</span> (c != 0) { <span style="color: #008000;">//</span><span style="color: #008000;"> 如果排它锁存在，则判断是不是当前线程，如果也不是当前线程，则直接返回获取失败
+</span><span style="color: #008080;"> 6</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> (Note: if c != 0 and w == 0 then shared count != 0)</span>
+<span style="color: #008080;"> 7</span>                 <span style="color: #0000ff;">if</span> (w == 0 || current !=<span style="color: #000000;"> getExclusiveOwnerThread())
+</span><span style="color: #008080;"> 8</span>                     <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 9</span>                 <span style="color: #0000ff;">if</span> (w + exclusiveCount(acquires) &gt;<span style="color: #000000;"> MAX_COUNT)
+</span><span style="color: #008080;">10</span>                     <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> Error("Maximum lock count exceeded"<span style="color: #000000;">);
+</span><span style="color: #008080;">11</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> Reentrant acquire</span>
+<span style="color: #008080;">12</span>                 setState(c +<span style="color: #000000;"> acquires);
+</span><span style="color: #008080;">13</span>                 <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">14</span>             } <span style="color: #008000;">//</span><span style="color: #008000;"> 判断读锁要不要阻塞，此处针对公平锁和非公平锁有不同的实现，对于非公平锁统一返回false表示不要阻塞，而公平锁则会查看前面还有没有锁来判断要不要阻塞</span>
+<span style="color: #008080;">15</span>             <span style="color: #0000ff;">if</span> (writerShouldBlock() ||
+<span style="color: #008080;">16</span>                 !compareAndSetState(c, c +<span style="color: #000000;"> acquires))
+</span><span style="color: #008080;">17</span>                 <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">            setExclusiveOwnerThread(current);
+</span><span style="color: #008080;">19</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">20</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 然后是addWaiter在队列末尾添加node节点排队，这个方法在AbstractQueuedSynchronizer中，同样是熟悉的方法了，此处略过不提。</p>
+<p>&nbsp; &nbsp; 最后是acquireQueued方法，如下所示，又是熟悉的代码，跟ReentrantLock中的加锁方法一毛一样，唯一的不同点是第7行调用的tryAcquire方法的实现，此处调的是ReentrantReadWriteLock类中Sync的方法，也就是上面的第一个方法。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> acquireQueued(<span style="color: #0000ff;">final</span> Node node, <span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #0000ff;">boolean</span> failed = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 3</span>         <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 4</span>             <span style="color: #0000ff;">boolean</span> interrupted = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 5</span>             <span style="color: #0000ff;">for</span><span style="color: #000000;"> (;;) { 
+</span><span style="color: #008080;"> 6</span>                 <span style="color: #0000ff;">final</span> Node p =<span style="color: #000000;"> node.predecessor();
+</span><span style="color: #008080;"> 7</span>                 <span style="color: #0000ff;">if</span> (p == head &amp;&amp;<span style="color: #000000;"> tryAcquire(arg)) {
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">                    setHead(node);
+</span><span style="color: #008080;"> 9</span>                     p.next = <span style="color: #0000ff;">null</span>; <span style="color: #008000;">//</span><span style="color: #008000;"> help GC</span>
+<span style="color: #008080;">10</span>                     failed = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">11</span>                     <span style="color: #0000ff;">return</span><span style="color: #000000;"> interrupted;
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">13</span>                 <span style="color: #0000ff;">if</span> (shouldParkAfterFailedAcquire(p, node) &amp;&amp;
+<span style="color: #008080;">14</span> <span style="color: #000000;">                    parkAndCheckInterrupt())
+</span><span style="color: #008080;">15</span>                     interrupted = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">17</span>         } <span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">18</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> (failed)
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">                cancelAcquire(node);
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">21</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 写锁的加锁过程基本就这些了，相对来说比读锁加锁容易了很多，因为大多都跟ReentrantLock中的实现相仿。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>后记</strong></span></p>
+<p>&nbsp; &nbsp; 读写锁的加锁过程到此为止，最近每晚下班回来读一会，断断续续的四晚上才搞定，难受 &gt;&lt;</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

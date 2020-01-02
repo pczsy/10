@@ -1,0 +1,195 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修原创：Python编写通讯录，支持模糊查询，利用数据库存储' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>原创：Python编写通讯录，支持模糊查询，利用数据库存储</center></div><div class='banquan'>原文出处:本文由博客园博主南有乔木1234提供。<br/>
+原文连接:https://www.cnblogs.com/momoli/p/11202060.html</div><br>
+    <p>1.要求</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 数据库存储通讯录，要求按姓名/电话号码查询，查询条件只有一个输入入口，自动识别输入的是姓名还是号码，允许模糊查询。</p>
+<p>2.实现功能</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 可通过输入指令进行操作。</p>
+<p>（1）首先输入&ldquo;add&rdquo;，可以对通讯录进行添加联系人信息。</p>
+<p align="left">sql1 = <strong>'insert into TA(ID,NAME,AGE,ADDRESS,TELENUMBER)'<br />
+</strong>sql1 += <strong>'values("%d","%s","%d","%s","%s");'
+</strong>% (ID,name, age, address, telenumber)<br />
+conn.execute(sql1)<br />
+conn.commit()<em>#</em><em>提交，否则无法保存</em></p>
+<p>（2）输入&ldquo;delete&rdquo;，可以删除指定的联系人信息。</p>
+<p>输入姓名删除：</p>
+<p align="left">cursor = c.execute(<strong>"SELECT name from TA where name = '%s';"</strong>%i)</p>
+<p>输入电话号码删除：</p>
+<p align="left">cursor = c.execute(<strong>"SELECT name from TA where telenumber= '%s';" </strong>% i)</p>
+<p>（3）输入&ldquo;search&rdquo;，可以输入联系人或者电话号码，查询联系人信息，这里实现了模糊查询以及精确查询。</p>
+<p>输入姓名查询：</p>
+<p align="left">sql1 = <strong>"SELECT
+id,name,age, address, telenumber from TA where telenumber like '%" </strong>+ i + <strong>"%'"<br />
+</strong>cursor = c.execute(sql1)</p>
+<p>输入电话号码查询：</p>
+<p align="left">sql1=<strong>"SELECT
+id,name,age, address, telenumber from TA where name like '%"</strong>+i+<strong>"%'"<br />
+</strong>cursor = c.execute(sql1)</p>
+<p>（4）输入&ldquo;searchall&rdquo;，查询全部联系人信息。</p>
+<p align="left">cursor = c.execute(<strong>"SELECT id, name, age, address, telenumber&nbsp; from TA"</strong>)</p>
+<p align="left">&nbsp;</p>
+<p>3.数据库sqlite3</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Python自带一个轻量级的关系型数据库sqlite。这一数据库使用SQL语言。sqlite作为后端数据库，可以搭配Python建网站，或者制作有数据存储需求的工具。sqlLite还在其它领域有广泛的应用，比如HTML5和移动端。Python标准库中的sqlite3提供该数据库的接口。因此此次使用了sqlite3数据库存储通讯录的联系人信息。</p>
+<p>源码：</p>
+<div class="cnblogs_Highlighter">
+<pre><code>import sqlite3
+import re
+#打开本地数据库用于存储用户信息
+conn = sqlite3.connect('mysql_telephone_book.db')
+c = conn.cursor()
+#在该数据库下创建表，创建表的这段代码在第一次执行后需要注释掉，否则再次执行程序会一直提示：该表已存在
+'''c.execute("CREATE TABLE TA
+       (ID INT PRIMARY KEY     NOT NULL,
+       NAME           TEXT    NOT NULL,
+       AGE            INT     NOT NULL,
+       ADDRESS        CHAR(50),
+       TELENUMBER         TEXT);")'''
+
+conn.commit()#提交当前的事务
+#增加用户信息
+def insert():
+    global conn
+    c = conn.cursor()
+    ID=int(input("请输入id号："))
+    name=input("请输入姓名：")
+    age=int(input("请输入年龄："))
+    address=input("请输入地址：")
+    telenumber=input("请输入电话号码:")
+    sql1 = 'insert into TA(ID,NAME,AGE,ADDRESS,TELENUMBER)'
+    sql1 += 'values("%d","%s","%d","%s","%s");' % (ID,name, age, address, telenumber)
+    conn.execute(sql1)
+    conn.commit()#提交，否则无法保存
+    print("提交成功！！")
+#删除用户信息
+def delete():
+    global conn
+    c=conn.cursor()
+    i = input("请输入所要删除的联系人姓名或电话号码:")
+    if len(i) &lt; 11:
+        cursor = c.execute("SELECT name from TA where name = '%s';"%i)
+        for row in cursor:
+            if i == row[0]:
+                c.execute("DELETE from TA where name ='%s';"%i)
+                conn.commit()
+                print("成功删除联系人信息！！")
+                break
+        else:
+            print("该联系人不存在！！")
+    else :
+        cursor = c.execute("SELECT name from TA where telenumber= '%s';" % i)
+        for row in cursor:
+            if i == row[0]:
+                c.execute("DELETE from TA where telenumber ='%s';" % i)
+                conn.commit()
+                print("成功删除联系人信息！！")
+                break
+        else:
+            print("该电话号码错误！！")
+#查询用户信息
+def search():
+    global conn
+    c = conn.cursor()
+    i = input("请输入所要查询的联系人姓名或电话号码:")
+    if i.isnumeric():
+        sql1 = "SELECT id,name,age, address, telenumber from TA where telenumber like '%" + i + "%'"
+        cursor = c.execute(sql1)
+        res=cursor.fetchall()
+        if len(res)!=0:
+            for row in res:
+                print("id:{0}".format(row[0]))
+                print("姓名:{0}".format(row[1]))
+                print("年龄:{0}".format(row[2]))
+                print("地址:{0}".format(row[3]))
+                print("电话号码:{0}".format(row[4]))
+        else:
+            print("无此电话号码！！")
+    else:
+        sql1="SELECT id,name,age, address, telenumber from TA where name like '%"+i+"%'"
+        cursor = c.execute(sql1)
+        res=cursor.fetchall()
+        if len(res) == 0:
+            print("该联系人不存在！！")
+        else:
+            for row in res:
+                print("id:{0}".format(row[0]))
+                print("姓名:{0}".format(row[1]))
+                print("年龄:{0}".format(row[2]))
+                print("地址:{0}".format(row[3]))
+                print("电话号码:{0}".format(row[4]))
+#显示所有用户信息
+def showall():
+    global conn
+    c = conn.cursor()
+    cursor = c.execute("SELECT id, name, age, address, telenumber  from TA")
+    for row in cursor:
+        print("id:{0}".format(row[0]))
+        print("姓名:{0}".format(row[1]))
+        print("年龄:{0}".format(row[2]))
+        print("地址:{0}".format(row[3]))
+        print("电话号码:{0}".format(row[4]))
+print("指令如下：\n1.输入\"add\"为通讯录添加联系人信息\n2.输入\"delete\"删除通讯录里的指定联系人信息 \n3.输入\"searchall\"查询通讯录里的所有用户 \n4.输入\"search\"根据姓名或手机号码查找信息 ")
+while 1:
+    temp = input("请输入指令：")
+    if temp == "add":
+        insert()
+        print("添加成功！")
+        temp1=input("是否继续操作通讯录？(y or n)")
+        if temp1=="n":
+            print("成功退出！！")
+            break
+        else:
+            continue
+    elif temp=="delete":
+        delete()
+        temp1 = input("是否继续操作通讯录？(y or n)")
+        if temp1 == "n":
+            print("成功退出！！")
+            break
+        else:
+            continue
+    elif temp=="searchall":
+        showall()
+        temp1 = input("是否想继续操作通讯录？(y or n)")
+        if temp1 == "n":
+            print("成功退出！！")
+            break
+        else:
+            continue
+    elif temp=="search":
+        search()
+        temp1 = input("您是否想继续操作通讯录？(y or n)")
+        if temp1 == "n":
+            print("成功退出！！")
+            break
+        else:
+            continue
+    else:
+        print("请输入正确指令！！")
+conn.close()#关闭数据库
+</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><img id="uploading_image_86265" src="./images/原创：Python编写通讯录，支持模糊查询，利用数据库存储0.png" alt="" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

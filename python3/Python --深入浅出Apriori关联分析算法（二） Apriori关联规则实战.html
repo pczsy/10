@@ -1,0 +1,127 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python --深入浅出Apriori关联分析算法（二） Apriori关联规则实战' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python --深入浅出Apriori关联分析算法（二） Apriori关联规则实战</center></div><div class='banquan'>原文出处:本文由博客园博主zzzzMing提供。<br/>
+原文连接:https://www.cnblogs.com/listenfwind/p/11395703.html</div><br>
+    <p>上一篇我们讲了关联分析的几个概念，支持度，置信度，提升度。以及如何利用Apriori算法高效地根据物品的支持度找出所有物品的频繁项集。</p>
+<ul>
+<li><a href="https://www.cnblogs.com/listenfwind/p/10280392.html">Python --深入浅出Apriori关联分析算法（一）</a></li>
+</ul>
+<p>这次呢，我们会在上次的基础上，讲讲如何分析物品的关联规则得出关联结果，以及给出用<strong>apyori</strong>这个库运行得出关联结果的代码。</p>
+<h1 id="一.-基础知识">一. 基础知识</h1>
+<p>上次我们介绍了几个关联分析的概念，支持度，置信度，提升度。这次我们重点回顾一下置信度和提升度：</p>
+<p><strong>置信度（Confidence）</strong>：置信度是指如果购买物品A，有较大可能购买物品B。计算方式是这样：</p>
+<blockquote>
+<p>置信度( A -&gt; B) = （包含物品A和B的记录数量） / （包含 A 的记录数量）</p>
+</blockquote>
+<p>举例：我们已经知道，(牛奶，鸡蛋)一起购买的次数是两次，鸡蛋的购买次数是4次。那么置信度Confidence(牛奶-&gt;鸡蛋)的计算方式是Confidence(牛奶-&gt;鸡蛋)=2 / 4。<br />
+<strong>提升度（Lift）</strong>：提升度指当销售一个物品时，另一个物品销售率会增加多少。计算方式是：</p>
+<blockquote>
+<p>提升度( A -&gt; B) = 置信度( A -&gt; B) / (支持度 A)</p>
+</blockquote>
+<p>举例：上面我们计算了牛奶和鸡蛋的置信度Confidence(牛奶-&gt;鸡蛋)=2/4。牛奶的支持度Support(牛奶)=3 / 5，那么我们就能计算牛奶和鸡蛋的支持度Lift(牛奶-&gt;鸡蛋)=0.83</p>
+<p><strong>当提升度(A-&gt;B)的值大于1的时候，说明物品A卖得越多，B也会卖得越多。而提升度等于1则意味着产品A和B之间没有关联。最后，提升度小于1那么意味着购买A反而会减少B的销量</strong>。</p>
+<p>举个例子，有了这个指标，你就能看出卖越多的汉堡就会卖越多的番茄酱。但卖越多的沐浴露，则可能香皂的销量会下降。</p>
+<h1 id="二.-关联规则">二. 关联规则</h1>
+<p>我们前面已经用Apriori得到频繁项集了。那么我们就可以在频繁项集的基础上，找到这里面的关联规则。而计算关联规则所用到的，就是我们上面所说的<strong>置信度和提升度</strong>。</p>
+<p>这里有一点要注意，当我们发现置信度(A-&gt;B)很高的时候，反过来的值置信度(B-&gt;A)不一定很高。</p>
+<p>一个物品的关联结果是非常多的。但好在，我们上一节学习了Apriori思想。运用在置信度上也是合适的：</p>
+<blockquote>
+<p><strong>如果一个关联结果的置信度低，那么它的所有超集的置信度也低</strong>。</p>
+</blockquote>
+<p>这样一来，我们就能节省很多的计算量。</p>
+<h1 id="三.-apriori关联规则实战">三. Apriori关联规则实战</h1>
+<p>我们还是用mlxtend库，根据上一篇找到的频繁项集，计算出它们的关联规则。在此之前，还是先介绍一下相应API的参数。</p>
+<pre><code><code>association_rules(df, metric=&quot;confidence&quot;,
+                      min_threshold=0.8,
+                      support_only=False):
+
+参数介绍：
+- df：这个不用说，就是 Apriori 计算后的频繁项集。
+- metric：可选值[&#39;support&#39;,&#39;confidence&#39;,&#39;lift&#39;,&#39;leverage&#39;,&#39;conviction&#39;]。
+里面比较常用的就是置信度和支持度。这个参数和下面的min_threshold参数配合使用。
+- min_threshold：参数类型是浮点型，根据 metric 不同可选值有不同的范围，
+    metric = &#39;support&#39;  =&gt; 取值范围 [0,1]
+    metric = &#39;confidence&#39;  =&gt; 取值范围 [0,1]
+    metric = &#39;lift&#39;  =&gt; 取值范围 [0, inf]
+support_only：默认是 False。仅计算有支持度的项集，若缺失支持度则用 NaNs 填充。</code></pre>
+<p>完整代码如下：</p>
+<pre><code><code>import pandas as pd
+from mlxtend.preprocessing import TransactionEncoder
+from mlxtend.frequent_patterns import apriori
+
+#设置数据集
+dataset = [[&#39;牛奶&#39;,&#39;洋葱&#39;,&#39;肉豆蔻&#39;,&#39;芸豆&#39;,&#39;鸡蛋&#39;,&#39;酸奶&#39;],
+        [&#39;莳萝&#39;,&#39;洋葱&#39;,&#39;肉豆蔻&#39;,&#39;芸豆&#39;,&#39;鸡蛋&#39;,&#39;酸奶&#39;],
+        [&#39;牛奶&#39;,&#39;苹果&#39;,&#39;芸豆&#39;,&#39;鸡蛋&#39;],
+        [&#39;牛奶&#39;,&#39;独角兽&#39;,&#39;玉米&#39;,&#39;芸豆&#39;,&#39;酸奶&#39;],
+        [&#39;玉米&#39;,&#39;洋葱&#39;,&#39;洋葱&#39;,&#39;芸豆&#39;,&#39;冰淇淋&#39;,&#39;鸡蛋&#39;]]
+        
+te = TransactionEncoder()
+#进行 one-hot 编码
+te_ary = te.fit(records).transform(records)
+df = pd.DataFrame(te_ary, columns=te.columns_)
+#利用 Apriori 找出频繁项集
+freq = apriori(df, min_support=0.05, use_colnames=True)
+
+#导入关联规则包
+from mlxtend.frequent_patterns import association_rules
+#计算关联规则
+result = association_rules(freq, metric=&quot;confidence&quot;, min_threshold=0.6)
+</code></pre>
+<p>这里我们根据置信度来计算，找出置信度大于0.6的关联规则。</p>
+<p>计算结果如下：</p>
+<pre><code><code>   antecedents      consequents        antecedent support              consequent support       support           confidence      lift       leverage            conviction 
+0         (洋葱)        (芸豆)                    0.6                         1.0                0.6                 1.00          1.00          0.00                  inf   
+1         (芸豆)        (洋葱)                    1.0                         0.6                0.6                 0.60          1.00          0.00             1.000000   
+2         (洋葱)        (鸡蛋)                    0.6                         0.8                0.6                 1.00          1.25          0.12                  inf   
+3         (鸡蛋)        (洋葱)                    0.8                         0.6                0.6                 0.75          1.25          0.12             1.600000   
+4         (芸豆)        (牛奶)                    1.0                         0.6                0.6                 0.60          1.00          0.00             1.000000   
+5         (牛奶)        (芸豆)                    0.6                         1.0                0.6                 1.00          1.00          0.00                  inf   
+6         (酸奶)        (芸豆)                    0.6                         1.0                0.6                 1.00          1.00          0.00                  inf   
+7         (芸豆)        (酸奶)                    1.0                         0.6                0.6                 0.60          1.00          0.00             1.000000   
+8         (芸豆)        (鸡蛋)                    1.0                         0.8                0.8                 0.80          1.00          0.00             1.000000   
+9         (鸡蛋)        (芸豆)                    0.8                         1.0                0.8                 1.00          1.00          0.00                  inf   
+10    (洋葱, 芸豆)        (鸡蛋)                  0.6                         0.8                 0.6                 1.00         1.25           0.12                 inf  
+11    (洋葱, 鸡蛋)        (芸豆)                  0.6                         1.0                 0.6                 1.00         1.00           0.00                 inf  
+12    (鸡蛋, 芸豆)        (洋葱)                  0.8                         0.6                 0.6                 0.75         1.25           0.12            1.600000  
+13        (洋葱)    (鸡蛋, 芸豆)                  0.6                         0.8                 0.6                 1.00         1.25           0.12                 inf  
+14        (芸豆)    (洋葱, 鸡蛋)                  1.0                         0.6                 0.6                 0.60         1.00           0.00            1.000000  
+15        (鸡蛋)    (洋葱, 芸豆)                  0.8                         0.6                 0.6                 0.75         1.25           0.12            1.600000  </code></pre>
+<p>我们可以发现，除了置信度（confidence），提升度（lift）外，还有两个指标，leverage和conviction。这两个用得比较少，和置信度，提升度也有些类似，就不展开说了。</p>
+<p>既然返回的结果是Dataframe，那么就可以很方便得用pandas的排序方法找出置信度或提升度高的物品组合，方法如下：</p>
+<blockquote>
+<p>DataFrame.sort_values</p>
+</blockquote>
+<p>比如上面例子中要找出最大的置信度，用</p>
+<blockquote>
+<p>result.sort_values(by = 'confidence',ascending=False,axis=1)</p>
+</blockquote>
+<p>上面例子中我们可以发现，{洋葱 -&gt; 鸡蛋,芸豆} 的置信度是 1.00 ，而它们的提升度是 1.25 。这说明买了洋葱的人很可能会再购买 1.25 份的 {鸡蛋,芸豆} 。所以可以让它们放到一起出售。</p>
+<p>OK，相信通过这个前面的介绍和这次的这个例子，已经能够明白Apriori算法的原理以及如何使用它。当然Apriori只能算是关联挖掘算法中比较基础的一个，还有其他的关联挖掘算法，比如FP-growth，以后有机会再介绍吧。</p>
+<p>对了，我从网上找了个关联分析的数据和大概针对这个数据写了个小的demo代码。<br />
+<img src="./images/Python --深入浅出Apriori关联分析算法（二） Apriori关联规则实战0.png" alt="关联分析数据" /></p>
+<p>数据是超市的购物清单，大概有7500条，足够我们来运算分析了。</p>
+<p>我把数据和我写的一点点demo代码放在我的公众号中了，关联公众号：<strong>哈尔的数据城堡</strong>，回复“apriori”（不需要双引号），就能获得下载链接了。</p>
+<p>以上~</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

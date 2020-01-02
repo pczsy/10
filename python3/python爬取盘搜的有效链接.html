@@ -1,0 +1,98 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python爬取盘搜的有效链接' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python爬取盘搜的有效链接</center></div><div class='banquan'>原文出处:本文由博客园博主小小沪提供。<br/>
+原文连接:https://www.cnblogs.com/xiaoxiaohu/p/11216220.html</div><br>
+    <p>&nbsp;</p>
+<p>&nbsp;因为盘搜搜索出来的链接有很多已经失效了，影响找数据的效率，因此想到了用爬虫来过滤出有效的链接，顺便练练手~</p>
+<p>这是本次爬取的目标网址<a href="http://www.pansou.com/">http://www.pansou.com</a>，首先先搜索个python，之后打开开发者工具，</p>
+<p>可以发现这个链接下的json数据就是我们要爬取的数据了，把多余的参数去掉，</p>
+<p>剩下的链接格式为<a href="http://106.15.195.249:8011/search_new?q=python&amp;p=1">http://106.15.195.249:8011/search_new?q=python&amp;p=1</a>，q为搜索内容，p为页码</p>
+<p><img src="./images/python爬取盘搜的有效链接0.png" alt="" width="954" height="450" /></p>
+<p>&nbsp;</p>
+<p>以下是代码实现：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #0000ff;">from</span> multiprocessing.dummy <span style="color: #0000ff;">import</span><span style="color: #000000;"> Pool as ThreadPool
+</span><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Queue
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> sys
+
+headers </span>=<span style="color: #000000;"> {
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36</span><span style="color: #800000;">"</span><span style="color: #000000;">
+}
+q1 </span>=<span style="color: #000000;"> Queue()
+q2 </span>=<span style="color: #000000;"> Queue()
+urls </span>= [] <span style="color: #008000;">#</span><span style="color: #008000;"> 存取url列表</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 读取url</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> get_urls(query):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 遍历50页</span>
+    <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1,51<span style="color: #000000;">):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 要爬取的url列表，返回值是json数据，q参数是搜索内容，p参数是页码</span>
+        url = <span style="color: #800000;">"</span><span style="color: #800000;">http://106.15.195.249:8011/search_new?&amp;q=%s&amp;p=%d</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> (query,i)
+        urls.append(url)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> get_data(url):
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">开始加载，请等待...</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取json数据并把json数据转换为字典</span>
+    resp = requests.get(url, headers=headers).content.decode(<span style="color: #800000;">"</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    resp </span>=<span style="color: #000000;"> json.loads(resp)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 如果搜素数据为空就抛出异常停止程序</span>
+    <span style="color: #0000ff;">if</span> resp[<span style="color: #800000;">'</span><span style="color: #800000;">list</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">data</span><span style="color: #800000;">'</span>] ==<span style="color: #000000;"> []:
+        </span><span style="color: #0000ff;">raise</span><span style="color: #000000;"> Exception
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 遍历每一页数据的长度</span>
+    <span style="color: #0000ff;">for</span> num <span style="color: #0000ff;">in</span> range(len(resp[<span style="color: #800000;">'</span><span style="color: #800000;">list</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">data</span><span style="color: #800000;">'</span><span style="color: #000000;">])):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取百度云链接</span>
+        link = resp[<span style="color: #800000;">'</span><span style="color: #800000;">list</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">data</span><span style="color: #800000;">'</span>][num][<span style="color: #800000;">'</span><span style="color: #800000;">link</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取标题</span>
+        title = resp[<span style="color: #800000;">'</span><span style="color: #800000;">list</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">data</span><span style="color: #800000;">'</span>][num][<span style="color: #800000;">'</span><span style="color: #800000;">title</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 访问百度云链接，判断如果页面源代码中有&ldquo;失效时间：&rdquo;这段话的话就表明链接有效，链接无效的页面是没有这段话的</span>
+        link_content = requests.get(link, headers=headers).content.decode(<span style="color: #800000;">"</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">if</span> <span style="color: #800000;">"</span><span style="color: #800000;">失效时间：</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">in</span><span style="color: #000000;"> link_content:
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 把标题放进队列1</span>
+<span style="color: #000000;">            q1.put(title)
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 把链接放进队列2</span>
+<span style="color: #000000;">            q2.put(link)
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 写入csv文件</span>
+            with open(<span style="color: #800000;">"</span><span style="color: #800000;">wangpanziyuan.csv</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">a+</span><span style="color: #800000;">"</span>, encoding=<span style="color: #800000;">"</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">) as file:
+                file.write(q1.get()</span>+<span style="color: #800000;">"</span><span style="color: #800000;">,</span><span style="color: #800000;">"</span>+q2.get() + <span style="color: #800000;">"</span><span style="color: #800000;">\n</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">ok</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 括号内填写搜索内容</span>
+    get_urls(<span style="color: #800000;">"</span><span style="color: #800000;">python</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 创建线程池</span>
+    pool = ThreadPool(3<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+        results </span>=<span style="color: #000000;"> pool.map(get_data, urls)
+    </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+    pool.close()
+    pool.join()
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">退出</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

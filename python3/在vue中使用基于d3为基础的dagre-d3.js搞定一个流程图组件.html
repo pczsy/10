@@ -1,0 +1,113 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修在vue中使用基于d3为基础的dagre-d3.js搞定一个流程图组件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>在vue中使用基于d3为基础的dagre-d3.js搞定一个流程图组件</center></div><div class='banquan'>原文出处:本文由博客园博主狂奔de蜗牛牛提供。<br/>
+原文连接:https://www.cnblogs.com/liushusong/p/11996770.html</div><br>
+    <p>项目中想搞定一个流程图，开始使用了阿里的G6，但是G6目前不支持手势，这样就很郁闷了，因为公司的领导都是使用iPad看的，你不支持手势是不行的，后来又想到了百度的echarts，试了试，感觉还不错，手机端也是没问题的，但是用起来不是很好用，每个节点的位置还要自己去设置计算有点麻烦，所以想找个在支持pc和wap并且使用方便的，结果找到了dagre-d3.js，完全满足我的需求啊，就是文档不全，还大多数都是英文。搞完之后觉得有必要记录一下，哈哈哈。</p>
+<p>首先避免不了的就是下载，既然是基于d3的肯定是要连同d3一下下载的。</p>
+<div class="cnblogs_code">
+<pre><code>npm install d3</pre>
+<pre><code><code>npm install dagre-d3</code></pre>
+</div>
+<p>&nbsp;下载完毕就开始使用了，如果下载的时候报错了可以尝试cnpm下载。</p>
+<p>&nbsp;下载完之后就要说说数据结构了,如下图：</p>
+<p>，<img src="./images/在vue中使用基于d3为基础的dagre-d3.js搞定一个流程图组件0.png" alt="" /></p>
+<p>从图中我们可以知道需要两个数据，第一个是节点信息，包含节点名称、ID、状态等等只要是节点信息都可以放在里边；第二个是节点之间的关系，可以简单的理解成管道，比如从节点1---&gt;节点2。</p>
+<p>所以我们的数据结构是这样的：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1 </span><span style="color: #000000;">list: {
+</span><span style="color: #008080;"> 2 　　</span><span style="color: #000000;">nodeInfos: [
+</span><span style="color: #008080;"> 3 　　　　</span><span style="color: #000000;">{
+</span><span style="color: #008080;"> 4 　　　　　　</span>id: "node1"<span style="color: #000000;">,
+</span><span style="color: #008080;"> 5 　　　　　　</span>label: "节点1"<span style="color: #000000;">,
+</span><span style="color: #008080;"> 6 　　　　</span><span style="color: #000000;">},
+</span><span style="color: #008080;"> 7 　　　　</span><span style="color: #000000;">{
+</span><span style="color: #008080;"> 8 　　　　　　</span>id: "node2"<span style="color: #000000;">,
+</span><span style="color: #008080;"> 9 　　　　　　</span>label: "节点2"<span style="color: #000000;">,
+</span><span style="color: #008080;">10 　　　　</span><span style="color: #000000;">},
+</span><span style="color: #008080;">11 　　　　</span><span style="color: #000000;">{
+</span><span style="color: #008080;">12 　　　　　　</span>id: "node3"<span style="color: #000000;">,
+</span><span style="color: #008080;">13 　　　　　　</span>label: "节点3"<span style="color: #000000;">,
+</span><span style="color: #008080;">14 　　　　</span><span style="color: #000000;">},
+</span><span style="color: #008080;">15 　　　　</span><span style="color: #000000;">{
+</span><span style="color: #008080;">16 　　　　　　</span>id: "node4"<span style="color: #000000;">,
+</span><span style="color: #008080;">17 　　　　　　</span>label: "节点4"<span style="color: #000000;">,
+</span><span style="color: #008080;">18 　　　　</span><span style="color: #000000;">},
+</span><span style="color: #008080;">19 　　</span><span style="color: #000000;">],
+</span><span style="color: #008080;">20 　　</span><span style="color: #000000;">edges: [
+</span><span style="color: #008080;">21 　　　　</span><span style="color: #000000;">{
+</span><span style="color: #008080;">22 　　　　　　</span>source: "node1"<span style="color: #000000;">,
+</span><span style="color: #008080;">23 　　　　　　</span>target: "node2"<span style="color: #000000;">,
+</span><span style="color: #008080;">24 　　　　</span><span style="color: #000000;">},
+</span><span style="color: #008080;">25 　　　　</span><span style="color: #000000;">{
+</span><span style="color: #008080;">26 　　　　　　</span>source: "node2"<span style="color: #000000;">,
+</span><span style="color: #008080;">27 　　　　　　</span>target: "node3"<span style="color: #000000;">,
+</span><span style="color: #008080;">28 　　　　</span><span style="color: #000000;">},
+</span><span style="color: #008080;">29 　　　　</span><span style="color: #000000;">{
+</span><span style="color: #008080;">30 　　　　　　</span>source: "node2"<span style="color: #000000;">,
+</span><span style="color: #008080;">31 　　　　　　</span>target: "node4"<span style="color: #000000;">,
+</span><span style="color: #008080;">32 　　　　</span><span style="color: #000000;">},
+</span><span style="color: #008080;">33 　　</span><span style="color: #000000;">]
+</span><span style="color: #008080;">34 </span>}</pre>
+</div>
+<p>其中nodeInfos是节点信息，edges是节点之间的关系，当然节点的信息可以包含很多信息，比如节点的形状、大小、背景颜色，圆角等等，同时也可以在设置节点信息的时候添加或者根据你自己节点的状态判断显示什么样的样式。接下来就是绘制流程图了，首先呢需要先获取实例对象并且做一些简单的配置。我们直接使用默认的就可以。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">var</span> g = <span style="color: #0000ff;">new</span> dagreD3.graphlib.Graph().setGraph({}).setDefaultEdgeLabel(<span style="color: #0000ff;">function</span>() { <span style="color: #0000ff;">return</span> {}; });</pre>
+</div>
+<p>接下来就是添加节点</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">this</span>.list.nodeInfos.forEach((item, index) =&gt;<span style="color: #000000;"> {</span>
+<span style="color: #000000;">    g.setNode(item.id, item);
+});</span></pre>
+</div>
+<p>然后在加上节点关系</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">this</span>.list.edges.forEach(item =&gt;<span style="color: #000000;"> {
+    g.setEdge(item.source, item.target, {});
+});</span></pre>
+</div>
+<p>最后就是绘制图形了</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">var</span> svg = d3.select("svg"<span style="color: #000000;">),
+i    nner </span>= svg.select("g"<span style="color: #000000;">);
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">缩放</span>
+    <span style="color: #0000ff;">var</span> zoom = d3.zoom().on("zoom", <span style="color: #0000ff;">function</span><span style="color: #000000;"> () {
+    inner.attr(</span>"transform"<span style="color: #000000;">, d3.event.transform);
+});
+    svg.call(zoom);
+    </span><span style="color: #0000ff;">var</span> render = <span style="color: #0000ff;">new</span><span style="color: #000000;"> dagreD3.render();
+    render(inner, g);</span></pre>
+</div>
+<p>这样简单的流程图就完成了，如果想加点击事件呢，可以这样</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">let code;
+inner.selectAll(</span>"g.node").on("click", e =&gt;<span style="color: #000000;"> {
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">点击事件</span>
+    code = <span style="color: #0000ff;">this</span>.list.nodeInfos.filter(item =&gt;<span style="color: #000000;"> {
+        </span><span style="color: #0000ff;">return</span> item.id ==<span style="color: #000000;"> e;
+    });
+    console.log(code);
+});</span></pre>
+</div>
+<p>最最简单的一个流程图组件就完成了，当然了dagre-d3.js不仅仅是这点功能，还有许多可以设置的，大家多练一练就可以喽。</p>
+<p>demo地址：<a href="https://gitee.com/webliusong/dagre-d3">https://gitee.com/webliusong/dagre-d3</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

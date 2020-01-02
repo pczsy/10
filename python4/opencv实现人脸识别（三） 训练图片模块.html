@@ -1,0 +1,114 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修opencv实现人脸识别（三） 训练图片模块' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>opencv实现人脸识别（三） 训练图片模块</center></div><div class='banquan'>原文出处:本文由博客园博主向大海走去提供。<br/>
+原文连接:https://www.cnblogs.com/blsx/p/11272036.html</div><br>
+    <p>现在我们已经拍好了需要训练的图片，接下来就是进行训练</p>
+<p>流程图：</p>
+<p><img src="./images/opencv实现人脸识别（三） 训练图片模块0.png" alt="" /></p>
+<p>我们在这里用到了numpy库，<strong>NumPy是一个功能强大的Python库，主要用于对多维数组执行计算。</strong></p>
+<p>使用numpy的目的是减少python代码中的循环，以及提高数组运算的效率。</p>
+<p>对于numpy性能的提升程度，我们可以从这段代码中直观感受到：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> datetime as dt
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> numpy as np
+
+n </span>= 100000<span style="color: #000000;">
+start </span>=<span style="color: #000000;"> dt.datetime.now()
+A, B </span>=<span style="color: #000000;"> [], []
+</span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(n):
+    A.append(i </span>** 2<span style="color: #000000;">)
+    B.append(i </span>** 3<span style="color: #000000;">)
+C </span>=<span style="color: #000000;"> []
+</span><span style="color: #0000ff;">for</span> a,b <span style="color: #0000ff;">in</span><span style="color: #000000;"> zip(A,B):
+    C.append(a</span>+<span style="color: #000000;">b)
+
+t </span>= (dt.datetime.now() -<span style="color: #000000;">start).microseconds
+</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(t)
+start </span>=<span style="color: #000000;"> dt.datetime.now()
+A, B </span>= np.arange(n)**2, np.arange(n)**3<span style="color: #000000;">
+C </span>= A+<span style="color: #000000;">B
+t </span>= (dt.datetime.now() -<span style="color: #000000;"> start).microseconds
+</span><span style="color: #0000ff;">print</span>(t)</pre>
+</div>
+<p>我们对列表进行了同样的操作，然后输出两种操作所需要的时间（微秒），可以看到numpy在效率上提高了两个数量级</p>
+<p><img src="./images/opencv实现人脸识别（三） 训练图片模块1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>训练模块的源代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> numpy as np
+</span><span style="color: #0000ff;">from</span> PIL <span style="color: #0000ff;">import</span><span style="color: #000000;"> Image
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> cv2
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> train():
+    path </span>= <span style="color: #800000;">'</span><span style="color: #800000;">D:/FaceData</span><span style="color: #800000;">'</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 创建opencv中的LBPH算法的人脸识别器</span>
+    recognizer =<span style="color: #000000;"> cv2.face.LBPHFaceRecognizer_create()
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 依然是运用人脸识别分类器</span>
+    detector = cv2.CascadeClassifier(<span style="color: #800000;">'</span><span style="color: #800000;">./haarcascade_frontalface_default.xml</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> getImagesAndLabels(path):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> os.path.join()函数：</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 连接两个或更多的路径名组件</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> os.listdir() 方法</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 用于返回指定的文件夹包含的文件或文件夹的名字的列表。这个列表以字母顺序排列</span>
+        imagePaths = [os.path.join(path, f)<span style="color: #0000ff;">for</span> f <span style="color: #0000ff;">in</span><span style="color: #000000;"> os.listdir(path)]
+
+        faceSamples </span>=<span style="color: #000000;"> []
+        ids </span>=<span style="color: #000000;"> []
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 遍历每一张拍到的图片</span>
+        <span style="color: #0000ff;">for</span> imagePath <span style="color: #0000ff;">in</span><span style="color: #000000;"> imagePaths:
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 打开图片，并转换成灰度图</span>
+            PIL_img = Image.open(imagePath).convert(<span style="color: #800000;">'</span><span style="color: #800000;">L</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 将原图片的多维数组转为numpy的数组</span>
+            img_numpy = np.array(PIL_img, <span style="color: #800000;">'</span><span style="color: #800000;">uint8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> id对应的值是当前用户的第几张照片</span>
+            id = int(os.path.split(imagePath)[-1].split(<span style="color: #800000;">'</span><span style="color: #800000;">.</span><span style="color: #800000;">'</span>)[1<span style="color: #000000;">])
+
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 检测人脸</span>
+            faces =<span style="color: #000000;"> detector.detectMultiScale(img_numpy)
+            </span><span style="color: #0000ff;">for</span>(x, y, w, h) <span style="color: #0000ff;">in</span><span style="color: #000000;"> faces:
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 将人脸范围的numpy数组数据保存到列表中</span>
+                faceSamples.append(img_numpy[y : y + h, x : x +<span style="color: #000000;"> w])
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 将id值保存到列表中</span>
+<span style="color: #000000;">                ids.append(id)
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> faceSamples, ids
+
+    faces, ids </span>=<span style="color: #000000;"> getImagesAndLabels(path)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 对图片进行训练，将训练文件保存在指定路径</span>
+<span style="color: #000000;">    recognizer.train(faces, np.array(ids))
+    recognizer.write(r</span><span style="color: #800000;">'</span><span style="color: #800000;">face_trainer\trainer.yml</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">{0} faces trained.</span><span style="color: #800000;">'</span><span style="color: #000000;">.format(len(np.unique(ids))))
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    train()</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

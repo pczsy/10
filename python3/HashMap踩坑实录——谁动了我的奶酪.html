@@ -1,0 +1,191 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修HashMap踩坑实录——谁动了我的奶酪' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>HashMap踩坑实录——谁动了我的奶酪</center></div><div class='banquan'>原文出处:本文由博客园博主Nauyus提供。<br/>
+原文连接:https://www.cnblogs.com/lkxsnow/p/12033427.html</div><br>
+    <section id="nice" style="padding: 10px; word-spacing: 0px; word-wrap: break-word; text-align: left; font-family: Optima-Regular, Optima, PingFangSC-light, PingFangTC-light, 'PingFang SC', Cambria, Cochin, Georgia, Times, 'Times New Roman', serif; line-height: 1.6; letter-spacing: .034em; color: rgb(63, 63, 63); font-size: 16px; word-break: all; background-image: linear-gradient(90deg, rgba(50, 0, 0, 0.05) 3%, rgba(0, 0, 0, 0) 3%), linear-gradient(360deg, rgba(50, 0, 0, 0.05) 3%, rgba(0, 0, 0, 0) 3%); background-size: 20px 20px; background-position: center center;"><p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">说到<code>HashMap</code>，<code>hashCode</code> 和 <code>equals</code> ，想必绝大多数人都不会陌生，然而你真的了解这它们的机制么？本文将通过一个简单的Demo还原我自己前不久在 <code>HashMap</code> 上导致的线上问题，看看我是如何跳进这个坑里去的。</p>
+<h2 style="font-weight: bold; color: black; font-size: 24px; display: block; text-align: center; background-image: url(https://my-wechat.mdnice.com/mdnice/mountain_2_20191028221337.png); background-position: center center; background-repeat: no-repeat; background-attachment: initial; background-origin: initial; background-clip: initial; background-size: 63px; margin-top: 38px; margin-bottom: 10px;"><span style="text-align: center; display: inline-block; height: 38px; line-height: 42px; color: rgb(60, 112, 198); background-position: left center; background-repeat: no-repeat; background-attachment: initial; background-origin: initial; background-clip: initial; background-size: 63px; margin-top: 38px; font-size: 18px; margin-bottom: 10px;">起因</span></h2>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">在重构一段旧代码的时候发现有个 <code>HashMap</code> 的key对象没有重写 <code>hashCode</code> 和 <code>equals</code> 方法，使用IDEA自动重构工具生成后引发线上问题，因为实际重构的旧代码复杂，所以我抽出了一个关于奶酪（Cheese）的Demo还原踩坑场景，看看<code>究竟谁动了我的奶酪</code>。</p>
+<h3 style="margin-top: 40px; margin-bottom: 20px; font-weight: bold; color: black; font-size: 20px;"><span style="background-image: url(https://my-wechat.mdnice.com/mdnice/mountain_1_20191028221337.png); background-size: 15px 15px; display: inline-block; width: 15px; height: 15px; line-height: 15px; margin-bottom: -1px;"></span><span style="font-size: 16px; font-weight: bold; display: inline-block; margin-left: 8px; color: rgb(60,112,198);">一个奶酪的例子</span></h3>
+<ul style="margin-top: 8px; margin-bottom: 8px; padding-left: 25px; color: black; list-style-type: disc;">
+<li><section style="margin-top: 5px; margin-bottom: 5px; line-height: 26px; text-align: left; color: rgb(1,1,1); font-weight: 500;">首先，我们有一个奶酪(Cheese)类</section></li></ul>
+<pre><code><code class="hljs" style="overflow-x: auto; padding: 16px; color: #abb2bf; background: #282c34; font-family: Operator Mono, Consolas, Monaco, Menlo, monospace; border-radius: 0px; font-size: 12px; -webkit-overflow-scrolling: touch; display: -webkit-box !important;"><span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">/**
+ * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@author</span> nauyus
+ */</span>
+<span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">public</span> <span class="hljs-class" style="line-height: 26px;"><span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">class</span> <span class="hljs-title" style="color: #e6c07b; line-height: 26px;">Cheese</span> </span>{
+    <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">/**
+     * 大小
+     */</span>
+    <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">private</span> Integer size;
+    <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">/**
+     * 价格
+     */</span>
+    <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">private</span> BigDecimal price;
+    <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">/**
+     * 制造者
+     */</span>
+    <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">private</span> String creator;
+    
+    <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">//节约篇幅省略get/set/构造方法</span>
+}    
+</code></pre>
+<ul style="margin-top: 8px; margin-bottom: 8px; padding-left: 25px; color: black; list-style-type: disc;">
+<li><section style="margin-top: 5px; margin-bottom: 5px; line-height: 26px; text-align: left; color: rgb(1,1,1); font-weight: 500;">然后，我们制造一个奶酪并且把它放到 <code>HashMap</code> 中去</section></li></ul>
+<pre><code><code class="hljs" style="overflow-x: auto; padding: 16px; color: #abb2bf; background: #282c34; font-family: Operator Mono, Consolas, Monaco, Menlo, monospace; border-radius: 0px; font-size: 12px; -webkit-overflow-scrolling: touch; display: -webkit-box !important;">Cheese cheese = <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> Cheese(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">7</span>, <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> BigDecimal(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">20</span>), <span class="hljs-string" style="color: #98c379; line-height: 26px;">"nauyus"</span>);
+Map&lt;Cheese, String&gt; map = <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> HashMap&lt;&gt;();
+map.put(cheese, <span class="hljs-string" style="color: #98c379; line-height: 26px;">"something not important"</span>);
+</code></pre>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">好了，这时候我收到了阿里代码扫描插件的严正警告：<code>如果自定义对象做为Map的键，那么必须重写hashCode和equals。</code></p>
+<figure style="margin: 0; margin-top: 10px; margin-bottom: 10px;"><img src="./images/HashMap踩坑实录——谁动了我的奶酪0.png" alt style="display: block; margin: 0 auto; width: 100%; border-radius: 4px; margin-bottom: 25px;"></figure>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">看到此警告，加上自己从前的经验，那当然就是改啊，打开Cheese类 <code>Command+N</code> 迅速生成代码然后add，commit，push一气呵成，然后，发布后线上出现了一个大BUG……</p>
+<figure style="margin: 0; margin-top: 10px; margin-bottom: 10px;"><img src="./images/HashMap踩坑实录——谁动了我的奶酪1.png" alt style="display: block; margin: 0 auto; width: 100%; border-radius: 4px; margin-bottom: 25px;"></figure>
+<h3 style="margin-top: 40px; margin-bottom: 20px; font-weight: bold; color: black; font-size: 20px;"><span style="background-image: url(https://my-wechat.mdnice.com/mdnice/mountain_1_20191028221337.png); background-size: 15px 15px; display: inline-block; width: 15px; height: 15px; line-height: 15px; margin-bottom: -1px;"></span><span style="font-size: 16px; font-weight: bold; display: inline-block; margin-left: 8px; color: rgb(60,112,198);">HashMap原理浅析</span></h3>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">抛开BUG原因，我们先想一想为什么编程规约中强制要求了关于 <code>hashCode</code> 和 <code>equals</code> 的如下规则?</p>
+<figure style="margin: 0; margin-top: 10px; margin-bottom: 10px;"><img src="./images/HashMap踩坑实录——谁动了我的奶酪2.png" alt style="display: block; margin: 0 auto; width: 100%; border-radius: 4px; margin-bottom: 25px;"></figure>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">这要简单说下 <code>HashMap</code> 原理， <code>HashMap</code> 底层数据结构为在 jdk1.7 中为数组+链表， jdk1.8 中为数组+链表+红黑树，大概就长这个样子：</p>
+<figure style="margin: 0; margin-top: 10px; margin-bottom: 10px;"><img src="./images/HashMap踩坑实录——谁动了我的奶酪3.png" alt style="display: block; margin: 0 auto; width: 100%; border-radius: 4px; margin-bottom: 25px;"></figure>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">然后我们看看 <code>HashMap</code> 如何将数据存入又如何取出的。</p>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">首先看下 <code>put</code> 方法</p>
+<pre><code><code class="hljs" style="overflow-x: auto; padding: 16px; color: #abb2bf; background: #282c34; font-family: Operator Mono, Consolas, Monaco, Menlo, monospace; border-radius: 0px; font-size: 12px; -webkit-overflow-scrolling: touch; display: -webkit-box !important;">   <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">/**
+     * Implements Map.put and related methods.
+     *
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@param</span> hash hash for key
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@param</span> key the key
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@param</span> value the value to put
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@param</span> onlyIfAbsent if true, don't change existing value
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@param</span> evict if false, the table is in creation mode.
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@return</span> previous value, or null if none
+     */</span>
+    <span class="hljs-function" style="line-height: 26px;"><span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">final</span> V <span class="hljs-title" style="color: #61aeee; line-height: 26px;">putVal</span><span class="hljs-params" style="line-height: 26px;">(<span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">int</span> hash, K key, V value, <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">boolean</span> onlyIfAbsent,
+                   <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">boolean</span> evict)</span> </span>{
+        Node&lt;K,V&gt;[] tab; Node&lt;K,V&gt; p; <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">int</span> n, i;
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> ((tab = table) == <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span> || (n = tab.length) == <span class="hljs-number" style="color: #d19a66; line-height: 26px;">0</span>)
+            n = (tab = resize()).length;
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> ((p = tab[i = (n - <span class="hljs-number" style="color: #d19a66; line-height: 26px;">1</span>) &amp; hash]) == <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>)
+            tab[i] = newNode(hash, key, value, <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>);
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">else</span> {
+            Node&lt;K,V&gt; e; K k;
+            <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (p.hash == hash &amp;&amp;
+                ((k = p.key) == key || (key != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span> &amp;&amp; key.equals(k))))
+                e = p;
+            <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">else</span> <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (p <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">instanceof</span> TreeNode)
+                e = ((TreeNode&lt;K,V&gt;)p).putTreeVal(<span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">this</span>, tab, hash, key, value);
+            <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">else</span> {
+                <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">for</span> (<span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">int</span> binCount = <span class="hljs-number" style="color: #d19a66; line-height: 26px;">0</span>; ; ++binCount) {
+                    <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> ((e = p.next) == <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>) {
+                        p.next = newNode(hash, key, value, <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>);
+                        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (binCount &gt;= TREEIFY_THRESHOLD - <span class="hljs-number" style="color: #d19a66; line-height: 26px;">1</span>) <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">// -1 for 1st</span>
+                            treeifyBin(tab, hash);
+                        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">break</span>;
+                    }
+                    <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (e.hash == hash &amp;&amp;
+                        ((k = e.key) == key || (key != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span> &amp;&amp; key.equals(k))))
+                        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">break</span>;
+                    p = e;
+                }
+            }
+            <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (e != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>) { <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">// existing mapping for key</span>
+                V oldValue = e.value;
+                <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (!onlyIfAbsent || oldValue == <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>)
+                    e.value = value;
+                afterNodeAccess(e);
+                <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">return</span> oldValue;
+            }
+        }
+        ++modCount;
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (++size &gt; threshold)
+            resize();
+        afterNodeInsertion(evict);
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">return</span> <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>;
+    }
+</code></pre>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">具体细节可以仔细阅读源码，简单说来，就是首先对 key 进行 <code>hash</code> 计算，<code>hash</code>是一个 int 类型的本地方法，也就将 key 的 <code>hashCode</code> 无符号右移16位然后与 <code>hashCode</code> 异或从而得到 <code>hash</code> 值，在 <code>putVal</code> 方法中 <code>（n - 1）&amp; hash</code> 计算得到数组的<code>索引位置</code>，如果位置无冲突，则直接将 value 放入数组中对应位置，如果存在冲突，则使用 <code>equals</code> 方法判断 key 是否为同一对象，同一对象则覆盖，不同对象则将 value 挂到链表或红黑树上。</p>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">然后再看看 <code>get</code> 方法</p>
+<pre><code><code class="hljs" style="overflow-x: auto; padding: 16px; color: #abb2bf; background: #282c34; font-family: Operator Mono, Consolas, Monaco, Menlo, monospace; border-radius: 0px; font-size: 12px; -webkit-overflow-scrolling: touch; display: -webkit-box !important;">    <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">/**
+     * Implements Map.get and related methods.
+     *
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@param</span> hash hash for key
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@param</span> key the key
+     * <span class="hljs-doctag" style="color: #c678dd; line-height: 26px;">@return</span> the node, or null if none
+     */</span>
+    <span class="hljs-function" style="line-height: 26px;"><span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">final</span> Node&lt;K,V&gt; <span class="hljs-title" style="color: #61aeee; line-height: 26px;">getNode</span><span class="hljs-params" style="line-height: 26px;">(<span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">int</span> hash, Object key)</span> </span>{
+        Node&lt;K,V&gt;[] tab; Node&lt;K,V&gt; first, e; <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">int</span> n; K k;
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> ((tab = table) != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span> &amp;&amp; (n = tab.length) &gt; <span class="hljs-number" style="color: #d19a66; line-height: 26px;">0</span> &amp;&amp;
+            (first = tab[(n - <span class="hljs-number" style="color: #d19a66; line-height: 26px;">1</span>) &amp; hash]) != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>) {
+            <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (first.hash == hash &amp;&amp; <span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">// always check first node</span>
+                ((k = first.key) == key || (key != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span> &amp;&amp; key.equals(k))))
+                <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">return</span> first;
+            <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> ((e = first.next) != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>) {
+                <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (first <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">instanceof</span> TreeNode)
+                    <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">return</span> ((TreeNode&lt;K,V&gt;)first).getTreeNode(hash, key);
+                <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">do</span> {
+                    <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">if</span> (e.hash == hash &amp;&amp;
+                        ((k = e.key) == key || (key != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span> &amp;&amp; key.equals(k))))
+                        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">return</span> e;
+                } <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">while</span> ((e = e.next) != <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>);
+            }
+        }
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">return</span> <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">null</span>;
+    }
+</code></pre>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">同样的，<code>get</code> 也是通过 <code>first = tab[(n - 1) &amp; hash]</code> 计算出位置然后再决定是否从链表或红黑树中进行查找，过程中同样用到了 <code>equals</code> 方法。</p>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">总结一下，<code>put</code> 方法使用基于 <code>hashCode</code> 的 <code>hash</code> 方法得到下标位置，但是不同对象 <code>hash</code> 可能相同，即存在 <code>hash碰撞</code> 的可能，所以需要 <code>equals</code> 方法进一步判断是否为同一对象，<code>get</code> 方法同样使用 <code>hash</code> 方法得到下标位置，再根据 <code>equals</code> 方法确定是否取出该对象。</p>
+<h3 style="margin-top: 40px; margin-bottom: 20px; font-weight: bold; color: black; font-size: 20px;"><span style="background-image: url(https://my-wechat.mdnice.com/mdnice/mountain_1_20191028221337.png); background-size: 15px 15px; display: inline-block; width: 15px; height: 15px; line-height: 15px; margin-bottom: -1px;"></span><span style="font-size: 16px; font-weight: bold; display: inline-block; margin-left: 8px; color: rgb(60,112,198);">谁动了我的奶酪</span></h3>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">如果我们的自定义对象没有覆写 <code>hashCode</code> 和 <code>equals</code> ，则会使用父类Object的方法，源码如下：</p>
+<pre><code><code class="hljs" style="overflow-x: auto; padding: 16px; color: #abb2bf; background: #282c34; font-family: Operator Mono, Consolas, Monaco, Menlo, monospace; border-radius: 0px; font-size: 12px; -webkit-overflow-scrolling: touch; display: -webkit-box !important;"><span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">public</span> <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">native</span> <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">int</span> hashCode;
+
+<span class="hljs-function" style="line-height: 26px;"><span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">public</span> <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">boolean</span> <span class="hljs-title" style="color: #61aeee; line-height: 26px;">equals</span><span class="hljs-params" style="line-height: 26px;">(Object obj)</span> </span>{
+        <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">return</span> (<span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">this</span> == obj);
+}
+</code></pre>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;"><code>hashCode</code> 是个本地方法，和内存地址有关系，而默认的 <code>equals</code> 内部实现就是 <code>"=="</code> 运算符，这就会导致一个结果，值相同对象的 <code>hashCode</code> 并不同，并且 <code>equals</code> 方法返回 <code>false</code> 。所以编程规约强制要求<code>如果自定义对象做为Map的键，那么必须重写hashCode和equals。</code>(敲黑板，这段话第二次出现)，没毛病！</p>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">如果没有覆写父类方法，下面的程序 cheese 值虽相同，但 <code>put</code> 奶酪后无法 <code>get</code> 到，<code>奶酪被动了</code>！</p>
+<pre><code><code class="hljs" style="overflow-x: auto; padding: 16px; color: #abb2bf; background: #282c34; font-family: Operator Mono, Consolas, Monaco, Menlo, monospace; border-radius: 0px; font-size: 12px; -webkit-overflow-scrolling: touch; display: -webkit-box !important;">Cheese cheese= <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> Cheese(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">7</span>, <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> BigDecimal(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">20</span>), <span class="hljs-string" style="color: #98c379; line-height: 26px;">"nauyus"</span>);
+Map&lt;Cheese, String&gt; map = <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> HashMap&lt;&gt;();
+map.put(cheese, <span class="hljs-string" style="color: #98c379; line-height: 26px;">"something not important"</span>);
+cheese = <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> Cheese(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">7</span>, <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> BigDecimal(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">20</span>), <span class="hljs-string" style="color: #98c379; line-height: 26px;">"nauyus"</span>);
+<span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">//没有覆写hashCode和equals时虽然cheese值相同，但输出为null</span>
+System.out.println(map.get(cheese));
+</code></pre>
+<h3 style="margin-top: 40px; margin-bottom: 20px; font-weight: bold; color: black; font-size: 20px;"><span style="background-image: url(https://my-wechat.mdnice.com/mdnice/mountain_1_20191028221337.png); background-size: 15px 15px; display: inline-block; width: 15px; height: 15px; line-height: 15px; margin-bottom: -1px;"></span><span style="font-size: 16px; font-weight: bold; display: inline-block; margin-left: 8px; color: rgb(60,112,198);">谁又动了我的奶酪</span></h3>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">好了，现在我们知道了<code>如果自定义对象做为Map的键，那么必须重写hashCode和equals。</code>（重要的事情说三遍！），那有人问我重写后的产生的BUG后是怎么回事？ 还原了下场景应该是这样的，我重写了 <code>hashCode</code> 和 <code>equals</code> ，但是千不该万不该忽略了原有代码很多行后还有一行代码，做成Demo后大概是这样的：</p>
+<pre><code><code class="hljs" style="overflow-x: auto; padding: 16px; color: #abb2bf; background: #282c34; font-family: Operator Mono, Consolas, Monaco, Menlo, monospace; border-radius: 0px; font-size: 12px; -webkit-overflow-scrolling: touch; display: -webkit-box !important;">Cheese cheese= <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> Cheese(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">7</span>, <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> BigDecimal(<span class="hljs-number" style="color: #d19a66; line-height: 26px;">20</span>), <span class="hljs-string" style="color: #98c379; line-height: 26px;">"nauyus"</span>);
+Map&lt;Cheese, String&gt; map = <span class="hljs-keyword" style="color: #c678dd; line-height: 26px;">new</span> HashMap&lt;&gt;();
+map.put(cheese, <span class="hljs-string" style="color: #98c379; line-height: 26px;">"something not important"</span>);
+<span class="hljs-comment" style="color: #5c6370; font-style: italic; line-height: 26px;">//一段被我忽略的代码</span>
+cheese.setCreator(<span class="hljs-string" style="color: #98c379; line-height: 26px;">"tom"</span>);
+System.out.println(map.get(cheese));
+</code></pre>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">在 <code>put</code> 到 <code>HashMap</code> 后，作为 key 的 cheese 对象再次被 set 了值，导致 <code>hashCode</code> 返回结果有了变更，<code>put</code> 奶酪后无法 <code>get</code> 到，<code>奶酪再一次被动了</code>！</p>
+<h2 style="font-weight: bold; color: black; font-size: 24px; display: block; text-align: center; background-image: url(https://my-wechat.mdnice.com/mdnice/mountain_2_20191028221337.png); background-position: center center; background-repeat: no-repeat; background-attachment: initial; background-origin: initial; background-clip: initial; background-size: 63px; margin-top: 38px; margin-bottom: 10px;"><span style="text-align: center; display: inline-block; height: 38px; line-height: 42px; color: rgb(60, 112, 198); background-position: left center; background-repeat: no-repeat; background-attachment: initial; background-origin: initial; background-clip: initial; background-size: 63px; margin-top: 38px; font-size: 18px; margin-bottom: 10px;">总结</span></h2>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">总结一下踩坑经历，可以得出以下结论：</p>
+<ol style="margin-top: 8px; margin-bottom: 8px; padding-left: 25px; color: black; list-style-type: decimal;">
+<li><section style="margin-top: 5px; margin-bottom: 5px; line-height: 26px; text-align: left; color: rgb(1,1,1); font-weight: 500;">如果自定义对象做为Map的键，那么必须重写hashCode和equals。</section></li><li><section style="margin-top: 5px; margin-bottom: 5px; line-height: 26px; text-align: left; color: rgb(1,1,1); font-weight: 500;">尽量使用<code>不可变对象</code>作为map的键，如String。</section></li><li><section style="margin-top: 5px; margin-bottom: 5px; line-height: 26px; text-align: left; color: rgb(1,1,1); font-weight: 500;">即使万分自信的代码，还是跑一下单元测试为好。（血的教训）</section></li></ol>
+<p style="font-size: 16px; padding-bottom: 8px; margin: 0; padding-top: 23px; color: rgb(74,74,74); line-height: 1.75em;">还有啊，</p>
+<h4 style="margin-top: 40px; margin-bottom: 20px; font-weight: bold; color: black; font-size: 18px;"><span><code>没事还是少瞎改别人代码吧！</code></span></h4>
+<figure style="margin: 0; margin-top: 10px; margin-bottom: 10px;"><img src="./images/HashMap踩坑实录——谁动了我的奶酪4.png" alt style="display: block; margin: 0 auto; width: 100%; border-radius: 4px; margin-bottom: 25px;"></figure>
+<blockquote style="font-size: 0.9em; overflow: auto; overflow-scrolling: touch; background: rgba(0, 0, 0, 0.05); color: #6a737d; padding-top: 10px; padding-bottom: 10px; padding-left: 20px; padding-right: 10px; margin-bottom: 20px; margin-top: 20px; padding: 15px 20px; line-height: 27px; background-color: rgb(239, 239, 239); border-left: none; display: block;">
+<p style="padding-bottom: 8px; padding-top: 23px; margin: 0px; line-height: 26px; padding: 0px; font-size: 15px; color: rgb(89,89,89);">感谢阅读，原创不易，如有启发，点个赞吧！这将是我写作的最强动力！本文不同步发布于不止于技术的技术公众号 <code>Nauyus</code> ,主要分享一些编程语言，架构设计，思维认知类文章， 2019年12月起开启周更模式，欢迎关注，共同学习成长！</p>
+</blockquote>
+<figure style="margin: 0; margin-top: 10px; margin-bottom: 10px;"><img src="./images/HashMap踩坑实录——谁动了我的奶酪5.png" alt style="display: block; margin: 0 auto; width: 100%; border-radius: 4px; margin-bottom: 25px;"></figure>
+</section>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

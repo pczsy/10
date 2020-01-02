@@ -1,0 +1,116 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python 把txt文件转换成csv' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python 把txt文件转换成csv</center></div><div class='banquan'>原文出处:本文由博客园博主danvy617提供。<br/>
+原文连接:https://www.cnblogs.com/danvy/p/11667763.html</div><br>
+    <p>最近在项目上需要批量把txt文件转成成csv文件格式，以前是手动打开excel文件，然后导入txt来生产csv文件，由于这已经变成每周需要做的事情，决定用python自动化脚本来实现，思路：</p>
+<ol>
+<li>读取文件夹中所有txt文件，保存到list中</li>
+<li>针对每个txt文件，自动生产同文件名的csv文件</li>
+<li>对每个txt文件，根据分隔符来保存为csv文件，分隔符为分号&ldquo;;&rdquo;，在转换之前先把文件编码统一成'utf-8'，因为在实现过程中，发现总会有编码报错问题出现</li>
+<li>新建txt文件夹来存放所有txt文件</li>
+</ol>
+<p>完整代码如下：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> csv
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> shutil
+</span><span style="color: #0000ff;">from</span> chardet.universaldetector <span style="color: #0000ff;">import</span><span style="color: #000000;"> UniversalDetector
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_encode_info(file):
+    with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        detector </span>=<span style="color: #000000;"> UniversalDetector()
+        </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> f.readlines():
+            detector.feed(line)
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> detector.done:
+                </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+        detector.close()
+        </span><span style="color: #0000ff;">return</span> detector.result[<span style="color: #800000;">'</span><span style="color: #800000;">encoding</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> read_file(file):
+    with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> f.read()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> write_file(content, file):
+    with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        f.write(content)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> convert_encode2utf8(file, original_encode, des_encode):
+    file_content </span>=<span style="color: #000000;"> read_file(file)
+    file_decode </span>= file_content.decode(original_encode,<span style="color: #800000;">'</span><span style="color: #800000;">ignore</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    file_encode </span>=<span style="color: #000000;"> file_decode.encode(des_encode)
+    write_file(file_encode, file)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"># Move *.txt to a folder</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> move2txtfolder(path, txt_file_list):
+    txt_folder_path </span>= path + <span style="color: #800000;">'</span><span style="color: #800000;">\\txt</span><span style="color: #800000;">'</span>
+    <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> os.path.exists(txt_folder_path):
+        os.makedirs(txt_folder_path)
+
+    </span><span style="color: #0000ff;">for</span> file <span style="color: #0000ff;">in</span><span style="color: #000000;"> txt_file_list:
+        des_path </span>=<span style="color: #000000;"> os.path.join(txt_folder_path, os.path.basename(file))
+        shutil.move(file, des_path)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">#在路径中找出所有的*.txt文件</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> findtxt(path, txt_file_list):
+    file_name_list </span>=<span style="color: #000000;"> os.listdir(path)
+    </span><span style="color: #0000ff;">for</span> filename <span style="color: #0000ff;">in</span><span style="color: #000000;"> file_name_list:
+        de_path </span>=<span style="color: #000000;"> os.path.join(path, filename)
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> os.path.isfile(de_path):
+            </span><span style="color: #0000ff;">if</span> de_path.endswith(<span style="color: #800000;">"</span><span style="color: #800000;">.txt</span><span style="color: #800000;">"</span>):  <span style="color: #008000;">#</span><span style="color: #008000;"> Specify to find the txt file.</span>
+<span style="color: #000000;">                txt_file_list.append(de_path)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            findtxt(de_path, txt_file_list)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> txt2csv(txt_file):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">#先把所有文件的encoding都转换成utf-8</span>
+    encode_info =<span style="color: #000000;"> get_encode_info(txt_file)
+    </span><span style="color: #0000ff;">if</span> encode_info != <span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        convert_encode2utf8(txt_file, encode_info, </span><span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    csv_file </span>= os.path.splitext(txt_file)[0] + <span style="color: #800000;">'</span><span style="color: #800000;">.csv</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    with open(csv_file, </span><span style="color: #800000;">'</span><span style="color: #800000;">w+</span><span style="color: #800000;">'</span>, newline=<span style="color: #800000;">''</span>, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">) as csvfile:
+        writer </span>= csv.writer(csvfile, dialect=<span style="color: #800000;">'</span><span style="color: #800000;">excel</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+        with open(txt_file, </span><span style="color: #800000;">'</span><span style="color: #800000;">r</span><span style="color: #800000;">'</span>, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">) as txtfile:
+            </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> txtfile.readlines():
+                line_list </span>= line.strip(<span style="color: #800000;">'</span><span style="color: #800000;">\n</span><span style="color: #800000;">'</span>).split(<span style="color: #800000;">'</span><span style="color: #800000;">;</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                writer.writerow(line_list)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    folder_path </span>= r<span style="color: #800000;">'</span><span style="color: #800000;">C:\Details</span><span style="color: #800000;">'</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> ##如果文件夹中还有子文件夹，请用findtxt函数</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> txt_file_list = []</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> findtxt(folder_path, txt_file_list)</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;">#如果文件夹中没有子文件夹的时候直接使用推导式来生产txt文件的list</span>
+    txt_file_list = [os.path.join(folder_path, file) <span style="color: #0000ff;">for</span> file <span style="color: #0000ff;">in</span> os.listdir(folder_path) <span style="color: #0000ff;">if</span> os.path.join(folder_path, file).endswith(<span style="color: #800000;">'</span><span style="color: #800000;">.txt</span><span style="color: #800000;">'</span><span style="color: #000000;">)]
+
+    </span><span style="color: #0000ff;">for</span> txt_file <span style="color: #0000ff;">in</span><span style="color: #000000;"> txt_file_list:
+        txt2csv(txt_file)
+    
+    move2txtfolder(folder_path, txt_file_list)</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,89 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修asp.net abp模块化开发之通用树2：设计思路及源码解析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>asp.net abp模块化开发之通用树2：设计思路及源码解析</center></div><div class='banquan'>原文出处:本文由博客园博主jionsoft提供。<br/>
+原文连接:https://www.cnblogs.com/jionsoft/p/12099048.html</div><br>
+    <h2>一、前言</h2>
+<p><img style="float: left;" src="./images/asp.net abp模块化开发之通用树2：设计思路及源码解析0.png" alt="" width="285" height="312" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>上一篇大概说了下abp通用树形模块如何使用，本篇主要分析下设计思路。</p>
+<p>日常开发中会用到很多树状结构的数据，比如：产品的多级分类、省市区县，大多数系统也会用到类似&ldquo;通用字典/数据字典&rdquo;的功能，为系统各个地方提下拉框选择的数据源。abp提供了一个模块化系统，只要按它的约定就可以实现一个通用的树形数据的模块，这样公司的多个系统都可以使用，也可以用类似nuget的方式提供给别人使用。</p>
+<p>先列举下它的功能</p>
+<ol>
+<li>通过nuget方便安装和升级</li>
+<li>配置简单</li>
+<li>默认已经提供&ldquo;通用字典&rdquo;功能</li>
+<li>实体、管理器、应用服务都是抽象类，结合泛型 狠容易扩展实现自己的树形结构</li>
+</ol>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>二、必备知识</h2>
+<p>这不是abp入门级的文章，是探讨系统模块化开发的一种思路。所以要求对abp有经验，完整看过abp文档，对涉及到的模块、依赖注入、启动配置、权限、菜单、本地化等等概念有清晰的认识</p>
+<p>&nbsp;</p>
+<h2>三、包和源码</h2>
+<p>源码地址：<a href="https://github.com/bxjg1987/abpGeneralModules">https://github.com/bxjg1987/abpGeneralModules<br /></a>nuget：Install-Package BXJG.GeneralTree -Version 1.0.2<br />在线地址：&nbsp; <a href="http://test.cqsifang.com/">http://test.cqsifang.com/</a>&nbsp; &nbsp; 账号密码：admin&nbsp; zlj.com&nbsp; &nbsp; （别胡来，拜托...）<br />源码仓库中还有通用的文件模块、附件模块，后期会讲讲；nuget搜索bxjg可以找到这几个相关的包</p>
+<p>&nbsp;</p>
+<h2>四、总体设计</h2>
+<p>为了便于说明，我们以常见的产品无限级分类来说明，所有树形结构数据有这么几个特点：</p>
+<ul>
+<li>有个ParentId属性指向父级节点，</li>
+<li>有个code，数据格式类似：00001.00001，一个是能简单体现产品分类节点的层级结构，二个是方便将来查询某个分类及其后代分类下的所有产品 where categoryCode like '00001%</li>
+<li>当然还有Name属性</li>
+
+
+
+</ul>
+<p>上面说了定义实体类的关键点，然后我们需要提供一个对应的Manager（这个是abp定义领域服务的套路），来主负责CRUD和节点间的移动操作，其实最麻烦的就是自动处理code，新增和修改时要根据所属父节点的code自动生成子节点的code，移动时就更复杂了，要重新计算当前节点及其兄弟节点及其所有后代节点的code，这还涉及到目标节点和源节点。为了便于扩展，上面的领域服务还得将被处理的实体泛型话，文章后续会具体说明</p>
+<p>最后按abp套路我们还需要提一个应用服务，它核心操作就是调用上面提供的Manager做节点的crud操作，在此基础上按abp的套路应该提供权限验证、处理实体与dto之间的转换。同理为了便于将来模块的使用方进行扩展，我们应该应用抽象类和泛型的威力，文章后续会具体说明</p>
+<p>最后我们如何提供Repository呢？参考abp zero的思路，我们将这个遗留到调用方来定义。在我们的领域服务Manager和应用服务AppService中都是通过依赖注入注入的IRepository&lt;TEntity,TKey&gt;</p>
+<p>核心的3个东东定义好后，我们分别实现一个默认类，实现一个&ldquo;通用字典&rdquo;，将来调用方可以继承我们的类并提供泛型参数来实现他们自己的树形结构。<br />另外我们将所有的代码放在一个项目中，因为模块足够小，功能少&nbsp; 这样调用方用起来更方便</p>
+<p>注意一点，上面以产品分类来说明只是便于理解，既然要提供扩展能力，设计时只能从抽象的角度来看待树形数据，否则设计出来的东西很容易最后发现不够抽象，此废话只可意会不可言传</p>
+<p>最后是abp相关的：本地化定义、模块定义及依赖关系、权限提供器、菜单提供器、动态webapi的处理</p>
+<h2>五、实体类</h2>
+<p>实体类我这里只是说明，具体源码请访问顶部的github</p>
+<h3>GeneralTreeEntity&lt;TEntity&gt;</h3>
+<p>它定义了树形结构数据的通用树形，Id、Code、Name、Parent等<br />泛型TEntity是子节点的类型，由于是树，实际上也是父节点的类型，这种设计是方便将来模块使用方在实现自定义的树形结构时拿到的Parent树形和Children树形，是他们自己定义的类型<br />主键Id属性，我定死了long类型，其实也可以使用泛型的TKey，思来想去简单起见直接定死吧</p>
+<h3>public class GeneralTreeEntity : GeneralTreeEntity&lt;GeneralTreeEntity&gt;</h3>
+<p>为了提供我们默认实现的&ldquo;通用字典&rdquo;功能，我们定义一个默认的子类GeneralTreeEntity，将来系统中那些简单的数据可以直接使用它<br />IsSysDefine表示此节点是否是系统预定义的，将来不允许删除<br />IsTree是否是树形，将来可能会用到，因为某些下拉框数据可能不需要多层次的，比如：民族，学历</p>
+<h2>六、领域服务</h2>
+<p>按套路我们提供一个抽象的领域服务Manager类，和一个为了实现&ldquo;通用字典&rdquo;功能的默认实现</p>
+<h3>public abstract class GeneralTreeManager&lt;TEntity&gt; : DomainService&nbsp;&nbsp;where TEntity : GeneralTreeEntity&lt;TEntity&gt;</h3>
+<p>它的主要职责总体设计也说了一嘴，完成crud和move移动操作，难点是处理code的自动生成，尤其是移动节点时，节点原来位置之后的其它节点及其后代节点、目标节点之后的其它节点及其后代节点的code的生成<br />内部对数据的操作直接注入IRepository&lt;TEntity, long&gt;，因此按abp的套路，默认情况下使用EF时，调用方只需要在他的DBContext中顶一个DBSet就可以了</p>
+<h3>public class GeneralTreeManager : GeneralTreeManager&lt;GeneralTreeEntity&gt;</h3>
+<p>实现&ldquo;通用数据字典&rdquo;的默认领域服类，因为核心功能父类基本都完成了。所以几乎没代码</p>
+<h2>七、应用服务</h2>
+<p>按套路一个抽象类，一个默认实现类，内部核心操作是上面提供的Manager来完成的，应用服务主要是出去权限和dto之间的转换</p>
+<h3>public&nbsp; class GeneralTreeAppServiceBase&lt; TEntity,&nbsp; TDto, TEditDto&gt; : ApplicationService,&nbsp; &nbsp; &nbsp;IGeneralTreeAppServiceBase&lt;TDto, TEditDto&gt;<br />&nbsp; &nbsp; &nbsp; &nbsp; where TEntity : GeneralTreeEntity&lt;TEntity&gt;<br />&nbsp; &nbsp; &nbsp; &nbsp; where TDto : GeneralTreeGetTreeNodeBaseDto&lt;TDto&gt;, new()<br /><em id="__mceDel"><em id="__mceDel">&nbsp; &nbsp; &nbsp; &nbsp; where TEditDto : GeneralTreeNodeEditBaseDto</em></em></h3>
+<p><em id="__mceDel">另外它提供了一些通用方法，一个树形数据通常在3个地方呗使用，以产品分类为例，在产品分类的管理页面、在产品的搜索栏应该提供产品类别的选择、在产品编辑页面应该有个下拉框选择当前产品所属类别，其它树形数据都有类似的场景，因此抽象的应用服务处理了这部分功能</em></p>
+<h3>public class GeneralTreeAppService : GeneralTreeAppServiceBase&lt; GeneralTreeEntity, GeneralTreeDto, GeneralTreeEditDt, GeneralTreeManager&gt;,IGeneralTreeAppService</h3>
+<p>按套路我们为&ldquo;通用字典&rdquo;提供了一个默认的实现类</p>
+<p>&nbsp;</p>
+<p>应用服务中的DTO定义、应用服务接口我这里省略了，这是abp的常规套路，请看源码</p>
+<h2>八、abp相关套路：模块、本地化、权限、菜单</h2>
+<p>模块和本地化就不说了，abp的常规套路<br />由于我们提供了&ldquo;通用字典&rdquo;，默认情况下是可以直接用作你项目的，调用方完全可以按abp的套路在自己的模块中来配置权限和菜单，但是默认我们的模块也提供了，调用方完全可以在主机的PermissionProvicer和NavigationProvider的合适的位置配置权限和菜单。参考GeneralTreeModuleConfig源码</p>
+<h2>九、总结</h2>
+<p>abp本身提供了模块化方式，如果运用得当我们的系统可以由很多小模块组成，将来更容易维护、升级和复用<br />就好比我们目前提供的通用树，如果你使用的是abp，那么完全可以拿去就用，类似的&ldquo;通用附件&rdquo;模块，因为我们的多个系统或者同一个系统都可能会用到附件的功能，到处复制代码是下下策。</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

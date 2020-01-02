@@ -1,0 +1,286 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DRF Django REST framework 之 认证与权限组件（五）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DRF Django REST framework 之 认证与权限组件（五）</center></div><div class='banquan'>原文出处:本文由博客园博主Nolinked提供。<br/>
+原文连接:https://www.cnblogs.com/pungchur/p/12028381.html</div><br>
+    <h2>引言</h2>
+<p>很久很久以前，Web站点只是作为浏览服务器资源（数据）和其他资源的工具，甚少有什么用户交互之类的烦人的事情需要处理，所以，Web站点的开发这根本不关心什么人在什么时候访问了什么资源，不需要记录任何数据，有客户端请求，我即返回数据，简单方便，每一个http请求都是新的，响应之后立即断开连接。</p>
+<p>而如今，互联网的世界发生了翻天覆地的变化，用户不仅仅需要跟其他用户沟通交流，还需要跟服务器交互，不管是论坛类、商城类、社交类、门户类还是其他各类Web站点，大家都非常重视用户交互，只有跟用户交互了，才能进一步留住用户，只有留住了用户，才能知道用户需求，知道了用户需求，才会产生商机，有了用户，就等于有了流量，才能够骗到&hellip;额&hellip;是融到钱，有了资金企业才能继续发展，可见，用户交互是非常重要的，甚至可以说是至关重要的一个基础功能。</p>
+<p>而谈到用户交互，则必须要谈到我们今天所要学习的知识点，认证、权限和频率。首先我们来看看认证。</p>
+<h2>认证组件</h2>
+<h3>使用token</h3>
+<p>大部分人都知道cookie和session这两种方式可以保存用户信息，这两种方式不同的是cookie保存在客户端浏览器中，而session保存在服务器中，他们各有优缺点，配合起来使用，可将重要的敏感的信息存储在session中，而在cookie中可以存储不太敏感的数据。</p>
+<p>而token称之为令牌。cookie、session和token都有其应用场景，没有谁好谁坏，不过开发数据接口类的Web应用，目前用token还是比较多的。</p>
+<p>token认证的大致步骤是这样的：</p>
+<ul>
+<li>用户登录，服务器端获取用户名密码，查询用户表，如果存在该用户且第一次登录（或者token过期），生成token，否则返回错误信息</li>
+<li>如果不是第一次登录，且token未过期，更新token值</li>
+</ul>
+<p>定义&nbsp;<span class="cnblogs_code">url</span>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.urls <span style="color: #0000ff;">import</span><span style="color: #000000;"> path, re_path
+
+</span><span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> views</span><span style="color: #000000;">
+
+urlpatterns </span>=<span style="color: #000000;"> [
+
+    path(</span><span style="color: #800000;">"</span><span style="color: #800000;">books/</span><span style="color: #800000;">"</span><span style="color: #000000;">, views.BookView.as_view({
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">get</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">list</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">post</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">create</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    })),
+    re_path(</span><span style="color: #800000;">'</span><span style="color: #800000;">books/(?P&lt;pk&gt;\d+)/</span><span style="color: #800000;">'</span><span style="color: #000000;">, views.BookView.as_view({
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">get</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">retrieve</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">put</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">update</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">delete</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">destroy</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    })),
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 登陆</span>
+    path(<span style="color: #800000;">'</span><span style="color: #800000;">login/</span><span style="color: #800000;">'</span><span style="color: #000000;">, views.LoginView.as_view()),
+]</span></pre>
+</div>
+<p>创建两个&nbsp;<span class="cnblogs_code">model</span>&nbsp;，如下所示：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.db <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+<br />
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> UserInfo(models.Model):
+    username </span>= models.CharField(<span style="color: #800000;">"</span><span style="color: #800000;">姓名</span><span style="color: #800000;">"</span>, max_length=32<span style="color: #000000;">)
+    password </span>= models.CharField(<span style="color: #800000;">"</span><span style="color: #800000;">密码</span><span style="color: #800000;">"</span>, max_length=32<span style="color: #000000;">)
+    age </span>= models.IntegerField(<span style="color: #800000;">"</span><span style="color: #800000;">年龄</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    gender </span>= models.SmallIntegerField(<span style="color: #800000;">"</span><span style="color: #800000;">性别</span><span style="color: #800000;">"</span>, choices=((1, <span style="color: #800000;">"</span><span style="color: #800000;">男</span><span style="color: #800000;">"</span>), (2, <span style="color: #800000;">"</span><span style="color: #800000;">女</span><span style="color: #800000;">"</span>)), default=1<span style="color: #000000;">)
+    user_type_entry </span>= ((1, <span style="color: #800000;">"</span><span style="color: #800000;">普通用户</span><span style="color: #800000;">"</span>), (2, <span style="color: #800000;">"</span><span style="color: #800000;">VIP</span><span style="color: #800000;">"</span>), (3, <span style="color: #800000;">"</span><span style="color: #800000;">SVIP</span><span style="color: #800000;">"</span><span style="color: #000000;">))
+    user_type </span>= models.SmallIntegerField(<span style="color: #800000;">"</span><span style="color: #800000;">用户级别</span><span style="color: #800000;">"</span>, choices=<span style="color: #000000;">user_type_entry)
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__str__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.username
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> UserToken(models.Model):
+    user </span>= models.ForeignKey(to=<span style="color: #800000;">"</span><span style="color: #800000;">UserInfo</span><span style="color: #800000;">"</span>, on_delete=<span style="color: #000000;">models.CASCADE)
+    token </span>= models.CharField(max_length=128)</pre>
+</div>
+<p>&nbsp;<span class="cnblogs_code">post</span>&nbsp;方法接口，视图类如下所示：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.http <span style="color: #0000ff;">import</span><span style="color: #000000;"> JsonResponse
+
+</span><span style="color: #0000ff;">from</span> rest_framework.views <span style="color: #0000ff;">import</span><span style="color: #000000;"> APIView
+
+</span><span style="color: #0000ff;">from</span> DrfTwo.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> UserInfo, UserToken
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> LoginView(APIView):
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> post(self, request):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 定义返回信息</span>
+        ret =<span style="color: #000000;"> dict()
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 定义需要的信息</span>
+            fields = {<span style="color: #800000;">"</span><span style="color: #800000;">username</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">password</span><span style="color: #800000;">"</span><span style="color: #000000;">}
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 定义一个用户信息字典</span>
+            user_info =<span style="color: #000000;"> dict()
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 判断fields是否是request.data的子集</span>
+            <span style="color: #0000ff;">if</span><span style="color: #000000;"> fields.issubset(set(request.data.keys())):
+                </span><span style="color: #0000ff;">for</span> key <span style="color: #0000ff;">in</span><span style="color: #000000;"> fields:
+                    user_info[key] </span>=<span style="color: #000000;"> request.data.get(key)
+
+            user_instance </span>= UserInfo.objects.filter(**<span style="color: #000000;">user_info).first()
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户验证</span>
+            <span style="color: #0000ff;">if</span><span style="color: #000000;"> user_instance:
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 自定义generate_token()方法，获取token值，在后面</span>
+                access_token =<span style="color: #000000;"> generate_token()
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户登陆成功，创建token，token存在更新token, defaults为更新内容</span>
+                UserToken.objects.update_or_create(user=user_instance, defaults=<span style="color: #000000;">{
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">token</span><span style="color: #800000;">"</span><span style="color: #000000;">: access_token
+                })
+                ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">status_code</span><span style="color: #800000;">"</span>] = 200<span style="color: #000000;">
+                ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">status_message</span><span style="color: #800000;">"</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">登录成功</span><span style="color: #800000;">"</span><span style="color: #000000;">
+                ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">access_token</span><span style="color: #800000;">"</span>] =<span style="color: #000000;"> access_token
+                ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">user_role</span><span style="color: #800000;">"</span>] =<span style="color: #000000;"> user_instance.get_user_type_display()
+
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">status_code</span><span style="color: #800000;">"</span>] = 201<span style="color: #000000;">
+                ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">status_message</span><span style="color: #800000;">"</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">登录失败，用户名或密码错误</span><span style="color: #800000;">"</span>
+        <span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+            ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">status_code</span><span style="color: #800000;">"</span>] = 202<span style="color: #000000;">
+            ret[</span><span style="color: #800000;">"</span><span style="color: #800000;">status_message</span><span style="color: #800000;">"</span>] =<span style="color: #000000;"> str(e)
+
+
+        </span><span style="color: #0000ff;">return</span> JsonResponse(ret)</pre>
+</div>
+<p>简单写了个获取随机字符串的方法用来生成token值：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> uuid
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> generate_token():
+    random_str </span>= str(uuid.uuid4()).replace(<span style="color: #800000;">"</span><span style="color: #800000;">-</span><span style="color: #800000;">"</span>, <span style="color: #800000;">""</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">return</span> random_str</pre>
+</div>
+<p>以上就是token的简单生成方式，当然，在生产环境中不会如此简单，关于token也有相关的库，然后在构造几条数据之后，可以通过POSTMAN工具来创建几个用户的token信息。</p>
+<p>&nbsp;</p>
+<p>接下来，如何对已经登录成功的用户实现访问授权呢？也就是说，只有登录过的用户（有token值）才能访问特定的数据，该DRF的认证组件出场了</p>
+<h3>认证组件的使用</h3>
+<p>首先，新建一个认证类，之后的认证逻辑就包含在这个类里面：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 1.定义认证类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> UserAuth(object):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 认证逻辑</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> authenticate(self, request):
+        user_token </span>= request.GET.get(<span style="color: #800000;">'</span><span style="color: #800000;">token</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+        token_object </span>= UserToken.objects.filter(token=<span style="color: #000000;">user_token).first()
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> token_object:
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> token_object.user, token_object.token
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">raise</span> APIException(<span style="color: #800000;">"</span><span style="color: #800000;">认证失败</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>实现方式看上去非常简单，到&nbsp;<span class="cnblogs_code">token</span>&nbsp;表里面查看&nbsp;<span class="cnblogs_code">token</span>&nbsp;是否存在，然后根据这个信息，返回对应信息即可，然后，在需要认证通过才能访问的数据接口里面注册认证类即可：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.viewsets <span style="color: #0000ff;">import</span><span style="color: #000000;"> ModelViewSet
+</span><span style="color: #0000ff;">from</span> rest_framework.exceptions <span style="color: #0000ff;">import</span><span style="color: #000000;"> APIException
+
+</span><span style="color: #0000ff;">from</span> DrfOne.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> Book, UserToken
+</span><span style="color: #0000ff;">from</span> DrfOne.drf_serializers <span style="color: #0000ff;">import</span><span style="color: #000000;"> BookSerializer
+
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 1.定义认证类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> UserAuth(object):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 认证逻辑</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> authenticate(self, request):
+        user_token </span>= request.GET.get(<span style="color: #800000;">'</span><span style="color: #800000;">token</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+        token_object </span>= UserToken.objects.filter(token=<span style="color: #000000;">user_token).first()
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> token_object:
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> token_object.user.username, token_object.token
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">raise</span> APIException(<span style="color: #800000;">"</span><span style="color: #800000;">认证失败</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 2.指定认证类，固定写法</span>
+    authentication_classes =<span style="color: #000000;"> [UserAuth]
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<p>序列类&nbsp;<span class="cnblogs_code">BookSerializer</span>&nbsp;</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('7f880310-3807-4913-8142-508f8e870ca7')"><img id="code_img_closed_7f880310-3807-4913-8142-508f8e870ca7" class="code_img_closed" src="./images/DRF Django REST framework 之 认证与权限组件（五）0.png" alt="" /><img id="code_img_opened_7f880310-3807-4913-8142-508f8e870ca7" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('7f880310-3807-4913-8142-508f8e870ca7',event)" src="./images/DRF Django REST framework 之 认证与权限组件（五）1.png" alt="" />
+<div id="cnblogs_code_open_7f880310-3807-4913-8142-508f8e870ca7" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework <span style="color: #0000ff;">import</span><span style="color: #000000;"> serializers
+
+</span><span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookSerializer(serializers.ModelSerializer):
+    </span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Meta:
+        model </span>=<span style="color: #000000;"> models.Book
+        fields </span>= <span style="color: #800000;">"</span><span style="color: #800000;">__all__</span><span style="color: #800000;">"</span><span style="color: #000000;">
+
+        extra_kwargs </span>=<span style="color: #000000;"> {
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 仅写</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">publish</span><span style="color: #800000;">"</span>: {<span style="color: #800000;">'</span><span style="color: #800000;">write_only</span><span style="color: #800000;">'</span><span style="color: #000000;">: True},
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">authors</span><span style="color: #800000;">"</span>: {<span style="color: #800000;">'</span><span style="color: #800000;">write_only</span><span style="color: #800000;">'</span><span style="color: #000000;">: True},
+        }
+
+    publish_name </span>= serializers.CharField(max_length=32, read_only=True, source=<span style="color: #800000;">"</span><span style="color: #800000;">publish.name</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    publish_address </span>= serializers.CharField(max_length=32, read_only=True, source=<span style="color: #800000;">"</span><span style="color: #800000;">publish.address</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    author_name </span>=<span style="color: #000000;"> serializers.SerializerMethodField()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_author_name(self, book_obj):
+        author_list </span>=<span style="color: #000000;"> list()
+        </span><span style="color: #0000ff;">for</span> author <span style="color: #0000ff;">in</span><span style="color: #000000;"> book_obj.authors.all():
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 注意列表添加字段，author.name而不是author</span>
+<span style="color: #000000;">            author_list.append(author.name)
+        </span><span style="color: #0000ff;">return</span> author_list</pre>
+</div>
+<span class="cnblogs_code_collapse">类BookSerializer</span></div>
+<h3>多个认证类</h3>
+<p>需要注意的是，如果需要返回什么数据，请在最后一个认证类中返回，因为如果在前面返回，在源码的&nbsp;<span class="cnblogs_code">self._authentication()</span>&nbsp;方法中会对返回值进行判断，如果不为空，认证的过程就会中止，多个认证类的实现方式如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 1.定义认证类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> UserAuth(object):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 认证逻辑</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> authenticate(self, request):
+        user_token </span>= request.GET.get(<span style="color: #800000;">'</span><span style="color: #800000;">token</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+        token_object </span>= UserToken.objects.filter(token=<span style="color: #000000;">user_token).first()
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> token_object:
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> token_object.user.username, token_object.token
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">raise</span> APIException(<span style="color: #800000;">"</span><span style="color: #800000;">认证失败</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> UserAuthTwo(object):
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> authenticate(self, request):
+        </span><span style="color: #0000ff;">raise</span> APIException(<span style="color: #800000;">"</span><span style="color: #800000;">就是这么简单！</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 2.指定认证类，固定写法</span>
+    authentication_classes =<span style="color: #000000;"> [UserAuth, UserAuthTwo]
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<h3>全局认证</h3>
+<p>如果希望所有的数据接口都需要认证怎么办？很简单，如果认证类自己没有&nbsp;<span class="cnblogs_code">authentication_classes</span>&nbsp;，就会到&nbsp;<span class="cnblogs_code">settings</span>&nbsp;中去找，通过这个机制，我们可以将认证类写入到&nbsp;<span class="cnblogs_code">settings</span>&nbsp;文件中即可实现全局认证：</p>
+<div class="cnblogs_code">
+<pre><code>REST_FRAMEWORK =<span style="color: #000000;"> {
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">DEFAULT_AUTHENTICATION_CLASSES</span><span style="color: #800000;">'</span><span style="color: #000000;">: (
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">authenticator.views.UserAuth</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">authenticator.views.UserAuthTwo</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+    ),
+}</span></pre>
+</div>
+<h2>权限组件</h2>
+<p><span style="color: #000000;">与认证组件几乎差不多，只要判断该用户的级别，是否给予通过</span></p>
+<h3>权限组件的使用</h3>
+<p><span style="color: #000000;">定义权限类</span></p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.permissions <span style="color: #0000ff;">import</span><span style="color: #000000;"> BasePermission
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> UserPermission(BasePermission):
+    message </span>= <span style="color: #800000;">"</span><span style="color: #800000;">您没有权限访问该数据</span><span style="color: #800000;">"</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> has_permission(self, request, view):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户级别是否超过普通用户</span>
+        <span style="color: #0000ff;">if</span> request.user.user_type &gt; 1<span style="color: #000000;">:
+            </span><span style="color: #0000ff;">return</span> Truereturn False</pre>
+</div>
+<p>&nbsp;</p>
+<p>同样的逻辑，同样的方式，只是执行权限的方法名与执行认证的方法名不一样而已，名为&nbsp;<span class="cnblogs_code">has_permission</span>&nbsp;，并且需要将当前的视图类传递给该方法。</p>
+<p>视图类中加入&nbsp;<span class="cnblogs_code">permission_classes</span>&nbsp;变量：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 指定认证类，固定写法</span>
+    authentication_classes =<span style="color: #000000;"> [UserAuth]
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 指定权限类，固定写法</span>
+    permission_classes =<span style="color: #000000;"> [UserPermission]
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<p><strong><span style="color: #33cccc;">~&gt;.&lt;~</span></strong></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

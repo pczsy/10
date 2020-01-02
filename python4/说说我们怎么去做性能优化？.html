@@ -1,0 +1,64 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修说说我们怎么去做性能优化？' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>说说我们怎么去做性能优化？</center></div><div class='banquan'>原文出处:本文由博客园博主姚毛毛提供。<br/>
+原文连接:https://www.cnblogs.com/yaomaomao/p/12096907.html</div><br>
+    <h3 id="开篇语">开篇语</h3>
+<p>最近12306又崩溃了一次，但其实12306这样的体量跟我们平常接触的架构基本没什么太大的关系。</p>
+<p>话又说回来，12306也是由一个个小功能组成的。</p>
+<p>做好自己的小蚂蚁，就能让大部队变得更快。</p>
+<p>因为跟数据库、数据仓库、查询打交道比较多，所以我就简单说一下数据查询的优化过程吧。</p>
+<p>不客气地说，在性能优化中，其实80%的问题都是源于数据查询。</p>
+<p>以下步骤是以优化代价、数据量级为衡量，从低到高开始，步步进推。</p>
+<h3 id="go">GO</h3>
+<p>（1）如果数据查询缓慢，80%的原因都是因为SQL。先找出慢SQL，以Oracle为例，可以通过AWR报表的方式查看。</p>
+<p>（2）查看慢SQL的执行计划，看看查询的关键字段是不是缺失索引，添加索引。</p>
+<p>（3）有索引，但是查看执行计划，并没有走索引。此时有两种方法，一是用hint，二是可能数据表最近被大批量的删除、新增过，需要手动收集数据表的统计信息，让SQL优化器正常解析SQL。</p>
+<p>（4）数据表太大，没有合适的全局索引。可不可以建设分区表？按照时间、地区进行分区操作。</p>
+<p>（5）不能分区，或者分区效果也不显著，需要考虑改动表结构了，有些字段是不是可以拆出去？做成维表、扩展表？</p>
+<p>【这是垂直拆分。缺点是查询时如果要查询扩展表字段，需要join操作，插入修改时要考虑多表，事物复杂。单表数据量还是太大。】</p>
+<p>（6）或者可以考虑进行分库分表操作。对于Oracle来说单张1亿以下数据分区就够了，不需要分库分表。</p>
+<p>【水平拆分。缺点是会导致事物一致性更为复杂，还需引入分库分表的管理中间件。】</p>
+<p>（7）进行历史数据分离。将一些不常用的数据，例如两年前的数据都拆分到历史表中。</p>
+<p>【即冷热数据分离。】</p>
+<p>（8）读写分离，再新建个数据查询库，oracle用OGG、mysql用binlog做数据同步，将查询模块更换数据源。</p>
+<p>（9）增加数据库的服务器性能，升级硬件，例如磁盘换上SSD。这个方法是被验证过了的，尤其是查询批量数据、无高效索引的时候。</p>
+<p>（10）从数据库层面已经无法优化了，我们可以考虑在应用端使用并行查询的方法爬出数据，然后再行合并。</p>
+<p>【事实上，很多报表工具都是这么做的。】</p>
+<p>（11）并行查询再高端点，用流行的话来说，叫分布式计算。</p>
+<p>【12306就是用Pivotal的 GemFire，将单次查询的最长时间从15秒下降到0.2秒以下。】</p>
+<p>（12）这个数据库性能就是达到瓶颈了，我们来更换数据库吧，换成性能更好的数据库，要做数据迁移，重新测试验证，代价不菲。</p>
+<p>（13）从业务上去优化，看看这样查询是不是有道理，这些字段是不是确实需要？需不需要这么精细？需不需要这么频繁？</p>
+<p>大数据量报表每月一出就行了？那这样就无所谓时效性了。嗯，那我们来做数据仓库吧。</p>
+<p>（14）我们用了Hadoop + RDBMS做了数据仓库。</p>
+<p>数据仓库不能实时查询怎么办？我们来做实时仓库吧。</p>
+<p>（15）我们用了kafka + spark + jstorm做了实时仓库，结果你跟我说过时了？刚刚升级成了Spark Streaming ？嗯？又换成Flink了？</p>
+<p>好吧，爱咋咋地。</p>
+<h3 id="结语">结语</h3>
+<p>说到这里没啥可说的了，或者以后想起来什么还可以再说说吧。</p>
+<p>性能优化其实是一个持续迭代的过程，并非一蹴而就，也不是一步到位的工作。</p>
+<p>有时候有很多方案，关键是看怎样代价最小。（改造成本、硬件成本、紧急状况）</p>
+<p>每个人，还是先从写好一个SQL，一段代码开始吧。</p>
+<p>撒花，结束。</p>
+<p>END.</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

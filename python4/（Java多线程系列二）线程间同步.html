@@ -1,0 +1,330 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修（Java多线程系列二）线程间同步' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>（Java多线程系列二）线程间同步</center></div><div class='banquan'>原文出处:本文由博客园博主3LittleStones提供。<br/>
+原文连接:https://www.cnblogs.com/3LittleStones/p/12090552.html</div><br>
+    <h3 id="java多线程间同步">Java多线程间同步</h3>
+<h4 id="什么是线程安全">1、什么是线程安全</h4>
+<blockquote>
+<p>通过一个案例了解线程安全</p>
+</blockquote>
+<blockquote>
+<p>案例:需求现在有100张火车票，有两个窗口同时抢火车票，请使用多线程模拟抢票效果。</p>
+</blockquote>
+<blockquote>
+<p>先来看一个线程不安全的例子</p>
+</blockquote>
+<pre><code><code>class SellTicketRunnable implements Runnable {
+
+    public int count = 100;
+
+    @Override
+    public void run() {
+        while (count &gt; 0) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            int index = 100 - count + 1;
+            System.out.println(Thread.currentThread().getName() + &quot;卖出第&quot; + index + &quot;张票&quot;);
+            count--;
+        }
+    }
+}
+
+public class JavaSyncDemo {
+
+    public static void main(String[] args) {
+        SellTicketRunnable runnable = new SellTicketRunnable();
+        Thread sellThread1 = new Thread(runnable);
+        Thread sellThread2 = new Thread(runnable);
+        sellThread1.start();
+        sellThread2.start();
+    }
+}</code></pre>
+<p><img src="./images/（Java多线程系列二）线程间同步0.png" alt="线程不安全" /></p>
+<blockquote>
+<p>可以看到两个线程同时卖票的时候，会出现漏卖，多卖同一张票，还会出现超卖的问题，这就是线程不安全的问题。</p>
+</blockquote>
+<blockquote>
+<p>当多个线程同时共享，同一个全局变量或静态变量，做写的操作时，可能会发生数据冲突问题，也就是线程安全问题。但是做读操作是不会发生数据冲突问题。</p>
+</blockquote>
+<h4 id="线程安全问题的解决办法">2、线程安全问题的解决办法</h4>
+<h5 id="使用同步代码块">(1)使用同步代码块</h5>
+<pre><code><code>class SellTicketRunnable implements Runnable {
+
+    public int count = 100;
+
+    private Object lock = new Object();
+
+    @Override
+    public void run() {
+        while (count &gt; 0) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            synchronized (lock) {
+                if (count &gt; 0) {
+                    int index = 100 - count + 1;
+                    System.out.println(Thread.currentThread().getName() + &quot;卖出第&quot; + index + &quot;张票&quot;);
+                    count--;
+                }
+            }
+        }
+    }
+}
+
+public class JavaSyncDemo {
+
+    public static void main(String[] args) {
+        SellTicketRunnable runnable = new SellTicketRunnable();
+        Thread sellThread1 = new Thread(runnable);
+        Thread sellThread2 = new Thread(runnable);
+        sellThread1.start();
+        sellThread2.start();
+    }
+}</code></pre>
+<p><img src="./images/（Java多线程系列二）线程间同步1.png" /></p>
+<blockquote>
+<p>从上面的案例可以看出，使用synchronized同步代码块包裹住写操作，每个线程在调用同步代码块中逻辑的时候，都需要先获取同步锁，所以避免了多线程写操作数据的冲突问题。</p>
+</blockquote>
+<h5 id="使用同步函数">(2)使用同步函数</h5>
+<pre><code><code>class SellTicketRunnable01 implements Runnable {
+
+    public int count = 100;
+
+    @Override
+    public void run() {
+        while (count &gt; 0) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            this.sale();
+        }
+    }
+
+    synchronized void sale() {
+        if (count &gt; 0) {
+            int index = 100 - count + 1;
+            System.out.println(Thread.currentThread().getName() + &quot;卖出第&quot; + index + &quot;张票&quot;);
+            count--;
+        }
+    }
+}
+
+public class JavaSyncDemo01 {
+
+    public static void main(String[] args) {
+        SellTicketRunnable01 runnable = new SellTicketRunnable01();
+        Thread sellThread1 = new Thread(runnable);
+        Thread sellThread2 = new Thread(runnable);
+        sellThread1.start();
+        sellThread2.start();
+    }
+}</code></pre>
+<blockquote>
+<p>synchronized包裹的函数，其实就是给该函数块添加了一把this锁。</p>
+</blockquote>
+<blockquote>
+<p>注意：synchronized 修饰静态方法使用锁是当前类的字节码文件（即<code>类名.class</code>），同理，如果在静态方法中添加个同步代码块，可以获取<code>类名.class</code>为代码块加锁</p>
+</blockquote>
+<pre><code><code>class SellTicketRunnable02 implements Runnable {
+
+    public static int count = 100;
+
+    @Override
+    public void run() {
+        while (count &gt; 0) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            SellTicketRunnable02.sale();
+        }
+    }
+
+    static void sale() {
+        synchronized (SellTicketRunnable02.class) {
+            if (count &gt; 0) {
+                int index = 100 - count + 1;
+                System.out.println(Thread.currentThread().getName() + &quot;卖出第&quot; + index + &quot;张票&quot;);
+                count--;
+            }
+        }
+    }
+}
+
+public class JavaSyncDemo02 {
+
+    public static void main(String[] args) {
+        SellTicketRunnable02 runnable = new SellTicketRunnable02();
+        Thread sellThread1 = new Thread(runnable);
+        Thread sellThread2 = new Thread(runnable);
+        sellThread1.start();
+        sellThread2.start();
+    }
+}</code></pre>
+<h5 id="使用lock锁">(3)使用lock锁</h5>
+<pre><code><code>class SellTicketRunnable03 implements Runnable {
+
+    public int count = 100;
+
+    private Lock lock = new ReentrantLock();
+
+    @Override
+    public void run() {
+        while (count &gt; 0) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lock.lock();
+            if (count &gt; 0) {
+                int index = 100 - count + 1;
+                System.out.println(Thread.currentThread().getName() + &quot;卖出第&quot; + index + &quot;张票&quot;);
+                count--;
+            }
+            lock.unlock();
+        }
+    }
+}
+
+public class JavaSyncDemo03 {
+
+    public static void main(String[] args) {
+        SellTicketRunnable03 runnable = new SellTicketRunnable03();
+        Thread sellThread1 = new Thread(runnable);
+        Thread sellThread2 = new Thread(runnable);
+        sellThread1.start();
+        sellThread2.start();
+    }
+}</code></pre>
+<blockquote>
+<p>lock和synchronized的区别<br/><br />
+①lock在使用时需要手动的获取锁和释放锁;<br/>②lock可以尝试非阻塞的获取锁，如果这一时刻锁没有被其他线程获取到，则成功获取并持有锁；<br/>③lock锁可以响应中断，当获取到锁的线程被中断时，中断异常会被抛出，同时锁被释放；<br/>④lock在指定截至时间之前获取锁，如果解释时间到了依旧无法获取锁，就返回。</p>
+</blockquote>
+<pre><code><code>// lock锁的安全使用方法
+class lockDemo {
+    Lock lock = new ReentrantLock();
+    void demoFun() {
+        lock.lock();
+        try {
+            // 可能出现线程安全的操作
+        } finally {
+            lock.unlock();
+        }
+    }
+}</code></pre>
+<h5 id="使用java原子类">(4)使用Java原子类</h5>
+<blockquote>
+<p><code>java.util.concurrent.atomic.AtomicBoolean;</code><br />
+<code>java.util.concurrent.atomic.AtomicInteger;</code><br />
+<code>java.util.concurrent.atomic.AtomicLong;</code><br />
+<code>java.util.concurrent.atomic.AtomicReference;</code></p>
+</blockquote>
+<pre><code><code>class SellTicketRunnable04 implements Runnable {
+
+   public AtomicInteger count = new AtomicInteger(100);
+
+   @Override
+   public void run() {
+       while (true) {
+           try {
+               Thread.sleep(50);
+           } catch (InterruptedException e) {
+               e.printStackTrace();
+           }
+           if (count.get() &gt; 0) {
+               int index = 100 - count.getAndDecrement() + 1;
+               System.out.println(Thread.currentThread().getName() + &quot;卖出第&quot; + index + &quot;张票&quot;);
+           }
+       }
+   }
+}
+
+public class JavaSyncDemo04 {
+
+   public static void main(String[] args) {
+       SellTicketRunnable04 runnable = new SellTicketRunnable04();
+       Thread sellThread1 = new Thread(runnable);
+       Thread sellThread2 = new Thread(runnable);
+       sellThread1.start();
+       sellThread2.start();
+   }
+}</code></pre>
+<h4 id="死锁">3、死锁</h4>
+<blockquote>
+<p>先看一个死锁的示例</p>
+</blockquote>
+<pre><code><code>public class DeadLockDemo01 {
+
+    private static Object lock1 = new Object();
+    private static Object lock2 = new Object();
+
+    public static void main(String[] args) {
+        new Thread() { //线程1
+            public void run() {
+                while (true) {
+                    synchronized (lock1) {
+                        System.out.println(this.getName() + &quot;:获取lock1锁&quot;);
+                        synchronized (lock2) {
+                            System.out.println(this.getName() + &quot;:获取lock2锁&quot;);
+                        }
+                    }
+                }
+            }
+        }.start();
+
+        new Thread() { //线程2
+            public void run() {
+                while (true) {
+                    synchronized (lock2) {
+                        System.out.println(this.getName() + &quot;:获取lock2锁&quot;);
+                        synchronized (lock1) {
+                            System.out.println(this.getName() + &quot;::获取lock1锁&quot;);
+                        }
+                    }
+                }
+            }
+        }.start();
+    }
+}</code></pre>
+<p><img src="./images/（Java多线程系列二）线程间同步2.png" /></p>
+<blockquote>
+<p>运行上面的代码，可以观察到线程卡死，就是出现了死锁</p>
+</blockquote>
+<blockquote>
+<p>线程1先拿到lock1锁，再拿到lock2锁，执行完成后才能释放所有锁；<br/>线程2先拿到lock2锁，再拿到lock1锁，执行完成后才能释放所有锁。<br/>如果在线程1获取到lock1锁的时候，线程2获取到lock2还没释放，线程1无法获取lock2锁，也就无法释放lock2锁，这时系统就会出现死锁。</p>
+</blockquote>
+<blockquote>
+<p>线程死锁的避免办法：<strong>不要在同步中嵌套同步</strong></p>
+</blockquote>
+<p><a href="https://github.com/leil1230/JavaThreadLearn">源码地址</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

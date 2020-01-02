@@ -1,0 +1,161 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修利用百度云接口实现车牌识别&#183;python' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>利用百度云接口实现车牌识别&#183;python</center></div><div class='banquan'>原文出处:本文由博客园博主yocichen提供。<br/>
+原文连接:https://www.cnblogs.com/yocichen/p/11621781.html</div><br>
+    <p><strong>一个小需求---实现车牌识别。</strong></p>
+<p>目前有两个想法</p>
+<p>1. 调云在线的接口或者使用SDK做开发（配置环境和编译第三方库很麻烦，当然使用python可以避免这些问题）</p>
+<p>2. 自己实现车牌识别算法（复杂）</p>
+<hr />
+<p>&nbsp;一开始准备使用百度云文字识别C++ SDK来做，发现需要准备curl、jsoncpp和OpenCV，并且curl和jsoncpp需要自己编译，很麻烦，所以换用了python来做，真的是顺畅简单。</p>
+<h3><strong>1. 安装python环境（我用python3.7）</strong></h3>
+<p>python官网下载地址：<a href="https://www.python.org/downloads/release/python-374/">https://www.python.org/downloads/release/python-374/</a>&nbsp;建议直接下载安装版installer（看对系统和位数）</p>
+<p>&nbsp;<img src="./images/利用百度云接口实现车牌识别&#183;python0.png" alt="" width="1117" height="493" /></p>
+<p>打开安装包无脑安装即可。安装好之后，看一下是否安装成功。</p>
+<p><strong>cmd</strong></p>
+<div class="cnblogs_code">
+<pre><code>python --version</pre>
+</div>
+<p><img src="./images/利用百度云接口实现车牌识别&#183;python1.png" alt="" /></p>
+<h3><strong>2. 百度云SDK下载安装及创建应用</strong></h3>
+<p>参考<a href="https://cloud.baidu.com/doc/OCR/s/pjwvxzmtc">https://cloud.baidu.com/doc/OCR/s/pjwvxzmtc</a>文档，安装python SDK</p>
+<p>查看pip版本（python环境自带，但是要注意版本）</p>
+<div class="cnblogs_code">
+<pre><code>pip --version</pre>
+</div>
+<p><strong><img src="./images/利用百度云接口实现车牌识别&#183;python2.png" alt="" /></strong></p>
+<p>如果版本不合适，那么自行升级pip</p>
+<div class="cnblogs_code">
+<pre><code>pip install -U pip</pre>
+</div>
+<p>安装<strong>baidu-aip</strong></p>
+<div class="cnblogs_code">
+<pre><code>pip install baidu-aip</pre>
+</div>
+<p><img src="./images/利用百度云接口实现车牌识别&#183;python3.png" alt="" />（安装成功的样子）</p>
+<p>现在我们的百度云SDK就安装好了，下来<strong>创建应用</strong></p>
+<p>登录百度云（没账号注册一下）</p>
+<p><img src="./images/利用百度云接口实现车牌识别&#183;python4.png" alt="" width="1046" height="535" /></p>
+<p><strong>创建应用</strong></p>
+<p><img src="./images/利用百度云接口实现车牌识别&#183;python5.png" alt="" width="1045" height="336" /></p>
+<p>自己填一下&nbsp;</p>
+<p><img src="./images/利用百度云接口实现车牌识别&#183;python6.png" alt="" width="1029" height="613" /></p>
+<p>&nbsp;现在我们就创建好了车牌识别的应用，点击应用列表可查看。</p>
+<p><img src="./images/利用百度云接口实现车牌识别&#183;python7.png" alt="" width="1131" height="297" /></p>
+<p>这里的APPID、API KEY、Secret Key要在代码中使用。<strong>（注意不要泄漏）</strong></p>
+<h3>3. 编码调接口，实现需求</h3>
+<p>python代码实现</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #800000;">'''</span>
+<span style="color: #008080;"> 2</span> <span style="color: #800000;">Statement
+</span><span style="color: #008080;"> 3</span> <span style="color: #800000;">1. using the file
+</span><span style="color: #008080;"> 4</span> <span style="color: #800000;">2. prepare a image path and call func "get_license_plate(filePath)"
+</span><span style="color: #008080;"> 5</span> <span style="color: #800000;">3. you can get a json object
+</span><span style="color: #008080;"> 6</span> <span style="color: #800000;">4. get the info from the pbject
+</span><span style="color: #008080;"> 7</span> <span style="color: #800000;">example : 
+</span><span style="color: #008080;"> 8</span> <span style="color: #800000;">{
+</span><span style="color: #008080;"> 9</span> <span style="color: #800000;">    "log_id": 3583925545,
+</span><span style="color: #008080;">10</span> <span style="color: #800000;">    "words_result": {
+</span><span style="color: #008080;">11</span> <span style="color: #800000;">        "color": "blue",
+</span><span style="color: #008080;">12</span> <span style="color: #800000;">        "number": "苏HS7766"
+</span><span style="color: #008080;">13</span> <span style="color: #800000;">    }
+</span><span style="color: #008080;">14</span> <span style="color: #800000;">}
+</span><span style="color: #008080;">15</span> <span style="color: #800000;">'''</span>
+<span style="color: #008080;">16</span> 
+<span style="color: #008080;">17</span> <span style="color: #0000ff;">from</span> aip <span style="color: #0000ff;">import</span><span style="color: #000000;"> AipOcr
+</span><span style="color: #008080;">18</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span> <span style="color: #800000;">"""</span><span style="color: #800000;">get img</span><span style="color: #800000;">"""</span>
+<span style="color: #008080;">21</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_file_content(filePath):
+</span><span style="color: #008080;">22</span>     with open(filePath, <span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as fp:
+</span><span style="color: #008080;">23</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> fp.read()
+</span><span style="color: #008080;">24</span> 
+<span style="color: #008080;">25</span> <span style="color: #800000;">"""</span><span style="color: #800000;"> get licsense plate </span><span style="color: #800000;">"""</span>
+<span style="color: #008080;">26</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_license_plate(filePath):
+</span><span style="color: #008080;">27</span>     <span style="color: #800000;">"""</span><span style="color: #800000;"> APPID AK SK </span><span style="color: #800000;">"""</span>
+<span style="color: #008080;">28</span>     APP_ID = <span style="color: #800000;">'</span><span style="color: #800000;">********</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">29</span>     API_KEY = <span style="color: #800000;">'</span><span style="color: #800000;">**************</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">30</span>     SECRET_KEY = <span style="color: #800000;">'</span><span style="color: #800000;">******************</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">31</span> 
+<span style="color: #008080;">32</span>     <span style="color: #800000;">"""</span><span style="color: #800000;"> create client </span><span style="color: #800000;">"""</span>
+<span style="color: #008080;">33</span>     client =<span style="color: #000000;"> AipOcr(APP_ID, API_KEY, SECRET_KEY)
+</span><span style="color: #008080;">34</span> 
+<span style="color: #008080;">35</span>     image =<span style="color: #000000;"> get_file_content(filePath)
+</span><span style="color: #008080;">36</span> 
+<span style="color: #008080;">37</span>     <span style="color: #800000;">"""</span><span style="color: #800000;"> 调用车牌识别 </span><span style="color: #800000;">"""</span>
+<span style="color: #008080;">38</span>     res =<span style="color: #000000;"> client.licensePlate(image)
+</span><span style="color: #008080;">39</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> res
+</span><span style="color: #008080;">40</span> 
+<span style="color: #008080;">41</span> 
+<span style="color: #008080;">42</span> <span style="color: #800000;">"""</span><span style="color: #800000;"> call example </span><span style="color: #800000;">"""</span>
+<span style="color: #008080;">43</span> str = <span style="color: #800000;">'</span><span style="color: #800000;">C:\\Users\\***\\Desktop\\big.jpg' """ 照片绝对地址 """</span>
+<span style="color: #008080;">44</span> res =<span style="color: #000000;"> get_license_plate(str)
+</span><span style="color: #008080;">45</span> <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">车牌号码：</span><span style="color: #800000;">'</span> + res[<span style="color: #800000;">'</span><span style="color: #800000;">words_result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">number</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+</span><span style="color: #008080;">46</span> <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">车牌颜色：</span><span style="color: #800000;">'</span> + res[<span style="color: #800000;">'</span><span style="color: #800000;">words_result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">color</span><span style="color: #800000;">'</span>])</pre>
+</div>
+<p><strong>代码分解</strong></p>
+<p>引入库</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> aip <span style="color: #0000ff;">import</span><span style="color: #000000;"> AipOcr """百度云SDK"""
+</span><span style="color: #0000ff;">import</span> json """json库"""</pre>
+</div>
+<p>创建客户端</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #800000;">"""</span><span style="color: #800000;"> APPID AK SK 自己创建的应用中的数据</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+APP_ID </span>= <span style="color: #800000;">'*******</span><span style="color: #800000;">'</span><span style="color: #000000;">
+API_KEY </span>= <span style="color: #800000;">'</span><span style="color: #800000;">***************</span><span style="color: #800000;">'</span><span style="color: #000000;">
+SECRET_KEY </span>= <span style="color: #800000;">'******************</span><span style="color: #800000;">'</span>
+
+<span style="color: #800000;">"""</span><span style="color: #800000;"> create client </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+client </span>= AipOcr(APP_ID, API_KEY, SECRET_KEY)</pre>
+</div>
+<p>调用接口得到车牌识别结果</p>
+<div class="cnblogs_code">
+<pre><code>image =<span style="color: #000000;"> get_file_content(filePath)
+
+</span><span style="color: #800000;">"""</span><span style="color: #800000;"> 调用车牌识别 </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+res </span>= client.licensePlate(image)</pre>
+</div>
+<p>这里的res是一个json对象/一个dict</p>
+<p>例子</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">{
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">log_id</span><span style="color: #800000;">"</span>: 3583925545<span style="color: #000000;">,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">words_result</span><span style="color: #800000;">"</span><span style="color: #000000;">: {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">color</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">blue</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">number</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">苏HS7766</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p>可以使用res['listname']['listname']形式获取字典数据</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">车牌号码：</span><span style="color: #800000;">'</span> + res[<span style="color: #800000;">'</span><span style="color: #800000;">words_result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">number</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">车牌颜色：</span><span style="color: #800000;">'</span> + res[<span style="color: #800000;">'</span><span style="color: #800000;">words_result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">color</span><span style="color: #800000;">'</span>])</pre>
+</div>
+<p><span style="color: #ff0000;"><strong>至此，我们就实现了使用百度云SDK，通过编写python代码调用接口的车牌识别需求。</strong></span></p>
+<p><img src="./images/利用百度云接口实现车牌识别&#183;python8.png" alt="" /></p>
+<h3>参考文档</h3>
+<p>【1】百度云API文档：<a href="https://cloud.baidu.com/doc/OCR/s/pjwvxzmtc/">https://cloud.baidu.com/doc/OCR/s/pjwvxzmtc/</a></p>
+<p>【2】python pip安装与使用：<a href="https://www.runoob.com/w3cnote/python-pip-install-usage.html">https://www.runoob.com/w3cnote/python-pip-install-usage.html</a></p>
+<p>【3】python官网：<a href="https://www.python.org/downloads/release/python-374/">https://www.python.org/downloads/release/python-374/</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

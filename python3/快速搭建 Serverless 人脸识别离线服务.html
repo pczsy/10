@@ -1,0 +1,170 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修快速搭建 Serverless 人脸识别离线服务' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>快速搭建 Serverless 人脸识别离线服务</center></div><div class='banquan'>原文出处:本文由博客园博主阿里巴巴云原生提供。<br/>
+原文连接:https://www.cnblogs.com/alisystemsoftware/p/12083653.html</div><br>
+    <h2 id="简介">简介</h2>
+<p>首先介绍下在本文出现的几个比较重要的概念：</p>
+<p>函数计算（Function Compute）：函数计算是一个事件驱动的服务，通过函数计算，用户无需管理服务器等运行情况，只需编写代码并上传。函数计算准备计算资源，并以弹性伸缩的方式运行用户代码，而用户只需根据实际代码运行所消耗的资源进行付费。函数计算更多信息<a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/">参考</a></p>
+<p>函数工作流（Function Flow）：函数工作流是一个用来协调多个分布式任务执行的全托管云服务。用户可以用顺序，分支，并行等方式来编排分布式任务，FnF 会按照设定好的步骤可靠地协调任务执行，跟踪每个任务的状态转换，并在必要时执行用户定义的重试逻辑，以确保工作流顺利完成。函数工作流更多信息<a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fnf.console.aliyun.com/">参考</a></p>
+<p>本文将重点介绍如何快速地通过函数计算与函数工作流部署一个定时离线批量处理图片文件并标注出人脸的服务。</p>
+<p><strong>开通服务</strong></p>
+<ol>
+<li><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/">免费开通函数计算</a>，按量付费，函数计算有很大的免费额度。</li>
+<li><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fnf.console.aliyun.com/">免费开通函数工作流</a>，按量付费，目前该产品在公测阶段，可以免费使用。</li>
+<li><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://oss.console.aliyun.com/">免费开通对象存储</a>，按量付费。</li>
+</ol>
+<p><strong>解决方案</strong></p>
+<p><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/"><img src="./images/快速搭建 Serverless 人脸识别离线服务0.png" alt="1.png" /></a></p>
+<p>流程如下：</p>
+<ol>
+<li>设定定时触发器，定时触发函数计算中的函数。</li>
+<li>函数被触发后，调用一次函数工作流中的流程。</li>
+<li><p>函数工作流中的流程被执行:</p></li>
+<li>调用函数计算中的函数，列举出 OSS Bucket 根路径下的图片文件列表。</li>
+<li><p>对于步骤1中列出的文件列表，对每个文件：</p></li>
+</ol>
+<pre><code><code>- 调用函数计算中的函数处理，进行人脸识别并标注。将标注后的文件存入 OSS，最后将处理过的文件进行转移。</code></pre>
+<ol>
+<li>判断当前 OSS 根路径下是否有更多的文件</li>
+</ol>
+<pre><code><code>- 如是，继续步骤1
+- 如否，结束流程</code></pre>
+<h2 id="快速开始">快速开始</h2>
+<ol>
+<li>Clone 工程到本地</li>
+</ol>
+<ul>
+<li><code>git clone git@github.com:ChanDaoH/serverless-face-recognition.git</code></li>
+</ul>
+<ol>
+<li>替换项目目录下 template.yml 文件中的 <code>YOUR_BUCKET_NAME</code> 为在杭州区域的 OSS Bucket (可以不是杭州区域的，需要同步修改 <code>OSS_ENDPOINT</code>)</li>
+</ol>
+<pre><code><code>ROSTemplateFormatVersion: &#39;2015-09-01&#39;
+Transform: &#39;Aliyun::Serverless-2018-04-03&#39;
+Resources:
+  face-recognition:
+    Type: &#39;Aliyun::Serverless::Service&#39;
+    Properties:
+      Policies:
+        - Version: &#39;1&#39;
+          Statement:
+            - Effect: Allow
+              Action:
+                - &#39;oss:ListObjects&#39;
+                - &#39;oss:GetObject&#39;
+                - &#39;oss:PutObject&#39;
+                - &#39;oss:DeleteObject&#39;
+                - &#39;fnf:*&#39;
+              Resource: &#39;*&#39;
+    listObjects:
+      Type: &#39;Aliyun::Serverless::Function&#39;
+      Properties:
+        Handler: index.handler
+        Runtime: python3
+        Timeout: 60
+        MemorySize: 128
+        CodeUri: functions/listobjects
+        EnvironmentVariables:
+          OSS_ENDPOINT: &#39;https://oss-cn-hangzhou-internal.aliyuncs.com&#39;
+    detectFaces:
+      Type: &#39;Aliyun::Serverless::Function&#39;
+      Properties:
+        Handler: index.handler
+        Runtime: python3
+        Timeout: 60
+        MemorySize: 512
+        CodeUri: functions/detectfaces
+        EnvironmentVariables:
+          OSS_ENDPOINT: &#39;https://oss-cn-hangzhou-internal.aliyuncs.com&#39;
+    timer:
+      Type: &#39;Aliyun::Serverless::Function&#39;
+      Properties:
+        Handler: index.handler
+        Runtime: python3
+        Timeout: 60
+        MemorySize: 512
+        CodeUri: functions/timer
+      Events:
+        timeTrigger:
+          Type: Timer
+          Properties:
+            CronExpression: &#39;0 * * * * *&#39;
+            Enable: true 
+            # replace YOUR_BUCKET_NAME to your oss bucket name
+            Payload: &#39;{&quot;flowName&quot;: &quot;oss-batch-process&quot;, &quot;input&quot;: &quot;{\&quot;bucket\&quot;: \&quot;YOUR_BUCKET_NAME\&quot;,\&quot;prefix\&quot;:\&quot;\&quot;}&quot;}&#39;
+  oss-batch-process:
+    Type: &#39;Aliyun::Serverless::Flow&#39;
+    Properties:
+      Description: batch process flow
+      DefinitionUri: flows/index.flow.yml
+      Policies:
+        - AliyunFCInvocationAccess</code></pre>
+<ol>
+<li>一键部署函数计算和函数工作流资源至云端</li>
+</ol>
+<ul>
+<li>安装最新版本的 <a href="https://github.com/alibaba/funcraft">Fun</a></li>
+<li>在项目根目录下执行 <code>fun deploy</code></li>
+</ul>
+<p><a name="411f3e4b"></a></p>
+<h2 id="效果验证">效果验证</h2>
+<ol>
+<li>在 OSS Bucket 的根目录下放置图片</li>
+</ol>
+<p><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/"><img src="./images/快速搭建 Serverless 人脸识别离线服务1.png" alt="2.png" /></a></p>
+<ol>
+<li>等待一分钟后，定时触发器触发函数执行函数工作流。</li>
+</ol>
+<p><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/"><img src="./images/快速搭建 Serverless 人脸识别离线服务2.png" alt="3.png" /></a></p>
+<ol>
+<li>工作流执行完成后，查看 OSS Bucket</li>
+</ol>
+<ul>
+<li>标注出人脸的图像放置在 <code>face-detection</code> 目录下</li>
+</ul>
+<p><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/"><img src="./images/快速搭建 Serverless 人脸识别离线服务3.png" alt="4.png" /></a></p>
+<ul>
+<li>处理过的录像放置在 <code>processed</code> 目录下</li>
+</ul>
+<p><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/"><img src="./images/快速搭建 Serverless 人脸识别离线服务4.png" alt="5.gif" /></a></p>
+<p><a name="25f9c7fa"></a></p>
+<h2 id="总结">总结</h2>
+<p>通过 <a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/">函数计算</a> + <a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fnf.console.aliyun.com/">函数工作流</a>，搭建了一个定时批量处理图片进行人脸识别的服务。该服务因为使用了函数工作流的流程，将任务分为了多个步骤，只需要确保每个步骤的函数能够在函数计算限制时间(10分钟)内完成即可。<br />
+通过 <a href="https://github.com/alibaba/funcraft">Fun</a> 工具，一键部署 <a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/">函数计算</a> + <a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fnf.console.aliyun.com/">函数工作流</a>，免去去多平台进行操作的步骤。</p>
+<p><strong>相关参考</strong></p>
+<ol>
+<li><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fc.console.aliyun.com/">函数计算</a></li>
+<li><a href="https://statistics.functioncompute.com/?title=%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAServerless%E4%BA%BA%E8%84%B8%E8%AF%86%E5%88%AB%E7%A6%BB%E7%BA%BF%E6%9C%8D%E5%8A%A1&amp;src=article&amp;author=zechen&amp;url=https://fnf.console.aliyun.com/">函数工作流</a></li>
+<li><a href="https://github.com/alibaba/serverless-vscode/">Aliyun Serverless VSCode 插件</a></li>
+<li><a href="https://github.com/alibaba/funcraft">Fun</a></li>
+</ol>
+<p><strong>参考示例</strong></p>
+<ol>
+<li><a href="https://github.com/ChanDaoH/serverless-face-recognition">serverless-face-recognition</a></li>
+<li><a href="https://github.com/awesome-fnf/oss-batch-process">oss-batch-process</a></li>
+</ol>
+<blockquote>
+<p>“<a href="https://developer.aliyun.com/group/alisoftwaretech/">阿里巴巴云原生</a>关注微服务、Serverless、容器、Service Mesh 等技术领域、聚焦云原生流行技术趋势、云原生大规模的落地实践，做最懂云原生开发者的技术圈。”</p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,172 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python连载41-yield from详解、委派生成器' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python连载41-yield from详解、委派生成器</center></div><div class='banquan'>原文出处:本文由博客园博主心悦君兮君不知-睿提供。<br/>
+原文连接:https://www.cnblogs.com/ruigege0000/p/11657891.html</div><br>
+    <p>一、</p>
+<p>1.yield from</p>
+<p>（1）调用协程为了得到返回值，协程必须正常终止</p>
+<p>（2）生成器正常终止会发出StopIteration异常，异常对象的value属性保存返回值。</p>
+<p>（3）yield from从内部捕获StopIteration异常<img src="./images/Python连载41-yield from详解、委派生成器0.png" alt="" /></p>
+<p>我们举个例子</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> gen():
+
+    </span><span style="color: #0000ff;">for</span> c <span style="color: #0000ff;">in</span> <span style="color: #800000;">"</span><span style="color: #800000;">AB</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+        </span><span style="color: #0000ff;">yield</span><span style="color: #000000;"> c
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">list直接用生成器作为参数</span>
+
+<span style="color: #0000ff;">print</span><span style="color: #000000;">(list(gen()))
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> gen_new():
+
+    </span><span style="color: #0000ff;">yield</span> <span style="color: #0000ff;">from</span> <span style="color: #800000;">"</span><span style="color: #800000;">AB</span><span style="color: #800000;">"</span>
+
+<span style="color: #0000ff;">print</span>(list(gen_new())</pre>
+</div>
+<p>&nbsp;</p>
+<p>解释：我们从中可以看出，两个函数最后返回的结果是一致的，可以用下面的图片来解释它们的运行过程，第二个函数增加了一个管道层，使得这个函数更加灵活；第一个函数中，list向迭代器逐一要值，然后一起输出出来；第二个函数，向管道要值，然后管道收集到所有的迭代数，然后再一并返回给list函数</p>
+<p><img src="./images/Python连载41-yield from详解、委派生成器1.png" alt="" /></p>
+<p>2.委派生成器</p>
+<p>（1）包含yield from表达式的生成器函数</p>
+<p>（2）委派生成器在yield from表达式暂停，调用方可以直接把数据发给自生成器</p>
+<p>（3）子生成器再把产出的值发给调用方</p>
+<p>（4）子生成器在最后，解释器会抛出StopIteration，并且把返回值附加到异常对象上</p>
+<p>举个例子：</p>
+<div class="cnblogs_code">
+<pre><code> 
+
+<span style="color: #0000ff;">from</span> collections <span style="color: #0000ff;">import</span><span style="color: #000000;"> namedtuple
+
+ResClass </span>= namedtuple(<span style="color: #800000;">"</span><span style="color: #800000;">Res</span><span style="color: #800000;">"</span>,<span style="color: #800000;">"</span><span style="color: #800000;">count average</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">子生成器</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> average():
+
+    total </span>= 0.0<span style="color: #000000;">
+
+    count </span>=<span style="color: #000000;"> 0
+
+    average </span>=<span style="color: #000000;"> None
+
+​
+
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+
+        term </span>= <span style="color: #0000ff;">yield</span>
+
+        <span style="color: #008000;">#</span><span style="color: #008000;">None是哨兵值</span>
+
+        <span style="color: #0000ff;">if</span> term <span style="color: #0000ff;">is</span><span style="color: #000000;"> None:
+
+            </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+
+        total </span>+=<span style="color: #000000;"> term
+
+        count </span>+= 1<span style="color: #000000;">
+
+        average </span>= total/<span style="color: #000000;">count
+
+​
+
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> ResClass(count,average)
+
+​
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">委派生成器</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> grouper(storages,key):
+
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">获取averager()返回的值</span>
+<span style="color: #000000;">
+        storages[key] </span>= <span style="color: #0000ff;">yield</span> <span style="color: #0000ff;">from</span><span style="color: #000000;"> average()
+
+​
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">客户端代码</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> abc():
+
+    process_data </span>=<span style="color: #000000;"> {
+
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">boys_2</span><span style="color: #800000;">"</span>:[39.0,40.8,43.2,43.1,38.6,41.4,40.6,36.3<span style="color: #000000;">],
+
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">boys_1</span><span style="color: #800000;">"</span>:[1.38,1.5,1.32,1.25,1.37,1.48,1.25,1.49,1.46<span style="color: #000000;">]
+
+    }
+
+    storages </span>=<span style="color: #000000;"> {}
+
+    </span><span style="color: #0000ff;">for</span> k,v <span style="color: #0000ff;">in</span><span style="color: #000000;"> process_data.items():
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">获取协程</span>
+<span style="color: #000000;">
+        coroutine </span>=<span style="color: #000000;"> grouper(storages,k)
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">预激协程</span>
+<span style="color: #000000;">
+        next(coroutine)
+
+​
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">发送数据到协程</span>
+
+        <span style="color: #0000ff;">for</span> dt <span style="color: #0000ff;">in</span><span style="color: #000000;"> v:
+
+            coroutine.send(dt)
+
+​
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">终止协程</span>
+<span style="color: #000000;">
+        coroutine.send(None)
+
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(storages)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">run</span>
+
+<span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    abc()</span></pre>
+</div>
+<p><img src="./images/Python连载41-yield from详解、委派生成器2.png" alt="" /></p>
+<p>#解释：</p>
+<p>#1.外层for循环每次迭代会新建一个grouper实例，赋值给coroutine变量；grouper是委派生成器生成</p>
+<p>#2.调用next(coroutine),预激委派生成器grouper，此时进入while True循环，调用子生成器average</p>
+<p>#3.内层for循环调用coroutine.send(value),直接把值传给子生成器average，同时，当前的grouper</p>
+<p>#4.内层循环结束后，grouper实例依旧在yield from表达式处暂停，因此，grouper函数定义体中</p>
+<p>#5.coroutine.send(None)终止averager子生成器，子生成器抛出StopIteration异常并将返回数组</p>
+<p>二、源码</p>
+<p>d27_4_yield_from_and_delegate_generator.py​</p>
+<p>https://github.com/ruigege66/Python_learning/blob/master/d27_4_yield_from_and_delegate_generator.py</p>
+<p>2.CSDN：https://blog.csdn.net/weixin_44630050（心悦君兮君不知-睿）</p>
+<p>3.博客园：https://www.cnblogs.com/ruigege0000/</p>
+<p>4.欢迎关注微信公众号：傅里叶变换，个人公众号，仅用于学习交流，后台回复&rdquo;礼包&ldquo;，获取大数据学习资料</p>
+<p>&nbsp;<img src="./images/Python连载41-yield from详解、委派生成器3.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

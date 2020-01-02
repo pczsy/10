@@ -1,0 +1,604 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修MySQL-单表查询' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>MySQL-单表查询</center></div><div class='banquan'>原文出处:本文由博客园博主626提供。<br/>
+原文连接:https://www.cnblogs.com/fengqiang626/p/11408709.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#单表查询的语法">1.单表查询的语法</a></li>
+        <li><a href="#关键字的执行优先级重点">2.关键字的执行优先级(重点)</a></li>
+        <li><a href="#简单查询">3.简单查询</a></li>
+        <li><a href="#where约束">4.WHERE约束</a></li>
+        <li><a href="#分组查询group-by">5.分组查询:GROUP BY</a><ul>
+        <li><a href="#什么是分组为什么要分组">5.1什么是分组？为什么要分组？</a></li>
+        <li><a href="#only_full_group_by">5.2ONLY_FULL_GROUP_BY</a></li>
+        <li><a href="#sql_mode设置">5.3！！！SQL_MODE设置！！！</a></li>
+        <li><a href="#group-byv">5.4GROUP BYv</a></li>
+        <li><a href="#聚合函数">5.5聚合函数</a></li>
+        <li><a href="#小练习">5.6小练习:</a></li>
+        </ul></li>
+        <li><a href="#having过滤">6.HAVING过滤</a></li>
+        <li><a href="#查询排序order-by">7.查询排序:ORDER BY</a></li>
+        <li><a href="#限制查询的记录数limit">8.限制查询的记录数:LIMIT</a></li>
+        <li><a href="#使用正则表达式查询">9.使用正则表达式查询</a></li>
+        </ul>
+    </div>
+</div>
+<h2 id="单表查询的语法">1.单表查询的语法</h2>
+<pre><code><code>SELECT 字段1,字段2... FROM 表名
+                  WHERE 条件
+                  GROUP BY field
+                  HAVING 筛选
+                  ORDER BY field
+                  LIMIT 限制条数</code></pre>
+<h2 id="关键字的执行优先级重点">2.关键字的执行优先级(重点)</h2>
+<pre><code><code>重点中的重点：关键字的执行优先级
+from
+where
+group by
+having
+select
+distinct
+order by
+limit</code></pre>
+<p><strong>1.找到表:from</strong></p>
+<p><strong>2.拿着where指定的约束条件，去文件/表中取出一条条记录</strong></p>
+<p><strong>3.将取出的一条条记录进行分组group by，如果没有group by，则整体作为一组</strong></p>
+<p><strong>4.将分组的结果进行having过滤</strong></p>
+<p><strong>5.执行select</strong></p>
+<p><strong>6.去重</strong></p>
+<p><strong>7.将结果按条件排序：order by</strong></p>
+<p><strong>8.限制结果的显示条数</strong></p>
+<h2 id="简单查询">3.简单查询</h2>
+<pre><code><code>company.employee
+    员工id      id                  int             
+    姓名        emp_name            varchar
+    性别        sex                 enum
+    年龄        age                 int
+    入职日期     hire_date           date
+    岗位        post                varchar
+    职位描述     post_comment        varchar
+    薪水        salary              double
+    办公室       office              int
+    部门编号     depart_id           int
+
+
+
+# 创建表
+create table employee(
+id int not null unique auto_increment,
+name varchar(20) not null,
+sex enum(&#39;male&#39;,&#39;female&#39;) not null default &#39;male&#39;, #大部分是男的
+age int(3) unsigned not null default 28,
+hire_date date not null,
+post varchar(50),
+post_comment varchar(100),
+salary double(15,2),
+office int, #一个部门一个屋子
+depart_id int
+);
+
+
+# 查看表结构
+mysql&gt; desc employee;
++--------------+-----------------------+------+-----+---------+----------------+
+| Field        | Type                  | Null | Key | Default | Extra          |
++--------------+-----------------------+------+-----+---------+----------------+
+| id           | int(11)               | NO   | PRI | NULL    | auto_increment |
+| name         | varchar(20)           | NO   |     | NULL    |                |
+| sex          | enum(&#39;male&#39;,&#39;female&#39;) | NO   |     | male    |                |
+| age          | int(3) unsigned       | NO   |     | 28      |                |
+| hire_date    | date                  | NO   |     | NULL    |                |
+| post         | varchar(50)           | YES  |     | NULL    |                |
+| post_comment | varchar(100)          | YES  |     | NULL    |                |
+| salary       | double(15,2)          | YES  |     | NULL    |                |
+| office       | int(11)               | YES  |     | NULL    |                |
+| depart_id    | int(11)               | YES  |     | NULL    |                |
++--------------+-----------------------+------+-----+---------+----------------+
+
+# 插入记录
+# 三个部门：教学，销售，运营
+insert into employee(name,sex,age,hire_date,post,salary,office,depart_id) values
+(&#39;egon&#39;,&#39;male&#39;,18,&#39;20170301&#39;,&#39;老男孩驻沙河办事处外交大使&#39;,7300.33,401,1), #以下是教学部
+(&#39;alex&#39;,&#39;male&#39;,78,&#39;20150302&#39;,&#39;teacher&#39;,1000000.31,401,1),
+(&#39;wupeiqi&#39;,&#39;male&#39;,81,&#39;20130305&#39;,&#39;teacher&#39;,8300,401,1),
+(&#39;yuanhao&#39;,&#39;male&#39;,73,&#39;20140701&#39;,&#39;teacher&#39;,3500,401,1),
+(&#39;liwenzhou&#39;,&#39;male&#39;,28,&#39;20121101&#39;,&#39;teacher&#39;,2100,401,1),
+(&#39;jingliyang&#39;,&#39;female&#39;,18,&#39;20110211&#39;,&#39;teacher&#39;,9000,401,1),
+(&#39;jinxin&#39;,&#39;male&#39;,18,&#39;19000301&#39;,&#39;teacher&#39;,30000,401,1),
+(&#39;成龙&#39;,&#39;male&#39;,48,&#39;20101111&#39;,&#39;teacher&#39;,10000,401,1),
+
+(&#39;歪歪&#39;,&#39;female&#39;,48,&#39;20150311&#39;,&#39;sale&#39;,3000.13,402,2),#以下是销售部门
+(&#39;丫丫&#39;,&#39;female&#39;,38,&#39;20101101&#39;,&#39;sale&#39;,2000.35,402,2),
+(&#39;丁丁&#39;,&#39;female&#39;,18,&#39;20110312&#39;,&#39;sale&#39;,1000.37,402,2),
+(&#39;星星&#39;,&#39;female&#39;,18,&#39;20160513&#39;,&#39;sale&#39;,3000.29,402,2),
+(&#39;格格&#39;,&#39;female&#39;,28,&#39;20170127&#39;,&#39;sale&#39;,4000.33,402,2),
+
+(&#39;张野&#39;,&#39;male&#39;,28,&#39;20160311&#39;,&#39;operation&#39;,10000.13,403,3), #以下是运营部门
+(&#39;程咬金&#39;,&#39;male&#39;,18,&#39;19970312&#39;,&#39;operation&#39;,20000,403,3),
+(&#39;程咬银&#39;,&#39;female&#39;,18,&#39;20130311&#39;,&#39;operation&#39;,19000,403,3),
+(&#39;程咬铜&#39;,&#39;male&#39;,18,&#39;20150411&#39;,&#39;operation&#39;,18000,403,3),
+(&#39;程咬铁&#39;,&#39;female&#39;,18,&#39;20140512&#39;,&#39;operation&#39;,17000,403,3)
+;
+
+# ps：如果在windows系统中，插入中文字符，select的结果为空白，可以将所有字符编码统一设置成gbk</code></pre>
+<p><strong>准备表和记录</strong></p>
+<pre><code><code># 简单查询
+    SELECT id,name,sex,age,hire_date,post,post_comment,salary,office,depart_id 
+    FROM employee;
+
+    SELECT * FROM employee;
+
+    SELECT name,salary FROM employee;
+
+# 避免重复DISTINCT
+    SELECT DISTINCT post FROM employee;    
+
+# 通过四则运算查询
+    SELECT name, salary*12 FROM employee;
+    SELECT name, salary*12 AS Annual_salary FROM employee;
+    SELECT name, salary*12 Annual_salary FROM employee;
+
+# 定义显示格式
+   CONCAT() 函数用于连接字符串
+   SELECT CONCAT(&#39;姓名: &#39;,name,&#39;  年薪: &#39;, salary*12)  AS Annual_salary 
+   FROM employee;
+   
+   CONCAT_WS() 第一个参数为分隔符
+   SELECT CONCAT_WS(&#39;:&#39;,name,salary*12)  AS Annual_salary 
+   FROM employee;
+
+   结合CASE语句：
+   SELECT
+       (
+           CASE
+           WHEN NAME = &#39;egon&#39; THEN
+               NAME
+           WHEN NAME = &#39;alex&#39; THEN
+               CONCAT(name,&#39;_BIGSB&#39;)
+           ELSE
+               concat(NAME, &#39;SB&#39;)
+           END
+       ) as new_name
+   FROM
+       emp;</code></pre>
+<p><strong>小练习：</strong></p>
+<pre><code><code>1 查出所有员工的名字，薪资,格式为
+    &lt;名字:egon&gt;    &lt;薪资:3000&gt;
+2 查出所有的岗位（去掉重复）
+3 查出所有员工名字，以及他们的年薪,年薪的字段名为annual_year</code></pre>
+<pre><code><code>select concat(&#39;&lt;名字:&#39;,name,&#39;&gt;    &#39;,&#39;&lt;薪资:&#39;,salary,&#39;&gt;&#39;) from employee;
+select distinct depart_id from employee;
+select name,salary*12 annual_salary from employee;</code></pre>
+<h2 id="where约束">4.WHERE约束</h2>
+<p><strong>where字句中可以使用：</strong></p>
+<p>1.比较运算符：&gt; &lt; &gt;= &lt;= &lt;&gt; !=</p>
+<ol>
+<li>between 80 and 100 值在10到20之间</li>
+<li>in(80,90,100) 值是10或20或30<br />
+4.like 'egon%'<br />
+pattern可以是%或_，<br />
+%表示任意多字符<br />
+_表示一个字符<br />
+5.逻辑运算符：在多个条件直接可以使用逻辑运算符 and or not</li>
+</ol>
+<pre><code><code># 1:单条件查询
+    SELECT name FROM employee
+        WHERE post=&#39;sale&#39;;
+        
+# 2:多条件查询
+    SELECT name,salary FROM employee
+        WHERE post=&#39;teacher&#39; AND salary&gt;10000;
+
+# 3:关键字BETWEEN AND
+    SELECT name,salary FROM employee 
+        WHERE salary BETWEEN 10000 AND 20000;
+
+    SELECT name,salary FROM employee 
+        WHERE salary NOT BETWEEN 10000 AND 20000;
+    
+# 4:关键字IS NULL(判断某个字段是否为NULL不能用等号，需要用IS)
+    SELECT name,post_comment FROM employee 
+        WHERE post_comment IS NULL;
+
+    SELECT name,post_comment FROM employee 
+        WHERE post_comment IS NOT NULL;
+        
+    SELECT name,post_comment FROM employee 
+        WHERE post_comment=&#39;&#39;; 注意&#39;&#39;是空字符串，不是null
+    ps：
+        执行
+        update employee set post_comment=&#39;&#39; where id=2;
+        再用上条查看，就会有结果了
+
+# 5:关键字IN集合查询
+    SELECT name,salary FROM employee 
+        WHERE salary=3000 OR salary=3500 OR salary=4000 OR salary=9000 ;
+    
+    SELECT name,salary FROM employee 
+        WHERE salary IN (3000,3500,4000,9000) ;
+
+    SELECT name,salary FROM employee 
+        WHERE salary NOT IN (3000,3500,4000,9000) ;
+
+# 6:关键字LIKE模糊查询
+    通配符’%’
+    SELECT * FROM employee 
+            WHERE name LIKE &#39;eg%&#39;;
+
+    通配符’_’
+    SELECT * FROM employee 
+            WHERE name LIKE &#39;al__&#39;;</code></pre>
+<p><strong>小练习：</strong></p>
+<pre><code><code>1. 查看岗位是teacher的员工姓名、年龄
+2. 查看岗位是teacher且年龄大于30岁的员工姓名、年龄
+3. 查看岗位是teacher且薪资在9000-1000范围内的员工姓名、年龄、薪资
+4. 查看岗位描述不为NULL的员工信息
+5. 查看岗位是teacher且薪资是10000或9000或30000的员工姓名、年龄、薪资
+6. 查看岗位是teacher且薪资不是10000或9000或30000的员工姓名、年龄、薪资
+7. 查看岗位是teacher且名字是jin开头的员工姓名、年薪</code></pre>
+<pre><code><code>select name,age from employee where post = &#39;teacher&#39;;
+select name,age from employee where post=&#39;teacher&#39; and age &gt; 30; 
+select name,age,salary from employee where post=&#39;teacher&#39; and salary between 9000 and 10000;
+select * from employee where post_comment is not null;
+select name,age,salary from employee where post=&#39;teacher&#39; and salary in (10000,9000,30000);
+select name,age,salary from employee where post=&#39;teacher&#39; and salary not in (10000,9000,30000);
+select name,salary*12 from employee where post=&#39;teacher&#39; and name like &#39;jin%&#39;;</code></pre>
+<h2 id="分组查询group-by">5.分组查询:GROUP BY</h2>
+<h3 id="什么是分组为什么要分组">5.1什么是分组？为什么要分组？</h3>
+<pre><code><code># 1、首先明确一点：分组发生在where之后，即分组是基于where之后得到的记录而进行的
+
+# 2、分组指的是：将所有记录按照某个相同字段进行归类，比如针对员工信息表的职位分组，或者按照性别进行分组等
+
+# 3、为何要分组呢？
+    取每个部门的最高工资
+    取每个部门的员工数
+    取男人数和女人数
+
+小窍门：‘每’这个字后面的字段，就是我们分组的依据
+
+
+# 4、大前提：
+    可以按照任意字段分组，但是分组完毕后，比如group by post，只能查看post字段，如果想查看组内信息，需要借助于聚合函数</code></pre>
+<h3 id="only_full_group_by">5.2ONLY_FULL_GROUP_BY</h3>
+<pre><code><code>#查看MySQL 5.7默认的sql_mode如下：
+mysql&gt; select @@global.sql_mode;
+ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
+
+#！！！注意
+ONLY_FULL_GROUP_BY的语义就是确定select target list中的所有列的值都是明确语义，简单的说来，在ONLY_FULL_GROUP_BY模式下，target list中的值要么是来自于聚集函数的结果，要么是来自于group by list中的表达式的值。
+
+
+#设置sql_mole如下操作(我们可以去掉ONLY_FULL_GROUP_BY模式)：
+mysql&gt; set global sql_mode=&#39;STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION&#39;;</code></pre>
+<h3 id="sql_mode设置">5.3！！！SQL_MODE设置！！！</h3>
+<pre><code><code>mysql&gt; select @@global.sql_mode;
++-------------------+
+| @@global.sql_mode |
++-------------------+
+|                   |
++-------------------+
+1 row in set (0.00 sec)
+
+mysql&gt; select * from emp group by post; 
++----+------+--------+-----+------------+----------------------------+--------------+------------+--------+-----------+
+| id | name | sex    | age | hire_date  | post                       | post_comment | salary     | office | depart_id |
++----+------+--------+-----+------------+----------------------------+--------------+------------+--------+-----------+
+| 14 | 张野 | male   |  28 | 2016-03-11 | operation                  | NULL         |   10000.13 |    403 |         3 |
+|  9 | 歪歪 | female |  48 | 2015-03-11 | sale                       | NULL         |    3000.13 |    402 |         2 |
+|  2 | alex | male   |  78 | 2015-03-02 | teacher                    | NULL         | 1000000.31 |    401 |         1 |
+|  1 | egon | male   |  18 | 2017-03-01 | 老男孩驻沙河办事处外交大使 | NULL         |    7300.33 |    401 |         1 |
++----+------+--------+-----+------------+----------------------------+--------------+------------+--------+-----------+
+4 rows in set (0.00 sec)
+
+
+#由于没有设置ONLY_FULL_GROUP_BY,于是也可以有结果，默认都是组内的第一条记录，但其实这是没有意义的
+
+mysql&gt; set global sql_mode=&#39;ONLY_FULL_GROUP_BY&#39;;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql&gt; quit #设置成功后，一定要退出，然后重新登录方可生效
+Bye
+
+mysql&gt; use db1;
+Database changed
+mysql&gt; select * from emp group by post; #报错
+ERROR 1055 (42000): &#39;db1.emp.id&#39; isn&#39;t in GROUP BY
+mysql&gt; select post,count(id) from emp group by post; #只能查看分组依据和使用聚合函数
++----------------------------+-----------+
+| post                       | count(id) |
++----------------------------+-----------+
+| operation                  |         5 |
+| sale                       |         5 |
+| teacher                    |         7 |
+| 老男孩驻沙河办事处外交大使 |         1 |
++----------------------------+-----------+
+4 rows in set (0.00 sec)</code></pre>
+<h3 id="group-byv">5.4GROUP BYv</h3>
+<pre><code><code>单独使用GROUP BY关键字分组
+    SELECT post FROM employee GROUP BY post;
+    注意：我们按照post字段分组，那么select查询的字段只能是post，想要获取组内的其他相关信息，需要借助函数
+
+GROUP BY关键字和GROUP_CONCAT()函数一起使用
+    SELECT post,GROUP_CONCAT(name) FROM employee GROUP BY post;#按照岗位分组，并查看组内成员名
+    SELECT post,GROUP_CONCAT(name) as emp_members FROM employee GROUP BY post;
+
+GROUP BY与聚合函数一起使用
+    select post,count(id) as count from employee group by post;#按照岗位分组，并查看每个组有多少人</code></pre>
+<p><strong>强调：</strong></p>
+<pre><code><code>如果我们用unique的字段作为分组的依据，则每一条记录自成一组，这种分组没有意义
+多条记录之间的某个字段值相同，该字段通常用来作为分组的依据</code></pre>
+<h3 id="聚合函数">5.5聚合函数</h3>
+<pre><code><code># 强调：聚合函数聚合的是组的内容，若是没有分组，则默认一组
+
+示例：
+    SELECT COUNT(*) FROM employee;
+    SELECT COUNT(*) FROM employee WHERE depart_id=1;
+    SELECT MAX(salary) FROM employee;
+    SELECT MIN(salary) FROM employee;
+    SELECT AVG(salary) FROM employee;
+    SELECT SUM(salary) FROM employee;
+    SELECT SUM(salary) FROM employee WHERE depart_id=3;</code></pre>
+<h3 id="小练习">5.6小练习:</h3>
+<pre><code><code>1. 查询岗位名以及岗位包含的所有员工名字
+2. 查询岗位名以及各岗位内包含的员工个数
+3. 查询公司内男员工和女员工的个数
+4. 查询岗位名以及各岗位的平均薪资
+5. 查询岗位名以及各岗位的最高薪资
+6. 查询岗位名以及各岗位的最低薪资
+7. 查询男员工与男员工的平均薪资，女员工与女员工的平均薪资</code></pre>
+<pre><code><code># 题1：分组
+mysql&gt; select post,group_concat(name) from employee group by post;
++-----------------------------------------+---------------------------------------------------------+
+| post                                    | group_concat(name)                                      |
++-----------------------------------------+---------------------------------------------------------+
+| operation                               | 张野,程咬金,程咬银,程咬铜,程咬铁                        |
+| sale                                    | 歪歪,丫丫,丁丁,星星,格格                                |
+| teacher                                 | alex,wupeiqi,yuanhao,liwenzhou,jingliyang,jinxin,成龙   |
+| 老男孩驻沙河办事处外交大使              | egon                                                    |
++-----------------------------------------+---------------------------------------------------------+
+
+
+# 题目2：
+mysql&gt; select post,count(id) from employee group by post;
++-----------------------------------------+-----------+
+| post                                    | count(id) |
++-----------------------------------------+-----------+
+| operation                               |         5 |
+| sale                                    |         5 |
+| teacher                                 |         7 |
+| 老男孩驻沙河办事处外交大使              |         1 |
++-----------------------------------------+-----------+
+
+
+# 题目3：
+mysql&gt; select sex,count(id) from employee group by sex;
++--------+-----------+
+| sex    | count(id) |
++--------+-----------+
+| male   |        10 |
+| female |         8 |
++--------+-----------+
+
+# 题目4：
+mysql&gt; select post,avg(salary) from employee group by post;
++-----------------------------------------+---------------+
+| post                                    | avg(salary)   |
++-----------------------------------------+---------------+
+| operation                               |  16800.026000 |
+| sale                                    |   2600.294000 |
+| teacher                                 | 151842.901429 |
+| 老男孩驻沙河办事处外交大使              |   7300.330000 |
++-----------------------------------------+---------------+
+
+# 题目5
+mysql&gt; select post,max(salary) from employee group by post;
++-----------------------------------------+-------------+
+| post                                    | max(salary) |
++-----------------------------------------+-------------+
+| operation                               |    20000.00 |
+| sale                                    |     4000.33 |
+| teacher                                 |  1000000.31 |
+| 老男孩驻沙河办事处外交大使              |     7300.33 |
++-----------------------------------------+-------------+
+
+# 题目6
+mysql&gt; select post,min(salary) from employee group by post;
++-----------------------------------------+-------------+
+| post                                    | min(salary) |
++-----------------------------------------+-------------+
+| operation                               |    10000.13 |
+| sale                                    |     1000.37 |
+| teacher                                 |     2100.00 |
+| 老男孩驻沙河办事处外交大使              |     7300.33 |
++-----------------------------------------+-------------+
+
+# 题目七
+mysql&gt; select sex,avg(salary) from employee group by sex;
++--------+---------------+
+| sex    | avg(salary)   |
++--------+---------------+
+| male   | 110920.077000 |
+| female |   7250.183750 |
++--------+---------------+</code></pre>
+<h2 id="having过滤">6.HAVING过滤</h2>
+<p><strong>HAVING与WHERE不一样的地方在于!!!!!!</strong></p>
+<pre><code><code># ！！！执行优先级从高到低：where &gt; group by &gt; having 
+# 1. Where 发生在分组group by之前，因而Where中可以有任意字段，但是绝对不能使用聚合函数。
+
+# 2. Having发生在分组group by之后，因而Having中可以使用分组的字段，无法直接取到其他字段,可以使用聚合函数</code></pre>
+<pre><code><code>mysql&gt; select @@sql_mode;
++--------------------+
+| @@sql_mode         |
++--------------------+
+| ONLY_FULL_GROUP_BY |
++--------------------+
+1 row in set (0.00 sec)
+
+mysql&gt; select * from emp where salary &gt; 100000;
++----+------+------+-----+------------+---------+--------------+------------+--------+-----------+
+| id | name | sex  | age | hire_date  | post    | post_comment | salary     | office | depart_id |
++----+------+------+-----+------------+---------+--------------+------------+--------+-----------+
+|  2 | alex | male |  78 | 2015-03-02 | teacher | NULL         | 1000000.31 |    401 |         1 |
++----+------+------+-----+------------+---------+--------------+------------+--------+-----------+
+1 row in set (0.00 sec)
+
+mysql&gt; select * from emp having salary &gt; 100000;
+ERROR 1463 (42000): Non-grouping field &#39;salary&#39; is used in HAVING clause
+
+mysql&gt; select post,group_concat(name) from emp group by post having salary &gt; 10000;#错误，分组后无法直接取到salary字段
+ERROR 1054 (42S22): Unknown column &#39;salary&#39; in &#39;having clause&#39;
+mysql&gt; select post,group_concat(name) from emp group by post having avg(salary) &gt; 10000;
++-----------+-------------------------------------------------------+
+| post | group_concat(name) |
++-----------+-------------------------------------------------------+
+| operation | 程咬铁,程咬铜,程咬银,程咬金,张野 |
+| teacher | 成龙,jinxin,jingliyang,liwenzhou,yuanhao,wupeiqi,alex |
++-----------+-------------------------------------------------------+
+2 rows in set (0.00 sec)[![复制代码](https:////common.cnblogs.com/images/copycode.gif)](javascript:void(0);</code></pre>
+<p><strong>小练习：</strong></p>
+<pre><code><code>1. 查询各岗位内包含的员工个数小于2的岗位名、岗位内包含员工名字、个数
+3. 查询各岗位平均薪资大于10000的岗位名、平均工资
+4. 查询各岗位平均薪资大于10000且小于20000的岗位名、平均工资</code></pre>
+<pre><code><code># 题1：
+mysql&gt; select post,group_concat(name),count(id) from employee group by post having count(id) &lt; 2;
++-----------------------------------------+--------------------+-----------+
+| post                                    | group_concat(name) | count(id) |
++-----------------------------------------+--------------------+-----------+
+| 老男孩驻沙河办事处外交大使              | egon               |         1 |
++-----------------------------------------+--------------------+-----------+
+
+# 题目2：
+mysql&gt; select post,avg(salary) from employee group by post having avg(salary) &gt; 10000;
++-----------+---------------+
+| post      | avg(salary)   |
++-----------+---------------+
+| operation |  16800.026000 |
+| teacher   | 151842.901429 |
++-----------+---------------+
+
+# 题目3：
+mysql&gt; select post,avg(salary) from employee group by post having avg(salary) &gt; 10000 and avg(salary) &lt;20000;
++-----------+--------------+
+| post      | avg(salary)  |
++-----------+--------------+
+| operation | 16800.026000 |
++-----------+--------------+</code></pre>
+<h2 id="查询排序order-by">7.查询排序:ORDER BY</h2>
+<pre><code><code>按单列排序
+    SELECT * FROM employee ORDER BY salary;
+    SELECT * FROM employee ORDER BY salary ASC;
+    SELECT * FROM employee ORDER BY salary DESC;
+
+按多列排序:先按照age排序，如果年纪相同，则按照薪资排序
+    SELECT * from employee
+        ORDER BY age,
+        salary DESC;</code></pre>
+<p><strong>小练习：</strong></p>
+<pre><code><code>1. 查询所有员工信息，先按照age升序排序，如果age相同则按照hire_date降序排序
+2. 查询各岗位平均薪资大于10000的岗位名、平均工资,结果按平均薪资升序排列
+3. 查询各岗位平均薪资大于10000的岗位名、平均工资,结果按平均薪资降序排列</code></pre>
+<pre><code><code># 题目1
+mysql&gt; select * from employee ORDER BY age asc,hire_date desc;
+
+# 题目2
+mysql&gt; select post,avg(salary) from employee group by post having avg(salary) &gt; 10000 order by avg(salary) asc;
++-----------+---------------+
+| post      | avg(salary)   |
++-----------+---------------+
+| operation |  16800.026000 |
+| teacher   | 151842.901429 |
++-----------+---------------+
+
+# 题目3
+mysql&gt; select post,avg(salary) from employee group by post having avg(salary) &gt; 10000 order by avg(salary) desc;
++-----------+---------------+
+| post      | avg(salary)   |
++-----------+---------------+
+| teacher   | 151842.901429 |
+| operation |  16800.026000 |
++-----------+---------------+</code></pre>
+<h2 id="限制查询的记录数limit">8.限制查询的记录数:LIMIT</h2>
+<pre><code><code>示例：
+    SELECT * FROM employee ORDER BY salary DESC 
+        LIMIT 3;                    #默认初始位置为0 
+    
+    SELECT * FROM employee ORDER BY salary DESC
+        LIMIT 0,5; #从第0开始，即先查询出第一条，然后包含这一条在内往后查5条
+
+    SELECT * FROM employee ORDER BY salary DESC
+        LIMIT 5,5; #从第5开始，即先查询出第6条，然后包含这一条在内往后查5条</code></pre>
+<p><strong>小练习：</strong></p>
+<pre><code><code>1. 分页显示，每页5条</code></pre>
+<pre><code><code>mysql&gt; select * from  employee limit 0,5;
++----+-----------+------+-----+------------+-----------------------------------------+--------------+------------+--------+-----------+
+| id | name      | sex  | age | hire_date  | post                                    | post_comment | salary     | office | depart_id |
++----+-----------+------+-----+------------+-----------------------------------------+--------------+------------+--------+-----------+
+|  1 | egon      | male |  18 | 2017-03-01 | 老男孩驻沙河办事处外交大使              | NULL         |    7300.33 |    401 |         1 |
+|  2 | alex      | male |  78 | 2015-03-02 | teacher                                 |              | 1000000.31 |    401 |         1 |
+|  3 | wupeiqi   | male |  81 | 2013-03-05 | teacher                                 | NULL         |    8300.00 |    401 |         1 |
+|  4 | yuanhao   | male |  73 | 2014-07-01 | teacher                                 | NULL         |    3500.00 |    401 |         1 |
+|  5 | liwenzhou | male |  28 | 2012-11-01 | teacher                                 | NULL         |    2100.00 |    401 |         1 |
++----+-----------+------+-----+------------+-----------------------------------------+--------------+------------+--------+-----------+
+5 rows in set (0.00 sec)
+
+mysql&gt; select * from  employee limit 5,5;
++----+------------+--------+-----+------------+---------+--------------+----------+--------+-----------+
+| id | name       | sex    | age | hire_date  | post    | post_comment | salary   | office | depart_id |
++----+------------+--------+-----+------------+---------+--------------+----------+--------+-----------+
+|  6 | jingliyang | female |  18 | 2011-02-11 | teacher | NULL         |  9000.00 |    401 |         1 |
+|  7 | jinxin     | male   |  18 | 1900-03-01 | teacher | NULL         | 30000.00 |    401 |         1 |
+|  8 | 成龙       | male   |  48 | 2010-11-11 | teacher | NULL         | 10000.00 |    401 |         1 |
+|  9 | 歪歪       | female |  48 | 2015-03-11 | sale    | NULL         |  3000.13 |    402 |         2 |
+| 10 | 丫丫       | female |  38 | 2010-11-01 | sale    | NULL         |  2000.35 |    402 |         2 |
++----+------------+--------+-----+------------+---------+--------------+----------+--------+-----------+
+5 rows in set (0.00 sec)
+
+mysql&gt; select * from  employee limit 10,5;
++----+-----------+--------+-----+------------+-----------+--------------+----------+--------+-----------+
+| id | name      | sex    | age | hire_date  | post      | post_comment | salary   | office | depart_id |
++----+-----------+--------+-----+------------+-----------+--------------+----------+--------+-----------+
+| 11 | 丁丁      | female |  18 | 2011-03-12 | sale      | NULL         |  1000.37 |    402 |         2 |
+| 12 | 星星      | female |  18 | 2016-05-13 | sale      | NULL         |  3000.29 |    402 |         2 |
+| 13 | 格格      | female |  28 | 2017-01-27 | sale      | NULL         |  4000.33 |    402 |         2 |
+| 14 | 张野      | male   |  28 | 2016-03-11 | operation | NULL         | 10000.13 |    403 |         3 |
+| 15 | 程咬金    | male   |  18 | 1997-03-12 | operation | NULL         | 20000.00 |    403 |         3 |
++----+-----------+--------+-----+------------+-----------+--------------+----------+--------+-----------+
+5 rows in set (0.00 sec)</code></pre>
+<h2 id="使用正则表达式查询">9.使用正则表达式查询</h2>
+<pre><code><code>SELECT * FROM employee WHERE name REGEXP &#39;^ale&#39;;
+
+SELECT * FROM employee WHERE name REGEXP &#39;on$&#39;;
+
+SELECT * FROM employee WHERE name REGEXP &#39;m{2}&#39;;
+
+
+小结：对字符串匹配的方式
+WHERE name = &#39;egon&#39;;
+WHERE name LIKE &#39;yua%&#39;;
+WHERE name REGEXP &#39;on$&#39;;</code></pre>
+<p><strong>小练习：</strong></p>
+<pre><code><code>查看所有员工中名字是jin开头，n或者g结果的员工信息</code></pre>
+<pre><code><code>select * from employee where name regexp &#39;^jin.*[gn]$&#39;;</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

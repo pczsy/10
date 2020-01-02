@@ -1,0 +1,468 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django--模型层' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django--模型层</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11707841.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#orm简介">ORM简介</a></li>
+        <li><a href="#orm字段">ORM字段</a><ul>
+        <li><a href="#常用和非常用字段">常用和非常用字段</a></li>
+        <li><a href="#orm字段与数据库实际字段的对应关系">ORM字段与数据库实际字段的对应关系</a></li>
+        </ul></li>
+        <li><a href="#orm字段参数">ORM字段参数</a><ul>
+        <li><a href="#所有字段参数">所有字段参数</a></li>
+        </ul></li>
+        <li><a href="#关系字段">关系字段</a><ul>
+        <li><a href="#foreignkey外键">ForeignKey(外键)</a></li>
+        <li><a href="#onetoonefield一对一字段">OneToOneField(一对一字段)</a></li>
+        <li><a href="#manytomanyfield多对多字段">ManyToManyField(多对多字段)</a></li>
+        </ul></li>
+        <li><a href="#多对多关联关系的三种方式">多对多关联关系的三种方式</a><ul>
+        <li><a href="#第一种自行创建第三张表">第一种：自行创建第三张表</a></li>
+        <li><a href="#第二种-通过manytomanyfield自动创建第三张表">第二种: 通过ManyToManyField自动创建第三张表</a></li>
+        <li><a href="#方式三设置manytomanyfield并指定自行创建的第三张表">方式三：设置ManyTomanyField并指定自行创建的第三张表</a></li>
+        </ul></li>
+        <li><a href="#元信息">元信息</a></li>
+        <li><a href="#自定义字段了解">自定义字段（了解）</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="orm简介">ORM简介</h1>
+<p>ORM（Object Relational Mapping）是“对象-关系-映射”的简称，它是在pymysql的基础上又封装了一层。</p>
+<p>ORM查询数据层次图解:</p>
+<p><img src="./images/Django--模型层0.png" /></p>
+<ul>
+<li><p>MVC或者MTV框架中包括一个重要的部分，就是ORM，它实现了数据模型与数据库的解耦，即数据模型的设计不需要依赖于特定的数据库，通过简单的配置就可以轻松更换数据库，这极大的减轻了开发人员的工作量，不需要面对因数据库变更而导致的无效劳动</p></li>
+<li><p>示例：</p>
+<p><img src="./images/Django--模型层1.png" /></p></li>
+</ul>
+<h1 id="orm字段">ORM字段</h1>
+<ul>
+<li><p><code>AutoField</code>: int自增列，必须填入参数 primary_key=True。当model中如果没有自增列，则自动会创建一个列名为id的列。</p></li>
+<li><p><code>IntegerField</code>: 一个整数类型,范围在 -2147483648 to 2147483647。</p></li>
+<li><p><code>CharField</code>: 字符类型，必须提供max_length参数， max_length表示字符长度。</p></li>
+<li><p><code>DateField</code>: 日期字段，日期格式 <code>YYYY-MM-DD</code>，相当于Python中的<code>datetime.date()</code>实例。</p></li>
+<li><p><code>DateTimeField</code>: 日期时间字段，格式<code>YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]</code>，相当于Python中的<code>datetime.datetime()</code>实例</p></li>
+</ul>
+<h2 id="常用和非常用字段">常用和非常用字段</h2>
+<pre><code><code>&quot;&quot;&quot;
+AutoField(Field)
+    - int自增列，必须填入参数 primary_key=True
+
+BigAutoField(AutoField)
+    - bigint自增列，必须填入参数 primary_key=True
+
+    注：当model中如果没有自增列，则自动会创建一个列名为id的列
+    from django.db import models
+
+    class UserInfo(models.Model):
+        # 自动创建一个列名为id的且为自增的整数列
+        username = models.CharField(max_length=32)
+
+        class Group(models.Model):
+            # 自定义自增列
+            nid = models.AutoField(primary_key=True)
+            name = models.CharField(max_length=32)
+
+    SmallIntegerField(IntegerField):
+        - 小整数 -32768 ～ 32767
+
+PositiveSmallIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField)
+    - 正小整数 0 ～ 32767
+    IntegerField(Field)
+    - 整数列(有符号的) -2147483648 ～ 2147483647
+
+PositiveIntegerField(PositiveIntegerRelDbTypeMixin, IntegerField)
+    - 正整数 0 ～ 2147483647
+
+BigIntegerField(IntegerField):
+    - 长整型(有符号的) -9223372036854775808 ～ 9223372036854775807
+
+BooleanField(Field)
+    - 布尔值类型
+
+NullBooleanField(Field):
+    - 可以为空的布尔值
+
+CharField(Field)
+    - 字符类型
+    - 必须提供max_length参数， max_length表示字符长度
+
+TextField(Field)
+    - 文本类型
+
+EmailField(CharField)：
+    - 字符串类型，Django Admin以及ModelForm中提供验证机制
+
+IPAddressField(Field)
+    - 字符串类型，Django Admin以及ModelForm中提供验证 IPV4 机制
+
+GenericIPAddressField(Field)
+    - 字符串类型，Django Admin以及ModelForm中提供验证 Ipv4和Ipv6
+    - 参数：
+        protocol，用于指定Ipv4或Ipv6， &#39;both&#39;,&quot;ipv4&quot;,&quot;ipv6&quot;
+        unpack_ipv4， 如果指定为True，则输入::ffff:192.0.2.1时候，可解析为192.0.2.1，开启此功能，需要protocol=&quot;both&quot;
+
+URLField(CharField)
+    - 字符串类型，Django Admin以及ModelForm中提供验证 URL
+
+SlugField(CharField)
+    - 字符串类型，Django Admin以及ModelForm中提供验证支持 字母、数字、下划线、连接符（减号）
+
+CommaSeparatedIntegerField(CharField)
+    - 字符串类型，格式必须为逗号分割的数字
+
+UUIDField(Field)
+    - 字符串类型，Django Admin以及ModelForm中提供对UUID格式的验证
+
+FilePathField(Field)
+    - 字符串，Django Admin以及ModelForm中提供读取文件夹下文件的功能
+    - 参数：
+        path,                      文件夹路径
+        match=None,                正则匹配
+        recursive=False,           递归下面的文件夹
+        allow_files=True,          允许文件
+        allow_folders=False,       允许文件夹
+
+FileField(Field)
+    - 字符串，路径保存在数据库，文件上传到指定目录
+    - 参数：
+        upload_to = &quot;&quot;      上传文件的保存路径
+        storage = None      存储组件，默认django.core.files.storage.FileSystemStorage
+
+ImageField(FileField)
+    - 字符串，路径保存在数据库，文件上传到指定目录
+    - 参数：
+        upload_to = &quot;&quot;      上传文件的保存路径
+        storage = None      存储组件，默认django.core.files.storage.FileSystemStorage
+        width_field=None,   上传图片的高度保存的数据库字段名（字符串）
+        height_field=None   上传图片的宽度保存的数据库字段名（字符串）
+
+DateTimeField(DateField)
+    - 日期+时间格式 YYYY-MM-DD HH:MM[:ss[.uuuuuu]][TZ]
+
+DateField(DateTimeCheckMixin, Field)
+    - 日期格式      YYYY-MM-DD
+
+TimeField(DateTimeCheckMixin, Field)
+    - 时间格式      HH:MM[:ss[.uuuuuu]]
+
+DurationField(Field)
+    - 长整数，时间间隔，数据库中按照bigint存储，ORM中获取的值为datetime.timedelta类型
+
+FloatField(Field)
+    - 浮点型
+
+DecimalField(Field)
+    - 10进制小数
+    - 参数：
+        max_digits，小数总长度
+        decimal_places，小数位长度
+
+BinaryField(Field)
+    - 二进制类型
+    
+&quot;&quot;&quot;            </code></pre>
+<h2 id="orm字段与数据库实际字段的对应关系">ORM字段与数据库实际字段的对应关系</h2>
+<pre><code><code>&quot;&quot;&quot;
+&#39;AutoField&#39;: &#39;integer AUTO_INCREMENT&#39;,
+&#39;BigAutoField&#39;: &#39;bigint AUTO_INCREMENT&#39;,
+&#39;BinaryField&#39;: &#39;longblob&#39;,
+&#39;BooleanField&#39;: &#39;bool&#39;,
+&#39;CharField&#39;: &#39;varchar(%(max_length)s)&#39;,
+&#39;CommaSeparatedIntegerField&#39;: &#39;varchar(%(max_length)s)&#39;,
+&#39;DateField&#39;: &#39;date&#39;,
+&#39;DateTimeField&#39;: &#39;datetime&#39;,
+&#39;DecimalField&#39;: &#39;numeric(%(max_digits)s, %(decimal_places)s)&#39;,
+&#39;DurationField&#39;: &#39;bigint&#39;,
+&#39;FileField&#39;: &#39;varchar(%(max_length)s)&#39;,
+&#39;FilePathField&#39;: &#39;varchar(%(max_length)s)&#39;,
+&#39;FloatField&#39;: &#39;double precision&#39;,
+&#39;IntegerField&#39;: &#39;integer&#39;,
+&#39;BigIntegerField&#39;: &#39;bigint&#39;,
+&#39;IPAddressField&#39;: &#39;char(15)&#39;,
+&#39;GenericIPAddressField&#39;: &#39;char(39)&#39;,
+&#39;NullBooleanField&#39;: &#39;bool&#39;,
+&#39;OneToOneField&#39;: &#39;integer&#39;,
+&#39;PositiveIntegerField&#39;: &#39;integer UNSIGNED&#39;,
+&#39;PositiveSmallIntegerField&#39;: &#39;smallint UNSIGNED&#39;,
+&#39;SlugField&#39;: &#39;varchar(%(max_length)s)&#39;,
+&#39;SmallIntegerField&#39;: &#39;smallint&#39;,
+&#39;TextField&#39;: &#39;longtext&#39;,
+&#39;TimeField&#39;: &#39;time&#39;,
+&#39;UUIDField&#39;: &#39;char(32)&#39;,
+&quot;&quot;&quot;</code></pre>
+<h1 id="orm字段参数">ORM字段参数</h1>
+<ul>
+<li><p><code>null</code>: 用于表示某个字段可以为空。</p></li>
+<li><p><code>unique</code>: 如果设置为<code>unique=True</code> 则该字段在此表中必须是唯一的 。</p></li>
+<li><p><code>db_index</code>: 如果db_index=True 则代表着为此字段设置索引。</p></li>
+<li><p><code>default</code>: 为该字段设置默认值。</p></li>
+</ul>
+<p><strong>DateField和DateTimeField独有字段</strong></p>
+<ul>
+<li><p><code>auto_now_add</code>: 配置auto_now_add=True，创建数据记录的时候会把当前时间添加到数据库。</p></li>
+<li><p><code>auto_now</code>: 配置上auto_now=True，每次更新数据记录的时候会更新该字段。</p></li>
+</ul>
+<h2 id="所有字段参数">所有字段参数</h2>
+<pre><code><code>&quot;&quot;&quot;
+null                数据库中字段是否可以为空
+db_column           数据库中字段的列名
+db_tablespace
+default             数据库中字段的默认值
+primary_key         数据库中字段是否为主键
+db_index            数据库中字段是否可以建立索引
+unique              数据库中字段是否可以建立唯一索引
+unique_for_date     数据库中字段【日期】部分是否可以建立唯一索引
+unique_for_month    数据库中字段【月】部分是否可以建立唯一索引
+unique_for_year     数据库中字段【年】部分是否可以建立唯一索引
+
+verbose_name        Admin中显示的字段名称
+blank               Admin中是否允许用户输入为空
+editable            Admin中是否可以编辑
+help_text           Admin中该字段的提示信息
+choices             Admin中显示选择框的内容，用不变动的数据放在内存中从而避免跨表操作, 如：gf = models.IntegerField(choices=[(0, &#39;何穗&#39;),(1, &#39;大表姐&#39;),],default=1)
+
+error_messages      自定义错误信息（字典类型），从而定制想要显示的错误信息；
+    字典健：null, blank, invalid, invalid_choice, unique, and unique_for_date
+    如：{&#39;null&#39;: &quot;不能为空.&quot;, &#39;invalid&#39;: &#39;格式错误&#39;}
+
+validators          自定义错误验证（列表类型），从而定制想要的验证规则
+    from django.core.validators import RegexValidator
+    from django.core.validators import EmailValidator,URLValidator, DecimalValidator,MaxLengthValidator,MinLengthValidator,MaxValueValidator, MinValueValidator
+    如：test = models.CharField(
+            max_length=32,
+            error_messages={
+                &#39;c1&#39;: &#39;优先错信息1&#39;,
+                &#39;c2&#39;: &#39;优先错信息2&#39;,
+                &#39;c3&#39;: &#39;优先错信息3&#39;,
+            },
+            validators=[
+                RegexValidator(regex=&#39;root_\d+&#39;, message=&#39;错误了&#39;, code=&#39;c1&#39;),
+                RegexValidator(regex=&#39;root_112233\d+&#39;, message=&#39;又错误了&#39;, code=&#39;c2&#39;),
+                EmailValidator(message=&#39;又错误了&#39;, code=&#39;c3&#39;), ]
+        )
+&quot;&quot;&quot;</code></pre>
+<h1 id="关系字段">关系字段</h1>
+<h2 id="foreignkey外键">ForeignKey(外键)</h2>
+<p>外键类型在ORM中用来表示外键关联关系，一般把ForeignKey字段设置在 '一对多'中'多'的一方。</p>
+<p>ForeignKey可以和其他表做关联关系同时也可以和自身做关联关系。</p>
+<ul>
+<li><p>to: 设置要关联的表</p></li>
+<li><p>to_field: 设置要关联的表的字段</p></li>
+<li><p>related_name: 反向操作时，使用的字段名，用于代替原反向查询时的'表名_set'。</p>
+<p>示例:</p>
+<pre><code><code>class Classes(models.Model):
+    name = models.CharField(max_length=32)
+
+class Student(models.Model):
+    name = models.CharField(max_length=32)
+    theclass = models.ForeignKey(to=&quot;Classes&quot;)
+
+# 当我们要查询某个班级关联的所有学生（反向查询）时，我们会这么写
+models.Classes.objects.first().student_set.all()
+
+# 当我们在ForeignKey字段中添加了参数 related_name 后
+class Student(models.Model):
+    name = models.CharField(max_length=32)
+    theclass = models.ForeignKey(to=&quot;Classes&quot;, related_name=&quot;students&quot;)
+
+# 当我们要查询某个班级关联的所有学生（反向查询）时，我们会这么写
+models.Classes.objects.first().students.all()</code></pre></li>
+<li><p>related_query_name: 反向查询操作时，使用的连接前缀，用于替换表名。</p></li>
+<li><p>on_delete: 当删除关联表中的数据时，当前表与其关联的行的行为。</p>
+<p>参数：</p>
+<pre><code><code>&quot;&quot;&quot;
+models.CASCADE
+  删除关联数据，与之关联也删除
+
+models.DO_NOTHING
+　　删除关联数据，引发错误IntegrityError
+
+models.PROTECT
+　　删除关联数据，引发错误ProtectedError
+
+models.SET_NULL
+　　删除关联数据，与之关联的值设置为null（前提FK字段需要设置为可空）
+
+models.SET_DEFAULT
+　　删除关联数据，与之关联的值设置为默认值（前提FK字段需要设置默认值）
+
+models.SET
+　　删除关联数据，
+　　a. 与之关联的值设置为指定值，设置：models.SET(值)
+　　b. 与之关联的值设置为可执行对象的返回值，设置：models.SET(可执行对象)
+　　如：
+      def func():
+            return 10
+
+        class MyModel(models.Model):
+            user = models.ForeignKey(
+                to=&quot;User&quot;,
+                to_field=&quot;id&quot;，
+                on_delete=models.SET(func)
+            )
+&quot;&quot;&quot;</code></pre></li>
+<li><p>db_constraint: 是否在数据库中创建外键约束，默认为True。</p></li>
+</ul>
+<h2 id="onetoonefield一对一字段">OneToOneField(一对一字段)</h2>
+<p>通常一对一字段用来扩展已有字段。</p>
+<p>一对一的关联关系多用在当一张表的不同字段查询频次差距过大的情况下，将本可以存储在一张表的字段拆开放置在两张表中，然后将两张表建立一对一的关联关系。</p>
+<pre><code><code>class Author(models.Model):
+    name = models.CharField(max_length=32)
+    info = models.OneToOneField(to=&#39;AuthorInfo&#39;)
+    
+
+class AuthorInfo(models.Model):
+    phone = models.CharField(max_length=11)
+    email = models.EmailField()</code></pre>
+<ul>
+<li><p>to: 设置要关联的表。</p></li>
+<li><p>to_field: 设置要关联的字段。</p></li>
+<li><p>on_delete: 同ForeignKey字段。</p></li>
+</ul>
+<h2 id="manytomanyfield多对多字段">ManyToManyField(多对多字段)</h2>
+<p>用于表示多对多的关联关系。在数据库中通过第三张表来建立关联关系</p>
+<ul>
+<li><p>to: 设置要关联的表</p></li>
+<li><p>related_name: 同ForeignKey字段。</p></li>
+<li><p>related_query_name: 同ForeignKey字段。</p></li>
+<li><p>symmetrical: 仅用于多对多自关联时，指定内部是否创建反向操作的字段。默认为True。</p>
+<p>示例：</p>
+<pre><code><code>class Person(models.Model):
+    name = models.CharField(max_length=16)
+    friends = models.ManyToManyField(&quot;self&quot;)</code></pre>
+<p>此时，person对象就没有person_set属性。</p>
+<pre><code><code>class Person(models.Model):
+    name = models.CharField(max_length=16)
+    friends = models.ManyToManyField(&quot;self&quot;, symmetrical=False)</code></pre>
+<p>此时，person对象现在就可以使用person_set属性进行反向查询。</p></li>
+<li><p>through: 在使用ManyToManyField字段时，Django将自动生成一张表来管理多对多的关联关系。但我们也可以手动创建第三张表来管理多对多关系，此时就需要通过through来指定第三张表的表名。</p></li>
+<li><p>through_fields: 设置关联的字段。</p></li>
+<li><p>db_table: 默认创建第三张表时，数据库中表的名称。</p></li>
+</ul>
+<h1 id="多对多关联关系的三种方式">多对多关联关系的三种方式</h1>
+<h3 id="第一种自行创建第三张表">第一种：自行创建第三张表</h3>
+<pre><code><code>class Book(models.Model):
+    title = models.CharField(max_length=32, verbose_name=&quot;书名&quot;)
+
+
+class Author(models.Model):
+    name = models.CharField(max_length=32, verbose_name=&quot;作者姓名&quot;)
+
+
+# 自己创建第三张表，分别通过外键关联书和作者
+class Author2Book(models.Model):
+    author = models.ForeignKey(to=&quot;Author&quot;)
+    book = models.ForeignKey(to=&quot;Book&quot;)
+
+    class Meta:
+        unique_together = (&quot;author&quot;, &quot;book&quot;)</code></pre>
+<h3 id="第二种-通过manytomanyfield自动创建第三张表">第二种: 通过ManyToManyField自动创建第三张表</h3>
+<pre><code><code>class Book(models.Model):
+    title = models.CharField(max_length=32, verbose_name=&quot;书名&quot;)
+
+
+# 通过ORM自带的ManyToManyField自动创建第三张表
+class Author(models.Model):
+    name = models.CharField(max_length=32, verbose_name=&quot;作者姓名&quot;)
+    books = models.ManyToManyField(to=&quot;Book&quot;, related_name=&quot;authors&quot;)</code></pre>
+<h3 id="方式三设置manytomanyfield并指定自行创建的第三张表">方式三：设置ManyTomanyField并指定自行创建的第三张表</h3>
+<pre><code><code>class Book(models.Model):
+    title = models.CharField(max_length=32, verbose_name=&quot;书名&quot;)
+
+
+# 自己创建第三张表，并通过ManyToManyField指定关联
+class Author(models.Model):
+    name = models.CharField(max_length=32, verbose_name=&quot;作者姓名&quot;)
+    books = models.ManyToManyField(to=&quot;Book&quot;, through=&quot;Author2Book&quot;, through_fields=(&quot;author&quot;, &quot;book&quot;))
+    # through_fields接受一个2元组（&#39;field1&#39;，&#39;field2&#39;）：
+    # 其中field1是定义ManyToManyField的模型外键的名（author），field2是关联目标模型（book）的外键名。
+
+
+class Author2Book(models.Model):
+    author = models.ForeignKey(to=&quot;Author&quot;)
+    book = models.ForeignKey(to=&quot;Book&quot;)
+
+    class Meta:
+        unique_together = (&quot;author&quot;, &quot;book&quot;)</code></pre>
+<p><strong>注意</strong>：</p>
+<p>当我们需要在第三张关系表中存储额外的字段时，就要使用第三种方式。</p>
+<p>但是当我们使用第三种方式创建多对多关联关系时，就无法使用set、add、remove、clear方法来管理多对多的关系了，需要通过第三张表的model来管理多对多关系。</p>
+<h1 id="元信息">元信息</h1>
+<p>ORM对应的类里面包含另一个Meta类，而Meta类封装了一些数据库的信息。主要字段如下:</p>
+<ul>
+<li><p>db_table: ORM在数据库中的表名默认是 <strong>app_</strong>类名，可以通过<strong>db_table</strong>可以重写表名。</p></li>
+<li><p>index_together: 联合索引。</p></li>
+<li><p>unique_together: 联合唯一索引。</p></li>
+<li><p>ordering: 指定默认按什么字段排序。</p>
+<p>只有设置了该属性，我们查询到的结果才可以被reverse()。</p></li>
+</ul>
+<pre><code><code>class UserInfo(models.Model):
+    nid = models.AutoField(primary_key=True)
+    username = models.CharField(max_length=32)
+
+    class Meta:
+        # 数据库中生成的表名称 默认 app名称 + 下划线 + 类名
+        db_table = &quot;table_name&quot;
+
+        # 联合索引
+        index_together = [
+            (&quot;pub_date&quot;, &quot;deadline&quot;),
+        ]
+
+        # 联合唯一索引
+        unique_together = ((&quot;driver&quot;, &quot;restaurant&quot;),)
+
+        ordering = (&#39;name&#39;,)
+
+        # admin中显示的表名称
+        verbose_name=&#39;哈哈&#39;
+
+        # verbose_name加s
+        verbose_name_plural=verbose_name</code></pre>
+<h1 id="自定义字段了解">自定义字段（了解）</h1>
+<p>自定义char类型字段：</p>
+<pre><code><code>class FixedCharField(models.Field):
+    &quot;&quot;&quot;
+    自定义的char类型的字段类
+    &quot;&quot;&quot;
+    def __init__(self, max_length, *args, **kwargs):
+        self.max_length = max_length
+        super(FixedCharField, self).__init__(max_length=max_length, *args, **kwargs)
+
+    def db_type(self, connection):
+        &quot;&quot;&quot;
+        限定生成数据库表的字段类型为char，长度为max_length指定的值
+        &quot;&quot;&quot;
+        return &#39;char(%s)&#39; % self.max_length
+
+
+class Class(models.Model):
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=25)
+    # 使用自定义的char类型的字段
+    cname = FixedCharField(max_length=25)</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,304 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django之使用redis缓存session，历史浏览记录，首页数据实现性能优化' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django之使用redis缓存session，历史浏览记录，首页数据实现性能优化</center></div><div class='banquan'>原文出处:本文由博客园博主YifChan提供。<br/>
+原文连接:https://www.cnblogs.com/yifchan/p/python-1-38.html</div><br>
+    <h2>Redis缓存session</h2>
+<p>配置Django缓存数据到redis中</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> diango的缓存配置</span>
+CACHES =<span style="color: #000000;"> {
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">default</span><span style="color: #800000;">"</span><span style="color: #000000;">: {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">BACKEND</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">django_redis.cache.RedisCache</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户的session信息，历史浏览记录存储在redis数据库9中</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">LOCATION</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">redis://127.0.0.1:6379/9</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">OPTIONS</span><span style="color: #800000;">"</span><span style="color: #000000;">: {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">CLIENT_CLASS</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">django_redis.client.DefaultClient</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        }
+    }
+}</span></pre>
+</div>
+<p>配置session信息缓存在redis中</p>
+<div class="cnblogs_code">
+<pre><code># 配置session存储在前面配置的redis数据库中
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"<span>
+SESSION_CACHE_ALIAS = "default"</span></pre>
+</div>
+<p>&nbsp;保存用户cookie，session信息</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 与数据库的数据进行校验用户密码正确性</span>
+user = authenticate(request, username=username, password=<span style="color: #000000;">password)
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 业务处理：用户登录</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> 返回应答</span>
+<span style="color: #0000ff;">if</span> user <span style="color: #0000ff;">is</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> None:
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户名密码正确</span>
+    <span style="color: #0000ff;">if</span><span style="color: #000000;"> user.is_active:
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户已激活</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 记录用户的登录状态</span>
+<span style="color: #000000;">        login(request, user)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取接下来要访问的地址，默认访问主页</span>
+        next_url = request.GET.get(<span style="color: #800000;">"</span><span style="color: #800000;">next</span><span style="color: #800000;">"</span>, reverse(<span style="color: #800000;">"</span><span style="color: #800000;">goods:index</span><span style="color: #800000;">"</span><span style="color: #000000;">))
+        response </span>=<span style="color: #000000;"> redirect(next_url)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 判断是否记住用户名</span>
+        <span style="color: #0000ff;">if</span> remember == <span style="color: #800000;">"</span><span style="color: #800000;">on</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+            response.set_cookie(</span><span style="color: #800000;">"</span><span style="color: #800000;">username</span><span style="color: #800000;">"</span>, username, max_age=7*24*3600<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            response.delete_cookie(</span><span style="color: #800000;">"</span><span style="color: #800000;">username</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">return</span> response</pre>
+</div>
+<p>&nbsp;</p>
+<h2>Redis缓存历史浏览记录&nbsp;</h2>
+<h3>链接Redis数据库</h3>
+<p>链接redis数据库有两种：</p>
+<ul>
+<li>1.使用redis默认的StrictRedis链接</li>
+<li>2.使用redis提供的get_redis_connection方法链接default配置；</li>
+</ul>
+<p>方式一：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 使用redis默认的方式与django链接</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> from redis import StrictRedis</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> sr = StrictRedis(host="localhost", port=6379, db=9)</span></pre>
+</div>
+<p>方式二：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django_redis <span style="color: #0000ff;">import</span><span style="color: #000000;"> get_redis_connection
+con </span>= get_redis_connection(<span style="color: #800000;">'</span><span style="color: #800000;">default</span><span style="color: #800000;">'</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> 这里的default指的是settings配置中CACHE的default配置</span></pre>
+</div>
+<p>&nbsp;</p>
+<h3>缓存历史浏览记录</h3>
+<p>首先确定我们的需求，是一个用户保存一个浏览商品id集合，然后确定是以redis的hash格式存储，存储类似于</p>
+<div class="cnblogs_code">
+<pre><code>history_userid:[goods1, goods2, goods3]</pre>
+</div>
+<p>然后我们要考虑情况，比如我们原来浏览过一条商品，现在再浏览一遍，那么就要把这个商品的位置提到最前面去，怎么处理？</p>
+<ul>
+<li>在这里我们选择的是如果存在该商品，就先删除，再往最左边插入这条数据，可以使用redis提供的&nbsp;lrem 方法。</li>
+<li>将最新浏览的记录放在最前面，当我们获取缓存中的浏览商品id集合数据，应该是根据id集合的顺序来确定商品顺序的，这里我们可以规定最新的浏览记录放在集合的最左边，使用的是redis的lpush方法。</li>
+<li>还有只保存固定条数的浏览记录，过期的就不保存，使用redis的ltrim方法。</li>
+</ul>
+<p>同时下面也例举了如何获取历史浏览记录id集合。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django_redis <span style="color: #0000ff;">import</span><span style="color: #000000;"> get_redis_connection
+
+</span><span style="color: #0000ff;">if</span><span style="color: #000000;"> user.is_authenticated():
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户已登录</span>
+    conn = get_redis_connection(<span style="color: #800000;">'</span><span style="color: #800000;">default</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    cart_key </span>= <span style="color: #800000;">'</span><span style="color: #800000;">cart_%d</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> user.id
+    cart_count </span>=<span style="color: #000000;"> conn.hlen(cart_key)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 添加历史浏览记录</span>
+    conn = get_redis_connection(<span style="color: #800000;">"</span><span style="color: #800000;">default</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    history_key </span>= <span style="color: #800000;">"</span><span style="color: #800000;">history_%d</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> user.id
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 移除相同的记录</span>
+<span style="color: #000000;">    conn.lrem(history_key, 0, goods_id)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 从左侧添加历史浏览记录</span>
+<span style="color: #000000;">    conn.lpush(history_key, goods_id)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 只保留最新的五个历史浏览记录</span>
+    conn.ltrim(history_key, 0, 4<span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取历史浏览记录的商品id表</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> sku_ids = conn.lrange(history_key, 0, 4)</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> print("goods.view，历史浏览记录商品id表", sku_ids)</span></pre>
+</div>
+<p>&nbsp;</p>
+<h3>获取历史浏览记录</h3>
+<p>获取用户历史浏览商品id可以使用redis的lrange加上始终索引来获取指定数量数据，<br />获取历史浏览商品id后，因为需要根据redis中的顺序来确定商品显示顺序，可以用两种方式来获取商品具体信息：</p>
+<ul>
+<li>1.循环从redis获取的商品id列表，根据id获取对应的商品；</li>
+<li>2.根据商品id列表获取商品列表，循环从redis获取的商品id列表，在循环中再次循环商品列表，判断如果商品id等于循环的商品列表的id，就添加入商品表中。</li>
+
+
+</ul>
+<p>方式一：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 从数据库查询用户浏览商品的具体信息</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> goods_li = GoodsSKU.objects.filter(id__in=sku_ids)</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> goods_res = []</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> for a_id in sku_ids:</span><span style="color: #008000;">
+#</span><span style="color: #008000;">     for goods in goods_li:</span><span style="color: #008000;">
+#</span><span style="color: #008000;">         if a_id == goods.id:</span><span style="color: #008000;">
+#</span><span style="color: #008000;">             goods_res.append(goods)</span></pre>
+</div>
+<p>方式二：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 遍历获取用户浏览的商品信息</span>
+goods_li =<span style="color: #000000;"> []
+</span><span style="color: #0000ff;">for</span> id <span style="color: #0000ff;">in</span><span style="color: #000000;"> sku_ids:
+    goods </span>= GoodsSKU.objects.filter(id=<span style="color: #000000;">id)
+    goods_li.append(goods)</span></pre>
+</div>
+<p>获取用户历史浏览记录代码</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> UserInfoView(LoginRequiredMixin, View):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">用户中心-信息页</span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> get(self, request):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">返回用户中心信息页面</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        user </span>=<span style="color: #000000;"> request.user
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取用户的历史浏览记录</span>
+        con = get_redis_connection(<span style="color: #800000;">'</span><span style="color: #800000;">default</span><span style="color: #800000;">'</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> 这里的default指的是settings配置中CACHE的default配置</span>
+        history_key = <span style="color: #800000;">'</span><span style="color: #800000;">history_%d</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> user.id
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取用户最新浏览的5个历史记录</span>
+        sku_ids = con.lrange(history_key, 0, 4<span style="color: #000000;">)
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 从数据库查询用户浏览商品的具体信息</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> goods_li = GoodsSKU.objects.filter(id__in=sku_ids)</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> goods_res = []</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> for a_id in sku_ids:</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">     for goods in goods_li:</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">         if a_id == goods.id:</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">             goods_res.append(goods)</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 遍历获取用户浏览的商品信息</span>
+        goods_li =<span style="color: #000000;"> []
+        </span><span style="color: #0000ff;">for</span> sku_id <span style="color: #0000ff;">in</span><span style="color: #000000;"> sku_ids:
+            goods </span>= GoodsSKU.objects.get(id=<span style="color: #000000;">sku_id)
+            goods.image </span>= settings.MEDIA_PATH +<span style="color: #000000;"> str(goods.image)
+            goods_li.append(goods)
+        context </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">page</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">page</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">address</span><span style="color: #800000;">"</span><span style="color: #000000;">: address,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">goods_li</span><span style="color: #800000;">"</span><span style="color: #000000;">: goods_li
+        }
+        </span><span style="color: #0000ff;">return</span> render(request, <span style="color: #800000;">"</span><span style="color: #800000;">user_center_info.html</span><span style="color: #800000;">"</span>, context)</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>Redis缓存网站首页数据</h2>
+<p>Django缓存相关文档：<a href="https://yiyibooks.cn/xx/django_182/topics/cache.html" target="_blank">https://yiyibooks.cn/xx/django_182/topics/cache.html</a><br />缓存文档中，提供有三种缓存方式，站点级缓存，单个view缓存，模板片段缓存，但都不适合我们，这里我们是直接操作底层缓存api。</p>
+<p><strong>首页数据的缓存</strong>：把页面使用的数据存放在缓存中，当要使用这些数据时，就先从缓存中获取，如果获取不到，就再去数据库中获取，减少数据库的查询次数。</p>
+<p>&nbsp;</p>
+<p>缓存首页数据，使用的还是redis进行缓存，如果你没看前面是独立做这一步的话，要进行如下配置，前面已经配置过的。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> diango的缓存配置</span>
+CACHES =<span style="color: #000000;"> {
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">default</span><span style="color: #800000;">"</span><span style="color: #000000;">: {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">BACKEND</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">django_redis.cache.RedisCache</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户的session信息，历史浏览记录存储在redis数据库9中</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">LOCATION</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">redis://127.0.0.1:6379/9</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">OPTIONS</span><span style="color: #800000;">"</span><span style="color: #000000;">: {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">CLIENT_CLASS</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">django_redis.client.DefaultClient</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        }
+    }
+}</span></pre>
+</div>
+<p>&nbsp;</p>
+<h3>缓存首页数据</h3>
+<p>缓存数据，我们在这里用的是django自带的cache函数，它会帮我们将数据缓存到一定的地方，我们这里配置的是将数据缓存到redis中，即cache函数会帮我们将数据缓存到redis中。</p>
+<p>cache函数需要三个参数，第一个是缓存的key，即你要给缓存的数据起一个名字，我们可以理解为python中的字典，第二个参数是要缓存的数据，第三个参数是缓存数据过期时间。</p>
+<p><strong>使用cache函数缓存首页数据代码</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> IndexView(View):
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get(self, request):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 从缓存中获取数据</span>
+        context = cache.get(<span style="color: #800000;">"</span><span style="color: #800000;">index_page_data</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 如果缓存中没有数据，就去数据库中获取数据</span>
+        <span style="color: #0000ff;">if</span> context <span style="color: #0000ff;">is</span><span style="color: #000000;"> None:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">缓存数据ing</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取商品的种类信息</span>
+            types =<span style="color: #000000;"> GoodsType.objects.all()
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取首页轮播商品信息</span>
+            goods_banners = IndexGoodsBanner.objects.all().order_by(<span style="color: #800000;">"</span><span style="color: #800000;">index</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取首页促销活动信息</span>
+            promotions_banners = IndexPromotionBanner.objects.all().order_by(<span style="color: #800000;">"</span><span style="color: #800000;">index</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取首页分类商品展示信息</span>
+            <span style="color: #0000ff;">for</span> type <span style="color: #0000ff;">in</span><span style="color: #000000;"> types:
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取type分类首页分类商品的图片展示对象信息</span>
+                image_banners = IndexTypeGoodsBanner.objects.filter(type=type, display_type=1<span style="color: #000000;">)
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取type分类首页分类商品的文字展示对象信息</span>
+                title_banners = IndexTypeGoodsBanner.objects.filter(type=type, display_type=<span style="color: #000000;">0)
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 动态给type增加属性，分别保存首页分类商品的图片展示信息和文字展示信息</span>
+                type.image_banners =<span style="color: #000000;"> image_banners
+                type.title_banners </span>=<span style="color: #000000;"> title_banners
+            context </span>=<span style="color: #000000;"> {
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">types</span><span style="color: #800000;">"</span><span style="color: #000000;">: types,
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">goods_banners</span><span style="color: #800000;">"</span><span style="color: #000000;">: goods_banners,
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">promotions_banners</span><span style="color: #800000;">"</span><span style="color: #000000;">: promotions_banners,
+            }
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 设置缓存</span>
+            cache.set(<span style="color: #800000;">"</span><span style="color: #800000;">index_page_data</span><span style="color: #800000;">"</span>, context, 3600<span style="color: #000000;">)
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取用户购物车中商品的数目</span>
+        user =<span style="color: #000000;"> request.user
+        cart_count </span>=<span style="color: #000000;"> 0
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> user.is_authenticated:
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户已登录</span>
+            conn = get_redis_connection(<span style="color: #800000;">"</span><span style="color: #800000;">default</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+            cart_key </span>= <span style="color: #800000;">"</span><span style="color: #800000;">cart_%d</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> user.id
+            cart_count </span>=<span style="color: #000000;"> conn.hlen(cart_key)
+        context.update(cart_count</span>=<span style="color: #000000;">cart_count)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 返回应答</span>
+        <span style="color: #0000ff;">return</span> render(request, <span style="color: #800000;">"</span><span style="color: #800000;">index.html</span><span style="color: #800000;">"</span>, context)</pre>
+</div>
+<p>同时在这里提醒一下，如果你对Redis不够熟悉的话，不用去拘泥于使用redis的哪种格式缓存首页数据，我们只需要知道redis是一种内存数据库即可，django配置了将缓存放入redis即内容中，在这里django的cache已经帮我们做好了怎么缓存，我们只需要调用即可。</p>
+<p>&nbsp;</p>
+<h3>首页缓存数据的更新</h3>
+<p>当管理员在后台修改首页信息对应的数据表中的数据时，我们就需要更新首页的缓存数据了。</p>
+<p>在这里我们实现的方式是直接清空缓存中的首页数据，这样当下一个用户去访问首页时，因为没有从缓存中查到数据，就会从数据库获取数据并且重新存储到缓存中了，清除缓存使用cache.delete()方法。</p>
+<p>下面直接贴代码，置于实现原理，可以参考&nbsp;&nbsp;<a href="https://www.cnblogs.com/yifchan/p/python-1-37.html" target="_blank">https://www.cnblogs.com/yifchan/p/python-1-37.html</a>&nbsp;最后一节</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('d5c58bc2-ee27-4f62-a1e9-4955c16a7ed4')"><img id="code_img_closed_d5c58bc2-ee27-4f62-a1e9-4955c16a7ed4" class="code_img_closed" src="./images/Django之使用redis缓存session，历史浏览记录，首页数据实现性能优化0.png" alt="" /><img id="code_img_opened_d5c58bc2-ee27-4f62-a1e9-4955c16a7ed4" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('d5c58bc2-ee27-4f62-a1e9-4955c16a7ed4',event)" src="./images/Django之使用redis缓存session，历史浏览记录，首页数据实现性能优化1.png" alt="" />
+<div id="cnblogs_code_open_d5c58bc2-ee27-4f62-a1e9-4955c16a7ed4" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">from</span> django.contrib <span style="color: #0000ff;">import</span><span style="color: #000000;"> admin
+</span><span style="color: #0000ff;">from</span> django.core.cache <span style="color: #0000ff;">import</span><span style="color: #000000;"> cache
+</span><span style="color: #0000ff;">from</span> goods.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> GoodsType, GoodsSKU, Goods, GoodsImage, IndexGoodsBanner, IndexTypeGoodsBanner, IndexPromotionBanner
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BaseModelAdmin(admin.ModelAdmin):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">当后台数据库数据改动时清空缓存使重新缓存首页数据</span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> save_model(self, request, obj, form, change):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">当更新或者新增数据时调用</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        super().save_model(request, obj, form, change)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 清除首页的缓存数据</span>
+        cache.delete(<span style="color: #800000;">"</span><span style="color: #800000;">index_page_data</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> delete_model(self, request, obj):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">当删除数据时调用</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        super().delete_model(request, obj)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 清除首页的缓存数据</span>
+        cache.delete(<span style="color: #800000;">"</span><span style="color: #800000;">index_page_data</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> GoodsTypeAdmin(BaseModelAdmin):
+    </span><span style="color: #0000ff;">pass</span>
+
+
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> IndexGoodsBannerAdmin(BaseModelAdmin):
+    </span><span style="color: #0000ff;">pass</span>
+
+
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> IndexTypeGoodsBannerAdmin(BaseModelAdmin):
+    </span><span style="color: #0000ff;">pass</span>
+
+
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> IndexPromotionBannerAdmin(BaseModelAdmin):
+    </span><span style="color: #0000ff;">pass</span><span style="color: #000000;">
+
+
+admin.site.register(GoodsType, GoodsTypeAdmin)
+admin.site.register(GoodsSKU)
+admin.site.register(Goods)
+admin.site.register(GoodsImage)
+admin.site.register(IndexGoodsBanner, IndexGoodsBannerAdmin)
+admin.site.register(IndexTypeGoodsBanner, IndexTypeGoodsBannerAdmin)
+admin.site.register(IndexPromotionBanner, IndexPromotionBannerAdmin)</span></pre>
+</div>
+<span class="cnblogs_code_collapse">app-goods/admin.py</span></div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

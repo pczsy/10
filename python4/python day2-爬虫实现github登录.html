@@ -1,0 +1,94 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python day2-爬虫实现github登录' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python day2-爬虫实现github登录</center></div><div class='banquan'>原文出处:本文由博客园博主达标提供。<br/>
+原文连接:https://www.cnblogs.com/interpreter/p/python_Github.html</div><br>
+    <h1>GitHub登录</h1>
+<h2>分析登录页面</h2>
+<p><img src="./images/python day2-爬虫实现github登录0.png" alt="" /></p>
+<p><span style="font-size: 14pt; color: #999999;">开发者工具分析请求</span></p>
+<p><span style="font-size: 14pt; color: #999999;">从session请求分析得知：</span></p>
+<p><span style="font-size: 14pt; color: #999999;">1.请求的URL为：https://github.com/session</span></p>
+<p><span style="font-size: 14pt; color: #999999;">2.该请求为post请求，即需要上传data表单，所以我们需要分析form-data</span></p>
+<p><span style="font-size: 14pt; color: #999999;"><img src="./images/python day2-爬虫实现github登录1.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 14pt; color: #999999;">由form-data分析得知：</span></p>
+<p><span style="font-size: 14pt; color: #999999;">1.login：GitHub的账号</span></p>
+<p><span style="font-size: 14pt; color: #999999;">2.password：GitHub的密码</span></p>
+<p><span style="font-size: 14pt; color: #999999;">3.authenticity_token：每次请求时都发生变动</span></p>
+<p><span style="font-size: 14pt; color: #999999;">4.其余参数没有特殊的变动</span></p>
+<p><span style="font-size: 14pt; color: #999999;">因此需要分析authenticity_token的规律，经过分析源代码得知：</span></p>
+<p><span style="font-size: 14pt; color: #999999;"><img src="./images/python day2-爬虫实现github登录2.png" alt="" /></span></p>
+<p><span style="font-size: 14pt; color: #999999;">在login页面中存在该参数，且每次请求该页面时该参数都发生变动</span></p>
+<p><span style="font-size: 14pt; color: #999999;">因此我们需要使用维持会话的方式抓取该参数</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+
+session </span>= requests.Session()    <span style="color: #008000;">#</span><span style="color: #008000;">实例化，维持会话</span>
+url_login = <span style="color: #800000;">'</span><span style="color: #800000;">https://github.com/login</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    response </span>=<span style="color: #000000;"> session.get(url_login)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">通过正则获取token值</span>
+    authenticity_token = re.findall(<span style="color: #800000;">'</span><span style="color: #800000;">name="authenticity_token" value="(.*?)" /&gt;</span><span style="color: #800000;">'</span><span style="color: #000000;">,response.text)[0]
+    </span><span style="color: #0000ff;">print</span>(authenticity_token)</pre>
+</div>
+<p><span style="font-size: 14pt; color: #999999;">当我们获取该参数后，即可以代入form-data中完成登录</span></p>
+<h2>附上全部代码</h2>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> re
+
+session </span>= requests.Session()    <span style="color: #008000;">#</span><span style="color: #008000;">实例化，维持会话</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> token():   
+    url_login </span>= <span style="color: #800000;">'</span><span style="color: #800000;">https://github.com/login</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    response </span>=<span style="color: #000000;"> session.get(url_login)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">通过正则获取token值</span>
+    authenticity_token = re.findall(<span style="color: #800000;">'</span><span style="color: #800000;">name="authenticity_token" value="(.*?)" /&gt;</span><span style="color: #800000;">'</span><span style="color: #000000;">,response.text)[0]
+    </span><span style="color: #0000ff;">return</span> authenticity_token     <span style="color: #008000;">#</span><span style="color: #008000;">返回token值</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> url_session(token):
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">https://github.com/session</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    data </span>=<span style="color: #000000;"> {
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">commit</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">Sign in</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">utf8</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">✓</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">authenticity_token</span><span style="color: #800000;">'</span>: token,     <span style="color: #008000;">#</span><span style="color: #008000;">authenticity_token参数</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">login</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">输入账号</span><span style="color: #800000;">'</span>,              <span style="color: #008000;">#</span><span style="color: #008000;">你的账号</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">password</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">输入密码</span><span style="color: #800000;">'</span>,          <span style="color: #008000;">#</span><span style="color: #008000;">你的密码</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">webauthn-support</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">supported</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">required_field_852e</span><span style="color: #800000;">'</span>: <span style="color: #800000;">''</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">timestamp</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">1565616593723</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">timestamp_secret</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">850cb01230466a48f29899e2202265961cdcde8375c4ee69399cd9e9805e1ede</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+    }
+    response </span>= session.post(url,data=data)  <span style="color: #008000;">#</span><span style="color: #008000;">传入form-data表单</span>
+    <span style="color: #0000ff;">return</span> response.text   <span style="color: #008000;">#</span><span style="color: #008000;">返回源码</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> save_github(response_text):  
+    with open(</span><span style="color: #800000;">'</span><span style="color: #800000;">github.html</span><span style="color: #800000;">'</span>,<span style="color: #800000;">'</span><span style="color: #800000;">w</span><span style="color: #800000;">'</span>,encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">) as fp:
+        fp.write(response_text)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    token </span>= token()   <span style="color: #008000;">#</span><span style="color: #008000;">获取authenticity_token参数</span>
+    response_text = url_session(token)    <span style="color: #008000;">#</span><span style="color: #008000;">获取网页源码</span>
+    save_github(response_text)    <span style="color: #008000;">#</span><span style="color: #008000;">把爬取到的源码保存为html格式</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

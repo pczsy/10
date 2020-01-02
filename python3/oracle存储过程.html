@@ -1,0 +1,201 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修oracle存储过程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>oracle存储过程</center></div><div class='banquan'>原文出处:本文由博客园博主_冥想提供。<br/>
+原文连接:https://www.cnblogs.com/inmeditation/p/12090574.html</div><br>
+    <h1 id="oracle存储过程">oracle存储过程</h1>
+<h2 id="简介">简介</h2>
+<p><strong>存储过程,它是一个有名字的plsql代码块</strong><br />
+<strong>创建之后会保存到数据库中</strong></p>
+<p>当数据库启动时,会自动加载到数据库内存中,执行效率高<br />
+存储过程有参数,没有返回值,但是有输出参数</p>
+<h2 id="创建">创建</h2>
+<p>存储过程的创建语法</p>
+<pre><code><code>create [or replace] procedure 存储过程名
+[(形参 [in|out|in out] 数据类型,...)]
+is|as
+  声明部分
+begin
+  plsql代码块
+  exception
+    异常处理部分  
+end;</code></pre>
+<p>创建一个存储过程,打印10部门员工信息</p>
+<pre><code><code>create or replace procedure p
+is
+begin
+  for v in (select * from emp where deptno=10) loop
+    dbms_output.put_line(v.empno||&#39; , &#39;||v.ename||&#39; , &#39;||v.job||&#39; , &#39;||v.deptno);
+  end loop;
+end;
+</code></pre>
+<h2 id="调用">调用</h2>
+<h3 id="在plsql代码块中调用">1在plsql代码块中调用</h3>
+<p>语法</p>
+<pre><code><code>存储过程名[(实参)];</code></pre>
+<pre><code><code>begin
+  p();
+end;</code></pre>
+<p>输出</p>
+<pre><code><code>9123 , june ,  , 10
+7782 , CLARK , MANAGER , 10
+7839 , KING , PRESIDENT , 10
+7934 , MILLER , CLERK , 10</code></pre>
+<h3 id="使用call命令调用sql命令">2使用call命令调用(sql命令)</h3>
+<p>语法</p>
+<pre><code><code>call 存储过程名(实参)</code></pre>
+<pre><code><code>call p();</code></pre>
+<p>输出</p>
+<pre><code><code>9123 , june ,  , 10
+7782 , CLARK , MANAGER , 10
+7839 , KING , PRESIDENT , 10
+7934 , MILLER , CLERK , 10</code></pre>
+<h3 id="使用exec命令调用sqlplus命令">3使用exec命令调用(sqlplus命令)</h3>
+<p>语法</p>
+<pre><code><code>exec 存储过程名(实参)</code></pre>
+<pre><code><code>SQL&gt; set serveroutput on
+SQL&gt; exec p();
+9123 , june ,  , 10
+7782 , CLARK , MANAGER , 10
+7839 , KING , PRESIDENT , 10
+7934 , MILLER , CLERK , 10
+
+PL/SQL 过程已成功完成。</code></pre>
+<h2 id="传参">传参</h2>
+<p>存储过程的参数</p>
+<ul>
+<li>输入参数(in)</li>
+<li>输出参数(out)</li>
+<li>输入输出参数(in out)</li>
+</ul>
+<p>传值方式</p>
+<ul>
+<li>1传值</li>
+<li>2传变量</li>
+<li>3形参=&gt;值</li>
+</ul>
+<h3 id="in参数">1,in参数</h3>
+<p>in参数:表示输入参数,可以使用任意一种传参方式<br />
+in参数实参的值只能被使用,不能被修改</p>
+<blockquote>
+<p>注意,通过in参数传的值,不能在程序中修改eno变量中的值</p>
+</blockquote>
+<p>创建一个存储过程,传入员工编号,打印员工信息</p>
+<pre><code><code>create or replace procedure p1(eno in emp.empno%type)
+is
+  --声明一个变量,保存员工信息
+  v emp%rowtype;
+begin
+  --根据员工编号查询员工信息
+  select * into v from emp where empno=eno;
+  --打印员工信息
+  dbms_output.put_line(v.empno||&#39; , &#39;||v.ename||&#39; , &#39;||v.job||&#39; , &#39;||v.deptno);
+  exception 
+    when no_data_found then
+      dbms_output.put_line(&#39;员工不存在&#39;);
+end;</code></pre>
+<h4 id="调用-1">调用</h4>
+<p><strong>传值的方式调用p1</strong></p>
+<pre><code><code>begin
+  p1(7369);
+end;</code></pre>
+<p>输出</p>
+<pre><code><code>7369 , SMITH , CLERK , 20</code></pre>
+<p><strong>传变量的方式调用</strong></p>
+<pre><code><code>declare
+  empno number(4):=7499;
+begin
+  p1(empno);
+end;</code></pre>
+<p>输出</p>
+<pre><code><code>7499 , ALLEN , SALESMAN , 30</code></pre>
+<p><strong>形参=&gt;值的方式调用</strong></p>
+<pre><code><code>begin
+  p1(eno=&gt;7521);
+end;</code></pre>
+<p>输出</p>
+<pre><code><code>7521 , WARD , SALESMAN , 30</code></pre>
+<h3 id="out参数">2,out参数</h3>
+<p>out参数: 输出参数,它只能以传变量的方式传值,<br />
+out参数的值是可以修改的<br />
+将存储过程的运行结果放到变量中,通过变量将结果传给外部程序</p>
+<p>创建一个存储过程<br />
+<strong>输入一个员工编号,查询员工信息,并将查询结果传给调用程序</strong></p>
+<pre><code><code>create or replace procedure p2(eno in emp.empno%type,
+                               v out emp%rowtype)
+is
+begin
+  select * into v from emp where empno=eno;
+  exception
+    when no_data_found then
+      dbms_output.put_line(&#39;员工不存在&#39;);
+end;</code></pre>
+<p>调用</p>
+<pre><code><code>declare
+  v1 emp%rowtype;
+begin
+  p2(7369,v1);
+  dbms_output.put_line(v1.empno||&#39; , &#39;||v1.ename||&#39; , &#39;||v1.job||&#39; , &#39;||v1.deptno);
+end;</code></pre>
+<p>输出</p>
+<pre><code><code>7369 , SMITH , CLERK , 20</code></pre>
+<p><strong>创建一个存储过程计算一个数字的阶乘</strong></p>
+<pre><code><code>create or replace procedure p3(n in number,res out number)
+is
+begin
+  --将res初始值设置为1
+  res:=1;
+  for i in 1..n loop
+    res:=res*i;
+  end loop;
+end;</code></pre>
+<p>调用</p>
+<pre><code><code>declare
+  n number(10);
+begin
+  p3(6,n);
+  dbms_output.put_line(n);
+end;  </code></pre>
+<p>输出</p>
+<pre><code><code>720</code></pre>
+<h3 id="in-out参数">3,in out参数</h3>
+<p>in out参数:输入输出参数,它拥有in和out的所有特性<br />
+必须以<strong>传变量</strong>的方式传参,传入参数的初始值是有意义的,值是可以修改的</p>
+<p><strong>创建一个存储过程,传入员工编号,查询员工信息,传给外部程序</strong></p>
+<pre><code><code>create or replace procedure p4(v in out emp%rowtype)
+is
+begin
+  select * into v from emp where empno=v.empno;
+end;</code></pre>
+<p>调用</p>
+<pre><code><code>declare
+  v1 emp%rowtype;
+begin
+  v1.empno:=7369;
+  p4(v1);
+  dbms_output.put_line(v1.empno||&#39; , &#39;||v1.ename||&#39; , &#39;||v1.job||&#39; , &#39;||v1.deptno);
+end;</code></pre>
+<p>输出</p>
+<pre><code><code>7369 , SMITH , CLERK , 20
+</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

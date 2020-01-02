@@ -1,0 +1,212 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修新手学习分布式 - 如何编写Kubernetes资源文件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>新手学习分布式 - 如何编写Kubernetes资源文件</center></div><div class='banquan'>原文出处:本文由博客园博主vikings`s blog提供。<br/>
+原文连接:https://www.cnblogs.com/vikings-blog/p/12048209.html</div><br>
+    <h1 id="kubernetes-api的使用方式">Kubernetes API的使用方式</h1>
+<p>Kubernetes API属于声明式API编程， 它和常用的命令式编程有一些区别。 通俗的说，命令式编程是第一人称，我要做什么，我要怎么做。 操作系统最喜欢这种编程范式了， 操作系统几乎不用&quot;思考&quot;, 只要一对一的将代码翻译成指令就可以了。 而声明式编程则类似于&quot;第二人称&quot;， 也就是你要做什么。 有点&quot;产品经理&quot;和&quot;开发“之间的关系， &quot;产品经理&quot;只负责提需求，而&quot;开发&quot;怎么实现他不并关心。</p>
+<p>用户相对Kubernetes就是&quot;产品经理&quot;的角色， 用户只需要给Kubernetes提需求就可以了，比如说你(Kubernetes)给我(用户)创建一个运行Mysql服务的Demployment，这个Deployment运行的Pod镜像是xxxx，运行参数是xxxxx，挂载的数据卷是xxxxx。。。。。 等等。 开发(Kubernetes)接受到这个需求后，看看需求是否合理(验证Deployment里面的参数是否正确)，然后就开始创建了。 等待创建成功后，就告诉&quot;产品经理&quot;(用户)Deployment创建成功。</p>
+<p>在创建过程中，用户并没有(也不需要)关心服务是如何创建的。 这种操作方式就是声明式API。</p>
+<p>对于Kubernetes来说，声明式API最大的难点就在于如何提一个正确的需求了。 所以下面来看看如何给Kubernetes提需求。</p>
+<h3 id="api的载体----yaml">API的载体 -- Yaml</h3>
+<p>用户可以通过<code>kubectl</code>与Kubernetes交互，使用<code>kubectl</code>会通过读取指定的资源定义文件来要求kubernetes创建各种资源，这里的资源文件指的就是&quot;需求文档&quot;，在里面规定了各种资源的&quot;大小&quot;，&quot;规格&quot;。 为了用户可以方便理解里面的内容(实际使用过程中，感觉使用yaml其实并不方便。尤其是当数据层次多的时候，经常出现空白符不匹配导致解析失败的问题)，资源文件使用了<code>yaml</code>格式(<code>yaml</code>对用户友好，<code>kubectl</code>提交需求时，会将yaml转换成json格式，所以Kubernetes其实最终读取的是json格式的需求文档).</p>
+<p>我经常在编辑完之后，通过 <a href="https://codebeautify.org/yaml-validator" class="uri">https://codebeautify.org/yaml-validator</a> 来验证格式是否正确。</p>
+<p>编辑Yaml过程中，有如下几个注意事项:</p>
+<ol>
+<li>通过空格控制缩进，不支持Tab</li>
+<li>如果参数是以空格开始，则需要单引号将其包含起来， 如果参数中包括单引号，则需要进行转义操作</li>
+<li><strong>冒号后一定要有空格</strong></li>
+<li>使用一个短横+一个空格表示列表，同样的缩进层级表示属于同一个列表</li>
+<li>空值使用null或者~表示。</li>
+</ol>
+<h3 id="api文档总览">API文档总览</h3>
+<p>Kubernetes的API文档在 <a href="https://kubernetes.io/docs/reference/" class="uri">https://kubernetes.io/docs/reference/</a> 点击版本号，就可以看到相对应的API文档说明。</p>
+<p>Kubernetes API大致分为以下几类(个人起的名称，未必准确)：</p>
+<ul>
+<li>计算类</li>
+<li>负载类</li>
+<li>配置类</li>
+<li>管理类</li>
+</ul>
+<p>计算类对应是<code>Workload</code>，主要是Pod，Job，Deployment，ReplicaSet之类涉及到CPU计算的各种资源。 负载类指的是LB类资源，配置类指的是<code>ConfigMap</code>之类涉及到外部资源的数据资源， 而管理类指的是对集群的管理，例如创建命名空间，节点隔离等</p>
+<p>对Kubernetes的资源操作，绝大多数就是对上面四类资源的操作。</p>
+<p>一个标准的Kubernetes 资源文件，其结构大致是下面的样子:</p>
+<pre><code><code>apiVersion:
+kind:
+metadata:
+spec:
+status:</code></pre>
+<p><code>apiVersion</code>表示API版本，服务端会通过读取这个版本号，来进行内容验证。 这个版本号可以通过API文档获取，例如要编写一个Deployment资源，首先查看API文档(<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#daemonset-v1-apps)如下" class="uri">https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#daemonset-v1-apps)如下</a>：</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件0.png" /></p>
+<p>版本号由<code>Group/Version</code>这样的格式组成，因此Deployment的<code>apiVersion</code>就是<code>apps/v1</code>。 需要注意下面一行小字: &quot;Other API versions of this object exist: v1beta2 v1beta1 v1beta1&quot;，因此<code>apps/v1beta2</code>， <code>apps/v1beta1</code>这样的版本号也是合法的。 具体使用哪个版本号，最终要取决于集群支持哪个版本号。</p>
+<p><code>kind</code>表示操作的是什么资源， 向上面要操作Deployment，kind就是Deployment。 如果要创建Pod，则Kind就是Pod。</p>
+<p><code>metadata</code>则是此资源的一些元数据， 如何设置后面会聊到</p>
+<p><code>spec</code>是具体如何创建这个资源，同样放到后面再聊</p>
+<p><code>status</code>是此资源状态数据，用户不需要设置，即便设置，集群也会过滤掉</p>
+<p>总结一下:</p>
+<p>用户通过<code>apiversion</code>+<code>kind</code>告之集群，准备按照哪个API版本所规定的协议创建何种资源。 集群确认支持指定版本和资源后，就会读取后面的资源详细参数。 但需要注意，未必所有资源都有这几项，例如<code>Configmap</code>就没有Spec,但却增加了data. 后面会聊到如何通过API文档来组织资源文件</p>
+<h3 id="创建资源">创建资源</h3>
+<p>来看<code>metadata</code>。每种资源有不同的<code>metadata</code>规范， 大部分场景中可以通用的，也就是说虽然资源不同，但metadata格式相同，只是里面的参数不同。 当需要查看具体<code>metadata</code>时，直接点击<code>metadata</code>下面的<code>ObjectMeta</code>,如下图：</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件1.png" /></p>
+<p>会跳到<code>ObjectMeata</code>定义页面中：</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件2.png" /></p>
+<p>这里仍然假设需要创建一个Deployment，<code>apiVersion</code>和<code>kind</code>此时都已经确定了(如果仍然不明白，建议再看一下上面一节)。 然后开始写<code>metedata</code>. 通过<code>ObjectMeta</code>可以看到里面有很多属性，例如<code>annotations</code>表示一些注释信息，类型是<code>obejct</code>，通过后面的链接: <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/" class="uri">https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/</a> 可以得知是一个<code>key=value</code>格式的map。 如果要添加注释信息，可以按照如下方式编写:</p>
+<pre><code><code>apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: &quot;1&quot;</code></pre>
+<p>在创建任何资源时，name和namesapce都是需要指定的(namespace如果不指定，默认是default，但指定namespace是一个好习惯)。查看name和namespace的定义:</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件3.png" /></p>
+<p>都是字符串格式，因此在上面基础之上在添加name和namespace：</p>
+<pre><code><code>apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: &quot;1&quot;
+  name: envoy-01
+  namespace: tio</code></pre>
+<p>在某些场景中(其实是大多数场景)，需要通过label来筛选对应的workload，所以有必要给我的Deployment添加特定的Label， 查看一下Label的定义:</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件4.png" /></p>
+<p>查看后面的链接 (<a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/" class="uri">https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/</a>) 可以看出也是一个<code>key=value</code>格式的map，和<code>annotations</code>一样，所以添加label如下：</p>
+<pre><code><code>apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: &quot;1&quot;
+  labels:
+    k8s-app: envoy-01
+  name: envoy-01
+  namespace: tio</code></pre>
+<p><code>metadata</code>的定义就先看到这里，下面来看<code>spec</code>应该如何定义。</p>
+<p>同样，直接点击<code>deployment</code>spec下面的类型定义，</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件5.png" /></p>
+<p>每个资源的spec都不同，下面是DeploymentSpec的定义:</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件6.png" /></p>
+<p>每个属性都有解释，这里就不逐一翻译了， 我们假设这个Deployment预期两个Pod，因此replicas=2，通过selector来匹配ReplicaSet，设定strategy为滚动更新。 在上面资源文件的基础之上，我们继续定义spec，如下：</p>
+<pre><code><code>apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: &quot;1&quot;
+  labels:
+    k8s-app: envoy-01
+  name: envoy-01
+  namespace: tio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: envoy-01
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate</code></pre>
+<p><code>selector</code>可以参考(<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#labelselector-v1-meta)规定的规范" class="uri">https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#labelselector-v1-meta)规定的规范</a>， <code>strategy</code>可以参看(<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#deploymentstrategy-v1-apps" class="uri">https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#deploymentstrategy-v1-apps</a>)。</p>
+<p>这些定义完成后，就剩下<code>Template</code>了，这个用来定义应该如何来创建Pod(或者说表示用户想要一个什么样的Pod)。</p>
+<p>点击下面的Pod数据定义:</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件7.png" /></p>
+<p>可以看到Pod Template有两个属性:</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件8.png" /></p>
+<p>因此资源文件大致应该是如下的样子:</p>
+<pre><code><code>apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: &quot;1&quot;
+  labels:
+    k8s-app: envoy-01
+  name: envoy-01
+  namespace: tio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: envoy-01
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+    spec:</code></pre>
+<p><code>metadata</code>和<code>spec</code>. 其中<code>metadata</code>和上面我们所设置的<code>metadata</code>一样，这里就不赘述了。<code>spec</code>通过下面的定义可以得知是<code>podspec</code>。</p>
+<p>点击<code>podspec</code>后可以看到和经常设置的docker container参数有一些类似了：</p>
+<p><img src="./images/新手学习分布式 - 如何编写Kubernetes资源文件9.png" /></p>
+<p>我们继续在上面资源文件基础上补充<code>podspec</code>的内容</p>
+<pre><code><code>apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: &quot;1&quot;
+  labels:
+    k8s-app: envoy-01
+  name: envoy-01
+  namespace: tio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: envoy-01
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: envoy-01
+    spec:
+      containers:
+      - args:
+        - -c
+        - /etc/envoy/envoy.yaml
+        - --service-node
+        - sn1
+        - --service-cluster
+        - sc1
+        command:
+        - envoy
+        image: envoyproxy/envoy
+        imagePullPolicy: IfNotPresent
+        name: envoy
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        securityContext:
+          privileged: false
+          procMount: Default
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/envoy
+          name: conf</code></pre>
+<p>至此，一个最简单的<code>Deployment</code>资源文件就写好了。 剩下的就是通过<code>kubectl</code>提交这个需求给Kubernetes集群，然后就可以等待Kubernetes慢慢创建资源了。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

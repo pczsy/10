@@ -1,0 +1,92 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修centos服务器部署flask项目。' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>centos服务器部署flask项目。</center></div><div class='banquan'>原文出处:本文由博客园博主记住我忘记我提供。<br/>
+原文连接:https://www.cnblogs.com/nmsghgnv/p/11431729.html</div><br>
+    <p>&nbsp;已安装的环境nginx，python3,mysql,uwsgi，virtualenv</p>
+<p>1,创建虚拟环境</p>
+<div class="cnblogs_code">
+<pre><code>virtualenv -p python3 myblog</pre>
+</div>
+<p>2，进入虚拟环境</p>
+<div class="cnblogs_code">
+<pre><code>source myblog/bin/activate</pre>
+</div>
+<p>3，在虚拟环境中安装flask和uwsgi</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">pip install flask
+pip install uwsgi</span></pre>
+</div>
+<p>4，配置uwsgi，在部署项目的根目录下创建配置文件uwsgiconfig.ini，添加配置内容如下</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">[uwsgi]
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> uwsgi 启动时所使用的地址与端口（可以与项目端口不一致）</span>
+socket = 127.0.0.1:5000
+<span style="color: #008000;">#</span><span style="color: #008000;"> 指向网站目录</span>
+chdir=/usr/local/nginx/html/<span style="color: #000000;">myblog
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> python 启动程序文件</span>
+wsgi-file =<span style="color: #000000;"> myblog.py
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> python 程序内用以启动的 application 变量名</span>
+callable =<span style="color: #000000;"> app
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 处理器数</span>
+processes = 4
+<span style="color: #008000;">#</span><span style="color: #008000;"> 线程数</span>
+threads = 2
+<span style="color: #008000;">#</span><span style="color: #008000;"> 缓冲区</span>
+buffer-size = 32768
+<span style="color: #008000;">#</span><span style="color: #008000;">状态检测地址</span>
+stats = 127.0.0.1:9191</pre>
+</div>
+<p>5，配置nginx，添加如下内容：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">server {
+     listen          </span>80<span style="color: #000000;">;
+     server_name     www.myblog.terroristhouse.com;  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 阿里云公网ip</span>
+    location /<span style="color: #000000;"> {
+            include uwsgi_params;
+            uwsgi_pass </span>127.0.0.1:5000<span style="color: #000000;">;
+            uwsgi_param UWSGI_PYHOME </span>/root/myblog;  <span style="color: #008000;">#</span><span style="color: #008000;">python位置,要么是虚拟机，要么是运行的环境变量位置</span>
+            uwsgi_param UWSGI_CHDIR /usr/local/nginx/html/myblog;  <span style="color: #008000;">#</span><span style="color: #008000;">项目根目录</span>
+            uwsgi_param UWSGI_SCRIPT myblog:app;    <span style="color: #008000;">#</span><span style="color: #008000;">启动项目的主程序,如果manage.py位域flask-prj的src/flask/这样的目录下，那么就写成src/flask/manage:app这样</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">root   /usr/share/nginx/html;</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">index  index.html index.htm;</span>
+<span style="color: #000000;">        }
+        }</span></pre>
+</div>
+<p>6，重启nginx</p>
+<div class="cnblogs_code">
+<pre><code>killall -9<span style="color: #000000;"> nginx                关闭nginx的进程
+</span>/usr/local/nginx/sbin/nginx    启动和查看nginx服务</pre>
+</div>
+<p>7，运行uwsgi服务</p>
+<div class="cnblogs_code">
+<pre><code>uwsgi --ini /usr/local/nginx/html/myblog/<span style="color: #000000;">uwsgiconfig.ini
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">后台运行</span>
+uwsgi --ini /usr/local/nginx/html/myblog/uwsgiconfig.ini --daemonize /usr/local/nginx/html/myblog/myblog.out</pre>
+</div>
+<p>注意：项目运行方法要改为manage.app()</p>
+<p>输入域名可以访问网站了，</p>
+<p><img src="./images/centos服务器部署flask项目。0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;done。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

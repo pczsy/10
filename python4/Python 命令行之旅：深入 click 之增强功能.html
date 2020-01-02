@@ -1,0 +1,215 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python 命令行之旅：深入 click 之增强功能' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python 命令行之旅：深入 click 之增强功能</center></div><div class='banquan'>原文出处:本文由博客园博主削微寒提供。<br/>
+原文连接:https://www.cnblogs.com/xueweihan/p/12017182.html</div><br>
+    <p><img src="./images/Python 命令行之旅：深入 click 之增强功能0.png" /><br />
+<p align="center"><br />
+作者：HelloGitHub-<strong>Prodesire</strong><br />
+</p></p>
+<blockquote>
+<p>HelloGitHub 的《讲解开源项目》系列，项目地址：<a href="https://github.com/HelloGitHub-Team/Article" class="uri">https://github.com/HelloGitHub-Team/Article</a></p>
+</blockquote>
+<h2 id="一前言">一、前言</h2>
+<p>在前面三篇文章中，我们介绍了 <code>click</code> 中的参数、选项和命令，本文将介绍 <code>click</code> 锦上添花的功能，以帮助我们更加轻松地打造一个更加强大的命令行程序。</p>
+<pre><code><code>本系列文章默认使用 Python 3 作为解释器进行讲解。
+若你仍在使用 Python 2，请注意两者之间语法和库的使用差异哦~</code></pre>
+<h2 id="二增强功能">二、增强功能</h2>
+<h3 id="bash-补全">2.1 Bash 补全</h3>
+<p>Bash 补全是 <code>click</code> 提供的一个非常便捷和强大的功能，这是它比 <code>argpase</code> 和 <code>docopt</code> 强大的一个表现。</p>
+<p>在命令行程序正确安装后，Bash 补全才可以使用。而如何安装可以参考 <a href="https://click.palletsprojects.com/en/7.x/setuptools/#setuptools-integration">setup 集成</a>。Click 目前仅支持 Bash 和 Zsh 的补全。</p>
+<h4 id="补全能力">2.1.1 补全能力</h4>
+<p>通常来说，Bash 补全支持对子命令、选项、以及选项或参数值得补全。比如：</p>
+<pre class="plain"><code>$ repo &lt;TAB&gt;&lt;TAB&gt;
+clone    commit   copy     delete   setuser
+$ repo clone -&lt;TAB&gt;&lt;TAB&gt;
+--deep     --help     --rev      --shallow  -r</code></pre>
+<p>此外，<code>click</code> 还支持自定义补全，这在动态生成补全场景中很有用，使用 <code>autocompletion</code> 参数。<code>autocompletion</code> 需要指定为一个回调函数，并且返回字符串的列表。此函数接受三个参数：</p>
+<ul>
+<li><code>ctx</code> —— 当前的 click 上下文</li>
+<li><code>args</code> 传入的参数列表</li>
+<li><code>incomplete</code> 正在补全的词</li>
+</ul>
+<p>这里有一个根据环境变量动态生成补全的示例：</p>
+<pre class="python"><code>import os
+
+def get_env_vars(ctx, args, incomplete):
+    return [k for k in os.environ.keys() if incomplete in k]
+
+@click.command()
+@click.argument(&quot;envvar&quot;, type=click.STRING, autocompletion=get_env_vars)
+def cmd1(envvar):
+    click.echo(&#39;Environment variable: %s&#39; % envvar)
+    click.echo(&#39;Value: %s&#39; % os.environ[envvar])</code></pre>
+<p>在 <code>ZSH</code> 中，还支持补全帮助信息。只需将 <code>autocompletion</code> 回调函数中返回的字符串列表中的字符串改为二元元组，第一个元素是补全内容，第二个元素是帮助信息。</p>
+<p>这里有一个颜色补全的示例：</p>
+<pre class="python"><code>import os
+
+def get_colors(ctx, args, incomplete):
+    colors = [(&#39;red&#39;, &#39;help string for the color red&#39;),
+              (&#39;blue&#39;, &#39;help string for the color blue&#39;),
+              (&#39;green&#39;, &#39;help string for the color green&#39;)]
+    return [c for c in colors if incomplete in c[0]]
+
+@click.command()
+@click.argument(&quot;color&quot;, type=click.STRING, autocompletion=get_colors)
+def cmd1(color):
+    click.echo(&#39;Chosen color is %s&#39; % color)</code></pre>
+<h4 id="激活补全">2.1.2 激活补全</h4>
+<p>要激活 Bash 的补全功能，就需要告诉它你的命令行程序有补全的能力。通常通过一个神奇的环境变量 <code>_&lt;PROG_NAME&gt;_COMPLETE</code> 来告知，其中 <code>&lt;PROG_NAME&gt;</code> 是大写下划线形式的程序名称。</p>
+<p>比如有一个命令行程序叫做 <code>foo-bar</code>，那么对应的环境变量名称为 <code>_FOO_BAR_COMPLETE</code>，然后在 <code>.bashrc</code> 中使用 <code>source</code> 导出即可：</p>
+<pre class="bash"><code>eval &quot;$(_FOO_BAR_COMPLETE=source foo-bar)&quot;</code></pre>
+<p>或者在 <code>.zshrc</code> 中使用：</p>
+<pre class="bash"><code>eval &quot;$(_FOO_BAR_COMPLETE=source_zsh foo-bar)&quot;</code></pre>
+<p>不过上面的方式总是在命令行程序启动时调用，这可能在有多个程序时减慢 shell 激活的速度。另一种方式是把命令放在文件中，就像这样：</p>
+<pre class="bash"><code># 针对 Bash
+_FOO_BAR_COMPLETE=source foo-bar &gt; foo-bar-complete.sh
+
+# 针对 ZSH
+_FOO_BAR_COMPLETE=source_zsh foo-bar &gt; foo-bar-complete.sh</code></pre>
+<p>然后把脚本文件路径加到 <code>.bashrc</code> 或 <code>.zshrc</code> 中：</p>
+<pre class="bash"><code>. /path/to/foo-bar-complete.sh</code></pre>
+<h3 id="实用工具">2.2 实用工具</h3>
+<h4 id="打印到标准输出">2.2.1 打印到标准输出</h4>
+<p><a href="https://click.palletsprojects.com/en/7.x/api/#click.echo">echo()</a> 函数可以说是最有用的实用工具了。它和 Python 的 <code>print</code> 类似，主要的区别在于它同时在 Python 2 和 3 中生效，能够智能地检测未配置正确的输出流，且几乎不会失败（除了 Python 3 中的<a href="https://click.palletsprojects.com/en/7.x/python3/#python3-limitations">少数限制</a>。）</p>
+<p><code>echo</code> 即支持 unicode，也支持二级制数据，如：</p>
+<pre class="python"><code>import click
+
+click.echo(&#39;Hello World!&#39;)
+
+click.echo(b&#39;\xe2\x98\x83&#39;, nl=False) # nl=False 表示不输出换行符</code></pre>
+<h4 id="ansi-颜色">2.2.2 ANSI 颜色</h4>
+<p>有些时候你可能希望输出是有颜色的，这尤其在输出错误信息时有用，而 <code>click</code> 在这方面支持的很好。</p>
+<p>首先，你需要安装 <code>colorama</code>：</p>
+<pre class="bash"><code>pip install colorama</code></pre>
+<p>然后，就可以使用 <a href="https://click.palletsprojects.com/en/7.x/api/#click.style">style()</a> 函数来指定颜色：</p>
+<pre class="python"><code>import click
+
+click.echo(click.style(&#39;Hello World!&#39;, fg=&#39;green&#39;))
+click.echo(click.style(&#39;Some more text&#39;, bg=&#39;blue&#39;, fg=&#39;white&#39;))
+click.echo(click.style(&#39;ATTENTION&#39;, blink=True, bold=True))</code></pre>
+<p><code>click</code> 还提供了更加简便的函数 <a href="https://click.palletsprojects.com/en/7.x/api/#click.secho">secho</a>，它就是 <code>echo</code> 和 <code>style</code> 的组合：</p>
+<pre class="python"><code>click.secho(&#39;Hello World!&#39;, fg=&#39;green&#39;)
+click.secho(&#39;Some more text&#39;, bg=&#39;blue&#39;, fg=&#39;white&#39;)
+click.secho(&#39;ATTENTION&#39;, blink=True, bold=True)</code></pre>
+<h4 id="分页支持">2.2.3 分页支持</h4>
+<p>有些时候，命令行程序会输出长文本，但你希望能让用户盘也浏览。使用 <a href="https://click.palletsprojects.com/en/7.x/api/#click.echo_via_pager">echo_via_pager()</a> 函数就可以轻松做到。</p>
+<p>例如：</p>
+<pre class="python"><code>def less():
+    click.echo_via_pager(&#39;\n&#39;.join(&#39;Line %d&#39; % idx
+                                   for idx in range(200)))</code></pre>
+<p>如果输出的文本特别大，处于性能的考虑，希望翻页时生成对应内容，那么就可以使用生成器：</p>
+<pre class="python"><code>def _generate_output():
+    for idx in range(50000):
+        yield &quot;Line %d\n&quot; % idx
+
+@click.command()
+def less():
+    click.echo_via_pager(_generate_output())</code></pre>
+<h4 id="清除屏幕">2.2.4 清除屏幕</h4>
+<p>使用 <a href="https://click.palletsprojects.com/en/7.x/api/#click.clear">clear()</a> 可以轻松清除屏幕内容：</p>
+<pre class="python"><code>import click
+click.clear()</code></pre>
+<h4 id="从终端获取字符">2.2.5 从终端获取字符</h4>
+<p>通常情况下，使用内建函数 <code>input</code> 或 <code>raw_input</code> 获得的输入是用户输出一段字符然后回车得到的。但在有些场景下，你可能想在用户输入单个字符时就能获取到并且做一定的处理，这个时候 <a href="https://click.palletsprojects.com/en/7.x/api/#click.getchar">getchar()</a> 就派上了用场。</p>
+<p>比如，根据输入的 <code>y</code> 或 <code>n</code> 做特定处理：</p>
+<pre class="python"><code>import click
+
+click.echo(&#39;Continue? [yn] &#39;, nl=False)
+c = click.getchar()
+click.echo()
+if c == &#39;y&#39;:
+    click.echo(&#39;We will go on&#39;)
+elif c == &#39;n&#39;:
+    click.echo(&#39;Abort!&#39;)
+else:
+    click.echo(&#39;Invalid input :(&#39;)</code></pre>
+<h4 id="等待按键">2.2.6 等待按键</h4>
+<p>在 Windows 的 cmd 中我们经常看到当执行完一个命令后，提示按下任意键退出。通过使用 <a href="https://click.palletsprojects.com/en/7.x/api/#click.pause">pause()</a> 可以实现暂停直至用户按下任意键：</p>
+<pre class="python"><code>import click
+click.pause()</code></pre>
+<h4 id="启动编辑器">2.2.7 启动编辑器</h4>
+<p>通过 <a href="https://click.palletsprojects.com/en/7.x/api/#click.edit">edit()</a> 可以自动启动编辑器。这在需要用户输入多行内容时十分有用。</p>
+<p>在下面的示例中，会启动默认的文本编辑器，并在里面输入一段话：</p>
+<pre class="python"><code>import click
+
+def get_commit_message():
+    MARKER = &#39;# Everything below is ignored\n&#39;
+    message = click.edit(&#39;\n\n&#39; + MARKER)
+    if message is not None:
+        return message.split(MARKER, 1)[0].rstrip(&#39;\n&#39;)</code></pre>
+<p><code>edit()</code> 函数还支持打开特定文件，比如：</p>
+<pre class="python"><code>import click
+click.edit(filename=&#39;/etc/passwd&#39;)</code></pre>
+<h4 id="启动应用程序">2.2.8 启动应用程序</h4>
+<p>通过 <a href="https://click.palletsprojects.com/en/7.x/api/#click.launch">launch</a> 可以打开 URL 或文件类型所关联的默认应用程序。如果设置 <code>locate=True</code>，则可以启动文件管理器并自动选中特定文件。</p>
+<p>示例：</p>
+<pre class="python"><code># 打开浏览器，访问 URL
+click.launch(&quot;https://click.palletsprojects.com/&quot;)
+
+# 使用默认应用程序打开 txt 文件
+click.launch(&quot;/my/downloaded/file.txt&quot;)
+
+# 打开文件管理器，并自动选中 file.txt
+click.launch(&quot;/my/downloaded/file.txt&quot;, locate=True)</code></pre>
+<h4 id="显示进度条">2.2.9 显示进度条</h4>
+<p><code>click</code> 内置了 <a href="https://click.palletsprojects.com/en/7.x/api/#click.progressbar">progressbar()</a> 函数来方便地显示进度条。</p>
+<p>它的用法也很简单，假定你有一个要处理的可迭代对象，处理完每一项就要输出一下进度，那么就有两种用法。</p>
+<p>用法一：使用 <code>progressbar</code> 构造出 <code>bar</code> 对象，迭代 <code>bar</code> 对象来自动告知进度：</p>
+<pre class="python"><code>import time
+import click
+
+all_the_users_to_process = [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]
+
+def modify_the_user(user):
+    time.sleep(0.5)
+
+with click.progressbar(all_the_users_to_process) as bar:
+    for user in bar:
+        modify_the_user(user)</code></pre>
+<p>用法二：使用 <code>progressbar</code> 构造出 <code>bar</code> 对象，迭代原始可迭代对象，并不断向 <code>bar</code> 更新进度：</p>
+<pre class="python"><code>import time
+import click
+
+all_the_users_to_process = [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]
+
+def modify_the_user(user):
+    time.sleep(0.5)
+
+with click.progressbar(all_the_users_to_process) as bar:
+    for user in enumerate(all_the_users_to_process):
+        modify_the_user(user)
+        bar.update(1)</code></pre>
+<h4 id="更多实用工具">2.2.10 更多实用工具</h4>
+<ul>
+<li><a href="https://click.palletsprojects.com/en/7.x/utils/#printing-filenames">打印文件名</a></li>
+<li><a href="https://click.palletsprojects.com/en/7.x/utils/#standard-streams">标准流</a></li>
+<li><a href="https://click.palletsprojects.com/en/7.x/utils/#intelligent-file-opening">智能打开文件</a></li>
+<li><a href="https://click.palletsprojects.com/en/7.x/utils/#finding-application-folders">查找应用程序文件夹</a></li>
+</ul>
+<h2 id="三总结">三、总结</h2>
+<p><code>click</code> 提供了非常多的增强型功能，本文着重介绍了它的 Bash 补全和十多个实用工具，这会让你在实现命令行的过程中如虎添翼。此外，<code>click</code> 还提供了诸如命令别名、参数修改、标准化令牌、调用其他命令、回调顺序等诸多<a href="https://click.palletsprojects.com/en/7.x/advanced/">高级模式</a> 以应对更加复杂或特定的场景，我们就不再深入介绍。</p>
+<p><code>click</code> 的介绍就告一段落，它将会是你编写命令行程序的一大利器。在下一篇文章中，我们依然会通过实现一个简单的 <code>git</code> 程序来进行 <code>click</code> 的实战。</p>
+<hr />
+<p><strong>『讲解开源项目系列』</strong>——让对开源项目感兴趣的人不再畏惧、让开源项目的发起者不再孤单。跟着我们的文章，你会发现编程的乐趣、使用和发现参与开源项目如此简单。欢迎留言联系我们、加入我们，让更多人爱上开源、贡献开源～</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

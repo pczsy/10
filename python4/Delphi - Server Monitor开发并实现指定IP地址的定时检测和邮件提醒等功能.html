@@ -1,0 +1,101 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Delphi - Server Monitor开发并实现指定IP地址的定时检测和邮件提醒等功能' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Delphi - Server Monitor开发并实现指定IP地址的定时检测和邮件提醒等功能</center></div><div class='banquan'>原文出处:本文由博客园博主Jeremy.Wu提供。<br/>
+原文连接:https://www.cnblogs.com/jeremywucnblog/p/12010439.html</div><br>
+    <h2><strong><span style="color: #33cccc; background-color: #ffffff;">项目背景</span></strong></h2>
+<p>　　近期，总经办邮件反馈考勤数据频繁丢失，请IT排查其根本原因，并提供整改措施。</p>
+<p>　　措不及防，这个项目当初并不是IT主导的，是设备部采购，然后协同软件供应商直接安装、部署和调试的，IT只是提供几个数据库表接口给供应商。然后我们就开始在设备、总经办、供应商之间相互扯皮，之所以扯皮的原因是，经过供应商排查并没有发现任何问题（具体情况不得而知），也就是说他们也不知道造成数据丢失的具体原因。</p>
+<p>　　求人不如求己，后来我们这边排查数据库日志，发现在数据丢失的时间段内，数据库和上位机之间很少或者说基本没有数据交互。继续排查设备上位机日志，发现其网络端口会有间歇性响应异常等问题，重启端口后一切正常。</p>
+<p>　　知道这些以后，那接下来问题就简单了。</p>
+<h2><strong><span style="color: #33cccc;">解决方案</span></strong></h2>
+<ul>
+<li>
+<h3><strong><span style="color: #33cccc;">项目总目标</span></strong>　　</h3>
+</li>
+</ul>
+<p>　　客制化一个系统/脚本，实现定时检测某个网络端口相关功能是否正常，通过其DLL接口实现端口刷新或重启，并将日志通过邮件方式发送给指定人员。</p>
+<ul>
+<li>
+<h3><span style="color: #33cccc;"><strong>节点目标一</strong></span>：网络端口通断检测模块；</h3>
+</li>
+<li>
+<h3><strong><span style="color: #33cccc;">节点目标二：</span></strong>DLL接口重写，实现端口刷新或重启模块；</h3>
+</li>
+<li>
+<h3><span style="color: #33cccc;"><strong>节点目标三</strong></span>：日志检测和邮件发送模块；</h3>
+</li>
+<li>
+<h3><strong><span style="color: #33cccc;">节点目标四</span></strong>：定时模块。</h3>
+</li>
+</ul>
+<p>&nbsp;</p>
+<h2><strong><span style="color: #33cccc;">关键模块Demo</span></strong></h2>
+<p>下面给出几个关键模块Demo</p>
+<p style="margin-left: 30px;"><span style="color: #0000ff; text-decoration: underline;">网络端口检测模块(需要引用IdIcmpClient单元)</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">var</span>
+<span style="color: #008080;"> 2</span> <span style="color: #000000;">  icmp: TIdIcmpClient;
+</span><span style="color: #008080;"> 3</span> <span style="color: #000000;">  rpss: TReplyStatus;
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">begin</span>
+<span style="color: #008080;"> 5</span>   icmp := TIdIcmpClient.<span style="color: #0000ff;">Create</span>(<span style="color: #0000ff;">nil</span><span style="color: #000000;">);
+</span><span style="color: #008080;"> 6</span>   <span style="color: #0000ff;">try</span>
+<span style="color: #008080;"> 7</span>     icmp.Host :=<span style="color: #000000;"> strIP;
+</span><span style="color: #008080;"> 8</span>     icmp.ReceiveTimeout :=<span style="color: #000000;"> intLinkTimeOut;
+</span><span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">try</span>
+<span style="color: #008080;">10</span> <span style="color: #000000;">      icmp.Ping;
+</span><span style="color: #008080;">11</span>       rpss :=<span style="color: #000000;"> icmp.ReplyStatus;
+</span><span style="color: #008080;">12</span>       Result := <span style="color: #0000ff;">not</span> (rpss.ReplyStatusType =<span style="color: #000000;"> rsTimeOut);
+</span><span style="color: #008080;">13</span>     <span style="color: #0000ff;">except</span>
+<span style="color: #008080;">14</span>       Result :=<span style="color: #000000;"> False;
+</span><span style="color: #008080;">15</span>     <span style="color: #0000ff;">end</span><span style="color: #000000;">;
+</span><span style="color: #008080;">16</span>   <span style="color: #0000ff;">finally</span>
+<span style="color: #008080;">17</span> <span style="color: #000000;">    icmp.Free;
+</span><span style="color: #008080;">18</span>   <span style="color: #0000ff;">end</span><span style="color: #000000;">;
+</span><span style="color: #008080;">19</span> <span style="color: #0000ff;">end</span>;</pre>
+</div>
+<p style="margin-left: 30px;"><span style="color: #0000ff; text-decoration: underline;">Dll接口模块</span></p>
+<p style="margin-left: 30px;">关于Dll接口其实没什么可说的，不同的接口使用方法不一样，这里给出通用的Dll接口重写和调用的例子</p>
+<p style="margin-left: 30px;">关于Delphi Dll接口重写：<a id="cb_post_title_url" class="postTitle2" href="https://www.cnblogs.com/jeremywucnblog/p/11462839.html">Delphi - 创建SuperDll 持续更新</a></p>
+<p style="margin-left: 30px;">关于Delphi Dll接口调用：<a id="cb_post_title_url" class="postTitle2" href="https://www.cnblogs.com/jeremywucnblog/p/11462890.html">Delphi - 调用SuperDll 持续更新</a></p>
+<p style="margin-left: 30px;"><span style="text-decoration: underline;"><span style="color: #0000ff; text-decoration: underline;">邮件发送模块</span></span></p>
+<p style="margin-left: 30px;">参考我以前写过的：<a id="cb_post_title_url" class="postTitle2" href="https://www.cnblogs.com/jeremywucnblog/p/11427658.html">Delphi - Indy TIdMessage和TIdSMTP实现邮件的发送</a></p>
+<p style="margin-left: 30px;"><span style="color: #0000ff; text-decoration: underline;">定时模块</span></p>
+<p style="margin-left: 30px;"><span style="color: #000000;">采用Timer控件，通过前台设置执行间隔、Enable属性，来控制对关键事件的定时执行效果</span>&nbsp;</p>
+<h2><span style="color: #33cccc;">测试Demo运行效果</span></h2>
+<p>页面布局</p>
+<p><img src="./images/Delphi - Server Monitor开发并实现指定IP地址的定时检测和邮件提醒等功能0.png" alt="" /></p>
+<p>运行效果</p>
+<p><img src="./images/Delphi - Server Monitor开发并实现指定IP地址的定时检测和邮件提醒等功能1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><img src="./images/Delphi - Server Monitor开发并实现指定IP地址的定时检测和邮件提醒等功能2.png" alt="" />&nbsp;</p>
+<div id="AllanboltSignature">
+<p id="PSignature" style="padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 60px; background: url('https://images.cnblogs.com/cnblogs_com/jeremywucnblog/1607637/o_191206011825obs.png') #e5f1f4 no-repeat 1% 50%; font-family: 微软雅黑; font-size: 11px; border: #e0e0e0 1px dashed;">&nbsp; 作者：<a href="https://www.cnblogs.com/jeremywucnblog/" target="_blank">Jeremy.Wu</a> <br />&nbsp; 出处：<a href="https://www.cnblogs.com/jeremywucnblog/" target="_blank">https://www.cnblogs.com/jeremywucnblog/</a>
+            <br />&nbsp; 本文版权归作者和博客园共有，欢迎转载，但未经作者同意必须保留此段声明，且在文章页面明显位置给出原文连接，否则保留追究法律责任的权利。
+        </p>
+
+
+
+
+
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

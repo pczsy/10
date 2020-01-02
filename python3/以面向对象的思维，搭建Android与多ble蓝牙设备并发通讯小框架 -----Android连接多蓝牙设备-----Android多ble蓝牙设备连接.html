@@ -1,0 +1,207 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修以面向对象的思维，搭建Android与多ble蓝牙设备并发通讯小框架 -----Android连接多蓝牙设备-----Android多ble蓝牙设备连接' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>以面向对象的思维，搭建Android与多ble蓝牙设备并发通讯小框架 -----Android连接多蓝牙设备-----Android多ble蓝牙设备连接</center></div><div class='banquan'>原文出处:本文由博客园博主老凯瑞提供。<br/>
+原文连接:https://www.cnblogs.com/littlecarry/p/11889982.html</div><br>
+    <p>　　<strong>此框架支持多种不同类型的ble设备，同时连接、收发数据，互不干扰</strong>。比如APP同时连两个LED蓝牙灯、两个手环、一个蓝牙加热器，当然<strong>连接单个ble设备</strong>，或者只<strong>连接一种ble设备</strong>同样适用本框架。</p>
+<p><span style="font-size: 14pt;"><strong>前言</strong></span></p>
+<p>　　小白请绕道百度，本文适合有一定Android、ble蓝牙、面向对象基础的同学进阶探讨，只讲关键技术点，细节自行脑补</p>
+<p>　　看过很多蓝牙demo、开源库，没发现真正以面向对象的思维写的，把自己的一套框架开源出来，希望对看到的有缘人有用，特别是面向对象思维方面。<strong>不是说定义了类，就叫面向对象，希望你能领悟</strong></p>
+<p>　　（连接不可超过7个，极少数手机不可超过5个）</p>
+<p>　　github源码：<a title="Android-DualBle" href="https://github.com/ruigeyun/Android-DualBle" target="_blank">https://github.com/ruigeyun/Android-DualBle</a></p>
+<p>　　<strong>转载引用请注明出处，尊重劳动者，让开源发扬光大！ 原创--老凯瑞的博客园&nbsp;<a title="老凯瑞的博客园" href="https://www.cnblogs.com/littlecarry/p/11889982.html" target="_blank">https://www.cnblogs.com/littlecarry/p/11889982.html</a></strong></p>
+<p>　　<span style="font-size: 18pt;"><strong>以面向对象之名</strong></span></p>
+<p><strong><span style="font-size: 14pt;">一、理解业务需求：ble与Android APP通讯的基本内容</span></strong></p>
+<p>　　<span style="font-size: 15px;"><strong>（一）蓝牙连接处理基本流程</strong></span></p>
+<p>　　如下图，来自&nbsp;&nbsp;<a href="%20https://www.jianshu.com/p/1c42074b1430?from=groupmessage" target="_blank">https://www.jianshu.com/p/1c42074b1430?from=groupmessage</a>&nbsp;，感谢作者</p>
+<p>&nbsp;<img src="./images/以面向对象的思维，搭建Android与多ble蓝牙设备并发通讯小框架 -----Android连接多蓝牙设备-----Android多ble蓝牙设备连接0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;　　　<strong>对上图补充：</strong></p>
+<p><strong>　　　　</strong>0、app连接ble成功后，才能读到ble的service uuid，而这个service uuid代表不同类型的设备。</p>
+<p>　　　　1、APP与ble可以通讯后，APP发送认证密码给ble，认证通过后，ble同步自身信息给APP，最终才进入正常业务交互</p>
+<p>　　　　2、APP与ble，断连后，自动重连</p>
+<p>　　　　3、APP可主动断开ble，之后可主动连接ble回来</p>
+<p>　　　　4、APP可删除ble，之后可再扫描连接回来</p>
+<p>　　　　5、接收到的蓝牙数据包，需要把数据缓存后拼接成完整数据包，极有可能一次收到的数据包不是完整的</p>
+<p>　　　　6、蓝牙数据分发到对应的业务接口</p>
+<p>　　<span style="font-size: 15px;"><strong>（二）Android APP与蓝牙多设备连接注意的点：</strong></span></p>
+<p>　　　　1、设备一个一个连，<strong>连接成功一个再一个</strong>，如果同时连多个，可能一个都连不上。具体原因没有深究</p>
+<p>　　　　2、如果一个设备被你连过，然后一系列操作后，<strong>无法再扫描到</strong>，用其他工具APP也扫描不到，说明这个设备被你连着，没有彻底的释放掉！如何完全释放ble，具体看源码，其中部分我也是参考了网上著名的蓝牙框架 fastble：https://www.jianshu.com/p/795bb0a08beb ，感谢作者</p>
+<p>　　　　3、对APP对ble的每一步操作间，<strong>必须加延时</strong>，否则会有意想不到的问题。具体看源码</p>
+<p>　　　　4、ble被断开后，<strong>必须延时1-2秒</strong>，再去连接他（不通过扫描直接连的情况），否则会有意想不到的问题</p>
+<p><span style="font-size: 14pt;"><strong>二、分析整个系统：</strong></span></p>
+<p>　　　　<strong>架构，是模块及模块之间的交互</strong></p>
+<p>&nbsp; &nbsp; （一）整个蓝牙业务系统分成的模块：APP与ble连接交互模块、APP与ble数据交互模块、APP对所有ble整合管理模块、其他能动辅助模块</p>
+<p>　　　　<strong>1、APP与ble连接的交互：</strong>（1）APP扫描ble，必定有一个负责扫描的类；（2）扫描连接所有的ble，需要一个类专门负责连接的类；（3）ble自身的各种状态以及数据交互，必定就有个ble类来描述这些自身属性；（3）ble连接成功后，密码验证、数据同步、掉线重连，这些ble必须自发的行为，需要一个类来描述这些蓝牙设备自发业务；</p>
+<p>　　　　<strong>2、APP与ble数据交互：</strong>（1）一个格式完整的数据包，以及这个数据包属于哪个ble，必须由一个数据包类描述；（2）接收到数据，对数据拼包、过滤得到一个有效包的过程，需要一个缓存类描述；（3）完整的数据包最终对外分发，需要一个数据分发类描述；</p>
+<p>　　　　<strong>3、APP与ble整合管理：</strong>（1）统一调配各个ble间的关系（连接、断开、删除，发数据等），需要一个调配服务中心类描述；（2）对整个蓝牙框架的管理，扫描、连接、数据处理等整合起来，需要一个框架管理类描述。并且这个类作为此框架对外的门面，所有对外的操作，都得通过它，达到隐藏这个框架的其他复杂细节的目的</p>
+<p>　　　　<strong>4、其他能动辅助：</strong>各种工具、日志调试</p>
+<p>&nbsp; &nbsp; （二）<span style="font-size: 15px;"><strong>最终提取到的对象：</strong></span></p>
+<p>　　　　<strong>1、APP与ble建立连接：扫描器，连接器，ble蓝牙属性设备，蓝牙设备自发业务（重连、认证、同步）</strong></p>
+<p><strong>　　　　2、APP与ble数据交互：接收数据拼包缓存，数据包，数据分发器</strong></p>
+<p><strong>　　　　3、APP与ble整合管理：设备间调配服务中心，框架管理类</strong></p>
+<p><strong>　　　　4、其他能动辅助：工具、日志</strong></p>
+<p><img src="./images/以面向对象的思维，搭建Android与多ble蓝牙设备并发通讯小框架 -----Android连接多蓝牙设备-----Android多ble蓝牙设备连接1.png" alt="" /></p>
+<p>　　　　这里最关键的一个对象设计：<strong>ble蓝牙属性设备（BLELogicDevice）</strong>，<strong>每个蓝牙设备提炼成一个对象</strong>，APP每连接一个设备，就开辟一个此对象。每个对象分配一个<strong>mDeviceId</strong>。每个对象都有 BluetoothGattCallback 数据交互接口，这样每个对象跟自己对应的ble设备单独交互，互不相干。从一大堆扫描、回调、管理中解耦出来。每个设备对象从回调方法onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic)拿到数据，把数据缓存到一个自身的数据缓存区（每个设备对象都有一个缓存区对象），在缓存中拼接成数据包，数据都携带mDeviceId作为标志，对外分发。</p>
+<p>　　　　另一个关键对象：<strong>设备间调配服务中心（BLEServerCentral）</strong>，所有设备挂在其链表中，其负责维护各个设备对象的状态（连接、断开、删除等），控制APP与各设备数据交</p>
+<p><span style="font-size: 14pt;"><strong>三、设计小结</strong></span></p>
+<p>　　<strong>1、面向对象的思维</strong>：需求分析、系统构思、细化流程、提炼对象、对象整合，最终把整个系统完整描述清楚。<strong>根据自己的设计粒度，每一个类都去描绘一个事物，负有单一的职责，这是建立一个类的最基本原则</strong>。不是随意定义了类，然后一大堆if else逻辑，面向过程的思维解决问题。如果你的代码中，if else if 超过三层，说明你的代码耦合度过高了，需要拆分整合了</p>
+<p>　　2、以上只是写了关键的设计思路，源码有很多拓展的地方，有缘人可以自己阅读，<strong>代码其实没多少行</strong>，慢慢仔细看一下就明白了，不懂的可以在博客留言，我尽可能答复</p>
+<p>　　3、我把这个module做成了库，自己运行下makeClockJar，就可以导出jar包，接口如何使用参考源码</p>
+<p>　　4、源码蓝牙接收特征配置成<strong>通知方式</strong>，其他方式自行拓展。</p>
+<p>　　5、要添加很多新的行为，其实是很容易拓展的，比如添加一个配置特征，专门配置蓝牙参数的。你读得懂源码，很容易添加</p>
+<p><span style="font-size: 14pt;"><strong>四、库的用法</strong></span></p>
+<p>　　demo里面，有具体的栗子，仔细阅读下，很多注释的，应该容易理解</p>
+<p>　　<strong>1、建立自己的蓝牙设备对象</strong>，demo中有两种蓝牙设备，蓝牙控制led的设备(LedDevice)、蓝牙控制加热器设的备(HeaterDevice)，他们继承蓝牙库的对外设备（BLEAppDevice），添加自己的新特征，如led灯颜色，heater定时时间。蓝牙对象必须包含自己的<strong>服务、发送、接收三种uuid</strong>，以及自定义一个<strong>设备类型id</strong>，<strong>重写三个抽象方法</strong>，把uuid写进去。构造方法必须如下的方式，固定两个参数，并且调用父类的构造方法。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> LedDevice <span style="color: #0000ff;">extends</span><span style="color: #000000;"> BLEAppDevice {
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span> String TAG = "BLELedDevice"<span style="color: #000000;">;
+    
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> Integer DEVICE_TYPE_ID = 1002<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> UUID SERVICE_UUID = UUID.fromString("0000ff**-0000-1000-8000-00805f9b34fb"<span style="color: #000000;">);
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span> UUID RX_CHAR_UUID = UUID.fromString("0000ff**-0000-1000-8000-00805f9b34fb"<span style="color: #000000;">);
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span> UUID TX_CHAR_UUID = UUID.fromString("0000ff**-0000-1000-8000-00805f9b34fb"<span style="color: #000000;">);
+
+    @Override
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> UUID getServiceUUID() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> SERVICE_UUID;
+    }
+    @Override
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> UUID getRxUUID() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> RX_CHAR_UUID;
+    }
+    @Override
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> UUID getTxUUID() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> TX_CHAR_UUID;
+    }
+    
+    </span><span style="color: #0000ff;">public</span> String dualColor = ""<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">public</span> String hardwareVersion = ""<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span> powerState = 0<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">public</span> String nickname = ""<span style="color: #000000;">;
+    
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> LedDevice(BluetoothDevice device, DataParserAdapter adapter) {
+        </span><span style="color: #0000ff;">super</span><span style="color: #000000;">(device, adapter);
+        
+    }
+}</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>　　<strong>2、建立自己蓝牙设备的数据包结构对象（可选）</strong>，继承DataParserAdapter，重写相应方法。框架内部根据你定义的结构，自动帮你把蓝牙回应的数据包提炼出来（主要是处理断包、粘包问题），最终的数据包通过onDeviceRespSpliceData(BLEPacket message)方法回调给你。当然你也可以不用架构的处理算法，自己拼包，在DataCircularBuffer 类中，pushOriginalDataToBuffer(byte[] originalData)方法，是各个蓝牙设备数据推过来的入口，在这里接入自己的算法。</p>
+<p>　　如果不建立DataParserAdapter对象，则默认为null，蓝牙回应的数据，通过onDevicesRespOriginalData(BLEPacket message) 方法回调给你。</p>
+<p>　　<strong>3、建立自己的蓝牙管理对象</strong>，继承BLEBaseManager，重写必要的、可选的方法。蓝牙的各种信息交换，都是通过这个类回调给你。很重要！仔细阅读<strong>BLEServerListener</strong>接口里的方法说明，重写自己需要的方法。</p>
+<p>　　（1）必须重写&nbsp;onGetDevicesServiceUUID（）方法，把自己定义的设备类型ID和设备的service uuid，用map写进去。框架连接上设备后，读取设备的service uuid，根据这个map分辨出是那种类型的设备。</p>
+<p>　　（2）必须重写BLEAppDevice onCreateDevice(BluetoothDevice bluetoothDevice, int deviceType)方法，框架识别设备类型后，回调给你，你根据设备类型，创建设备对象实例。</p>
+<p>　　（3）onAddScanDevice(BluetoothDevice bluetoothDevice)方法，框架扫描到设备，就会回调这个方法。</p>
+<p>　　（4）onAddNewDevice(BLEAppDevice device)方法，框架连接成功一个设备，各种状态完备后，回调这个方法。</p>
+<p>　　这些方法在BLEServerListener接口都有详细说明<span><br /></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> BLEManager <span style="color: #0000ff;">extends</span><span style="color: #000000;"> BLEBaseManager {
+
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span> String TAG = "BLEManager"<span style="color: #000000;">;
+
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> BLEManager instance = <span style="color: #0000ff;">new</span><span style="color: #000000;"> BLEManager();
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> BLEManager getInstance() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> instance;
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> HashMap&lt;Integer, UUID&gt;<span style="color: #000000;"> onGetDevicesServiceUUID() {
+        HashMap</span>&lt;Integer, UUID&gt; map = <span style="color: #0000ff;">new</span><span style="color: #000000;"> HashMap();
+        map.put(HeaterDevice.DEVICE_TYPE_ID, HeaterDevice.SERVICE_UUID);
+        map.put(LedDevice.DEVICE_TYPE_ID, LedDevice.SERVICE_UUID);
+
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> map;
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onScanOver() {
+        Log.w(TAG, </span>"onScanOve。。"<span style="color: #000000;">);
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> BLEAppDevice onCreateDevice(BluetoothDevice bluetoothDevice, <span style="color: #0000ff;">int</span><span style="color: #000000;"> deviceType) {
+        </span><span style="color: #0000ff;">if</span> (deviceType ==<span style="color: #000000;"> HeaterDevice.DEVICE_TYPE_ID) {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">数据包解析适配器为null，蓝牙设备回应的数据在 onDevicesRespOriginalData(BLEPacket message)</span>
+            <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span> HeaterDevice(bluetoothDevice, <span style="color: #0000ff;">null</span><span style="color: #000000;">);
+        }
+        </span><span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (deviceType ==<span style="color: #000000;"> LedDevice.DEVICE_TYPE_ID) {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> 设置了数据包解析适配器，数据回调在 onDeviceRespSpliceData(BLEPacket message)</span>
+            <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span> LedDevice(bluetoothDevice, <span style="color: #0000ff;">new</span><span style="color: #000000;"> LedDataAdapter());
+        }
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        }
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onAddScanDevice(BluetoothDevice bluetoothDevice){
+        EventBus.getDefault().post(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> AddScanDeviceEvent(bluetoothDevice));
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> onConnectUnTypeDevice(BluetoothDevice bluetoothDevice, <span style="color: #0000ff;">int</span><span style="color: #000000;"> type) {
+        EventBus.getDefault().post(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> ConnectUnTypeDeviceEvent(bluetoothDevice, type));
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> onConnectDevice(BLEAppDevice device, <span style="color: #0000ff;">int</span><span style="color: #000000;"> type){
+        EventBus.getDefault().post(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> ConnectDeviceEvent(device, type));
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onAddNewDevice(BLEAppDevice device){
+        EventBus.getDefault().post(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> AddNewDeviceEvent(device));
+    }
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onUpdateDeviceInfo(BLEAppDevice device) {
+        EventBus.getDefault().post(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> updateDeviceInfoEvent(device));
+    }
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onDeviceSendResult(String result){
+        EventBus.getDefault().post(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> BleSendResultEvent(result));
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onDeviceRespSpliceData(BLEPacket message) {
+        LogUtil.i(TAG, </span>"onDeviceRespSpliceDat: [" + BytesUtil.BytesToHexStringPrintf(message.bleData) + "] bleId: " +<span style="color: #000000;"> message.bleId);
+</span><span style="color: #008000;">//</span><span style="color: #008000;">        DataManager.getInstance().DecodeRespData(message.bleData, message.bleId);</span>
+<span style="color: #000000;">    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onDevicesRespOriginalData(BLEPacket message) {
+        LogUtil.v(TAG, </span>"onDevicesRespOriginalDat: [" + BytesUtil.BytesToHexStringPrintf(message.bleData) + "] bleId: " +<span style="color: #000000;"> message.bleId);
+    }
+
+
+}</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>　　建立三个对象，就可以使用此框架了，如此简单！</p>
+<p>　　<strong>4、初始化蓝牙框架</strong>，APP获得蓝牙相应权限后，调用BLEBaseManager的&nbsp;initBle（..）方法初始化蓝牙。见demo</p>
+<p><span style="font-size: 14pt;"><strong>&nbsp;注意</strong></span></p>
+<p>　　1、<strong>多设备同时工作，必定引起并发竞争问题，自己要做好同步！demo只是使用方法，没有处理那些问题</strong></p>
+<p><strong>　　2、此框架蓝牙接收特征配置成<strong>通知方式</strong>，其他方式自行拓展，工作太忙没有太多时间去整理，见谅！</strong></p>
+<p>&nbsp;</p>
+<p><strong>demo运行起来的效果</strong></p>
+<p>&nbsp;<img src="./images/以面向对象的思维，搭建Android与多ble蓝牙设备并发通讯小框架 -----Android连接多蓝牙设备-----Android多ble蓝牙设备连接2.png" alt="" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

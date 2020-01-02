@@ -1,0 +1,257 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python内存管理及垃圾回收' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python内存管理及垃圾回收</center></div><div class='banquan'>原文出处:本文由博客园博主Lowell提供。<br/>
+原文连接:https://www.cnblogs.com/liuweida/p/11685956.html</div><br>
+    <h2 id="一python的内存管理">一、python的内存管理</h2>
+<ul>
+<li><p>python内部将所有类型分成两种，一种由单个元素组成，一种由多个元素组成。利用不同结构体进行区分</p>
+<pre><code><code>/* Nothing is actually declared to be a PyObject, but every pointer to
+ * a Python object can be cast to a PyObject*.  This is inheritance built
+ * by hand.  Similarly every pointer to a variable-size Python object can,
+ * in addition, be cast to PyVarObject*.
+ */
+typedef struct _object {
+    _PyObject_HEAD_EXTRA // 双向链表
+    Py_ssize_t ob_refcnt; // 引用计数器，整型
+    struct _typeobject *ob_type; // 表示对象的类型
+} PyObject;  //单个元素的
+
+typedef struct {
+    PyObject ob_base;  # PyObject结构体，内部包含引用计数器，双向链表，对象类型
+    Py_ssize_t ob_size; /* Number of items in variable part */ # 该对象由多少的元素组成
+} PyVarObject; //多个元素的
+
+/* Define pointers to support a doubly-linked list of all live heap objects. */  
+//翻译：定义指针以支持双向链表
+#define _PyObject_HEAD_EXTRA 
+    struct _object *_ob_next;  //下一个      
+    struct _object *_ob_prev;  //上一个</code></pre></li>
+<li><p>在python代码中如果进行创建对象或者对对象赋值操作，内存会对对象做如下操作，也是python中的引用计数方式。</p>
+<ul>
+<li>如果双向链表中已经存在该对象则只将该对象的引用计数加1；</li>
+<li>如果双向链表中不存在，则向双向链表中添加该对象，并将对应的引用计数设置为1。</li>
+<li>如果执行了对象的删除，引用计数器减1，如果引用计数器为0，就将它从双向链表中移除</li>
+</ul></li>
+</ul>
+<h2 id="二垃圾回收--引用计数">二、垃圾回收--引用计数</h2>
+<ul>
+<li>Python中的垃圾回收机制是采用引用计数为主、标记清除和分代回收为辅的方式。</li>
+<li><p>创建对象或者对对象赋值，引用计数加1，删除对象，则引用计数器减1；当一个对象的引用计数为0时, Python的垃圾回收机制就会将对象回收，即从双向链表中移除。</p>
+<pre class="python"><code>a =&quot;xiaoqi&quot;
+b = a</code></pre>
+<p>xiaoqi这个字符串对象， 在第一行被a变量引用后, 该对象引用计数为1，之后在第二行, 将a赋值给b，实际上是a引用的对象又被b引用, 此时, 该字符串对象的引用计数为2。</p></li>
+<li><p>删除对象</p>
+<pre class="python"><code>a = &quot;xiaoqi&quot;
+b = a
+del a  # 此时&quot;xiaoqi&quot;引用计数应该是1</code></pre>
+<p><strong>注意：</strong> 在Python语言中, del语句操作某个对象的时候, 并不是直接将该对象在内存中删除, 而是将该对象的引用计数-1，只是删除变量a对字符串的引用，实际上字符串并没有在内存删除，相当于工作岗位是有的，只是单独的解除了劳动合同。</p>
+<pre class="python"><code>&gt;&gt;&gt; a = &quot;xiaoqi&quot;
+&gt;&gt;&gt; b = a
+&gt;&gt;&gt; del a
+&gt;&gt;&gt; id(b)
+4572141808
+&gt;&gt;&gt; id(a)
+Traceback (most recent call last):
+File &lt;input&gt;, line 1, in &lt;module&gt;
+id(a)NameError: name &#39;a&#39; is not defined</code></pre></li>
+<li><p>从以上示例中可以看出，xiaoqi这个字符串对象在第一行被变量a引用，此时字符串对象的引用计数为1，接着第二行又被变量b引用，此时该字符串对象的引用计数为2，在第三行中，del语言删除了a变量(标签)，在后续的print中可以看出，内存中实际的字符串对象并没有被删除，del命令只是删除了一个变量对该字符串对象的引用，所以对于xiaoqi这个字符串对象来说, 效果只是引用计数-1</p></li>
+</ul>
+<p><strong>引用计数案例</strong></p>
+<pre class="python"><code>import sys
+class A:
+    def __init__(self):
+        &#39;&#39;&#39;初始化对象&#39;&#39;&#39;
+        print(&#39;object born id:%s&#39; %str(hex(id(self))))  # 对象被引用增加一次
+
+def f1():
+    &#39;&#39;&#39;循环引用变量与删除变量&#39;&#39;&#39;
+    while True:
+        c1=A()
+        del c1
+
+def func(c):
+    print(&#39;obejct refcount is: &#39;,sys.getrefcount(c)) #getrefcount()方法用于返回对象的引用计数
+# 注：getrefcount()方法执行时，引用计数会+1，所以实际值应该是获取的结果-1
+
+if __name__ == &#39;__main__&#39;:
+   #生成对象
+    a=A()    # 创建对象引用计数+1
+    func(a)  # 作为参数传给函数引用计数+1
+
+    #赋值引用计数+1
+    b=a
+    func(a)
+
+    #销毁引用对象b
+    del b
+    func(a)
+# 打印结果object born id:0x265c56a56d8
+obejct refcount is:  4
+obejct refcount is:  5
+obejct refcount is:  4
+# 上述列子证明，同一个方式重复引用同一个对象引用计数是不会改变的</code></pre>
+<p><strong>导致引用计数+1的情况</strong></p>
+<pre><code><code>对象被创建，例如a=23
+对象被引用，例如b=a
+对象被作为参数，传入到一个函数中，例如func(a)
+对象作为一个元素，存储在容器中，例如list1=[a,a]</code></pre>
+<p><strong>导致引用计数-1的情况</strong></p>
+<pre><code><code>对象的别名被显式销毁，例如del a
+对象的别名被赋予新的对象，例如a=24
+一个对象离开它的作用域，例如func函数执行完毕时，func函数中的局部变量引用计数会将少（全局变量不会）
+对象所在的容器被销毁，或从容器中删除对象</code></pre>
+<p><strong>注：</strong>重复相同的操作引用计数不变，如上面例子，多次执行func(a)，并不会改变计数。　</p>
+<p><strong>魔法函数之<code>__del__</code></strong></p>
+<p>类中的<code>__del__</code>魔法函数, 支持我们自定义清理对象的逻辑, 当Python解释器使用del语言删除类的对象的时候, 会自动调用类中的<code>__del__</code>函数, 我们可以对其进行重载</p>
+<pre class="python"><code>&gt;&gt;&gt; class Ref:
+...
+...   def __init__(self, name):
+...     self.name = name
+...
+...   def __del__(self):
+...     print(&quot;删除对象&quot;)
+...     del self.name
+&gt;&gt;&gt;
+&gt;&gt;&gt; r = Ref(name=&quot;xiaoqi&quot;)
+&gt;&gt;&gt; print(r.name)
+xiaoqi
+&gt;&gt;&gt;
+&gt;&gt;&gt; del r</code></pre>
+<p>删除对象</p>
+<pre><code><code>&gt;&gt;&gt; print(r.name)
+Traceback (most recent call last):
+ File &quot;&lt;input&gt;&quot;, line 1, in &lt;module&gt;
+  print(r.name)
+NameError: name &#39;r&#39; is not defined</code></pre>
+<p>我们可以通过重载<code>__del__</code>魔法函数，自己灵活控制在del 对象的时候执行哪些操作。</p>
+<h2 id="三循环引用">三、循环引用</h2>
+<ul>
+<li><p>垃圾回收机制中，循环引用会导致内存泄露,举例说明</p>
+<pre class="python"><code>#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+import gc
+import objgraph
+
+class Foo(object):
+    def __init__(self):
+        self.data = None
+
+# 在内存创建两个对象，即：引用计数器值都是1
+obj1 = Foo()
+obj2 = Foo()
+
+# 两个对象循环引用，导致内存中对象的应用+1，即：引用计数器值都是2
+obj1.data = obj2
+obj2.data = obj1
+
+# 删除变量，并将引用计数器-1，各自的引用计数还剩1。
+del obj1
+del obj2
+
+# 关闭垃圾回收机制，因为python的垃圾回收机制是：引用计数器、标记清除、分代回收 配合已解决循环引用的问题，关闭他便于之后查询内存中未被释放对象。
+gc.disable()
+
+# 至此，由于循环引用导致内存中创建的obj1和obj2两个对象引用计数器不为0，无法被垃圾回收机制回收。
+# 所以，内存中Foo类的对象就还显示有2个。
+print(objgraph.count(&#39;Foo&#39;))  # 查看
+
+# 为了进行对比，不循环引用的情况下执行后的结果为0，说明循环引用导致内存泄露。
+import gc
+import objgraph
+
+class Foo(object):
+    def __init__(self):
+        self.data = None
+
+obj1 = Foo()
+obj2 = Foo()
+
+del obj1
+del obj2
+
+gc.disable()
+print(objgraph.count(&#39;Foo&#39;))  # 0</code></pre></li>
+<li><p>gc模块</p>
+<pre class="python"><code>enable() -- 启用自动垃圾收集
+disable() -- 禁用自动垃圾收集
+isenabled() -- 如果启用自动收集，则返回true。 
+collect() -- 现在就做一个完整的收集，即主动触发垃圾回收机制。
+get_count() -- 返回当前集合计数。
+get_stats() -- 返回包含每代统计信息的词典列表
+get_referrers() -- 返回引用对象的对象列表
+get_referents() -- 返回对象引用的对象列表</code></pre></li>
+<li><p>objgraph模块</p>
+<pre class="python"><code>objgraph的实现调用了gc的这几个函数：gc.get_objects(), gc.get_referents(), gc.get_referers()，然后构造出对象之间的引用关系。objgraph的代码和文档都写得比较好，建议一读。
+
+下面先介绍几个十分实用的API
+   def count(typename)
+   返回该类型对象的数目，其实就是通过gc.get_objects()拿到所用的对象，然后统计指定类型的数目。
+
+   def by_type(typename)
+   返回该类型的对象列表。线上项目，可以用这个函数很方便找到一个单例对象
+
+   def show_most_common_types(limits = 10)
+   打印实例最多的前N（limits）个对象，这个函数非常有用。在《Python内存优化》一文中也提到，该函数能发现可以用slots进行内存优化的对象
+
+   def show_growth()
+   统计自上次调用以来增加得最多的对象，这个函数非常有利于发现潜在的内存泄露。函数内部调用了gc.collect()，因此即使有循环引用也不会对判断造成影响。</code></pre></li>
+</ul>
+<p>循环引用的问题会引发内存中的对象一直无法释放，从而内存逐渐增大，最终导致内存泄露。由于循环引用的原因出现标记清除。</p>
+<h2 id="四垃圾回收--标记清除分代回收">四、垃圾回收--标记清除&amp;分代回收</h2>
+<p><strong>标记清除</strong></p>
+<ul>
+<li><p>&quot;标记-清除&quot;是python为了解决循环引用的问题而出现，针对 list, tuple, instance, classe, dict, and function 等多个元素组成的类型，每创建一个对象都会将对象放到一个双向链表中，每个对象中都有 _ob_next 和 _ob_prev 指针，用于挂靠到链表中。</p></li>
+<li>python代码中如果进行创建对象或者对对象赋值等操作时，都会进行如下操作；
+<ul>
+<li>如果双向链表中已经存在该对象则只将该对象的引用计数加1；</li>
+<li>如果双向链表中不存在，则向双向链表中添加该对象，并将对应的引用计数设置为1。</li>
+<li>如果执行了对象的删除，引用计数器减1，如果引用计数器为0，就将它从双向链表中移除</li>
+</ul></li>
+</ul>
+<p>随着对象的创建，该双向链表上的对象会越来越多。</p>
+<ul>
+<li>当对象个数超过 700个 时，Python解释器就会进行垃圾回收。</li>
+<li>当代码中主动执行 gc.collect() 命令时，Python解释器就会进行垃圾回收。</li>
+</ul>
+<pre><code><code>import gc
+ 
+gc.collect()</code></pre>
+<p>Python解释器在垃圾回收时，会遍历链表中的每个对象，如果存在循环引用，就将存在循环引用的对象的引用计数器 -1，同时Python解释器也会将计数器等于0（可回收）和不等于0（不可回收）的一分为二，把计数器等于0的所有对象进行回收，把计数器不为0的对象放到另外一个双向链表表（即：分代回收的下一代）。</p>
+<p>官方文档：<a href="https://docs.python.org/3/library/gc.html" class="uri">https://docs.python.org/3/library/gc.html</a></p>
+<p><strong>分代回收</strong></p>
+<p>The GC classifies objects into three generations depending on how many collection sweeps they have survived. New objects are placed in the youngest generation (generation 0). If an object survives a collection it is moved into the next older generation. Since generation 2 is the oldest generation, objects in that generation remain there after a collection. In order to decide when to run, the collector keeps track of the number object allocations and deallocations since the last collection. When the number of allocations minus the number of deallocations exceeds threshold0, collection starts. Initially only generation 0 is examined. If generation 0 has been examined more than threshold1 times since generation 1 has been examined, then generation 1 is examined as well. Similarly, threshold2 controls the number of collections of generation 1 before collecting generation 2.</p>
+<p>翻译：gc将对象分为三代，这取决于它们保存了多少个集合清理。新对象放置在最年轻的一代（第0代）中。如果一个对象在一个集合中存活下来，它将被移动到下一代中。由于第2代是最早的一代，因此该代中的对象在收集后仍保留在那里。为了决定何时运行，收集器会跟踪自上次收集以来对象分配和释放的数量。当分配数减去释放数超过阈值0时，将开始收集。最初只检查第0代。如果自检查第1代以来检查第0代的次数超过阈值1次，则也检查第1代。类似地，threshold2在收集第2代之前控制第1代的集合数。</p>
+<p>分代回收的出现是为了解决标记清除花费时间太长的原因。</p>
+<p>分代技术是一种典型的以空间换时间的技术。这种思想简单点说就是：对象存在时间越长，越可能不是垃圾，应该越少去收集。</p>
+<ol>
+<li>这样的思想，可以减少标记-清除机制所带来的额外操作。分代就是将回收对象分成数个代，每个代就是一个链表；</li>
+<li>代进行标记-清除的时间与代内对象存活时间成正比例关系。<br />
+3.当链表中对象数达到阈值，则触发垃圾回收机制，Python解释器也会将计数器等于0（可回收）和不等于0（不可回收）的一分为二，把计数器等于0的所有对象进行回收，把计数器不为0的对象放到另外一个双向链表表，即放到下一代中。</li>
+<li>python里一共有三代，0代、1代2代。有三个阈值（700,10,10），700指链表中对象个数达到700时触发垃圾回收机制，第一个10是当第0代扫描10次第1代扫描1次，第二个10是当第1代扫描10次第2代扫描1次。</li>
+</ol>
+<pre><code><code># 默认情况下三个阈值为 (700,10,10) ，也可以主动去修改默认阈值。
+import gc
+ 
+gc.set_threshold(threshold0[, threshold1[, threshold2]])</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

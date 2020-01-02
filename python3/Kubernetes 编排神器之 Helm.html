@@ -1,0 +1,126 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Kubernetes 编排神器之 Helm' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Kubernetes 编排神器之 Helm</center></div><div class='banquan'>原文出处:本文由博客园博主jasondayee提供。<br/>
+原文连接:https://www.cnblogs.com/jasondayee/p/12091046.html</div><br>
+    <h4 id="什么是kubernetes-helm为什么要使用helm">什么是Kubernetes Helm?为什么要使用Helm?</h4>
+<blockquote>
+<p>前言</p>
+</blockquote>
+<p>编写一堆Kubernetes配置文件是一件很麻烦的事情。对于一些容器，我们可能需要10多个yaml文件。维护它们是一个问题，而且在不同的环境中运行或使用相同的文件更是是一个噩梦。<br />
+我们可以使用一些 bash 技巧来替换某些值，但这是一个不好的做法。<br />
+这就是我们为什么要使用helm。<br />
+我应该提到，还有另一个很好的工具<code>ksonnet</code>，它以自己的方式进行“相同”操作。<br />
+在这篇文章中，我将介绍为什么Helm是Kubernetes应用程序必不可少的要素，将Kubernetes应用程序与Helm打包的过程，以及如何使用Helm部署可能具有的某些复杂应用程序。</p>
+<blockquote>
+<p>为什么要使用helm</p>
+</blockquote>
+<p>我最近在部署的微服务很复杂，我的发布文件目录中有65个以上的Kubernetes配置文件 ... o(<em>^▽^</em>)┛)。<br />
+主要问题是，我要如何把这个服务部署到多个环境中？<br />
+或者如何使用Kubernetes制作CI/CD？<br />
+当然做一些shell脚本是一个选择，但是我不是很喜欢这样做。<br />
+然后，我开始使用Kubernetes研究CI/CD pipline，发现一些团队正在将Helm集成到该过程中。</p>
+<p>我们可以将理解为为像应用程序包那样的应用程序，在其中我们可以进行依赖管理，不同类型的钩子（安装前，升级前，安装后等），并且可以轻松升级或回滚。</p>
+<blockquote>
+<p>安装</p>
+</blockquote>
+<ul>
+<li>选择一个你需要安装的版本 https://github.com/helm/helm/releases</li>
+<li>解压 <code>tar -zxvf helm-v3.0.0-linux-amd64.tar.gz</code></li>
+<li>找到解压目录中的二进制文件,把它移动到你的系统变量目录中 例如 <code>mv linux-amd64/helm /usr/local/bin/helm</code></li>
+</ul>
+<pre><code><code>[root@localhost helm-test]# helm init
+Creating /root/.helm
+Creating /root/.helm/repository
+Creating /root/.helm/repository/cache
+Creating /root/.helm/repository/local
+Creating /root/.helm/plugins
+Creating /root/.helm/starters
+Creating /root/.helm/cache/archive
+Creating /root/.helm/repository/repositories.yaml
+Adding stable repo with URL: https://kubernetes-charts.storage.googleapis.com
+Adding local repo with URL: http://127.0.0.1:8879/charts
+$HELM_HOME has been configured at /root/.helm.
+
+Tiller (the Helm server-side component) has been installed into your Kubernetes Cluster.
+
+Please note: by default, Tiller is deployed with an insecure &#39;allow unauthenticated users&#39; policy.
+To prevent this, run `helm init` with the --tiller-tls-verify flag.
+For more information on securing your installation see: https://docs.helm.sh/using_helm/#securing-your-helm-installation
+[root@localhost helm-test]#</code></pre>
+<p>查看kubernetes kube-system的namespace下的pods</p>
+<pre><code><code>[root@localhost test-app]# kubectl get pods --namespace=kube-system
+NAME                                            READY   STATUS             RESTARTS   AGE
+coredns-58cc8c89f4-q7lgg                        1/1     Running            4          40d
+coredns-58cc8c89f4-wdqqx                        1/1     Running            4          40d
+etcd-localhost.localdomain                      1/1     Running            4          40d
+kube-apiserver-localhost.localdomain            1/1     Running            4          40d
+kube-controller-manager-localhost.localdomain   1/1     Running            4          40d
+kube-proxy-gt72b                                1/1     Running            4          40d
+kube-scheduler-localhost.localdomain            1/1     Running            4          40d
+tiller-deploy-58f57c5787-t2b7w                  0/1     ImagePullBackOff   0          22m
+weave-net-qdr2l                                 2/2     Running            8          40d
+[root@localhost test-app]#</code></pre>
+<p>会发现<code>tiller-deploy-*</code>正在启动.</p>
+<blockquote>
+<p>创建示例</p>
+</blockquote>
+<pre><code><code>[root@localhost helm-test]# helm create test-app
+Creating test-app</code></pre>
+<ul>
+<li>创建完成后目录结构如下</li>
+</ul>
+<pre><code><code>[root@localhost helm-test]# tree test-app/
+test-app/
+├── charts
+├── Chart.yaml
+├── templates
+│   ├── deployment.yaml
+│   ├── _helpers.tpl
+│   ├── ingress.yaml
+│   ├── NOTES.txt
+│   ├── serviceaccount.yaml
+│   ├── service.yaml
+│   └── tests
+│       └── test-connection.yaml
+└── values.yaml
+
+3 directories, 9 files
+[root@localhost helm-test]#</code></pre>
+<ul>
+<li><code>Chart.yaml</code>:这是包含对图表的描述的主文件</li>
+<li><code>values.yaml</code>:这是包含图表默认值的文件</li>
+<li><code>templates</code>: 这是Kubernetes资源定义为模板的目录</li>
+<li><code>charts</code>:这是一个可选目录，可能包含子图表</li>
+</ul>
+<h5 id="重点">%重点%</h5>
+<p>正像我们看到的一样,所有templates 文件夹中Kubernetes配置文件都是模板。<br />
+你可以使用 <code>Chart.yaml</code> 文件来描述当前的项目，并且可以对它进行版本控制。<br />
+我们只需要一个文件，用于配置应用程序，并在<code>values.yaml</code>中存储所有值。</p>
+<p>运行 :</p>
+<pre><code><code>⚡ helm install --name test test-app/</code></pre>
+<p>这样我们第一个helm的demo就执行成功了.</p>
+<p>另,出现以下错误,代表pod<code>tiller-deploy-*</code>未启动成功:</p>
+<pre><code><code>Error: could not find a ready tiller pod</code></pre>
+<p>详细资料参见 https://helm.sh/docs/ 官方文档</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,107 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Hadoop HDFS 源码解析记录' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Hadoop HDFS 源码解析记录</center></div><div class='banquan'>原文出处:本文由博客园博主mikevictor提供。<br/>
+原文连接:https://www.cnblogs.com/mikevictor07/p/12047502.html</div><br>
+    <p><span class="lake-fontsize-14"><span style="font-size: 12px;">版权说明：&nbsp;本文章版权归本人及博客园共同所有，转载请标明原文出处(&nbsp;<a href="https://www.cnblogs.com/mikevictor07/p/12047502.html">https://www.cnblogs.com/mikevictor07/p/12047502.html</a>&nbsp;)，以下内容为个人理解，仅供参考。</span><br /></span></p>
+<p><span style="font-size: 12px;"><span class="lake-fontsize-14">文本参考书籍《Hadoop2.x HDFS源码剖析》编写。</span></span></p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">一、HDFS体系结构</span></strong></p>
+<p><span class="lake-fontsize-14">&nbsp;</span></p>
+<p><span data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1567960625466-336caa09-fe3d-432e-8d9a-392e8a40fd06.png%22%2C%22originWidth%22%3A720%2C%22originHeight%22%3A357%2C%22size%22%3A0%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22search%22%3A%22%22%2C%22width%22%3A612%2C%22height%22%3A303%7D"><img class="image lake-drag-image" src="./images/Hadoop HDFS 源码解析记录0.png" alt="" data-role="image" data-raw-src="./images/Hadoop HDFS 源码解析记录0.png" /></span></p>
+<p>&nbsp;</p>
+<p>1、数据块Block</p>
+<p>&nbsp; 最小存储单元，默认128MB，适合大文件存储，减少寻址和内存开销。</p>
+<p>&nbsp;</p>
+<p>2、Namenode</p>
+<p>&nbsp; 文件系统命名空间，含目录、文件的数据块索引，索引存储在内存中，文件越多占用内存越大。</p>
+<p>同时存储命名空间镜像文件（FsImage）与编辑日志文件（EditLog），文件的变更先写入日志文件中。</p>
+<p>2.X版本引入HA功能，通常通过Journal Nodes保持多主间EditLog同步。再加入ZKfailoverController进行主备切换操作（也可人工切换）。</p>
+<p>&nbsp;</p>
+<p>3、Datanode</p>
+<p>&nbsp; 数据存储节点，执行数据块的创建、删除、复制等操作。</p>
+<p>&nbsp;</p>
+<p>4、Secondary Namenode</p>
+<p>&nbsp; 由于Namenode 合并EditLog和FsImage非常耗时，特别在大型集群中。故增加一个secondary namenode负责定时从namenode获取（HTTP）EditLog并且合并到FsImage中，耗时的合并工作完成后将新的FsImage传回namenode。</p>
+<p><span data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1567959915016-5a8a8a6a-f004-4891-a41c-7380c1f323f8.png%22%2C%22originWidth%22%3A528%2C%22originHeight%22%3A185%2C%22size%22%3A0%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22search%22%3A%22%22%2C%22width%22%3A528%2C%22height%22%3A185%7D"><img class="image lake-drag-image" src="./images/Hadoop HDFS 源码解析记录1.png" alt="" data-role="image" data-raw-src="./images/Hadoop HDFS 源码解析记录1.png" /></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">二、HDFS主要流程</span></strong></p>
+<p><span class="lake-fontsize-11">&nbsp; </span></p>
+<p><span class="lake-fontsize-11">&nbsp; <strong>2.1 客户端的读取</strong></span></p>
+<p><span data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1567959040562-a213b038-7794-4cd4-a4b3-a40aeaac712a.png%22%2C%22originWidth%22%3A641%2C%22originHeight%22%3A385%2C%22size%22%3A0%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22search%22%3A%22%22%2C%22width%22%3A472%2C%22height%22%3A283%7D"><img class="image lake-drag-image" src="./images/Hadoop HDFS 源码解析记录2.png" alt="" width="561" height="337" data-role="image" data-raw-src="./images/Hadoop HDFS 源码解析记录2.png" /></span></p>
+<p>&nbsp;</p>
+<p>1、调用DistributedFileSystem.open打开文件（底层调用DFSClient.open）并创建HdfsDataInputStream。</p>
+<p>2、通过调用DFSClient.getBlockLocations获取数据块所在的datanode节点列表，根据排序规则选择一个datanode建立连接获取数据块，当此数据块读取完毕后，再次向namenode获取下一个数据块。依次循环。</p>
+<p>&nbsp;</p>
+<p><strong>2.2 客户端写入流程</strong></p>
+<p>&nbsp;</p>
+<p><span data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1570979949299-19daff82-9e68-472d-a8d5-654293b3e3f2.png%22%2C%22originWidth%22%3A873%2C%22originHeight%22%3A524%2C%22name%22%3A%22image.png%22%2C%22size%22%3A268037%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22search%22%3A%22%22%2C%22width%22%3A578%2C%22height%22%3A347%7D"><img class="image lake-drag-image" title="image.png" src="./images/Hadoop HDFS 源码解析记录3.png" alt="image.png" width="588" height="353" data-role="image" data-raw-src="./images/Hadoop HDFS 源码解析记录3.png" /></span></p>
+<p>&nbsp;</p>
+<p>1、通过调用DistributedFileSystem.create在底层调用DFSClient.create发送通知namenode创建文件。</p>
+<p>2、获取输出流后就可以调用DFSOutputStream写数据，空文件时就会调用Clientprotocol.addBlock向Namenode申请一个数据块并返回LocatedBlock，此对象包含该数据块的所有节点信息，后续即可往其中一节点write数据。</p>
+<p>&nbsp;</p>
+<p><strong>2.3 HA切换流程</strong></p>
+<p><span data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1568439437481-b64610c2-bd5c-4655-bfe6-9cc260b8f919.png%22%2C%22originWidth%22%3A929%2C%22originHeight%22%3A626%2C%22size%22%3A0%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22search%22%3A%22%22%2C%22width%22%3A535%2C%22height%22%3A361%7D"><img class="image lake-drag-image" title="image.png" src="./images/Hadoop HDFS 源码解析记录4.png" alt="image.png" width="568" height="350" data-role="image" data-raw-src="./images/Hadoop HDFS 源码解析记录4.png" /></span></p>
+<p>&nbsp;</p>
+<p>Hadoop 2.X之前版本NN存在单点故障，HA功能提供一个active NN与一个standby NN，命名空间实时同步。Active NN修改命名空间时同时通知多数的Quorum Journal Nodes（JNS），standby NN监听JNS中的editlog变化，并与自身的命名空间合并，当发生切换时，需要等待standby合并JNS上的所有editlog后才会进行切换。</p>
+<p>&nbsp; &nbsp; ZKFailoverController会实时监控NN的状态，如果active NN处于不可用状态则进行自动主备切换，不需要人工干预，当然管理员也可用DFSHAAdmin命令进行手工切换。</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">三、NameNode</span></strong></p>
+<p>&nbsp; &nbsp;</p>
+<p><strong>3.1 文件目录树</strong></p>
+<p>&nbsp; &nbsp; HDFS命名空间在内存中以树结构存储，目录与文件抽象为INode节点，目录为INodeDirectory，文件为INodeFile。目录有List&lt;INode&gt; children存储子目录或文件（内部使用二分法做检索），HDFS命名空间存储在本地系统FsImage文件中，启动时加载，与此同时NN会定期合并fsimage与editlog，editlog操作类为FSEditLog。</p>
+<p>&nbsp; &nbsp;&nbsp;INodeFile主要成员变量：</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; private long header = 0L;&nbsp; # 文件头信息</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; private BlockInfoContiguous[] blocks;&nbsp; # 数据块与数据节点关系</p>
+<p>&nbsp;</p>
+<p><strong>3.2 数据块管理</strong></p>
+<p>&nbsp; &nbsp; 1、NameNode启动时从fsimage加载文件与数据块之前的关系，数据块存储在哪些节点上具体是由datanode启动时向NN上报数据块信息时才能构建。</p>
+<p>&nbsp; &nbsp; 2、BlockMap在NN中存储数据块与节点的关系，该关系则由DN上报时更新。</p>
+<p>&nbsp;</p>
+<p><strong>3.3 数据节点管理</strong></p>
+<p>&nbsp; &nbsp; 1、添加和撤销DN：HDFS提供的dfs.hosts可配置include和exclude，如果节点下线则配置exclude并执行dfsadmin -refreshNodes后NN开始进行撤销，下线的节点数据会复制到其他节点上，此时DN则处于正在被撤销状态，复制完毕后DN状态则变成已撤销。</p>
+<p>&nbsp; &nbsp; 2、DN启动需要向NN握手、注册于上报数据块，并定期发送心跳包。</p>
+<p>&nbsp;</p>
+<p><strong>3.4 NN的启动与停止</strong></p>
+<p>&nbsp; &nbsp; 1、NN启动由NameNode类的main方法执行，并调用createNameNode方法进行初始化。调用FSNamesystem.loadFromDisk进行fsimage与editlog。</p>
+<p>&nbsp; &nbsp; 2、NN的停止则是通过启动时注册JVM的ShutdownHook，当JVM退出时调用，并输出一些退出日志。</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">四、数据节点DN</span></strong></p>
+<p>&nbsp; &nbsp; HDFS 2.X DN使用Federation架构，可配置多个命名空间，每个命名空间在DN中对应一个池。DN的启动由DataNode类的main方法执行，关闭也是注册了JVM的钩子。</p>
+<p><span data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1568533154626-bcb5da3c-69ca-438e-a5ca-0274dea35b6c.png%22%2C%22originWidth%22%3A697%2C%22originHeight%22%3A547%2C%22name%22%3A%22image.png%22%2C%22size%22%3A225280%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22search%22%3A%22%22%2C%22width%22%3A380%2C%22height%22%3A298%7D"><img class="image lake-drag-image" title="image.png" src="./images/Hadoop HDFS 源码解析记录5.png" alt="image.png" width="553" height="434" data-role="image" data-raw-src="./images/Hadoop HDFS 源码解析记录5.png" /></span></p>
+<p>&nbsp; &nbsp; 1、DataBlockScanner扫描数据块并检查校检和是否匹配。</p>
+<p>&nbsp; &nbsp; 2、DirectoryScanner定时扫描内存元数据与磁盘是否有差异，如有则更新内存。</p>
+<p>&nbsp; &nbsp; 3、IPCServer为RPC服务端，接收Client、NN、DN的RPC请求。</p>
+<p>&nbsp; &nbsp; 4、DataXceiverServer用于流式数据传输。</p>
+<p>&nbsp;</p>
+<p><strong>4.1 DN磁盘存储与读写</strong></p>
+<p>&nbsp; &nbsp;1、DFSStorage管理数据块，管理磁盘存储目录(dfs.data.dir)，dfs.data.dir可定义多个存储目录，不同目录磁盘克异构。</p>
+<p>&nbsp; &nbsp; 2、DataTransferProtocol定义了基于TCP流的数据访问接口，包含Sender和Receiver，流程如下图：</p>
+<p><span data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1568537173243-505ecac2-79f4-48f1-8247-9619a053b81b.png%22%2C%22originWidth%22%3A637%2C%22originHeight%22%3A606%2C%22name%22%3A%22image.png%22%2C%22size%22%3A194357%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22search%22%3A%22%22%2C%22width%22%3A352%2C%22height%22%3A335%7D"><img class="image lake-drag-image" title="image.png" src="./images/Hadoop HDFS 源码解析记录6.png" alt="image.png" width="508" height="483" data-role="image" data-raw-src="./images/Hadoop HDFS 源码解析记录6.png" /></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">五、HDFS常用工具</span></strong></p>
+<p>&nbsp; &nbsp; 1、FsShell :&nbsp; bin/hadoop fs &lt;args&gt;</p>
+<p>&nbsp; &nbsp; 2、DFSAdmin: bin/hdfs dfsadmin &lt;args&gt;</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

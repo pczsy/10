@@ -1,0 +1,158 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修用Python怎么telnet到网络设备' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>用Python怎么telnet到网络设备</center></div><div class='banquan'>原文出处:本文由博客园博主Singvis提供。<br/>
+原文连接:https://www.cnblogs.com/singvis/p/11604395.html</div><br>
+    <h1 id="前言">0.前言</h1>
+<p>Telnet协议属于TCP/IP协议族里的一种，对于我们这些网络攻城狮来说，再熟悉不过了，常用于远程登陆到网络设备进行操作，但是，它的缺陷太明显了，就是不安全，信息明文传送，极容易被攻击窃取信息，不推荐使用，但本节我还是先从它入手哈。</p>
+<h1 id="测试环境及关键代码解释">1. 测试环境及关键代码解释</h1>
+<h2 id="简单测试环境">1.1 简单测试环境</h2>
+<ol>
+<li>使用python3环境</li>
+<li>使用内置telnetlib模块</li>
+<li>简单的实验环境</li>
+</ol>
+<pre><code><code>说明：
+cmd.txt文件里面命令如下：
+  terminal length 0
+  show clock
+  show ip interface brief
+list.txt文件里面的IP如下：
+  192.168.1.101
+  192.168.1.102
+  192.168.1.103</code></pre>
+<h2 id="关键代码">1.2 关键代码</h2>
+<p>import xx：导入模块<br />
+class xx：定义类<br />
+def xx: 定义函数<br />
+try-except ：处理可能引发的异常<br />
+tn.read_until(expected, timeout=None)：等待预期字符串或等待超时<br />
+tn.write(buffer)：写入的字符串（意思发送给命令给设备）<br />
+tn.expect(list, timeout=None)：读显，list采用正则表达式（意思把执行过程显示出来）<br />
+tn.read_very_eager()：读显（意思把执行过程显示出来）<br />
+tn.open(host, port=0[, timeout])：连接主机<br />
+tn.close()：关闭连接</p>
+<p><strong>Tips</strong>：终端与网络设备交付的信息是以byte类型，所以要把终端上的字符串encode编码转换为byte对象,网络设备回显的byte信息要decode解码。</p>
+<h1 id="完整代码">2. 完整代码</h1>
+<pre class="python"><code>&#39;&#39;&#39;
+欢迎关注微信公众号：&#39;diandijishu&#39;
+  此平台是网路工程师个人日常技术、项目案例经验分享，
+  为巩固及提升技术能力乃至共享所学所知技术
+  也欢迎各位工程师一起分享、一起成长。
+&#39;&#39;&#39;
+
+#!/usr/bin/env python
+#coding:utf-8
+
+&#39;导入模块&#39;
+from telnetlib import Telnet
+import time
+import logging
+
+&#39;定义类&#39;
+class TelnetClient():
+    &#39;初始化属性&#39;
+    def __init__(self):
+        self.tn = Telnet()
+    &#39;定义login_host函数，用于登陆设备&#39;
+    def login_host(self,ip,username,password,enable=None,verbose=True):
+        &#39;连接设备，try-except结构&#39;
+        try:
+            self.tn.open(ip,port=23)
+        except:
+            logging.warning(&#39;%s网络连接失败&#39; %ip)
+            return False
+        &#39;输入用户名&#39;
+        self.tn.read_until(b&#39;Username:&#39;, timeout=1)
+        self.tn.write(b&#39;\n&#39;)
+        self.tn.write(username.encode() + b&#39;\n&#39;)
+        rely = self.tn.expect([], timeout=1)[2].decode().strip()    #读显
+        if verbose:
+            print(rely)
+        &#39;输入用户密码&#39;
+        self.tn.read_until(b&#39;Password:&#39;, timeout=1)
+        self.tn.write(password.encode() + b&#39;\n&#39;)
+        rely = self.tn.expect([], timeout=1)[2].decode().strip()
+        if verbose:
+            print(rely)
+        &#39;进去特权模式&#39;
+        if enable is not None:
+            self.tn.write(b&#39;enable\n&#39;)
+            self.tn.write(enable.encode() + b&#39;\n&#39;)
+            if verbose:
+                rely = self.tn.expect([], timeout=1)[2].decode().strip()
+                print(rely)
+                time.sleep(1)
+
+        rely = self.tn.read_very_eager().decode()
+        if &#39;Login invalid&#39; not in rely:
+            logging.warning(&#39;%s登陆成功&#39; % ip)
+            return True
+        else:
+            logging.warning(&#39;%s登陆失败，用户名或密码错误&#39; % ip)
+            return False
+
+    &#39;定义do_cmd函数,用于执行命令&#39;
+    def do_cmd(self,cmds):
+        &#39;读取文件，for语句循环执行命令&#39;
+        with open(cmds) as cmd_obj:
+            for cmd in cmd_obj:
+                self.tn.write(cmd.encode().strip() + b&#39;\n&#39;)
+                time.sleep(2)
+                rely = self.tn.read_very_eager().decode()
+                logging.warning(&#39;命令执行结果:\n %s&#39; %rely)
+    &#39;定义logout_host函数，关闭程序&#39;
+    def logout_host(self):
+        self.tn.close()
+
+if __name__ == &#39;__main__&#39;:
+    username = &#39;cisco&#39;  #用户名
+    password = &#39;cisco&#39; #密码
+    enable = &#39;cisco&#39;    #特权密码
+    lists = &#39;list.txt&#39;  #存放IP地址文件，相对路径
+    cmds = &#39;cmd.txt&#39;    #存放执行命令文件，相对路径
+    telnet_client = TelnetClient()
+    &#39;读取文件，for语句循环登陆IP&#39;
+    with open(lists,&#39;rt&#39;) as list_obj:
+        for ip in list_obj:
+            &#39;如果登录结果为True，则执行命令，然后退出&#39;
+            if telnet_client.login_host(ip.strip(),username,password,enable):
+                telnet_client.do_cmd(cmds)
+                telnet_client.logout_host()
+                time.sleep(2)
+</code></pre>
+<h1 id="运行效果">3. 运行效果</h1>
+<p><img src="./images/用Python怎么telnet到网络设备0.png" /></p>
+<p>备注：这个运行的效果我只存放了192.168.1.101这个IP，精简一下，为了效果。</p>
+<h1 id="报错效果">4. 报错效果</h1>
+<h2 id="远程连接不上">4.1 远程连接不上</h2>
+<p><img src="./images/用Python怎么telnet到网络设备1.png" /></p>
+<h2 id="用户名和密码错误">4.2 用户名和密码错误</h2>
+<p><img src="./images/用Python怎么telnet到网络设备2.png" /></p>
+<h1 id="碎碎语">5. 碎碎语</h1>
+<p>这些只是一些简单的代码，待优化的地方还是很多，先给小伙伴们学习一下，telnet协议是个不安全的，基本网络环境很少用了，ssh为常用的协议，安全又好用，下个文章我给大家介绍python如何使用ssh模块哈。<br />
+本人代码功夫不深，如有缺陷望指教，多谢。</p>
+<hr />
+<p>如果喜欢的我的文章，欢迎关注我的公众号：点滴技术，扫码关注，不定期分享</p>
+<p><img src="./images/用Python怎么telnet到网络设备3.png" alt="点滴技术" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

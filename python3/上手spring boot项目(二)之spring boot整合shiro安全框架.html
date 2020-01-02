@@ -1,0 +1,163 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修上手spring boot项目(二)之spring boot整合shiro安全框架' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>上手spring boot项目(二)之spring boot整合shiro安全框架</center></div><div class='banquan'>原文出处:本文由博客园博主程序猿修炼之道提供。<br/>
+原文连接:https://www.cnblogs.com/Code-Handling/p/12038054.html</div><br>
+    <p><strong>题记</strong>：在学习了springboot和thymeleaf之后，想完成一个项目练练手，于是使用springboot+mybatis和thymeleaf完成一个博客系统，在完成的过程中出现的一些问题，将这些问题记录下来，作为自己的学习心得。在这先感谢群主TyCoding的Tumo项目，虽然本人实在太菜了，好些地方看不懂，但还是使我受益匪浅。</p>
+<hr />
+<p>&nbsp;</p>
+<p>shiro作为一个小巧灵活的安全框架，在认证和授权方面简约但又不简单，十分容易上手使用。下面是整合shiro的具体流程。</p>
+<h1>1.添加依赖</h1>
+<div class="cnblogs_code">
+<pre><code> 1 &lt;!--shiro和spring整合--&gt;
+ 2 &lt;dependency&gt;
+ 3       &lt;groupId&gt;org.apache.shiro&lt;/groupId&gt;
+ 4       &lt;artifactId&gt;shiro-spring&lt;/artifactId&gt;
+ 5       &lt;version&gt;1.3.2&lt;/version&gt;
+ 6 &lt;/dependency&gt;
+ 7 &lt;!--shiro核心包--&gt;
+ 8 &lt;dependency&gt;
+ 9       &lt;groupId&gt;org.apache.shiro&lt;/groupId&gt;
+10        &lt;artifactId&gt;shiro-core&lt;/artifactId&gt;
+11        &lt;version&gt;1.3.2&lt;/version&gt;
+12 &lt;/dependency&gt;</pre>
+</div>
+<h1>2.在springboot控制台中添加基础包的扫描和实体类的扫描注解</h1>
+<p>由于本人实在粗心，用try,catch将这个错误包起来了，所以找了一个下午的bug才发现。如果是用ssm整合shiro也大致一样，只不过需要在web.xml中添加一些配置信息。</p>
+<p>具体流程大同小异。</p>
+<div class="cnblogs_code">
+<pre><code>@SpringBootApplication(scanBasePackages = "cn.zhq"<span>)
+@EntityScan("cn.zhq.system.entity"<span>)
+public class<span> MyBlogApplication {
+    public static void<span> main(String[] args) {
+        SpringApplication.run(MyBlogApplication.class<span>);
+    }
+}</span></span></span></span></span></pre>
+</div>
+<h1>3.自定义realm域</h1>
+<p>个人觉得realm就相当于一个数据源 ，shiro从realm中去获取一些数据，验证用户的认证和授权。</p>
+<h2>3.1 usermapper接口</h2>
+<div class="cnblogs_code">
+<pre><code><span>@Mapper
+public interface<span> UserMapper {
+
+    /**
+     * 根据Name查询用户数据
+     */<span>
+    SysUser findByName(String username);
+}</span></span></span></pre>
+</div>
+<h2>3.2 配置文件usermapper.xml</h2>
+<div class="cnblogs_code">
+<pre><code>&lt;?xml version="1.0" encoding="utf-8" ?&gt;
+&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" &gt;
+&lt;mapper namespace="cn.zhq.system.mapper.UserMapper"&gt;
+    &lt;select id="findByName" resultType="sysuser" parameterType="String"&gt;<span>
+      select * from tb_user where username =<span> #{username}
+    &lt;/select&gt;
+&lt;/mapper&gt;</span></span></pre>
+</div>
+<h2>3.3 编写自定义realm并继承AuthorizingRealm</h2>
+<p>这里只贴出认证的方法。</p>
+<div class="cnblogs_code">
+<pre><code><span>    @Autowired
+    private<span> UserMapper userMapper;
+
+    @Override
+    protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken authenticationToken) throws<span> AuthenticationException {
+        //1.获取登录的用户名密码（token）
+        UsernamePasswordToken upToken =<span> (UsernamePasswordToken) authenticationToken;
+        String username =<span> upToken.getUsername();
+        String password = new<span> String( upToken.getPassword());
+        //2.根据用户名查询数据库
+        SysUser user =<span> userMapper.findByName(username);
+        //3.判断用户是否存在或者密码是否一致
+        if(user != null &amp;&amp;<span> user.getPassword().equals(password)) {
+            //4.如果一致返回安全数据
+            //构造方法：安全数据，密码，realm域名
+            SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(user,user.getPassword(),this<span>.getName());
+            return<span> info;
+        }
+        //5.不一致，返回null（抛出异常）
+        return null<span>;
+    }    </span></span></span></span></span></span></span></span></span></span></span></pre>
+</div>
+<h1>4.编写shiro配置类</h1>
+<h2>4.1 安全管理器</h2>
+<div class="cnblogs_code">
+<pre><code>    //配置自定义的Realm
+<span>    @Bean
+    public<span> AuthRealm getRealm() {
+        return new<span> AuthRealm();
+    }
+
+    //配置安全管理器
+<span>    @Bean
+    public<span> SecurityManager securityManager(AuthRealm realm) {
+        //使用默认的安全管理器
+        DefaultWebSecurityManager securityManager = new<span> DefaultWebSecurityManager(realm);
+        //将自定义的realm交给安全管理器统一调度管理
+<span>        securityManager.setRealm(realm);
+        return<span> securityManager;
+    }</span></span></span></span></span></span></span></span></pre>
+</div>
+<h2>4.2 配置过滤器工厂</h2>
+<div class="cnblogs_code">
+<pre><code><span>@Bean
+    public<span> ShiroFilterFactoryBean shiroFilter(SecurityManager securityManager) {
+        //1.创建过滤器工厂
+        ShiroFilterFactoryBean filterFactory = new<span> ShiroFilterFactoryBean();
+        //2.设置安全管理器
+<span>        filterFactory.setSecurityManager(securityManager);
+        //3.通用配置（跳转登录页面，为授权跳转的页面）
+        filterFactory.setLoginUrl("#");//跳转url地址
+        filterFactory.setUnauthorizedUrl("#");//未授权的url
+        return<span> filterFactory;
+    }</span></span></span></span></span></pre>
+</div>
+<h1>5. 编写controller方法</h1>
+<div class="cnblogs_code">
+<pre><code>    @RequestMapping(value="/login"<span>)
+    @ResponseBody
+    public<span> String login(String username,String password) {
+        try<span>{
+            Subject subject =<span> SecurityUtils.getSubject();
+            UsernamePasswordToken uptoken = new<span> UsernamePasswordToken(username,password);
+            subject.login(uptoken);
+            return "登录成功"<span>;
+        }catch<span> (Exception e) {
+            return "用户名或密码错误"<span>;
+        }
+    }</span></span></span></span></span></span></span></span></pre>
+</div>
+<h1>6.登陆</h1>
+<h2>6.1 获取md5加密的密码</h2>
+<p>由于密码是使用shiro提供的Md5加密方式。为了避免麻烦就直接打印加密之后的密码。</p>
+<div class="cnblogs_code">
+<pre><code>Md5Hash的参数代表的含义分别是 加密的内容 | 盐(加密的混淆字符串) | 加密次数</pre>
+<pre><code>System.out.println(new Md5Hash("123456","zhangbo",3).toString());</pre>
+</div>
+<p><img src="./images/上手spring boot项目(二)之spring boot整合shiro安全框架0.png" alt="" /></p>
+<p><img src="./images/上手spring boot项目(二)之spring boot整合shiro安全框架1.png" alt="" /></p>
+<p><strong>可以看到使用加密过的密码是可以登陆成功的，但使用原始密码是无法登陆成功的，<strong>可以在</strong>具体的业务逻辑层中添加用户时将密码进行加密处理。</strong></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

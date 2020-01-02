@@ -1,0 +1,347 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修vue-socket.io使用教程与踩坑记录' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>vue-socket.io使用教程与踩坑记录</center></div><div class='banquan'>原文出处:本文由博客园博主Dreamsqin提供。<br/>
+原文连接:https://www.cnblogs.com/dreamsqin/p/12018866.html</div><br>
+    <p>全手打原创，转载请标明出处：<a href="https://www.cnblogs.com/dreamsqin/p/12018866.html" class="uri">https://www.cnblogs.com/dreamsqin/p/12018866.html</a>，多谢，=。=~<br />
+（如果对你有帮助的话请帮我点个赞啦）</p>
+<blockquote>
+<p>请先允许我狠狠吐个槽：vue-socket.io相关中文博客实在太少太少，来来去去就那么几篇，教程也比较零散，版本也比较老，就算我有暴风式搜索还是找不到解决问题的方案，然后我怒了，开始看源码、写测试demo、几乎把相关的issues都看了一遍，折腾1天后终于。。。搞定了，下面总结一下~</p>
+</blockquote>
+<h2 id="前言">前言</h2>
+<p><code>vue-socket.io</code>其实是在<code>socket.io-client</code>基础上做了一层封装，将<code>$socket</code>挂载到vue实例上，同时你可以使用<code>sockets对象</code>轻松实现组件化的事件监听，让你在vue项目中使用起来更方便。我目前用的<code>vue-socket.io:3.0.7</code>，可以在其<code>package.json</code>中看到它依赖于<code>socket.io-client:2.1.1</code>。</p>
+<h2 id="我遇到的问题">我遇到的问题</h2>
+<p>websocket连接地址是从后端动态获取，所以导致页面加载时<code>VueSocketIO</code>实例还未创建，页面中通过<code>this.$socket.emit</code>发起订阅报错，同时无法找到vue实例的sockets对象（写在内部的事件将无法监听到，就算后面已经连接成功）</p>
+<p><strong>如果你的websocket连接地址是静态的（写死的），可以只看<code>使用教程</code>，如果你跟我遇到了同样的问题，那就跳跃到<code>解决方案</code></strong></p>
+<p>console报错如下：<br />
+<img src="./images/vue-socket.io使用教程与踩坑记录0.png" /></p>
+<h2 id="使用教程">使用教程</h2>
+<p>先抛开可能遇到的问题，按照官网的教程我们走一遍：</p>
+<h4 id="安装">安装</h4>
+<p><code>npm install vue-socket.io --save</code></p>
+<h4 id="引入main.js">引入（main.js）</h4>
+<pre><code><code>import Vue from &#39;vue&#39;
+import store from &#39;./store&#39;
+import App from &#39;./App.vue&#39;
+import VueSocketIO from &#39;vue-socket.io&#39;
+
+Vue.use(new VueSocketIO({
+    debug: true,
+    connection: &#39;http://metinseylan.com:1992&#39;,
+    vuex: {
+        store,
+        actionPrefix: &#39;SOCKET_&#39;,
+        mutationPrefix: &#39;SOCKET_&#39;
+    },
+    options: { path: &quot;/my-app/&quot; } //Optional options
+}))
+
+new Vue({
+    router,
+    store,
+    render: h =&gt; h(App)
+}).$mount(&#39;#app&#39;)</code></pre>
+<ul>
+<li><p><strong><code>debug</code></strong>：<strong>生产环境建议关闭，开发环境可以打开</strong>，这样你就可以在控制台看到socket连接和事件监听的一些信息，例如下面这样：<br />
+<img src="./images/vue-socket.io使用教程与踩坑记录1.png" /></p></li>
+<li><p><strong><code>connection</code></strong>：<strong>连接地址前缀</strong>，注意！这里只有前缀，我之前被坑过，因为明明后端有给我返回上下文，但莫名其妙的被去除了，<code>vue-socket.io</code>这里用到的是<code>socket.io-client</code>的<code>Manager api</code>，关键源码如下（<strong>只看我写中文备注的部分就好</strong>）：</p></li>
+</ul>
+<p><strong>vue-socket.io（index.js）</strong></p>
+<pre><code><code>import SocketIO from &quot;socket.io-client&quot;;
+export default class VueSocketIO {
+
+    /**
+     * lets take all resource
+     * @param io
+     * @param vuex
+     * @param debug
+     * @param options
+     */
+    constructor({connection, vuex, debug, options}){
+
+        Logger.debug = debug;
+        this.io = this.connect(connection, options); // 获取到你设定的参数后就调用了connect方法
+        this.useConnectionNamespace = (options &amp;&amp; options.useConnectionNamespace);
+        this.namespaceName = (options &amp;&amp; options.namespaceName);
+        this.emitter = new Emitter(vuex);
+        this.listener = new Listener(this.io, this.emitter);
+    }
+    /**
+   * registering SocketIO instance
+   * @param connection
+   * @param options
+   */
+  connect(connection, options) {
+    if (connection &amp;&amp; typeof connection === &quot;object&quot;) {
+      Logger.info(`Received socket.io-client instance`);
+      return connection;
+    } else if (typeof connection === &quot;string&quot;) {
+      const io = SocketIO(connection, options);// 其实用的是socket.io-client的Manager API
+      Logger.info(`Received connection string`);
+      return (this.io = io);
+    } else {
+      throw new Error(&quot;Unsupported connection type&quot;);
+    }
+  }</code></pre>
+<p><strong>socket.io-client（index.js）</strong></p>
+<pre><code><code>var url = require(&#39;./url&#39;);
+function lookup (uri, opts) {
+  if (typeof uri === &#39;object&#39;) {
+    opts = uri;
+    uri = undefined;
+  }
+
+  opts = opts || {};
+
+  var parsed = url(uri); // 通过url.js对connection前缀进行截取
+  var source = parsed.source;
+  var id = parsed.id;
+  var path = parsed.path;
+  var sameNamespace = cache[id] &amp;&amp; path in cache[id].nsps;
+  var newConnection = opts.forceNew || opts[&#39;force new connection&#39;] ||
+                      false === opts.multiplex || sameNamespace;
+
+  var io;
+
+  if (newConnection) {
+    debug(&#39;ignoring socket cache for %s&#39;, source);
+    io = Manager(source, opts);
+  } else {
+    if (!cache[id]) {
+      debug(&#39;new io instance for %s&#39;, source);
+      cache[id] = Manager(source, opts);
+    }
+    io = cache[id];
+  }
+  if (parsed.query &amp;&amp; !opts.query) {
+    opts.query = parsed.query;
+  }
+  return io.socket(parsed.path, opts);// 实际调用的是解析后的前缀地址
+}</code></pre>
+<ul>
+<li><strong><code>options.path</code></strong>： 这里就可以填websocket<strong>连接地址的后缀</strong>，如果不填会被默认添加<code>/socket.io</code>，关键源码如下（<strong>只看我写中文备注的部分就好</strong>）：<br />
+其他的<code>options</code>配置可以参见<a href="https://socket.io/docs/client-api/#Manager" class="uri">https://socket.io/docs/client-api/#Manager</a></li>
+</ul>
+<p><strong>socket.io-client（manager.js）</strong></p>
+<pre><code><code>function Manager (uri, opts) {
+  if (!(this instanceof Manager)) return new Manager(uri, opts);
+  if (uri &amp;&amp; (&#39;object&#39; === typeof uri)) {
+    opts = uri;
+    uri = undefined;
+  }
+  opts = opts || {};
+
+  opts.path = opts.path || &#39;/socket.io&#39;; // 看到没有，如果你不传递options.path参数的话会被默认安一个尾巴&quot;/socket.io&quot;
+  this.nsps = {};
+  this.subs = [];
+  this.opts = opts;
+  this.reconnection(opts.reconnection !== false);
+  this.reconnectionAttempts(opts.reconnectionAttempts || Infinity);
+  this.reconnectionDelay(opts.reconnectionDelay || 1000);
+  this.reconnectionDelayMax(opts.reconnectionDelayMax || 5000);
+  this.randomizationFactor(opts.randomizationFactor || 0.5);
+  this.backoff = new Backoff({
+    min: this.reconnectionDelay(),
+    max: this.reconnectionDelayMax(),
+    jitter: this.randomizationFactor()
+  });
+  this.timeout(null == opts.timeout ? 20000 : opts.timeout);
+  this.readyState = &#39;closed&#39;;
+  this.uri = uri;
+  this.connecting = [];
+  this.lastPing = null;
+  this.encoding = false;
+  this.packetBuffer = [];
+  var _parser = opts.parser || parser;
+  this.encoder = new _parser.Encoder();
+  this.decoder = new _parser.Decoder();
+  this.autoConnect = opts.autoConnect !== false;
+  if (this.autoConnect) this.open();
+}</code></pre>
+<ul>
+<li><p><strong><code>vuex</code></strong>： 配置后可以在<code>store.js</code>的<code>mutations</code>或者<code>actions</code>监听到<code>Vue-Socket.io</code>事件（例如：connect、disconnect、reconnect等），这部分目前用得比较少，也挺简单，如果有疑问可以给我留言我再单独提供教程。</p>
+<h4 id="使用page.vue">使用（Page.vue）</h4>
+注意：熟悉<code>socket.io-client</code>的应该知道，默认情况下，websocket在创建实例的时候就会自动发起连接了，所以切记不要在组件中重复发起连接。如果你想自己控制发起连接的时机可以将<code>options.autoConnect</code>设置为<code>false</code>。<br />
+</li>
+</ul>
+<pre><code><code>export default {
+    name: &#39;Page&#39;,
+    sockets: {// 通过vue实例对象sockets实现组件中的事件监听
+      connect: function () {// socket的connect事件
+        console.log(&#39;socket connected from Page&#39;)
+      },
+      STREAM_STATUS(data) {// 后端按主题名推送的消息数据
+          console.log(&#39;Page：&#39; + data)
+      }
+    },
+    mounted() {
+      console.log(&#39;page mounted&#39;)
+      this.$socket.emit(&#39;STREAM_STATUS&#39;, { subscribe: true })// 在页面加载时发起订阅，“STREAM_STATUS”是你跟后端约定好的主题名
+    }
+  }</code></pre>
+<p>事件除了在<code>sockets对象</code>中默认监听，你还可以在外部单独注册事件监听或取消注册：<br />
+<br/></p>
+<pre><code><code>this.sockets.subscribe(&#39;EVENT_NAME&#39;, (data) =&gt; {
+    this.msg = data.message;
+});
+
+this.sockets.unsubscribe(&#39;EVENT_NAME&#39;);</code></pre>
+<p>但这种方式从源码上看是不支持参数传递的，只支持传递事件名及回调函数（部分源码如下）：</p>
+<p><strong>vue-Socket.io（mixin.js）</strong></p>
+<pre><code><code>beforeCreate(){
+        if(!this.sockets) this.sockets = {};
+
+        if (typeof this.$vueSocketIo === &#39;object&#39;) {
+            for (const namespace of Object.keys(this.$vueSocketIo)) {
+                this.sockets[namespace] = {
+                    subscribe: (event, callback) =&gt; {
+                        this.$vueSocketIo[namespace].emitter.addListener(event, callback, this);
+                    },
+                    unsubscribe: (event) =&gt; {
+                        this.$vueSocketIo[namespace].emitter.removeListener(event, this);
+                    }
+                }
+            }
+        } else {
+            this.$vueSocketIo.emitter.addListener(event, callback, this);
+            this.$vueSocketIo.emitter.removeListener(event, this);
+        }
+    }</code></pre>
+<h2 id="解决方案">解决方案</h2>
+<p>针对我上面描述的问题，最大原因就在于获取socket连接地址是异步请求，如文章开头的截图，<code>page mounted</code>打印时，<code>this.$socket</code>还是<code>undefined</code>。所以我们要做的就是怎么样让页面加载在<code>VueSocketIO</code>实例创建之后。<br />
+我提供两种解决方案，具体怎么选择看你们的需求~</p>
+<h4 id="保证拿到socket连接地址后再将vue实例挂载到app">保证拿到socket连接地址后再将vue实例挂载到app</h4>
+<p><strong>缺点</strong>：如果你获取socket地址的请求失败了，整个项目的页面都加载不出来（一般服务器出现问题才会有这种情况产生）<br />
+<strong>优点</strong>：实现简单，一小段代码挪个位置就好</p>
+<h5 id="main.js">main.js</h5>
+<pre><code><code>import Vue from &#39;vue&#39;
+import App from &#39;./App.vue&#39;
+import router from &#39;./router&#39;
+import store from &#39;./store&#39;
+import ParentApi from &#39;@/api/Parent&#39;
+import VueSocketIO from &#39;vue-socket.io&#39;
+
+/* 使用vue-socket.io */
+ParentApi.getSocketUrl().then((res) =&gt; {
+    Vue.use(new VueSocketIO({
+        debug: false,
+        connection: res.data.path,
+        options: { path: &#39;/my-project/socket.io&#39; }
+    }))
+    new Vue({
+        router,
+        store,
+        render: h =&gt; h(App)
+    }).$mount(&#39;#app&#39;)
+})</code></pre>
+<p>控制台打印如下图：<br />
+<img src="./images/vue-socket.io使用教程与踩坑记录2.png" /><br />
+<br/></p>
+<h4 id="结合connect事件store路由守卫实现拦截">结合connect事件+store+路由守卫实现拦截</h4>
+<p><strong>原理</strong>：异步请求回调中创建<code>VueSocketIO</code>实例并监听<code>connect</code>事件，监听回调中修改<code>isSuccessConnect</code>参数的值，在Page页面路由中增加<code>beforeEnter</code>守卫，利用<code>setInterval</code>周期性判断<code>isSuccessConnect</code>的值，满足条件则取消定时执行并路由跳转。<br />
+<strong>缺点</strong>：实现起来稍微复杂一点<br />
+<strong>优点</strong>：不会影响其他页面的加载</p>
+<h6 id="main.js-1">main.js</h6>
+<pre><code><code>import Vue from &#39;vue&#39;
+import App from &#39;./App.vue&#39;
+import router from &#39;./router&#39;
+import store from &#39;./store&#39;
+import ParentApi from &#39;@/api/Parent&#39;
+import VueSocketIO from &#39;vue-socket.io&#39;
+
+ParentApi.getSocketUrl().then((res) =&gt; {
+  let vueSocketIo = new VueSocketIO({
+    debug: false,
+    connection: res.data.path,
+    options: { path: &#39;/my-project/socket.io&#39; }
+  })
+  // 监听connect事件，设置isSuccessConnect为true
+  vueSocketIo.io.on(&#39;connect&#39;, () =&gt; {
+    console.log(&#39;socket connect from main.js&#39;)
+    store.commit(&#39;newIsSuccessConnect&#39;, true)
+  })
+  Vue.use(vueSocketIo)
+})
+
+new Vue({
+  router,
+  store,
+  render: h =&gt; h(App)
+}).$mount(&#39;#app&#39;)</code></pre>
+<h5 id="store.js">store.js</h5>
+<pre><code><code>import Vue from &#39;vue&#39;
+import Vuex from &#39;vuex&#39;
+
+Vue.use(Vuex)
+export default new Vuex.Store({
+  state: {
+    // socket连接状态
+    isSuccessConnect: false
+  },
+  mutations: {
+    newIsSuccessConnect(state, value) {
+      state.isSuccessConnect = value
+    }
+  },
+  getters: {
+    getIsSuccessConnect: state =&gt; {
+      return state.isSuccessConnect
+    }
+  },
+  actions: {
+  }
+})</code></pre>
+<h5 id="router.js">router.js</h5>
+<pre><code><code>import Vue from &#39;vue&#39;
+import Router from &#39;vue-router&#39;
+import store from &#39;./store&#39;
+
+Vue.use(Router)
+
+export default new Router({
+  mode: &#39;history&#39;,
+  base: process.env.BASE_URL,
+  routes: [
+    {
+      path: &#39;/page&#39;,
+      name: &#39;Page&#39;,
+      component: () =&gt; import(/* webpackChunkName: &quot;Page&quot; */ &#39;./pages/Page.vue&#39;),
+      beforeEnter: (to, from, next) =&gt; {
+        let intervalId = setInterval(() =&gt; {
+         // 直到store中isSuccessConnect为true时才能进入/page
+          if (store.getters.getIsSuccessConnect) {
+            clearInterval(intervalId)
+            next()
+          }
+        }, 500)
+      }
+    }
+  ]
+})</code></pre>
+<p>控制台打印如下图：<br />
+<img src="./images/vue-socket.io使用教程与踩坑记录3.png" /></p>
+<h2 id="参考资料">参考资料：</h2>
+<p>1、vue-socket.io：<a href="https://github.com/MetinSeylan/Vue-Socket.io" class="uri">https://github.com/MetinSeylan/Vue-Socket.io</a><br />
+2、socket.io-client：<a href="https://github.com/socketio/socket.io-client" class="uri">https://github.com/socketio/socket.io-client</a><br />
+3、vue-router守卫：<a href="https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#%E8%B7%AF%E7%94%B1%E7%8B%AC%E4%BA%AB%E7%9A%84%E5%AE%88%E5%8D%AB">https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#%E8%B7%AF%E7%94%B1%E7%8B%AC%E4%BA%AB%E7%9A%84%E5%AE%88%E5%8D%AB</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

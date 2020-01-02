@@ -1,0 +1,418 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Istio 1.4 部署指南' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Istio 1.4 部署指南</center></div><div class='banquan'>原文出处:本文由博客园博主米开朗基杨提供。<br/>
+原文连接:https://www.cnblogs.com/ryanyangcs/p/12090991.html</div><br>
+    <blockquote>
+<p>原文链接：<a href="https://fuckcloudnative.io/posts/istio-deploy/">Istio 1.4 部署指南</a></p>
+</blockquote>
+<p>Istio 一直处于快速迭代更新的过程中，它的部署方法也在不断更新，之前我在 1.0 版本中介绍的安装方法，对于最新的 1.4 版本已经不适用了。以后主流的部署方式都是用 istioctl 进行部署，helm 可以渐渐靠边站了~~</p>
+<p>在部署 Istio 之前，首先需要确保 Kubernetes 集群（kubernetes 版本建议在 <code>1.13</code> 以上）已部署并配置好本地的 kubectl 客户端。</p>
+<h2 id="kubernetes-环境准备">1. Kubernetes 环境准备</h2>
+<p>为了快速准备 kubernetes 环境，我们可以使用 sealos 来部署，步骤如下：</p>
+<h3 id="前提条件">前提条件</h3>
+<ul>
+<li>下载<a href="http://store.lameleg.com/">kubernetes 离线安装包</a></li>
+<li>下载<a href="https://github.com/fanux/sealos/releases">最新版本sealos</a></li>
+<li>务必同步服务器时间</li>
+<li>主机名不可重复</li>
+</ul>
+<h3 id="安装-kubernetes-集群">安装 kubernetes 集群</h3>
+<pre><code><code>$ sealos init --master 192.168.0.2 \
+    --node 192.168.0.3 \
+    --node 192.168.0.4 \
+    --node 192.168.0.5 \
+    --user root \
+    --passwd your-server-password \
+    --version v1.16.3 \
+    --pkg-url /root/kube1.16.3.tar.gz </code></pre>
+<p>检查安装是否正常：</p>
+<pre><code><code>$ kubectl get node
+
+NAME       STATUS   ROLES    AGE   VERSION
+sealos01   Ready    master   18h   v1.16.3
+sealos02   Ready    &lt;none&gt;   18h   v1.16.3
+sealos03   Ready    &lt;none&gt;   18h   v1.16.3
+sealos04   Ready    &lt;none&gt;   18h   v1.16.3</code></pre>
+<h2 id="下载-istio-部署文件">2. 下载 Istio 部署文件</h2>
+<p>你可以从 GitHub 的 <a href="https://github.com/istio/istio/releases/tag/1.4.2">release</a> 页面下载 istio，或者直接通过下面的命令下载：</p>
+<pre><code><code>$ curl -L https://istio.io/downloadIstio | sh -</code></pre>
+<p>下载完成后会得到一个 <code>istio-1.4.2</code> 目录，里面包含了：</p>
+<ul>
+<li><code>install/kubernetes</code> : 针对 Kubernetes 平台的安装文件</li>
+<li><code>samples</code> : 示例应用</li>
+<li><code>bin</code> : istioctl 二进制文件，可以用来手动注入 sidecar proxy</li>
+</ul>
+<p>进入 <code>istio-1.4.2</code> 目录。</p>
+<pre><code><code>$ cd istio-1.4.2
+
+$ tree -L 1 ./
+./
+├── bin
+├── demo.yaml
+├── install
+├── LICENSE
+├── manifest.yaml
+├── README.md
+├── samples
+└── tools
+
+4 directories, 4 files</code></pre>
+<p>将 istioctl 拷贝到 <code>/usr/local/bin/</code> 中：</p>
+<pre><code><code>$ cp bin/istioctl /usr/local/bin/</code></pre>
+<h3 id="开启-istioctl-的自动补全功能">开启 istioctl 的自动补全功能</h3>
+<h4 id="bash">bash</h4>
+<p>将 <code>tools</code> 目录中的 <code>istioctl.bash</code> 拷贝到 $HOME 目录中：</p>
+<pre><code><code>$ cp tools/istioctl.bash ~/</code></pre>
+<p>在 <code>~/.bashrc</code> 中添加一行：</p>
+<pre><code><code>source ~/istioctl.bash</code></pre>
+<p>应用生效：</p>
+<pre><code><code>$ source ~/.bashrc</code></pre>
+<h4 id="zsh">zsh</h4>
+<p>将 <code>tools</code> 目录中的 <code>_istioctl</code> 拷贝到 $HOME 目录中：</p>
+<pre><code><code>$ cp tools/_istioctl ~/</code></pre>
+<p>在 <code>~/.zshrc</code> 中添加一行：</p>
+<pre><code><code>source ~/_istioctl</code></pre>
+<p>应用生效：</p>
+<pre><code><code>$ source ~/.zshrc</code></pre>
+<h2 id="部署-istio">3. 部署 Istio</h2>
+<p>istioctl 提供了多种安装配置文件，可以通过下面的命令查看：</p>
+<pre><code><code>$ istioctl profile list
+
+Istio configuration profiles:
+    minimal
+    remote
+    sds
+    default
+    demo</code></pre>
+<p>它们之间的差异如下：</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: center;"></th>
+<th style="text-align: left;">default</th>
+<th style="text-align: left;">demo</th>
+<th style="text-align: left;">minimal</th>
+<th style="text-align: left;">sds</th>
+<th style="text-align: left;">remote</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><strong>核心组件</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">istio-citadel</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">istio-egressgateway</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">istio-galley</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">istio-ingressgateway</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">istio-nodeagent</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">istio-pilot</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">istio-policy</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">istio-sidecar-injector</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">istio-telemetry</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"><strong>附加组件</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">Grafana</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">istio-tracing</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">kiali</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">prometheus</td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><strong>X</strong></td>
+<td style="text-align: left;"></td>
+</tr>
+</tbody>
+</table>
+<p>其中标记 <strong>X</strong> 表示该安装该组件。</p>
+<p>如果只是想快速试用并体验完整的功能，可以直接使用配置文件 <code>demo</code> 来部署。</p>
+<p>在正式部署之前，需要先说明两点：</p>
+<h3 id="istio-cni-plugin">Istio CNI Plugin</h3>
+<p>当前实现将用户 pod 流量转发到 proxy 的默认方式是使用 privileged 权限的 <code>istio-init</code> 这个 init container 来做的（运行脚本写入 iptables），需要用到 <code>NET_ADMIN</code> capabilities。对 linux capabilities 不了解的同学可以参考我的 <a href="https://fuckcloudnative.io/posts/linux-capabilities-why-they-exist-and-how-they-work/">Linux capabilities 系列</a>。</p>
+<p>Istio CNI 插件的主要设计目标是消除这个 privileged 权限的 init container，换成利用 Kubernetes CNI 机制来实现相同功能的替代方案。具体的原理就是在 Kubernetes CNI 插件链末尾加上 Istio 的处理逻辑，在创建和销毁 pod 的这些 hook 点来针对 istio 的 pod 做网络配置：写入 iptables，让该 pod 所在的 network namespace 的网络流量转发到 proxy 进程。</p>
+<p>详细内容请参考<a href="https://istio.io/docs/setup/additional-setup/cni/">官方文档</a>。</p>
+<p>使用 Istio CNI 插件来创建 sidecar iptables 规则肯定是未来的主流方式，不如我们现在就尝试使用这种方法。</p>
+<h3 id="kubernetes-关键插件critical-add-on-pods">Kubernetes 关键插件（Critical Add-On Pods）</h3>
+<p>众所周知，Kubernetes 的核心组件都运行在 master 节点上，然而还有一些附加组件对整个集群来说也很关键，例如 DNS 和 metrics-server，这些被称为<strong>关键插件</strong>。一旦关键插件无法正常工作，整个集群就有可能会无法正常工作，所以 Kubernetes 通过优先级（PriorityClass）来保证关键插件的正常调度和运行。要想让某个应用变成 Kubernetes 的<strong>关键插件</strong>，只需要其 <code>priorityClassName</code> 设为 <code>system-cluster-critical</code> 或 <code>system-node-critical</code>，其中 <code>system-node-critical</code> 优先级最高。</p>
+<blockquote>
+<p>注意：关键插件只能运行在 <code>kube-system</code> namespace 中！</p>
+</blockquote>
+<p>详细内容可以参考<a href="https://v1-16.docs.kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/">官方文档</a>。</p>
+<p>接下来正式安装 istio，命令如下：</p>
+<pre><code><code>$ istioctl manifest apply --set profile=demo \
+   --set cni.enabled=true --set cni.components.cni.namespace=kube-system \
+   --set values.gateways.istio-ingressgateway.type=ClusterIP</code></pre>
+<p>istioctl 支持两种 API：</p>
+<ul>
+<li><a href="https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/">IstioControlPlane API</a></li>
+<li><a href="https://istio.io/docs/reference/config/installation-options/">Helm API</a></li>
+</ul>
+<p>在上述安装命令中，cni 参数使用的是 IstioControlPlane API，而 <code>values.*</code> 使用的是 Helm API。</p>
+<p>部署完成后，查看各组件状态：</p>
+<pre><code><code>$ kubectl -n istio-system get pod
+
+NAME                                      READY   STATUS    RESTARTS   AGE
+grafana-6b65874977-8psph                  1/1     Running   0          36s
+istio-citadel-86dcf4c6b-nklp5             1/1     Running   0          37s
+istio-egressgateway-68f754ccdd-m87m8      0/1     Running   0          37s
+istio-galley-5fc6d6c45b-znwl9             1/1     Running   0          38s
+istio-ingressgateway-6d759478d8-g5zz2     0/1     Running   0          37s
+istio-pilot-5c4995d687-vf9c6              0/1     Running   0          37s
+istio-policy-57b99968f-ssq28              1/1     Running   1          37s
+istio-sidecar-injector-746f7c7bbb-qwc8l   1/1     Running   0          37s
+istio-telemetry-854d8556d5-6znwb          1/1     Running   1          36s
+istio-tracing-c66d67cd9-gjnkl             1/1     Running   0          38s
+kiali-8559969566-jrdpn                    1/1     Running   0          36s
+prometheus-66c5887c86-vtbwb               1/1     Running   0          39s</code></pre>
+<pre><code><code>$ kubectl -n kube-system get pod -l k8s-app=istio-cni-node
+
+NAME                   READY   STATUS    RESTARTS   AGE
+istio-cni-node-k8zfb   1/1     Running   0          10m
+istio-cni-node-kpwpc   1/1     Running   0          10m
+istio-cni-node-nvblg   1/1     Running   0          10m
+istio-cni-node-vk6jd   1/1     Running   0          10m</code></pre>
+<p>可以看到 cni 插件已经安装成功，查看配置是否已经追加到 CNI 插件链的末尾：</p>
+<pre><code><code>$ cat /etc/cni/net.d/10-calico.conflist
+
+{
+  &quot;name&quot;: &quot;k8s-pod-network&quot;,
+  &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+  &quot;plugins&quot;: [
+  ...
+    {
+      &quot;type&quot;: &quot;istio-cni&quot;,
+      &quot;log_level&quot;: &quot;info&quot;,
+      &quot;kubernetes&quot;: {
+        &quot;kubeconfig&quot;: &quot;/etc/cni/net.d/ZZZ-istio-cni-kubeconfig&quot;,
+        &quot;cni_bin_dir&quot;: &quot;/opt/cni/bin&quot;,
+        &quot;exclude_namespaces&quot;: [
+          &quot;istio-system&quot;
+        ]
+      }
+    }
+  ]
+}</code></pre>
+<p>默认情况下除了 <code>istio-system</code> namespace 之外，istio cni 插件会监视其他所有 namespace 中的 Pod，然而这并不能满足我们的需求，更严谨的做法是让 istio CNI 插件至少忽略 <code>kube-system</code>、<code>istio-system</code> 这两个 namespace，怎么做呢？</p>
+<p>也很简单，还记得之前提到的 IstioControlPlane API 吗？可以直接通过它来覆盖之前的配置，只需要创建一个 <code>IstioControlPlane</code> CRD 就可以了。例如：</p>
+<pre class="yaml"><code>$ cat cni.yaml
+
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+spec:
+  cni:
+    enabled: true
+    components:
+      namespace: kube-system
+  values:
+    cni:
+      excludeNamespaces:
+       - istio-system
+       - kube-system
+       - monitoring
+  unvalidatedValues:
+    cni:
+      logLevel: info</code></pre>
+<pre><code><code>$ istioctl manifest apply -f cni.yaml</code></pre>
+<p>删除所有的 istio-cni-node Pod：</p>
+<pre><code><code>$ kubectl -n kube-system delete pod -l k8s-app=istio-cni-node</code></pre>
+<p>再次查看 CNI 插件链的配置：</p>
+<pre><code><code>$ cat /etc/cni/net.d/10-calico.conflist
+
+{
+  &quot;name&quot;: &quot;k8s-pod-network&quot;,
+  &quot;cniVersion&quot;: &quot;0.3.1&quot;,
+  &quot;plugins&quot;: [
+  ...
+    {
+      &quot;type&quot;: &quot;istio-cni&quot;,
+      &quot;log_level&quot;: &quot;info&quot;,
+      &quot;kubernetes&quot;: {
+        &quot;kubeconfig&quot;: &quot;/etc/cni/net.d/ZZZ-istio-cni-kubeconfig&quot;,
+        &quot;cni_bin_dir&quot;: &quot;/opt/cni/bin&quot;,
+        &quot;exclude_namespaces&quot;: [
+          &quot;istio-system&quot;,
+          &quot;kube-system&quot;,
+          &quot;monitoring&quot;
+        ]
+      }
+    }
+  ]
+}</code></pre>
+<h2 id="暴露-dashboard">4. 暴露 Dashboard</h2>
+<p>这个没什么好说的，通过 Ingress Controller 暴露就好了，可以参考我以前写的 <a href="https://fuckcloudnative.io/posts/istio-1.0-deploy/">Istio 1.0 部署</a>。如果使用 Contour 的可以参考我的另一篇文章：<a href="https://fuckcloudnative.io/posts/use-envoy-as-a-kubernetes-ingress/">Contour 学习笔记（一）：使用 Contour 接管 Kubernetes 的南北流量</a>。</p>
+<p>这里我再介绍一种新的方式，<code>istioctl</code> 提供了一个子命令来从本地打开各种 Dashboard：</p>
+<pre><code><code>$ istioctl dashboard --help
+
+Access to Istio web UIs
+
+Usage:
+  istioctl dashboard [flags]
+  istioctl dashboard [command]
+
+Aliases:
+  dashboard, dash, d
+
+Available Commands:
+  controlz    Open ControlZ web UI
+  envoy       Open Envoy admin web UI
+  grafana     Open Grafana web UI
+  jaeger      Open Jaeger web UI
+  kiali       Open Kiali web UI
+  prometheus  Open Prometheus web UI
+  zipkin      Open Zipkin web UI</code></pre>
+<p>例如，要想在本地打开 Grafana 页面，只需执行下面的命令：</p>
+<pre><code><code>$ istioctl dashboard grafana
+http://localhost:36813</code></pre>
+<p>咋一看可能觉得这个功能很鸡肋，我的集群又不是部署在本地，而且这个命令又不能指定监听的 IP，在本地用浏览器根本打不开呀！其实不然，你可以在本地安装 kubectl 和 istioctl 二进制文件，然后通过 kubeconfig 连接到集群，最后再在本地执行上面的命令，就可以打开页面啦，开发人员用来测试是不是很方便？Windows 用户当我没说。。。</p>
+<h2 id="暴露-gateway">5. 暴露 Gateway</h2>
+<p>为了暴露 Ingress Gateway，我们可以使用 <code>HostNetwork</code> 模式运行，但你会发现无法启动 ingressgateway 的 Pod，因为如果 Pod 设置了 <code>HostNetwork=true</code>，则 dnsPolicy 就会从 <code>ClusterFirst</code> 被强制转换成 <code>Default</code>。而 Ingress Gateway 启动过程中需要通过 DNS 域名连接 <code>pilot</code> 等其他组件，所以无法启动。</p>
+<p>我们可以通过强制将 <code>dnsPolicy</code> 的值设置为 <code>ClusterFirstWithHostNet</code> 来解决这个问题，详情参考：<a href="https://fuckcloudnative.io/posts/kubernetes-dns/">Kubernetes DNS 高阶指南</a>。</p>
+<p>修改后的 ingressgateway deployment 配置文件如下：</p>
+<pre class="yaml"><code>apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  ...
+spec:
+  ...
+  template:
+    metadata:
+    ...
+    spec:
+      affinity:
+        nodeAffinity:
+          ...
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - 192.168.0.4   # 假设你想调度到这台主机上
+      ...
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      restartPolicy: Always
+      ...</code></pre>
+<p>接下来我们就可以在浏览器中通过 Gateway 的 URL 来访问服务网格中的服务了。后面我会开启一系列实验教程，本文的所有步骤都是为后面做准备，如果想跟着我做后面的实验，请务必做好本文所述的准备工作。</p>
+<h2 id="微信公众号">微信公众号</h2>
+<p>扫一扫下面的二维码关注微信公众号，在公众号中回复◉加群◉即可加入我们的云原生交流群，和孙宏亮、张馆长、阳明等大佬一起探讨云原生技术</p>
+<p><img src="./images/Istio 1.4 部署指南0.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

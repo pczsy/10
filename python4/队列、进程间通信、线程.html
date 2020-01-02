@@ -1,0 +1,333 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修队列、进程间通信、线程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>队列、进程间通信、线程</center></div><div class='banquan'>原文出处:本文由博客园博主SetCreed提供。<br/>
+原文连接:https://www.cnblogs.com/setcreed/p/11722770.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#进程互斥锁">进程互斥锁</a><ul>
+        <li><a href="#多进程同时抢购余票">多进程同时抢购余票</a></li>
+        <li><a href="#使用锁来保证数据安全">使用锁来保证数据安全</a></li>
+        </ul></li>
+        <li><a href="#队列">队列</a></li>
+        <li><a href="#进程间通信">进程间通信</a></li>
+        <li><a href="#生产者与消费者">生产者与消费者</a></li>
+        <li><a href="#线程">线程</a><ul>
+        <li><a href="#线程的概念">线程的概念</a></li>
+        <li><a href="#线程的两种创建方式">线程的两种创建方式</a></li>
+        </ul></li>
+        <li><a href="#线程对象的方法">线程对象的方法</a></li>
+        <li><a href="#线程互斥锁">线程互斥锁</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="进程互斥锁">进程互斥锁</h1>
+<h2 id="多进程同时抢购余票">多进程同时抢购余票</h2>
+<pre><code><code># 并发运行，效率高，但竞争写同一文件，数据写入错乱
+# data.json文件内容为 {&quot;ticket_num&quot;: 1}
+import json
+import time
+from multiprocessing import Process
+
+
+def search(user):
+    with open(&#39;data.json&#39;, &#39;r&#39;, encoding=&#39;utf-8&#39;) as f:
+        dic = json.load(f)
+    print(f&#39;用户{user}查看余票，还剩{dic.get(&quot;ticket_num&quot;)}...&#39;)
+
+
+def buy(user):
+    with open(&#39;data.json&#39;, &#39;r&#39;, encoding=&#39;utf-8&#39;) as f:
+        dic = json.load(f)
+
+    time.sleep(0.1)
+    if dic[&#39;ticket_num&#39;] &gt; 0:
+        dic[&#39;ticket_num&#39;] -= 1
+        with open(&#39;data.json&#39;, &#39;w&#39;, encoding=&#39;utf-8&#39;) as f:
+            json.dump(dic, f)
+        print(f&#39;用户{user}抢票成功!&#39;)
+
+    else:
+        print(f&#39;用户{user}抢票失败&#39;)
+
+
+def run(user):
+    search(user)
+    buy(user)
+
+
+if __name__ == &#39;__main__&#39;:
+    for i in range(10):  # 模拟10个用户抢票
+        p = Process(target=run, args=(f&#39;用户{i}&#39;, ))
+        p.start()</code></pre>
+<h2 id="使用锁来保证数据安全">使用锁来保证数据安全</h2>
+<pre><code><code># data.json文件内容为 {&quot;ticket_num&quot;: 1}
+import json
+import time
+from multiprocessing import Process, Lock
+
+
+def search(user):
+    with open(&#39;data.json&#39;, &#39;r&#39;, encoding=&#39;utf-8&#39;) as f:
+        dic = json.load(f)
+    print(f&#39;用户{user}查看余票，还剩{dic.get(&quot;ticket_num&quot;)}...&#39;)
+
+
+def buy(user):
+    with open(&#39;data.json&#39;, &#39;r&#39;, encoding=&#39;utf-8&#39;) as f:
+        dic = json.load(f)
+
+    time.sleep(0.2)
+    if dic[&#39;ticket_num&#39;] &gt; 0:
+        dic[&#39;ticket_num&#39;] -= 1
+        with open(&#39;data.json&#39;, &#39;w&#39;, encoding=&#39;utf-8&#39;) as f:
+            json.dump(dic, f)
+        print(f&#39;用户{user}抢票成功!&#39;)
+
+    else:
+        print(f&#39;用户{user}抢票失败&#39;)
+
+
+def run(user, mutex):
+    search(user)
+    mutex.acquire()  # 加锁
+    buy(user)
+    mutex.release()  # 释放锁
+
+
+if __name__ == &#39;__main__&#39;:
+    # 调用Lock()类得到一个锁对象
+    mutex = Lock()
+
+    for i in range(10):  # 模拟10个用户抢票
+        p = Process(target=run, args=(f&#39;用户{i}&#39;, mutex))
+        p.start()</code></pre>
+<p>进程互斥锁：</p>
+<ul>
+<li>让并发变成串行，牺牲了执行效率，保证了数据安全</li>
+<li>在程序并发时，需要修改数据使用</li>
+</ul>
+<h1 id="队列">队列</h1>
+<p>队列遵循的是先进先出</p>
+<p>队列：相当于内存中一个队列空间，可以存放多个数据，但数据的顺序是由先进去的排在前面。</p>
+<p><code>q.put()</code> 添加数据</p>
+<p><code>q.get()</code> 取数据，遵循队列先进先出</p>
+<p><code>q.get_nowait()</code> 获取队列数据， 队列中没有就会报错</p>
+<p><code>q.put_nowait</code> 添加数据，若队列满了也会报错</p>
+<p><code>q.full()</code> 查看队列是否满了</p>
+<p><code>q.empty()</code> 查看队列是否为空</p>
+<pre><code><code>from multiprocessing import Queue
+
+# 调用队列类，实例化队列对象
+q = Queue(5)   # 队列中存放5个数据
+
+# put添加数据，若队列里的数据满了就会卡住
+q.put(1)
+print(&#39;进入数据1&#39;)
+q.put(2)
+print(&#39;进入数据2&#39;)
+q.put(3)
+print(&#39;进入数据3&#39;)
+q.put(4)
+print(&#39;进入数据4&#39;)
+q.put(5)
+print(&#39;进入数据5&#39;)
+
+# 查看队列是否满了
+print(q.full())
+
+# 添加数据, 若队列满了也会报错
+q.put_nowait(6)
+
+# q.get() 获取的数据遵循先进先出
+print(q.get())
+print(q.get())
+print(q.get())
+print(q.get())
+print(q.get())
+# print(q.get())
+print(q.get_nowait())   # 获取队列数据， 队列中没有就会报错
+
+# 判断队列是否为空
+print(q.empty())
+q.put(6)
+print(&#39;进入数据6&#39;)</code></pre>
+<h1 id="进程间通信">进程间通信</h1>
+<p>IPC(Inter-Process Communication)</p>
+<p>进程间数据是相互隔离的，若想实现进程间通信，可以利用队列</p>
+<pre><code><code>from multiprocessing import Process, Queue
+
+def task1(q):
+    data = &#39;hello 你好&#39;
+    q.put(data)
+    print(&#39;进程1添加数据到队列&#39;)
+
+
+def task2(q):
+    print(q.get())
+    print(&#39;进程2从队列中获取数据&#39;)
+
+
+
+if __name__ == &#39;__main__&#39;:
+    q = Queue()
+
+    p1 = Process(target=task1, args=(q, ))
+    p2 = Process(target=task2, args=(q, ))
+    p1.start()
+    p2.start()
+    print(&#39;主进程&#39;)
+</code></pre>
+<h1 id="生产者与消费者">生产者与消费者</h1>
+<p>在程序中，通过队列生产者把数据添加到队列中，消费者从队列中获取数据</p>
+<pre><code><code>from multiprocessing import Process, Queue
+import time
+
+
+# 生产者
+def producer(name, food, q):
+    for i in range(10):
+        data = food, i
+        msg = f&#39;用户{name}开始制作{data}&#39;
+        print(msg)
+        q.put(data)
+        time.sleep(0.1)
+
+# 消费者
+def consumer(name, q):
+    while True:
+        data = q.get()
+        if not data:
+            break
+
+        print(f&#39;用户{name}开始吃{data}&#39;)
+
+
+if __name__ == &#39;__main__&#39;:
+    q = Queue()
+    p1 = Process(target=producer, args=(&#39;neo&#39;, &#39;煎饼&#39;, q))
+    p2 = Process(target=producer, args=(&#39;wick&#39;, &#39;肉包&#39;, q))
+
+    c1 = Process(target=consumer, args=(&#39;cwz&#39;, q))
+    c2 = Process(target=consumer, args=(&#39;woods&#39;, q))
+
+    p1.start()
+    p2.start()
+    
+    c1.daemon = True
+    c2.daemon = True
+    c1.start()
+    c2.start()
+    print(&#39;主&#39;)</code></pre>
+<h1 id="线程">线程</h1>
+<h2 id="线程的概念">线程的概念</h2>
+<p>进程与线程都是虚拟单位</p>
+<p>进程：资源单位</p>
+<p>线程：执行单位</p>
+<p>开启一个进程，一定会有一个线程，线程才是真正执行者</p>
+<p>开启进程：</p>
+<ul>
+<li>开辟一个名称空间，每开启一个进程都会占用一份内存资源</li>
+<li>会自带一个线程</li>
+</ul>
+<p>开启线程：</p>
+<ul>
+<li>一个进程可以开启多个线程</li>
+<li>线程的开销远小于进程</li>
+</ul>
+<p>注意：<strong>线程不能实现并行，线程只能实现并发，进程可以实现并行</strong></p>
+<h2 id="线程的两种创建方式">线程的两种创建方式</h2>
+<pre><code><code>from threading import Thread
+import time
+
+# 创建线程方式1
+def task():
+    print(&#39;线程开启&#39;)
+    time.sleep(1)
+    print(&#39;线程结束&#39;)
+
+if __name__ == &#39;__main__&#39;:
+    t = Thread(target=task)
+    t.start()
+
+
+# 创建线程方式2
+class MyThread(Thread):
+    def run(self):
+        print(&#39;线程开启...&#39;)
+        time.sleep(1)
+        print(&#39;线程结束...&#39;)
+
+
+if __name__ == &#39;__main__&#39;:
+    t = MyThread()
+    t.start()</code></pre>
+<h1 id="线程对象的方法">线程对象的方法</h1>
+<pre><code><code>from threading import Thread
+from threading import current_thread
+import time
+
+def task():
+    print(f&#39;线程开启{current_thread().name}&#39;)
+    time.sleep(1)
+    print(f&#39;线程结束{current_thread().name}&#39;)
+
+
+if __name__ == &#39;__main__&#39;:
+    t = Thread(target=task)
+    print(t.isAlive())
+    # t.daemon = True
+    t.start()
+    print(t.isAlive())</code></pre>
+<h1 id="线程互斥锁">线程互斥锁</h1>
+<p>线程之间数据是共享的</p>
+<pre><code><code>from threading import Thread
+from threading import Lock
+import time
+
+mutex = Lock()
+n = 100
+
+def task(i):
+    print(f&#39;线程{i}启动&#39;)
+    global n
+    mutex.acquire()
+    temp = n
+    time.sleep(0.1)
+    n = temp - 1
+    print(n)
+    mutex.release()
+    
+if __name__ == &#39;__main__&#39;:
+    t_l = []
+    for i in range(100):
+        t = Thread(target=task, args=(i, ))
+        t_l.append(t)
+        t.start()
+
+    for t in t_l:
+        t.join()
+
+    print(n)</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

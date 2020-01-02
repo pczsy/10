@@ -1,0 +1,251 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Elasticsearch搜索查询语法' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Elasticsearch搜索查询语法</center></div><div class='banquan'>原文出处:本文由博客园博主海向提供。<br/>
+原文连接:https://www.cnblogs.com/haixiang/p/12095578.html</div><br>
+    <p>💛原文地址为<a href="https://www.cnblogs.com/haixiang/p/12095578.html" class="uri">https://www.cnblogs.com/haixiang/p/12095578.html</a>，转载请注明出处!<br />
+🍎es与SpringBoot的整合以及常用CRUD、搜索API已被作者封装,开箱即用效果很好,欢迎star谢谢!<strong><a href="https://github.com/Motianshi/all-search">github</a></strong></p>
+<h2 id="查询简介">查询简介</h2>
+<p><strong>叶子查询子句</strong><br />
+叶子查询子句在特定字段中查找特定值，例如match，term或range查询。 这些查询可以自己使用。</p>
+<p><strong>复合查询子句</strong><br />
+复合查询子句包装其他叶查询或复合查询，并用于以逻辑方式组合多个查询（例如bool或dis_max查询），或更改其行为(例如constant_score查询)。复合查询子句包含以下几种：</p>
+<ul>
+<li>bool query</li>
+<li>boosting query</li>
+<li>constant_score query</li>
+<li>dis_max query</li>
+<li>function_score query</li>
+</ul>
+<p>我们通常只会用到<strong><font color=red>bool</font></strong>查询</p>
+<p>查询子句的行为会有所不同，具体取决于它们是在查询上下文中(Query)还是在过滤器(Filter)上下文中使用。</p>
+<h2 id="全文检索">全文检索</h2>
+<p>在<code>query context</code>中，查询子句回答“此文档与该查询子句的匹配程度如何”的问题。除了确定文档是否匹配外，查询子句还计算<code>_score</code>元字段中的相关性得分。es的搜索结果也默认根据<code>_score</code>排名返回。</p>
+<h3 id="match">match</h3>
+<ul>
+<li><p><code>match</code>是标准的全文检索</p></li>
+<li>在匹配之前会先对查询关键字进行<strong>分词</strong></li>
+<li><p>可以指定分词器来覆盖<code>mapping</code>中设置的搜索分词器</p></li>
+</ul>
+<p>首先<code>超级羽绒服</code>关键字先会被分词为<code>超级</code>、<code>羽绒服</code>然后再去es中查询与这两个分词相匹配的文档，依据相关度即分值得到以下结果。</p>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;query&quot;: {
+    &quot;match&quot;: {
+      &quot;name&quot;: {
+        &quot;query&quot;: &quot;超级羽绒服&quot;,
+        &quot;analyzer&quot;: &quot;ik_smart&quot;
+      }
+    }
+  }
+}</code></pre>
+<pre><code><code>冬天超级暖心羽绒服 冬天暖心羽绒服 冬日羽绒服 花花公子羽绒服 花花公子暖心羽绒服</code></pre>
+<p>不使用配置的话可以采用如下简写方式</p>
+<pre><code><code>&quot;query&quot;: {
+  &quot;match&quot;: {&quot;name&quot;: &quot;超级羽绒服&quot;}
+}</code></pre>
+<h3 id="match_phrase">match_phrase</h3>
+<ul>
+<li>可以搜索分词相邻的结果，eg 根据<code>新疆苹果</code>可以搜到<code>香甜新疆苹果</code>而搜不到<code>新疆香甜苹果</code></li>
+<li>可以使用<code>slop</code>指定两个匹配的<code>token</code>位置距离的最大值。</li>
+<li>可以使用<code>analyzer</code>指定分词器，覆盖<code>mapping</code>中设置的<code>search_analyzer</code></li>
+</ul>
+<p>如下我们对&quot;花花公子羽绒服&quot;进行分词后发现，返回结果除了每个<code>token</code>之外，还拥有位置信息<code>start_offset</code>和<code>end_offset</code>。位置信息可以被保存在倒排索引(Inverted Index)中，像<code>match_phrase</code>这样位置感知(Position-aware)的查询能够使用位置信息来匹配那些含有正确单词出现顺序的文档，且在这些单词之间没有插入别的单词。</p>
+<pre><code><code>GET idx_pro/_analyze
+{
+  &quot;text&quot;:&quot;花花公子羽绒服&quot;,
+  &quot;analyzer&quot; : &quot;ik_smart&quot;
+}</code></pre>
+<pre><code><code>{
+  &quot;tokens&quot; : [
+    {
+      &quot;token&quot; : &quot;花花公子&quot;,
+      &quot;start_offset&quot; : 0,
+      &quot;end_offset&quot; : 4,
+      &quot;type&quot; : &quot;CN_WORD&quot;,
+      &quot;position&quot; : 0
+    },
+    {
+      &quot;token&quot; : &quot;羽绒服&quot;,
+      &quot;start_offset&quot; : 4,
+      &quot;end_offset&quot; : 7,
+      &quot;type&quot; : &quot;CN_WORD&quot;,
+      &quot;position&quot; : 1
+    }
+  ]
+}</code></pre>
+<p>如下是我们的样本数据</p>
+<pre><code><code>冬日工装裤 花花公子帅气外套 花花公子外套 冬天暖心羽绒服 冬日羽绒服 花花公子羽绒服 花花公子暖心羽绒服
+冬天超级暖心羽绒服</code></pre>
+<p>我们查询<code>超级羽绒服</code>搜索不到数据，因为没有超级羽绒服这样的短语存在。</p>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;query&quot;: {
+    &quot;match_phrase&quot;: {
+      &quot;name&quot;: &quot;超级羽绒服&quot;
+    }
+  }
+}</code></pre>
+<p>搜索<code>暖心羽绒服</code>即可搜索到如下三个数据，因为<code>暖心羽绒服</code>被分词为<code>暖</code>、 <code>心</code>、 <code>羽绒服</code>三部分，搜索到的结果必须符合他们三个分词的位置紧挨着。</p>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;query&quot;: {
+    &quot;match_phrase&quot;: {
+      &quot;name&quot;: &quot;暖心羽绒服&quot;
+    }
+  }
+}</code></pre>
+<pre><code><code>冬天暖心羽绒服 冬天超级暖心羽绒服 花花公子暖心羽绒服</code></pre>
+<p>我们在设置了<code>slop</code>后允许<code>超级</code>和<code>羽绒服</code>这两个分词后的<code>token</code>距离最大值为2，可以搜索到如下数据了。因为<code>冬天超级暖心羽绒服</code>分词结果为<code>冬天</code>，<code>超级</code>,<code>暖</code>，<code>心</code>，<code>羽绒服</code>，<code>超级</code>与<code>羽绒服</code>距离正好为2，所以能匹配到。</p>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;query&quot;: {
+    &quot;match_phrase&quot;: {
+      &quot;name&quot;: {
+        &quot;query&quot;: &quot;超级羽绒服&quot;,
+        &quot;analyzer&quot;: &quot;ik_smart&quot;,
+        &quot;slop&quot;: 2
+      }
+    }
+  }
+}</code></pre>
+<pre><code><code>冬天超级暖心羽绒服</code></pre>
+<h2 id="filter">Filter</h2>
+<p>其实准确来说，ES中的查询操作分为2种：查询（query）和过滤（filter）。查询即是之前提到的query查询，它（查询）默认会计算每个返回文档的得分，然后根据得分排序。而过滤（filter）只会筛选出符合的文档，并不计算得分，且它可以缓存文档。所以，单从性能考虑，过滤比查询更快。</p>
+<p>换句话说，过滤适合在大范围筛选数据，而查询则适合精确匹配数据。一般应用时，应先使用过滤操作过滤数据，然后使用查询匹配数据。</p>
+<p>在<code>Filter context</code>中，查询子句回答问题“此文档是否与此查询子句匹配？”答案是简单的“是”或“否”，即不计算分数。过滤器上下文主要用于过滤结构化数据，例如：</p>
+<ul>
+<li>该食品的生产日期是否在2018-2019之间</li>
+<li>该商品的状态是否为&quot;已上架&quot;</li>
+</ul>
+<p><strong>Ps：常用过滤器将由Elasticsearch自动缓存，以提高性能。</strong></p>
+<h2 id="bool组合查询">bool组合查询</h2>
+<p>bool查询可以组合多种叶子查询，包含如下：</p>
+<ul>
+<li>must：出现于匹配查询当中，有助于匹配度(_score)的计算</li>
+<li>filter：必须满足才能出现，<strong>属于过滤，不会影响分值的计算</strong>，但是会过滤掉不符合的数据</li>
+<li>should：该条件下的内容是应该满足的内容，如果符合会增加分值，不符合降低分值，不会不显示</li>
+<li>must_not：满足的内容不会出现，与<code>filter</code>功能相反，<strong>属于过滤，不会影响分值的计算</strong>，但是会过滤掉不符合的数据</li>
+</ul>
+<h2 id="term-level-query">term-level query</h2>
+<p>我们可以使用<code>term-level</code>根据结构化的数据（例如ip、商品的id、价格等分词后无意义的数据）来精准查询文档，</p>
+<p>与<code>full-text</code>全文检索不同，查询的关键字<strong>不进行分词</strong>，直接去es中匹配文档。</p>
+<p>常见的<code>term-level</code>级别的查询有（其他查询请参考官网）：</p>
+<ul>
+<li><p><strong>term query</strong><br />
+返回文档中精确包含关键字的文档，<code>苏布尔贵族大米</code>不会分词，直接去es中匹配文档</p>
+<pre><code><code>GET idx_item/_search
+{
+  &quot;query&quot;: {
+    &quot;term&quot;: {&quot;title&quot;: &quot;东北贵族大米&quot;}
+  }
+}</code></pre></li>
+<li><p>terms query<br />
+相当于多个<code>term</code>查询</p>
+<pre><code><code>GET idx_item/_search
+{
+  &quot;query&quot;: {
+    &quot;terms&quot;: {&quot;title&quot;: [&quot;苏泊尔&quot;,&quot;小米&quot;]}
+  }
+}</code></pre></li>
+<li><p>exists query<br />
+返回有<code>name</code>字段的文档，注意，如下情况将搜索不到文档：</p>
+<ul>
+<li>该字段的值为<code>null</code>或者是<code>[]</code>,空字符串是可以搜索到的<code>&quot;&quot;</code></li>
+<li>该字段在<code>mapping</code>中设置了<code>index:false</code></li>
+<li>该字段长度超出了<code>mapping</code>中的<code>ignore_above</code>的设置</li>
+<li>The field value was malformed and <code>ignore_malformed</code> was defined in the mapping</li>
+</ul>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;query&quot;: {
+    &quot;exists&quot;: {
+      &quot;field&quot;: &quot;name&quot;
+    }
+  }
+}</code></pre></li>
+<li><p><strong>range query</strong><br />
+Returns documents that contain terms within a provided range.</p>
+<pre><code><code>GET _search
+{
+    &quot;query&quot;: {
+        &quot;range&quot; : {
+            &quot;age&quot; : {
+                &quot;gte&quot; : &quot;2019-12-10&quot;,
+                &quot;lte&quot; : &quot;2020-11-11&quot;,
+                &quot;format&quot; : &quot;yyyy-MM-dd&quot;
+            }
+        }
+    }
+}</code></pre></li>
+<li><p>ids query<br />
+根据文档的<code>_id</code>返回文档</p>
+<pre><code><code>GET /_search
+{
+    &quot;query&quot;: {
+        &quot;ids&quot; : {
+            &quot;values&quot; : [&quot;1&quot;, &quot;4&quot;, &quot;100&quot;]
+        }
+    }
+}</code></pre></li>
+</ul>
+<h2 id="示例">示例</h2>
+<p><code>must_not</code>和<code>filter</code>用来过滤，而<code>should</code>是应该满足的条件，不是必须满足的条件，会影响分值的计算。</p>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: [
+        {    
+          &quot;match&quot;: {
+            &quot;name&quot;: &quot;花花公子羽绒服&quot;
+          }
+        }
+      ],
+      &quot;must_not&quot;: [
+        {
+          &quot;term&quot;: {
+            &quot;proId&quot;: 6
+          }
+        }
+      ], 
+      &quot;should&quot;: [
+        {
+          &quot;terms&quot;: {
+            &quot;name.keyword&quot;: [&quot;花花公子暖心羽绒服&quot;, &quot;花花公子外套&quot;]
+          }
+        }
+      ], 
+      &quot;filter&quot;: {
+        &quot;range&quot;: {
+          &quot;createTime&quot;: {
+            &quot;gte&quot;: &quot;2019-12-12 17:56:56&quot;,
+            &quot;lte&quot;: &quot;2019-12-19 17:56:56&quot;,
+            &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss&quot;
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

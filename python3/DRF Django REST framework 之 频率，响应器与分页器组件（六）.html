@@ -1,0 +1,283 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DRF Django REST framework 之 频率，响应器与分页器组件（六）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DRF Django REST framework 之 频率，响应器与分页器组件（六）</center></div><div class='banquan'>原文出处:本文由博客园博主Nolinked提供。<br/>
+原文连接:https://www.cnblogs.com/pungchur/p/12043539.html</div><br>
+    <h2>频率组件</h2>
+<p><span>频率组件类似于</span>权限组件<span><span>，它判断是否给予请求通过。频率</span><span>指示临时状态，并用于控制客户端可以向API发出的请求的速率。</span></span></p>
+<p><span><span>与权限一样，可以使用多个调节器。</span><span>API可能会对未经身份验证的请求进行限制，而对于经过身份验证的请求则进行限制较少。</span></span></p>
+<p><span><span>例如，可以将用户限制为每分钟最多60个请求，每天最多1000个请求。</span></span></p>
+<h3><span><span>自定义频率组件</span></span></h3>
+<p><span><span>使用方式与权限，认证组件几乎相同</span></span></p>
+<p><span><span>该方式没有DRF提供的方式简洁</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> math
+
+</span><span style="color: #0000ff;">from</span> rest_framework <span style="color: #0000ff;">import</span><span style="color: #000000;"> exceptions
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> MyException(exceptions.Throttled):
+    default_detail </span>= <span style="color: #800000;">'</span><span style="color: #800000;">连接次数过多</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    extra_detail_plural </span>= extra_detail_singular = <span style="color: #800000;">'</span><span style="color: #800000;">请在{wait}秒内访问</span><span style="color: #800000;">'</span>
+
+    <span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span>(self, wait=None, detail=None, code=<span style="color: #000000;">None):
+        super().</span><span style="color: #800080;">__init__</span>(wait=wait, detail=detail, code=<span style="color: #000000;">code)
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> VisitThrottle():
+    user_visit_information </span>=<span style="color: #000000;"> dict()
+    visited_times </span>= 1<span style="color: #000000;">
+    period </span>= 60<span style="color: #000000;">
+    allow_times_per_minute </span>= 5<span style="color: #000000;">
+    first_time_visit </span>=<span style="color: #000000;"> True
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> allow_request(self, request, view):
+        self.request_host </span>= request_host = request.META.get(<span style="color: #800000;">"</span><span style="color: #800000;">REMOTE_ADDR</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        current_user_info </span>=<span style="color: #000000;"> self.user_visit_information.get(request_host, None)
+
+        </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span> self.<span style="color: #800080;">__class__</span><span style="color: #000000;">.first_time_visit:
+            self.user_visit_information[request_host][0] </span>+= 1<span style="color: #000000;">
+            current_visit_times </span>=<span style="color: #000000;"> self.user_visit_information[request_host][0]
+
+            </span><span style="color: #0000ff;">if</span> current_visit_times &gt;<span style="color: #000000;"> self.allow_times_per_minute:
+                </span><span style="color: #0000ff;">if</span> self._current_time - current_user_info[1] &lt;=<span style="color: #000000;"> self.period:
+                    </span><span style="color: #0000ff;">if</span> len(current_user_info) &gt; 2<span style="color: #000000;">:
+                        current_user_info[</span>2] =<span style="color: #000000;"> self._time_left
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        current_user_info.append(self._time_left)
+
+                    view.throttled </span>=<span style="color: #000000;"> self.throttled
+                    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> None
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    self.</span><span style="color: #800080;">__class__</span>.first_time_visit =<span style="color: #000000;"> True
+
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> self.first_time_visit:
+            self.</span><span style="color: #800080;">__class__</span>.first_time_visit =<span style="color: #000000;"> False
+            self._initial_infomation()
+
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> True
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> wait(self):
+        </span><span style="color: #0000ff;">return</span> self.period - self.user_visit_information[self.request_host][2<span style="color: #000000;">]
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> throttled(self, request, wait):
+        </span><span style="color: #0000ff;">raise</span> MyException(wait=<span style="color: #000000;">wait)
+
+    @property
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> _current_time(self):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> time.time()
+
+    @property
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> _time_left(self):
+        </span><span style="color: #0000ff;">return</span> math.floor(self._current_time - self.user_visit_information.get(self.request_host)[1<span style="color: #000000;">])
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> _initial_infomation(self):
+        self.user_visit_information[self.request_host] </span>= [self.visited_times, self._current_time]</pre>
+</div>
+<p><span>基于</span><span>每个视图设置频率：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):</span><span style="color: #008000;">#</span><span style="color: #008000;"> 指定频率类，固定写法</span>
+    throttle_classes =<span style="color: #000000;"> [RateThrottle]
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<h3>使用DRF简单频率控制（局部）</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.throttling <span style="color: #0000ff;">import</span><span style="color: #000000;"> SimpleRateThrottle
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> RateThrottle(SimpleRateThrottle):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 每分钟最多五次</span>
+    rate = <span style="color: #800000;">'</span><span style="color: #800000;">5/m</span><span style="color: #800000;">'</span>
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_cache_key(self, request, view):
+        </span><span style="color: #0000ff;">return</span> self.get_ident(request)</pre>
+</div>
+<p>rate代表访问评率，上面表示每分钟五次，&nbsp;<span class="cnblogs_code">get_cache_key</span>&nbsp;是必须存在的，它的返回值告诉当前频率控制组件要使用什么方式区分访问者（比如ip地址）。</p>
+<p>在视图中使用：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 指定频率类，固定写法</span>
+    throttle_classes =<span style="color: #000000;"> [RateThrottle]
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<h3>全局频率控制</h3>
+<p>首先定义一个频率控制类，并且必须继承&nbsp;<span class="cnblogs_code">SimpleRateThrottle</span>&nbsp;这个类，它是DRF提供的一个方便的频率控制类，请看下面的代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.throttling <span style="color: #0000ff;">import</span><span style="color: #000000;"> SimpleRateThrottle
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> RateThrottle(SimpleRateThrottle):
+    scope </span>= <span style="color: #800000;">"</span><span style="color: #800000;">visit_rate</span><span style="color: #800000;">"</span>
+
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_cache_key(self, request, view):
+        </span><span style="color: #0000ff;">return</span> self.get_ident(request)</pre>
+</div>
+<p>在全局配置频率控制参数：</p>
+<div class="cnblogs_code">
+<pre><code>REST_FRAMEWORK =<span style="color: #000000;"> {
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">DEFAULT_THROTTLE_CLASSES</span><span style="color: #800000;">"</span>: (<span style="color: #800000;">'app</span><span style="color: #800000;">.utils.throttles.RateThrottle</span><span style="color: #800000;">'</span><span style="color: #000000;">,),
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">DEFAULT_THROTTLE_RATES</span><span style="color: #800000;">"</span><span style="color: #000000;">: {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">visit_rate</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">5/m</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p>这样就实现了，每分钟最多五次访问的逻辑。</p>
+<p>&nbsp;</p>
+<p>另外，可以使用&nbsp;<span class="cnblogs_code">DEFAULT_THROTTLE_CLASSES</span>&nbsp;和&nbsp;<span class="cnblogs_code">DEFAULT_THROTTLE_RATES</span>&nbsp;设置全局设置默认的限制策略。</p>
+<p>例如：</p>
+<div class="cnblogs_code">
+<pre><code>REST_FRAMEWORK =<span style="color: #000000;"> {
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">DEFAULT_THROTTLE_CLASSES</span><span style="color: #800000;">'</span><span style="color: #000000;">: [
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">rest_framework.throttling.AnonRateThrottle</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">rest_framework.throttling.UserRateThrottle</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    ],
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">DEFAULT_THROTTLE_RATES</span><span style="color: #800000;">'</span><span style="color: #000000;">: {
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 游客每天访问次数不能超过100次</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">anon</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">100/day</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 用户每天访问次数不能超过1000次</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">user</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">1000/day</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<h2>响应器</h2>
+<p>在使用DRF的Response类来将数据响应给客户端时，不管是POSTMAN工具还是浏览器，都能浏览到经过格式化后的，清晰易懂数据，DRF是怎么做的呢？其实就是通过响应器组件</p>
+<h3>响应器组件的使用</h3>
+<p>如果不需要使用DRF提供给浏览器的格式化后的数据，只需要禁止该响应方式即可：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.renderers <span style="color: #0000ff;">import</span><span style="color: #000000;"> JSONRenderer, BrowsableAPIRenderer
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 指定响应器类，固定写法，返回json格式数据</span>
+    renderer_classes =<span style="color: #000000;"> [JSONRenderer]
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<p>这样，浏览器再次访问，接收到的就是普通的json格式数据，而不是经过DRF格式化后的数据，renderer_classes的查找逻辑与之前的解析器等等组件是完全一样的。</p>
+<h2>分页器</h2>
+<p>为了服务器性能考虑，也为了用户体验，我们不应该一次将所有的数据从数据库中查询出来，返回给客户端浏览器，如果数据量非常大，这对于服务器来讲，可以说是性能灾难，而对于用户来讲，加载速度将会非常慢。</p>
+<p>而分页器能很好的解决该问题。</p>
+<h3>分页器的使用</h3>
+<p>第一步：导入模块</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.pagination <span style="color: #0000ff;">import</span> PageNumberPagination</pre>
+</div>
+<p>第二步：获取数据</p>
+<div class="cnblogs_code">
+<pre><code>books = Book.objects.all()</pre>
+</div>
+<p>第三步：创建分页器</p>
+<div class="cnblogs_code">
+<pre><code>paginater = PageNumberPagination()</pre>
+</div>
+<p>第四步：开始分页</p>
+<div class="cnblogs_code">
+<pre><code>paged_books = paginater.paginate_queryset(books, request)</pre>
+</div>
+<p>第五步：将分页后的数据进行序列化</p>
+<div class="cnblogs_code">
+<pre><code>serialized_data = BookSerializer(paged_books, many=True)</pre>
+</div>
+<p>第六步：返回数据</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">return</span> Response(serialized_data.data)</pre>
+</div>
+<h3>常用参数介绍</h3>
+<div class="cnblogs_code">
+<pre><code>常用分页器参数：
+1. page_size：　　　　　　　　用来控制每页显示多少条数据（全局参数名为PAGE_SIZE）；
+2. page_query_param：　　　　用来提供直接访问某页的数据；
+3. page_size_query_param： 临时调整当前显示多少条数据
+4. max_page_size：　　　　   控制page_size_query_param参数能调整的最大条数
+
+偏移分页器参数
+1. default_limit: 　　　　 每页显示的数据条数 
+2. offset_query_param: 　 要偏移的标杆,在前端以get的形式传,key为offset('可修改') 
+3. limit_query_param: 　　偏移量,在前端以get的形式传,key为limit('可修改') 
+4. max_limit: 　　　　　　  一页最大的显示条数</pre>
+</div>
+<h3>自定义分页器</h3>
+<p>常用分页器&nbsp;<span class="cnblogs_code">url</span>&nbsp;:</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> url:示例</span>
+http://http://127.0.0.1:8000/books/?page=2
+<span style="color: #008000;">#</span><span style="color: #008000;"> 在第二页显示，100条，但是page_size最大不能超过定义的max_page_size</span>
+http://http://127.0.0.1:8000/books/?page=2&amp;page_size=100</pre>
+</div>
+<p>常用分页器类:</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.pagination <span style="color: #0000ff;">import</span><span style="color: #000000;"> PageNumberPagination
+
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 定义分页器类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> BookPageNumberPagination(PageNumberPagination):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 默认一页条数</span>
+    page_size = 2
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 前端发送的页数关键字名</span>
+    page_query_param = <span style="color: #800000;">'</span><span style="color: #800000;">page</span><span style="color: #800000;">'</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 用户自定义一页条数 关键字名</span>
+    page_size_query_param = <span style="color: #800000;">'</span><span style="color: #800000;">page_size</span><span style="color: #800000;">'</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 用户自定义一页最大控制条数</span>
+    max_page_size = 2</pre>
+</div>
+<p>偏移分页器&nbsp;<span class="cnblogs_code">url</span>&nbsp;:</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> url:示例</span>
+http://http://127.0.0.1:8000/books/?limit=10
+<span style="color: #008000;">#</span><span style="color: #008000;"> 在100条后显示10条, 但是显示的条数不能超过定义的max_limit</span>
+http://http://127.0.0.1:8000/books/?limit=10&amp;offset=100</pre>
+</div>
+<p>偏移分页器类：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework.pagination <span style="color: #0000ff;">import</span><span style="color: #000000;"> LimitOffsetPagination
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookLimitOffsetPagination(LimitOffsetPagination):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 默认一页条数</span>
+    default_limit = 2
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 从offset开始往后显示limit条</span>
+    limit_query_param = <span style="color: #800000;">'</span><span style="color: #800000;">limit</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    offset_query_param </span>= <span style="color: #800000;">'</span><span style="color: #800000;">offset</span><span style="color: #800000;">'</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 最大显示多少条</span>
+    max_limit = 4</pre>
+</div>
+<p><strong>视图类使用：</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 指定分页器类，固定写法，只能指定一个分页器类</span>
+    pagination_class =<span style="color: #000000;"> BookPageNumberPagination
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> pagination_class = BookLimitOffsetPagination</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<p><span style="color: #00ffff;"><strong>~&gt;.&lt;~</strong></span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

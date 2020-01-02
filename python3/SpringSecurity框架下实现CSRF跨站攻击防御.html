@@ -1,0 +1,85 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修SpringSecurity框架下实现CSRF跨站攻击防御' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>SpringSecurity框架下实现CSRF跨站攻击防御</center></div><div class='banquan'>原文出处:本文由博客园博主字母哥博客提供。<br/>
+原文连接:https://www.cnblogs.com/zimug/p/12009487.html</div><br>
+    <p><img src="./images/SpringSecurity框架下实现CSRF跨站攻击防御0.png" alt="file" /></p>
+<h2 id="一什么是csrf">一、什么是CSRF</h2>
+<p>很多朋友在学习Spring Security的时候，会将CORS(跨站资源共享)和CSRF(跨站请求伪造)弄混，以为二者是一回事。其实不是，先解释一下：</p>
+<ul>
+<li>CORS(跨站资源共享)是局部打破同源策略的限制，使在一定规则下HTTP请求可以突破浏览器限制，实现跨站访问。</li>
+<li>CSRF是一种网络攻击方式，也可以说是一种安全漏洞，这种安全漏洞在web开发中广泛存在。</li>
+</ul>
+<p>当我们使用Spring Security的时候，这种CSRF漏洞默认的被防御掉了。但是你会发现在跨域请求的情况下，我们的POST、DELETE、PUT等HTTP请求方式失效了。所以在笔者之前的文章中，我们使用<code>http.csrf.disable()</code>暂时关闭掉了CSRF的防御功能，但是这样是不安全的，那么怎么样才是正确的做法呢？就是本文需要向大家介绍的内容。</p>
+<h2 id="二csrf的攻击方式">二、CSRF的攻击方式</h2>
+<p>通常的CSRF攻击方式如下：</p>
+<ul>
+<li>你登录了网站A，攻击者向你的网站A账户发送留言、伪造嵌入页面，带有危险操作链接。</li>
+<li>当你在登录状态下点击了攻击者的连接，因此该链接对你网站A的账户进行了操作。</li>
+<li>这个操作是你在网站A中主动发出的，并且也是针对网站A的HTTP链接请求，同源策略无法限制该请求。</li>
+</ul>
+<h2 id="三如何防御csrf攻击">三、如何防御CSRF攻击</h2>
+<ul>
+<li>为系统中的每一个连接请求加上一个token，这个token是随机的，服务端对该token进行验证。破坏者在留言或者伪造嵌入页面的时候，无法预先判断CSRF token的值是什么，所以当服务端校验CSRF token的时候也就无法通过。所以这种方法在一定程度上是靠谱的。</li>
+<li>但是如果你的电脑中毒，网络信息被劫持使用token的方法仍然不安全。所以没有绝对的安全，道高一次魔高一丈。作为开发者，我们就做到我们应该做到的。</li>
+<li>跳转提示：当用户不小心点击了第三方连接，合格的应用应该提示用户相关的风险！由用户自己确认是否真的要跳转或者执行第三方连接，或者就干脆不让非可信连接在留言区等地方存在。</li>
+</ul>
+<h2 id="四spring-security的csrf-token攻击防护">四、Spring Security的CSRF token攻击防护</h2>
+<p>首先，我们要先开启防护功能，在用户登陆操作之后，生成的CSRF Token就保存在cookies中。</p>
+<pre><code><code>public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http.csrf()
+            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            .ignoringAntMatchers(&quot;/authentication&quot;);
+        .and()
+        ...
+    }
+}</code></pre>
+<ul>
+<li>使用CookieCsrfTokenRepository生成CSRF Token放入cookie，并设置cookie的HttpOnly=false，允许js读取该cookie。</li>
+<li>使用ignoringAntMatchers开放一些不需要进行CSRF防护的访问路径，比如：登录授权。</li>
+</ul>
+<p>至此，我们生成了CSRF token保存在了cookies中，浏览器向服务端发送的HTTP请求，都要将CSRF token带上，服务端校验通过才能正确的响应。这个校验的过程并不需要我们自己写代码实现，Spring Security会自动处理。但是我们需要关注前端代码，如何正确的携带CSRF token。</p>
+<h2 id="五前端请求携带csrf-token的方式">五、前端请求携带CSRF Token的方式</h2>
+<p>在thymeleaf模板中可以使用如下方式，在发送HTTP请求的时候携带CSRF Token。如果是前后端分离的应用，或者其他模板引擎，酌情从cookies中获取CSRF Toekn。</p>
+<h3 id="在header中携带csrf-token">5.1.在Header中携带CSRF token</h3>
+<pre><code><code>var headers = {};
+headers[&#39;X-CSRF-TOKEN&#39;] = &quot;${_csrf.token}&quot;;
+$.ajax({    
+    headers: headers,    
+});</code></pre>
+<h3 id="直接作为参数提交">5.2.直接作为参数提交。</h3>
+<pre><code><code>$.ajax({    
+    data: {      
+       &quot;_csrf&quot;: &quot;${_csrf.token}&quot;        
+    }
+});</code></pre>
+<h3 id="form表单的隐藏字段">5.3.form表单的隐藏字段</h3>
+<pre><code><code>&lt;input type=&quot;hidden&quot; name=&quot;${_csrf.parameterName}&quot; value=&quot;${_csrf.token}&quot;&gt;</code></pre>
+<h2 id="期待您的关注">期待您的关注</h2>
+<ul>
+<li>向您推荐博主的系列文档：<a href="http://springboot.zimug.com">《手摸手教您学习SpringBoot系列-16章97节》</a></li>
+<li>本文转载注明出处（必须带连接，不能只转文字）：<a href="http://www.zimug.com">字母哥博客</a>。</li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

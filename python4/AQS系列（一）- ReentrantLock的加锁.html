@@ -1,0 +1,209 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修AQS系列（一）- ReentrantLock的加锁' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>AQS系列（一）- ReentrantLock的加锁</center></div><div class='banquan'>原文出处:本文由博客园博主张曾经提供。<br/>
+原文连接:https://www.cnblogs.com/zzq6032010/p/12002803.html</div><br>
+    <p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>前言</strong></span></p>
+<p>&nbsp; &nbsp; AQS即AbstractQueuedSynchronizer，是JUC包中的一个核心抽象类，JUC包中的绝大多数功能都是直接或间接通过它来实现的。本文是AQS系列的第一篇，后面会持续更新多篇，争取将JUC包中AQS相关的常用功能讲清楚，一方面巩固自己的知识体系，一方面亦可与各位园友互相学习。寒冷的冬天，要用技术来温暖自己。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>一、AQS与ReentrantLock的关系</strong></span></p>
+<p>&nbsp; &nbsp; 先奉上一张自制的丑陋类图</p>
+<p>&nbsp;<img src="./images/AQS系列（一）- ReentrantLock的加锁0.png" alt="" width="620" height="453" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp; &nbsp; &nbsp;从下往上看，ReentrantLock类内部有两个静态内部类FairSync和NonfairSync，分别代表了公平锁和非公平锁（注意ReentrantLock实现的锁是可重入排它锁）。这两个静态内部类又共同继承了ReentrantLock的一个内部静态抽象类Sync，此抽象类继承AQS。</p>
+<p>&nbsp; &nbsp; 类的关系搞清楚了，我们下面一起看一下源码。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>二、源码解读</strong></span></p>
+<p>&nbsp; &nbsp; ReentrantLock的默认构造方法创建的是非公平锁，也可以通过传入true来指定生成公平锁。<strong>下面我们以公平锁的加锁过程为例，进行解读源码</strong>。在解读源码之前需要先明确一下AQS中的state属性，它是int类型，<strong>state=0表示当前lock没有被占用，state=1表示被占用</strong>，如果是重入状态，则重入了几次state就是几。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> JucLockDemo1 {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args){
+</span><span style="color: #008080;"> 3</span>         ReentrantLock lock = <span style="color: #0000ff;">new</span> ReentrantLock(true<span style="color: #000000;">);
+</span><span style="color: #008080;"> 4</span>         Thread t1 = <span style="color: #0000ff;">new</span> Thread(() -&gt;<span style="color: #000000;"> {
+</span><span style="color: #008080;"> 5</span> <span style="color: #000000;">            lock.lock();
+</span><span style="color: #008080;"> 6</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 业务逻辑</span>
+<span style="color: #008080;"> 7</span> <span style="color: #000000;">            lock.unlock();
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">        });
+</span><span style="color: #008080;"> 9</span> <span style="color: #000000;">        t1.start();
+</span><span style="color: #008080;">10</span>         System.out.println("main end"<span style="color: #000000;">);
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">12</span> }</pre>
+</div>
+<p>&nbsp; &nbsp; 其中第5行lock方法点进去的代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> lock() {
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">        sync.lock();
+</span><span style="color: #008080;">3</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 直接调了sync的lock方法，sync下面的lock方法是抽象方法，方法逻辑取决于具体的实现类，因为我们这里创建的是公平锁，所以进FairSync看它的lock方法实现：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> lock() {
+</span><span style="color: #008080;">2</span>             acquire(1<span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; FairSync中的lock方法很简单，直接调用了acquire方法，参数是1，继续跟踪：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">void</span> acquire(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;">2</span>         <span style="color: #0000ff;">if</span> (!tryAcquire(arg) &amp;&amp;
+<span style="color: #008080;">3</span> <span style="color: #000000;">            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+</span><span style="color: #008080;">4</span> <span style="color: #000000;">            selfInterrupt();
+</span><span style="color: #008080;">5</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; acquire方法位于AQS中，很重要，虽然只有短短的三行，但是里面的内容非常多。下面对里面的方法分别进行解读。</p>
+<p><strong><span style="font-size: 15px;">方法1：tryAcquire(arg)</span></strong></p>
+<p>&nbsp; &nbsp; 此方法在FairSync中进行了实现，代码如下所示：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> tryAcquire(<span style="color: #0000ff;">int</span><span style="color: #000000;"> acquires) {
+</span><span style="color: #008080;"> 2</span>             <span style="color: #0000ff;">final</span> Thread current =<span style="color: #000000;"> Thread.currentThread();
+</span><span style="color: #008080;"> 3</span>             <span style="color: #0000ff;">int</span> c =<span style="color: #000000;"> getState();
+</span><span style="color: #008080;"> 4</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> 判断state状态，如果是0表示锁空闲，可以去尝试获取</span>
+<span style="color: #008080;"> 5</span>             <span style="color: #0000ff;">if</span> (c == 0<span style="color: #000000;">) {
+</span><span style="color: #008080;"> 6</span>                 <span style="color: #0000ff;">if</span> (!hasQueuedPredecessors() &amp;&amp;
+<span style="color: #008080;"> 7</span>                     compareAndSetState(0<span style="color: #000000;">, acquires)) {
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">                    setExclusiveOwnerThread(current);
+</span><span style="color: #008080;"> 9</span>                     <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">11</span>             }<span style="color: #008000;">//</span><span style="color: #008000;"> exclusiceOwnerThread存放的是当前运行的独占线程，如果此处判断为true，说明是当前线程第二次加锁，可以重入，只是要将state+1</span>
+<span style="color: #008080;">12</span>             <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (current ==<span style="color: #000000;"> getExclusiveOwnerThread()) {
+</span><span style="color: #008080;">13</span>                 <span style="color: #0000ff;">int</span> nextc = c +<span style="color: #000000;"> acquires;
+</span><span style="color: #008080;">14</span>                 <span style="color: #0000ff;">if</span> (nextc &lt; 0<span style="color: #000000;">)
+</span><span style="color: #008080;">15</span>                     <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> Error("Maximum lock count exceeded"<span style="color: #000000;">);
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">                setState(nextc);
+</span><span style="color: #008080;">17</span>                 <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">19</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">20</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 第二个if判断很好理解，是ReentrantLock对重入和排他的支持（所以说它是可重入排他锁），但是判断c==0之后的逻辑就比较麻烦了。</p>
+<p>&nbsp; &nbsp; 首先理解一下当前的逻辑：如果state=0说明lock空闲，又因为是公平锁，所以要先判断当前AQS队列中还有没有排队的任务，如果没有的话，就走一个CAS将state改成1，然后设置排他的执行线程，获取执行权；如果队列中有任务，那么acquire方法只能先返回false了。那么可以推断出，<strong>hasQueuedPredecessors方法就是用来判断队列中是否有排队的</strong>。</p>
+<p>&nbsp; &nbsp; 点进去看看Lea大神的实现逻辑吧。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> hasQueuedPredecessors() {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> The correctness of this depends on head being initialized
+</span><span style="color: #008080;"> 3</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> before tail and on head.next being accurate if the current
+</span><span style="color: #008080;"> 4</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> thread is first in queue.</span>
+<span style="color: #008080;"> 5</span>         Node t = tail; <span style="color: #008000;">//</span><span style="color: #008000;"> Read fields in reverse initialization order</span>
+<span style="color: #008080;"> 6</span>         Node h =<span style="color: #000000;"> head;
+</span><span style="color: #008080;"> 7</span> <span style="color: #000000;">        Node s;
+</span><span style="color: #008080;"> 8</span>         <span style="color: #0000ff;">return</span> h != t &amp;&amp;
+<span style="color: #008080;"> 9</span>             ((s = h.next) == <span style="color: #0000ff;">null</span> || s.thread !=<span style="color: #000000;"> Thread.currentThread());
+</span><span style="color: #008080;">10</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 代码不多，但表达的意思比较晦涩。第一个判断h！=t，如果h=t，说明队列是空的，这时这个判断条件是false，方法直接就返回了，这时外面的if取反是true，会继续走CAS抢占state和排他线程，获取锁，这种情况的路就走完了。如果h！=t为true，说明现在队列中有任务，这时进入后面的大括号&nbsp;((s = h.next) == null || s.thread != Thread.currentThread()) ，在队列中有任务的情况下，还有两种可能，一种是队列中的第一个任务就是当前线程，另一种是第一个任务不是当前线程。因为是公平锁，如果第一个任务时当前线程的话，那么它有权再去申请一下获取锁，如果第一个任务不是当前线程，那么当前线程就乖乖排队吧，等前面的执行完了才能轮到你。后面的大括号就是对这两种情况进行了区分，我们用反向逻辑来分析。方法hasQueuedPredecessors表示如果当前线程可以去竞争锁则返回false，不能竞争锁则返回true后面大括号结果为false的话当前线程才会去抢占锁，一个或运算怎样才能是false？或的两边都是false，就是说要(s = h.next) != null &amp;&amp; s.thread == Thread.currentThread()，意思就是队列中第一个任务不为空且第一个任务就是当前线程，而这个&amp;&amp;的非与上述源码中的||在逻辑上是等价的，所以到这里意思就清楚了，return的&amp;&amp;连接的两个条件意思是：判断是否队列不为空且（第一个任务为空或者不是当前线程）。</p>
+<p>&nbsp; &nbsp; hasQueuedPredecessors方法讲完，tryAcquire方法就没有什么难点了，这时我们回到上面开始的acquire(int arg)方法。如果tryAcquire返回的是true，说明获取到了锁，那么就不会再走后面的流程了；如果返回的是false，则进入acquireQueue。但我们先看里面的addWaiter方法。</p>
+<p><span style="font-size: 15px;"><strong>方法2：&nbsp; addWaiter(Node.EXCLUSIVE), arg)</strong></span></p>
+<p>&nbsp; &nbsp; &nbsp;此方法用于生成当前线程的node节点并把它放在队尾，方法源码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span><span style="color: #000000;"> Node addWaiter(Node mode) {
+</span><span style="color: #008080;"> 2</span>         Node node = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Node(Thread.currentThread(), mode);// 创建当前线程的node节点
+</span><span style="color: #008080;"> 3</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> Try the fast path of enq; backup to full enq on failure</span>
+<span style="color: #008080;"> 4</span>         Node pred =<span style="color: #000000;"> tail;
+</span><span style="color: #008080;"> 5</span>         <span style="color: #0000ff;">if</span> (pred != <span style="color: #0000ff;">null</span><span style="color: #000000;">) { // 判断队尾是否为空，如果不为空则将node节点拼接在后面
+</span><span style="color: #008080;"> 6</span>             node.prev =<span style="color: #000000;"> pred; // 将node节点连接到队尾节点
+</span><span style="color: #008080;"> 7</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> (compareAndSetTail(pred, node)) { // 通过CAS将node节点放到队尾
+</span><span style="color: #008080;"> 8</span>                 pred.next =<span style="color: #000000;"> node; // 如果CAS操作成功了，那么将原队尾节点的next连接到node节点，组成双向队列
+</span><span style="color: #008080;"> 9</span>                 <span style="color: #0000ff;">return</span><span style="color: #000000;"> node;
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">        enq(node); // 能到这里的话分两种情况：1、队尾是空的；2、队尾不是空的，但是进行CAS操作时由于被其他线程抢占导致失败；
+</span><span style="color: #008080;">13</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> node;
+</span><span style="color: #008080;">14</span>     }</pre>
+</div>
+<p>通过注解大家应该能梳理清楚逻辑，下面着重说一下enq(node)方法的实现：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> Node enq(<span style="color: #0000ff;">final</span><span style="color: #000000;"> Node node) {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #0000ff;">for</span><span style="color: #000000;"> (;;) {
+</span><span style="color: #008080;"> 3</span>             Node t =<span style="color: #000000;"> tail;
+</span><span style="color: #008080;"> 4</span>             <span style="color: #0000ff;">if</span> (t == <span style="color: #0000ff;">null</span>) { <span style="color: #008000;">//</span><span style="color: #008000;"> Must initialize 队尾是null，符合前面说的第一种情况</span>
+<span style="color: #008080;"> 5</span>                 <span style="color: #0000ff;">if</span> (compareAndSetHead(<span style="color: #0000ff;">new</span><span style="color: #000000;"> Node())) // 设置队首
+</span><span style="color: #008080;"> 6</span>                     tail =<span style="color: #000000;"> head; // 队首队尾都初始化成空node
+</span><span style="color: #008080;"> 7</span>             } <span style="color: #0000ff;">else</span><span style="color: #000000;"> { // 队尾不为空，是前面说的第二种情况，此种情况的处理逻辑同上面对pred != null的处理
+</span><span style="color: #008080;"> 8</span>                 node.prev =<span style="color: #000000;"> t;
+</span><span style="color: #008080;"> 9</span>                 <span style="color: #0000ff;">if</span><span style="color: #000000;"> (compareAndSetTail(t, node)) {
+</span><span style="color: #008080;">10</span>                     t.next =<span style="color: #000000;"> node;
+</span><span style="color: #008080;">11</span>                     <span style="color: #0000ff;">return</span><span style="color: #000000;"> t;
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">13</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">15</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 可以看到此方法无限循环，直到执行完else中的逻辑。此处需要注意的一点是，如果刚开始时队列是空的，即tail是null，会触发队首队尾的初始化，初始化之后再一次循环会进入else中，将node放到原队尾的后面，返回t。注意返回的t没有用到，是在其他场景的方法中用的。</p>
+<p><span style="font-size: 15px;"><strong>&nbsp;方法3：acquireQueued(final Node node, int arg)</strong></span></p>
+<p>&nbsp; &nbsp; &nbsp;该方法用于获取锁，返回值表示当前获取到锁的线程在获取锁的过程中是否中断过，下面先看源码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> acquireQueued(<span style="color: #0000ff;">final</span> Node node, <span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #0000ff;">boolean</span> failed = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 3</span>         <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 4</span>             <span style="color: #0000ff;">boolean</span> interrupted = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 5</span>             <span style="color: #0000ff;">for</span><span style="color: #000000;"> (;;) {
+</span><span style="color: #008080;"> 6</span>                 <span style="color: #0000ff;">final</span> Node p =<span style="color: #000000;"> node.predecessor(); // 获取当前节点的前一个节点
+</span><span style="color: #008080;"> 7</span>                 <span style="color: #0000ff;">if</span> (p == head &amp;&amp;<span style="color: #000000;"> tryAcquire(arg)) { // 如果p==head说明node是第一个任务，那么就可以通过tryAcquire去获取锁
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">                    setHead(node); // 获取锁成功，则将node放到队首位置，并将thread和prev置为null
+</span><span style="color: #008080;"> 9</span>                     p.next = <span style="color: #0000ff;">null</span>; <span style="color: #008000;">//</span><span style="color: #008000;"> help GC 再将p的next置为null，切断与外界的一切联系</span>
+<span style="color: #008080;">10</span>                     failed = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">11</span>                     <span style="color: #0000ff;">return</span><span style="color: #000000;"> interrupted;
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">                }// 下面if中的两个方法很重要，着重讲解
+</span><span style="color: #008080;">13</span>                 <span style="color: #0000ff;">if</span> (shouldParkAfterFailedAcquire(p, node) &amp;&amp;
+<span style="color: #008080;">14</span> <span style="color: #000000;">                    parkAndCheckInterrupt())
+</span><span style="color: #008080;">15</span>                     interrupted = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">17</span>         } <span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">18</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> (failed)
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">                cancelAcquire(node);
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">21</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 通过注解，相信对第一个if中的逻辑能理解清楚，下我们着重讲解第二个if中的两个方法。</p>
+<p>&nbsp; &nbsp; 第一个是&nbsp;shouldParkAfterFailedAcquire(p, node) 方法，此方法的逻辑为：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> shouldParkAfterFailedAcquire(Node pred, Node node) {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #0000ff;">int</span> ws =<span style="color: #000000;"> pred.waitStatus; // 1、对于新建的Node节点，此状态都为0（只有addConditionWaiter新建node节点时才不是0）
+</span><span style="color: #008080;"> 3</span>         <span style="color: #0000ff;">if</span> (ws ==<span style="color: #000000;"> Node.SIGNAL)
+</span><span style="color: #008080;"> 4</span>             // 3、在2中将ws置为-1后，该方法返回false，外层for循环再走一圈，第二次进入此方法时会进入这里，直接返回true。 -1的状态表示可以将当前线程park
+<span style="color: #008080;"> 5</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 6</span>         <span style="color: #0000ff;">if</span> (ws &gt; 0<span style="color: #000000;">) {
+</span><span style="color: #008080;"> 7</span> 
+<span style="color: #008080;"> 8</span>             <span style="color: #0000ff;">do</span><span style="color: #000000;"> {
+</span><span style="color: #008080;"> 9</span>                 node.prev = pred =<span style="color: #000000;"> pred.prev;
+</span><span style="color: #008080;">10</span>             } <span style="color: #0000ff;">while</span> (pred.waitStatus &gt; 0<span style="color: #000000;">);
+</span><span style="color: #008080;">11</span>             pred.next =<span style="color: #000000;"> node;
+</span><span style="color: #008080;">12</span>         } <span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">13</span>             // 2、是ws=0的话会进入这里，将ws置为-1，0的状态表示还不能park
+<span style="color: #008080;">14</span> <span style="color: #000000;">            compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">16</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">17</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 如果返回的是true，则进入第二个方法将当前线程暂停：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> parkAndCheckInterrupt() {
+</span><span style="color: #008080;">2</span>         LockSupport.park(<span style="color: #0000ff;">this</span><span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> Thread.interrupted();
+</span><span style="color: #008080;">4</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 当前面的线程执行完毕，唤醒这个线程的时候，就会从第三行开始继续执行for循环中获取锁的逻辑，直到获取锁。</p>
+<p>&nbsp;</p>
+<p>&nbsp; &nbsp; 到这里，ReentrantLock的lock方法便结束了，整体流程就是这样。看JUC包中的源码，可以看到写的很简洁，有时一两个简单的判断条件却代表了非常多的意思，充分显示了编程者缜密又举重若轻的实力，读这样的源码，有一种看本格推理小说般的思维上的愉悦感。</p>
+<p>&nbsp; &nbsp; 下一节我们将介绍unlock方法的原理，与本节最后一个方法就能接上了，下期再会！</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

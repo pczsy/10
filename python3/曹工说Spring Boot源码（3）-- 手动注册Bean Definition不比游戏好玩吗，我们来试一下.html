@@ -1,0 +1,233 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修曹工说Spring Boot源码（3）-- 手动注册Bean Definition不比游戏好玩吗，我们来试一下' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>曹工说Spring Boot源码（3）-- 手动注册Bean Definition不比游戏好玩吗，我们来试一下</center></div><div class='banquan'>原文出处:本文由博客园博主三国梦回提供。<br/>
+原文连接:https://www.cnblogs.com/grey-wolf/p/12070377.html</div><br>
+    <h1 id="写在前面的话">写在前面的话</h1>
+<p>相关背景及资源：</p>
+<p><a href="https://www.cnblogs.com/grey-wolf/p/12044199.html">曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享</a></p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn">工程代码地址</a> <a href="https://www.processon.com/view/link/5deeefdee4b0e2c298aa5596">思维导图地址</a></p>
+<p>工程结构图：</p>
+<p><img src="./images/曹工说Spring Boot源码（3）-- 手动注册Bean Definition不比游戏好玩吗，我们来试一下0.png" /></p>
+<h1 id="大体思路">大体思路</h1>
+<ol>
+<li><p>选择bean definition实现类，并实例化bean definition</p></li>
+<li>注册bean definition</li>
+<li><p>get bean查看是否work</p></li>
+</ol>
+<h1 id="选择bean-definition实现类">选择bean definition实现类</h1>
+<p>这次，先说目的：我们要通过代码方式手动生成bean definition并注册到bean factory。</p>
+<p>我的思路是这样的，既然前面两节，分析了bean definition接口中的各个方法，也算对其有了基本的了解了。但</p>
+<p><code>org.springframework.beans.factory.config.BeanDefinition</code>只是一个接口，接口是不能实例化的，也无从谈起注册了。</p>
+<p>我们从bean definition的实现类中选一个吧：<img src="./images/曹工说Spring Boot源码（3）-- 手动注册Bean Definition不比游戏好玩吗，我们来试一下1.png" /></p>
+<p>非抽象的实现类主要有以下三个：</p>
+<ol>
+<li><p><code>org.springframework.beans.factory.support.GenericBeanDefinition</code>：幸运儿，被我们选中的，也是官方推荐的，注释里提到可以动态设置<code>GenericBeanDefinition</code>的parent bean definition的名称；</p>
+<p>这个呢，<code>org.springframework.beans.factory.support.RootBeanDefinition</code>和<code>org.springframework.beans.factory.support.ChildBeanDefinition</code>也能实现bean的继承关系，但是可能这种预先定义一个bean为<code>child/parent</code>的方式，太死了。</p>
+<p>官方自己在<code>ChildBeanDefinition</code>的注释里写到：</p>
+<blockquote>
+<p>NOTE:</b> Since Spring 2.5, the preferred way to register bean definitions programmatically is the {@link GenericBeanDefinition} class, which allows to dynamically define parent dependencies through the* {@link GenericBeanDefinition#setParentName} method. This effectively supersedes the ChildBeanDefinition class for most use cases.</p>
+</blockquote>
+<p>注意最后那句话，supresede这个单词我还他么不太认识，专门查了下词典，意思是<code>取代、代替</code>，那这句话意</p>
+<p>思就是，大部分时候，<code>GenericBeanDefinition</code>取代了<code>ChildBeanDefinition</code>的作用。</p>
+<p>这个下面有两个子类，之前也提过，主要是供那种通过注解方式，比如<code>@controller</code>这种扫描进来的bean definition。</p></li>
+<li><p><code>org.springframework.beans.factory.support.ChildBeanDefinition</code>，官方都不建议用了，直接跳过吧；</p></li>
+<li><p><code>org.springframework.beans.factory.support.RootBeanDefinition</code>，在<code>@configuration</code>中有用，后面再讲</p></li>
+</ol>
+<p>基于上面的思路，我们选了<code>GenericBeanDefinition</code>，这个类可以直接new，new了之后再通过set方法设置beanClassName等。</p>
+<pre><code><code>public class GenericBeanDefinition extends AbstractBeanDefinition {
+
+    private String parentName;
+
+
+    /**
+     * 无参构造函数，但是你看到下面那一堆set方法了吧，就是让你自己设
+     * Create a new GenericBeanDefinition, to be configured through its bean
+     * properties and configuration methods.
+     * @see #setBeanClass
+     * @see #setBeanClassName
+     * @see #setScope
+     * @see #setAutowireMode
+     * @see #setDependencyCheck
+     * @see #setConstructorArgumentValues
+     * @see #setPropertyValues
+     */
+    public GenericBeanDefinition() {
+        super();
+    }
+}</code></pre>
+<p>还有一个方式是，我们看看框架里怎么用的，经过我一番搜索，</p>
+<p><img src="./images/曹工说Spring Boot源码（3）-- 手动注册Bean Definition不比游戏好玩吗，我们来试一下2.png" /></p>
+<p>发现框架里，主要使用了<code>org.springframework.beans.factory.support.BeanDefinitionBuilder</code>和</p>
+<p><code>org.springframework.beans.factory.support.BeanDefinitionReaderUtils</code>，而且，框架里，还是前者用的多，也比较方便（后面有示例代码）。</p>
+<h1 id="注册bean-definition">注册bean definition</h1>
+<p>然后，知道怎么构造<code>GenericBeanDefinition</code>了，那么要怎么注册呢，这个也简单，我们看看<code>beanFactory</code>，</p>
+<pre><code><code>public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFactory
+        implements ConfigurableListableBeanFactory, BeanDefinitionRegistry, Serializable </code></pre>
+<p>不只实现了<code>ConfigurableListableBeanFactory</code>，还实现了<code>BeanDefinitionRegistry</code>。</p>
+<pre><code><code>public interface BeanDefinitionRegistry extends AliasRegistry {
+
+    /**
+     * 注册beanDefinition，要自己指定beanName
+     * Register a new bean definition with this registry.
+     * Must support RootBeanDefinition and ChildBeanDefinition.
+     * @param beanName the name of the bean instance to register
+     * @param beanDefinition definition of the bean instance to register
+     * @throws BeanDefinitionStoreException if the BeanDefinition is invalid
+     * or if there is already a BeanDefinition for the specified bean name
+     * (and we are not allowed to override it)
+     * @see RootBeanDefinition
+     * @see ChildBeanDefinition
+     */
+    void registerBeanDefinition(String beanName, BeanDefinition beanDefinition)
+            throws BeanDefinitionStoreException;
+    ...
+}</code></pre>
+<p>所以，我们只要调用<code>org.springframework.beans.factory.support.DefaultListableBeanFactory</code>的注册方法即可。</p>
+<p>这里说下<code>beanNameGenerator</code>，一开始我用的<code>org.springframework.beans.factory.support.DefaultBeanNameGenerator</code>，结果生成的bean的名称是这样的：</p>
+<p><code>org.springframework.simple.TestService#0</code>，这和我们平时使用autowired方式，生成的beanName不一样啊，不习惯。于是改成了<code>org.springframework.context.annotation.AnnotationBeanNameGenerator</code>，就对了！</p>
+<h1 id="如何表达bean间依赖">如何表达bean间依赖</h1>
+<p>这里先介绍两种方式，分别是构造器注入和property注入。对了，先不要和我提什么<code>autowired</code>哈，那个是自动，这个呢，手动。也许，后面你会更懂<code>autowired</code>，也更懂自动。</p>
+<h2 id="构造器注入">构造器注入</h2>
+<p>核心代码：</p>
+<pre><code><code>
+@ToString
+public class TestControllerByConstructor {
+
+    TestService testService;
+
+    /**
+     * 基本类型依赖
+     */
+    private String name;
+
+
+    public TestControllerByConstructor(TestService testService, String name) {
+        this.testService = testService;
+        this.name = name;
+    }
+
+    public TestService getTestService() {
+        return testService;
+    }
+
+    public String getName() {
+        return name;
+    }
+}</code></pre>
+<pre><code><code>package org.springframework.simple;
+
+import lombok.ToString;
+
+@ToString
+public class TestService implements ITestService{
+}</code></pre>
+<pre><code><code>/**
+ * 2. 构造bean definition，并在bean definition中表达bean之间的依赖关系
+ */
+GenericBeanDefinition iTestServiceBeanDefinition = (GenericBeanDefinition) BeanDefinitionBuilder
+                .genericBeanDefinition(TestService.class).getBeanDefinition();
+log.info(&quot;iTestServiceBeanDefinition:{}&quot;,iTestServiceBeanDefinition);
+
+GenericBeanDefinition iTestControllerBeanDefinition = (GenericBeanDefinition) BeanDefinitionBuilder
+    .genericBeanDefinition(TestControllerByConstructor.class)
+    // 这里，看这里，这里在表达依赖了
+    .addConstructorArgReference(&quot;testService&quot;)
+    .addConstructorArgValue(&quot;wire by constructor&quot;)
+    .getBeanDefinition();</code></pre>
+<p>完整代码：</p>
+<pre><code><code>package org.springframework.simple.byconstructor;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.support.*;
+import org.springframework.context.annotation.AnnotationBeanNameGenerator;
+import org.springframework.simple.ITestService;
+import org.springframework.simple.TestService;
+import org.springframework.util.Assert;
+
+@Slf4j
+public class ManualRegisterBeanDefinitionDemoByConstructor {
+    public static void main(String[] args) {
+        wireDependencyByConstructor();
+    }
+
+
+    /**
+     * 通过构造器的方式来注入依赖
+     */
+    private static void wireDependencyByConstructor() {
+        /**
+         * 1：生成bean factory
+         */
+        DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+        /**
+         * 2. 构造bean definition，并在bean definition中表达bean之间的依赖关系
+         */
+        GenericBeanDefinition iTestServiceBeanDefinition = (GenericBeanDefinition) BeanDefinitionBuilder
+                .genericBeanDefinition(TestService.class).getBeanDefinition();
+        log.info(&quot;iTestServiceBeanDefinition:{}&quot;,iTestServiceBeanDefinition);
+
+        GenericBeanDefinition iTestControllerBeanDefinition = (GenericBeanDefinition) BeanDefinitionBuilder
+                .genericBeanDefinition(TestControllerByConstructor.class)
+                .addConstructorArgReference(&quot;testService&quot;)
+                .addConstructorArgValue(&quot;wire by constructor&quot;)
+                .getBeanDefinition();
+
+
+        /**
+         * 3. 注册bean definition
+         */
+//        DefaultBeanNameGenerator generator = new DefaultBeanNameGenerator();
+        AnnotationBeanNameGenerator generator = new AnnotationBeanNameGenerator();
+        String beanNameForTestService = generator.generateBeanName(iTestServiceBeanDefinition, factory);
+        factory.registerBeanDefinition(beanNameForTestService, iTestServiceBeanDefinition);
+
+        String beanNameForTestController = generator.generateBeanName(iTestControllerBeanDefinition, factory);
+        factory.registerBeanDefinition(beanNameForTestController, TestControllerBeanDefinition);
+
+        /**
+         * 4. 获取bean
+         */
+        TestControllerByConstructor bean = factory.getBean(TestControllerByConstructor.class);
+        log.info(&quot;TestControllerByConstructor：{}&quot;,bean);
+
+        ITestService testService = factory.getBean(ITestService.class);
+        log.info(&quot;testService bean:{}&quot;,testService);
+
+        Assert.isTrue(bean.getTestService() == testService);
+    }
+}
+</code></pre>
+<h2 id="property注入">property注入</h2>
+<p>原理类似，核心代码不同之处如下：</p>
+<pre><code><code>        GenericBeanDefinition iTestControllerBeanDefinition = (GenericBeanDefinition) BeanDefinitionBuilder
+                .genericBeanDefinition(TestControllerWireByProperty.class)
+                // 这里是调用的property相关方法
+                .addPropertyReference(&quot;t&quot;,&quot;testService&quot;)
+                .addPropertyValue(&quot;name&quot;,&quot;just test&quot;)
+                .getBeanDefinition();</code></pre>
+<h1 id="总结">总结</h1>
+<p>今天就到这里，有问题请指出哈，欢迎大家和我一起阅读spring boot源码。</p>
+<p>源码地址：</p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-manual-register-bean-definition" class="uri">https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-manual-register-bean-definition</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

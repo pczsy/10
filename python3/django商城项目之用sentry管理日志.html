@@ -1,0 +1,87 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修django商城项目之用sentry管理日志' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>django商城项目之用sentry管理日志</center></div><div class='banquan'>原文出处:本文由博客园博主志浩hzh提供。<br/>
+原文连接:https://www.cnblogs.com/HZHST/p/11508108.html</div><br>
+    <p><span style="font-size: 14pt;">之前写商城项目的时候，采用的日志处理方式为在终端输出或者写入文件，这样的话，项目部署上线之后，若服务器出现错误，需要到服务器查看相关的错误日志，很不方便。后期在学习别人开源项目的时候，学习到一个开源的实时错误报告工具--sentry。用sentry来管理日志，我们可以使用sentry官网（<a href="https://sentry.io/" rel="nofollow noreferrer" target="_blank">https://sentry.io/</a>）提供的云服务，只需要注册一个sentry账号，这样我们就可以到官网查看错误日志。首先安装扩展包 pip install raven</span></p>
+<p><span style="font-size: 14pt;">在<code>django</code>的<code>settings</code>里配置<code>sentry</code></span></p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">INSTALLED_APPS = (
+    'raven.contrib.django.raven_compat',
+)<br /></span></pre>
+<pre><code><span style="color: #000000;"><code class="language-bash"><span class="nv">RAVEN_CONFIG <span class="o">= <span class="o">{
+    <span class="s1">'dsn': 此处填对应项目的dsn<span class="s1">,
+    <span class="c1"># If you are using git, you can also automatically configure the
+    <span class="c1"># release based on the git info.
+    <span class="c1"># 'release': raven.fetch_git_sha(os.path.abspath(os.pardir)),
+<span class="o">}</span></span></span></span></span></span></span></span></span></code></span></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="color: #000000;">日志的配置：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True, # 是否禁用已经存在的日志器
+    'root': {
+        'level': 'WARNING',
+        'handlers': ['sentry'],
+    },
+    'formatters': { # 显示日志的格式
+        'verbose': {
+            'format': '%(levelname)s  %(asctime)s  %(module)s '
+                      '%(process)d  %(thread)d  %(message)s'
+        },
+    },
+    'handlers': {  # 日志处理的方法
+        'sentry': { 
+            'level': 'ERROR', # To capture more than ERROR, change to WARNING, INFO, etc.
+            'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
+            'tags': {'custom-tag': 'x'},
+        },
+        'console': { # 在终端中输出
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        },<br />　　　　'file':{<br />　　　　　　　'level':'INFO',<br />　　　　　　　'class':'logging.handler.RotaingFileHandler',<br />　　　　　　　'filename':os.path.join(os.path.dirname(BASE_DIR),'logs')， # 日志文件位置<br />　　　　　　　'maxBytes':300*1024*1024,<br />　　　　　　　'backupCount':10,<br />　　　　　　　'formatter':'verbose',<br />　　　　 }
+    },
+    'loggers': { # 日志器
+        'django': { # 日志器的名称
+            'level': 'ERROR',
+            'handlers': ['sentry', 'console', 'file'],
+            'propagate': True, # 是否继续传递日志信息
+        },
+}</span></pre>
+</div>
+<p><span style="font-size: 14pt;">使用方法:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> logging
+logger </span>= logging.getLogger(<span style="color: #800080;">__name__</span><span style="color: #000000;">)
+logger.error(</span><span style="color: #800000;">'</span><span style="color: #800000;">There was some crazy error</span><span style="color: #800000;">'</span>, exc_info=True, extra=<span style="color: #000000;">{
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> Optionally pass a request and we'll grab any information we can</span>
+    <span style="color: #800000;">'</span><span style="color: #800000;">request</span><span style="color: #800000;">'</span><span style="color: #000000;">: request,
+})</span></pre>
+</div>
+<p><span style="font-size: 14pt;">注意，添加了request才能看到发生错误的地方的上下文。</span></p>
+<p><span style="font-size: 14pt;">当有错误产生，可以登录官网查看错误信息，同时也会给注册时填写的邮箱发送邮件提醒。</span></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

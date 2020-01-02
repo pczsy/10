@@ -1,0 +1,758 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修一次框架性能的比较，引起了我对搭建web框架的兴趣' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>一次框架性能的比较，引起了我对搭建web框架的兴趣</center></div><div class='banquan'>原文出处:本文由博客园博主SexyPhoenix提供。<br/>
+原文连接:https://www.cnblogs.com/SexyPhoenix/p/12035309.html</div><br>
+    <h4 id="背景">背景</h4>
+<hr />
+<p>一次无意的访问，点击到了一个专门做PHP性能测试的网站，看这里<a href="http://www.phpbenchmarks.com/en/">PHP Benchmarks</a>。</p>
+<p>在里面发现了框架性能测试的结果，发现Laravel的框架性能尽然是最低的。瞬间受到了一万点的暴击，谁让最近一直用Laravel开发项目的呢。</p>
+<p>说到底还是Laravel好用呀，方便不说，各方面支持的也不错，业务方面做的也是内部系统，哪怕性能慢点，也可以用前后端分离、负载均衡等手段解决掉，大体上也是够用。</p>
+<p>不过，作为一个开发人员，理想还是要有的，这时就在想能不能采取Laravel框架的优点，用到什么就装什么，去掉一些请求到响应之间用不到的组件，精简框架。</p>
+<p>之前也熟读过Laravel的源码，知道它的底层用的是Symfony的组件，毕竟没必要重复的造轮子。那么我们的框架之旅也将基于Symfony组件。。。</p>
+<h4 id="目录">目录</h4>
+<hr />
+<p>一、Composer运行机制</p>
+<p>二、框架前期准备</p>
+<p>三、HttpFoundation组件封装Request、Response</p>
+<p>四、路由处理</p>
+<p>五、控制器处理相应功能（C）</p>
+<p>六、分离模板（V）</p>
+<p>七、分离模型（M）</p>
+<p>八、剥离核心代码</p>
+<p>九、优化框架</p>
+<p>十、依赖注入（Dependency Injection）</p>
+<h4 id="正文">正文</h4>
+<hr />
+<h6 id="一composer运行机制">一、Composer运行机制</h6>
+<p>Composer的使用最关键的得益于<a href="https://www.php-fig.org/psr/">PHP标准规范</a>的出现，特别是其中的psr4，<strong><em>自动加载规范</em></strong>，规范了如何指定文件路径从而自动加载类定义，以及自动加载文件的位置。</p>
+<p>既然讲到php文件的加载，我们就要聊一聊PHP的加载机制了。</p>
+<p>在早前时，加载文件用的都是include、require，但这种加载有很大的局限性，相信同学们都知道，无论用到用不到都要加载大量的文件，相当繁琐。</p>
+<p>于是就出现了<strong><em>autoload加载机制</em></strong>，它可以实现懒加载。</p>
+<pre><code><code>function __autoload($class)
+{
+    require_once ($class.&quot;.php&quot;);
+}</code></pre>
+<p>当程序引用了未加载的类，就会自动调用__autoload方法，只要维护了__autoload方法，就可以懒加载文件。</p>
+<p>但这里有一个很大的问题，就是程序中只能定义一次__autoload，这就需要花大尽力在__autoload中维护文件和空间的对应关系，特别是在大型项目，多人合作中更是繁琐。</p>
+<p>而解决这个问题就是<strong><em>SPL Autoload</em></strong>。</p>
+<p>SPL Autoload：__autoload调用堆栈。</p>
+<p>怎么理解这个堆栈呢，举个例子。</p>
+<p>现有的框架比如ThinkPHP、Laravel等都有一个vendor目录，用于存放第三方库，现在vendor下有两个库。</p>
+<blockquote>
+<p>monolog 处理系统日志<br />
+guzzlehttp 处理HTTP</p>
+</blockquote>
+<p>当程序引用这两个库的命名空间，并调用monolog、guzzlehttp下面的类时，发现调用的类文件都能被找到。</p>
+<p>这主要原理是<strong>monolog、guzzlehttp都自定义了类似autoload的方法，然后用spl_autoload_register将方法注册到了SPL堆栈中</strong>。</p>
+<p>这样的话，当程序调用类的时候，就会统一到SPL堆栈中寻找注册到堆栈中的autoload方法，并加载相应的文件。</p>
+<p>以上就是php加载文件的方式，下面就用实战谈一谈composer的运行机制。</p>
+<p><strong>创建composer项目</strong></p>
+<pre><code><code># mkdir phoenix
+# cd phoenix
+composer init</code></pre>
+<p>phoenix是接下来搭建的框架名。</p>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣0.png" alt="1" /></p>
+<p>创建成功后，发现当前文件夹下会生成一个composer.json文件，里面是刚写入的内容。</p>
+<pre><code><code>composer dump</code></pre>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣1.png" alt="2" /></p>
+<p>tree后，就会发现多了一个vendor的目录，里面的autoload.php以及composer文件夹下文件就是<strong>整个框架的加载核心</strong>。</p>
+<p>接下来看一遍这些文件。</p>
+<p>在整个框架中，第一行必然要引用 vendor/autoload.php 文件，毕竟这是加载核心，那么就从autoload.php看起。</p>
+<pre><code><code># autoload.php
+require_once __DIR__ . &#39;/composer/autoload_real.php&#39;;
+
+return ComposerAutoloaderInit599fa618dd1395bdde5fc3a08ff3e4e6::getLoader(); </code></pre>
+<p>只调用了autoload_real.php里面的getLoader()方法。</p>
+<pre><code><code>#autoload_real.php 精简后的代码
+
+public static function loadClassLoader($class)
+{
+    if (&#39;Composer\Autoload\ClassLoader&#39; === $class) {
+        require __DIR__ . &#39;/ClassLoader.php&#39;;
+    }
+}
+
+public static function getLoader()
+{
+    #创建ClassLoader类
+    spl_autoload_register(array(&#39;ComposerAutoloaderInit599fa618dd1395bdde5fc3a08ff3e4e6&#39;, &#39;loadClassLoader&#39;), true, true);
+
+    #初始化ClassLoader对象（主要就是将命名空间和文件的映射写入ClassLoader的属性中）
+    self::$loader = $loader = new \Composer\Autoload\ClassLoader();
+
+    spl_autoload_unregister(array(&#39;ComposerAutoloaderInit599fa618dd1395bdde5fc3a08ff3e4e6&#39;, &#39;loadClassLoader&#39;)); 
+     
+    #loadClass方法（类似autoload方法）注册到 SPL Autoload
+    $loader-&gt;register(true);   
+}</code></pre>
+<p>autoload_real.php 的作用就是引入ClassLoader类、初始化ClassLoader类，并注册到SPL堆栈中。</p>
+<p>ClassLoader类中有很多属性，这些属性的作用也很简单：<strong>主要就是方便后面程序快速的通过命名空间找到它所映射的类文件</strong>。</p>
+<p>具体用到这些属性的方法就在ClassLoader类中。</p>
+<pre><code><code># ClassLoader.php
+# 一个快速找到文件的算法，很有意思，感兴趣的可以研究下
+# 主要通过首字符找到命名空间以及长度，再根据命名空间以及长度找到文件
+
+private function findFileWithExtension($class, $ext)
+{
+    ......
+}</code></pre>
+<p>那么ClassLoader类属性里面的值是什么时候写入的呢？</p>
+<p>答案很简单：<strong>当为项目安装组件时，即composer require xxx时，会更新ClassLoader类的属性值，也就是将命名空间和文件地址做一个关联</strong>。</p>
+<p>接下来看看它的register方法。</p>
+<pre><code><code># ClassLoader.php 
+public function register($prepend = false)
+{
+    spl_autoload_register(array($this, &#39;loadClass&#39;), true, $prepend);
+}</code></pre>
+<p>看，其实很简单，就是将loadClass注册到SPL堆栈中。</p>
+<p>那么现在就很清楚了，当程序使用了一个还未加载的类时，会调用什么方法？</p>
+<p><strong>当然是loadClass方法</strong>，再来看看loadClass方法。</p>
+<pre><code><code># ClassLoader.php 
+public function loadClass($class)
+{
+    if ($file = $this-&gt;findFile($class)) {
+        includeFile($file);
+
+        return true;
+    }
+}</code></pre>
+<p>根据方法的名称就能看出它的功能：1、找到文件 2、加载文件。</p>
+<p>总结一下Composer的运行机制：</p>
+<p><strong>1、在composer require安装时，更新ClassLoader类的属性 </strong>。</p>
+<p><strong>2、运行对象时（new \Test()），如果未加载就会执行loadClass()，通过首字符找到命名空间以及长度，再根据命名空间以及长度找到文件，最后include文件</strong>。</p>
+<p>以上就是Composer的运行机制，接下来，就进入真正的框架搭建了。</p>
+<h6 id="二框架前期准备">二、框架前期准备</h6>
+<p>在正式进入搭建框架之前，先看下整体的架构图以及一些前期准备。</p>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣2.png" alt="3" /></p>
+<p>整个架构跟Laravel、ThinkPHP等框架是差不多的，<strong>一次请求，一次返回，一个入口，中间根据路由规则交给相应的控制器去执行，在控制器中处理数据以及视图</strong>。</p>
+<p>接下来做一些前期准备，进入phoenix项目。</p>
+<pre><code><code># vi index.php 一个入口
+ini_set(&#39;display_errors&#39;, 1); # 显示错误
+error_reporting(-1);
+
+require_once __DIR__.&#39;/vendor/autoload.php&#39;; # 引入核心加载类
+
+$name = $_GET[&#39;name&#39;];
+dump($name);</code></pre>
+<pre><code><code># dump()
+composer require symfony/var-dumper  # 类似var_dump，输出的变量体验更好些。</code></pre>
+<p>配置Nginx，访问域名为：http://dev.phoenix.goods/?name=SexyPhoenix， 可以正常显示SexyPhoenix。</p>
+<h6 id="三httpfoundation组件封装requestresponse">三、HttpFoundation组件封装Request、Response</h6>
+<p>现有的程序只是一个面向过程的代码，一个简单的请求，响应。</p>
+<p>对于搭建web框架，这种痛苦写法当然是要被舍弃的，OOP编程才是正路。</p>
+<p>既然要面向对象编程，首先要做的就是对流程中的Request、Response进行封装。而Symfony中专门的组件。</p>
+<pre><code><code>composer require symfony/http-foundation</code></pre>
+<blockquote>
+<p><a href="http://www.symfonychina.com/doc/current/components/http_foundation.html">HttpFoundation组件使用说明</a></p>
+</blockquote>
+<p>改造代码</p>
+<pre><code><code># index.php
+
+ini_set(&#39;display_errors&#39;, 1);
+error_reporting(-1);
+
+require_once __DIR__.&#39;/vendor/autoload.php&#39;;
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+$request = Request::createFromGlobals(); # 创建request对象
+
+$name = $request-&gt;get(&#39;name&#39;, &#39;World&#39;); # 获取参数，可移入控制器或从模型得到数据
+
+$response = new Response();
+
+$response-&gt;setContent(&#39;&lt;b&gt;Hello &#39;.$name.&#39;&lt;/b&gt;&#39;); # 设置内容，可用view处理
+
+$response-&gt;send(); # 返回</code></pre>
+<p>下面来做一个简单的分析。</p>
+<pre><code><code>$request = Request::createFromGlobals();</code></pre>
+<p>这一行代码，是相当重要的，它从对象层面上处理了php的全局变量，例如 GET，POST，SESSION......。</p>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣3.png" alt="4" /></p>
+<p>这样处理就可以轻易的从request对象中获取所需要的信息以及对请求头等信息的修改。</p>
+<p>后期路由这些附加的信息也是存在request的attributes属性中，及其好用。</p>
+<pre><code><code>$response = new Response();</code></pre>
+<p>通过response对象，可以轻易的控制返回的信息。比如头信息的各种缓存策略......</p>
+<h6 id="四路由处理">四、路由处理</h6>
+<p>从架构图上看，接着就要处理路由了。</p>
+<p>phoneix框架用了普遍的做法，统一index.php入口。</p>
+<p>那么下面要做的就是如何将路由的附加参数和要处理的控制器进行映射。</p>
+<p>对于路由一般框架都是通过配置来的，这里也一样做成可配置，方便。</p>
+<p><strong>Yaml格式配置路由</strong></p>
+<p>在phoenix项目下，创建routes文件夹，在routes下继续创建web.yaml文件。</p>
+<pre><code><code>dashboard:
+    path: /dashboard
+    defaults: { 
+        _controller: &#39;App\Http\Controllers\DashboardController::index&#39;
+    }</code></pre>
+<p>下载symfony的Config组件、Yaml组件、Routing组件。</p>
+<pre><code><code>composer require symfony/config
+composer require symfony/yaml
+composer require symfony/routing</code></pre>
+<blockquote>
+<p><a href="http://www.symfonychina.com/doc/current/components/config.html">Config组件使用说明</a></p>
+</blockquote>
+<p>更新代码</p>
+<pre><code><code># index.php
+ini_set(&#39;display_errors&#39;, 1);
+error_reporting(-1);
+
+require_once __DIR__.&#39;/vendor/autoload.php&#39;;
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Loader\YamlFileLoader; # add 
+use Symfony\Component\Config\FileLocator; # add
+
+$request = Request::createFromGlobals();
+
+$fileLoader = new YamlFileLoader(new FileLocator(array(__DIR__))); # add
+$collection = $fileLoader-&gt;load(&#39;routes/web.yaml&#39;); # add
+
+$name = $request-&gt;get(&#39;name&#39;, &#39;World&#39;);
+
+$response = new Response();
+
+$response-&gt;setContent(&#39;&lt;b&gt;Hello &#39;.$name.&#39;&lt;/b&gt;&#39;);
+
+$response-&gt;send();</code></pre>
+<p>dump($collection)，可以看到返回了路由的Collection对象，里面有定义的路由。</p>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣4.png" alt="5" /></p>
+<p>这个时候，框架只是得到了定义的路由，但还没有和URL做映射，下面改造继续。</p>
+<p><strong>URL和配置路由映射</strong></p>
+<pre><code><code>ini_set(&#39;display_errors&#39;, 1);
+error_reporting(-1);
+
+require_once __DIR__.&#39;/vendor/autoload.php&#39;;
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Loader\YamlFileLoader;
+use Symfony\Component\Config\FileLocator;
+use Symfony\Component\Routing\RequestContext; # add
+use Symfony\Component\Routing\Matcher\UrlMatcher; # add
+
+$request = Request::createFromGlobals();
+
+$fileLoader = new YamlFileLoader(new FileLocator(array(__DIR__)));
+$collection = $fileLoader-&gt;load(&#39;routes/web.yaml&#39;);
+
+#解析url
+$context = new RequestContext(); # add 
+$context-&gt;fromRequest($request); # add
+
+#初始化UrlMatcher
+$matcher    = new UrlMatcher($collection, $context); # add
+
+#url和路由配置映射
+$route = $matcher-&gt;match($request-&gt;getPathInfo()) # add
+
+$name = $request-&gt;get(&#39;name&#39;, &#39;World&#39;);
+
+$response = new Response();
+
+$response-&gt;setContent(&#39;&lt;b&gt;Hello &#39;.$name.&#39;&lt;/b&gt;&#39;);
+
+$response-&gt;send();</code></pre>
+<p>继续分析。</p>
+<pre><code><code>$context = new RequestContext();
+$context-&gt;fromRequest($request);</code></pre>
+<p>context对象主要就是对url进行解析。现在的域名：http://dev.phoenix.goods/dashboard</p>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣5.png" alt="6" /></p>
+<p>既然解析出url的参数，就要用解析出的参数和配置中的路由做精准关联了，初始化matcher，传入路由配置和url对象。</p>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣6.png" alt="7" /></p>
+<p>得到url和配置中的路由的映射。</p>
+<pre><code><code>$route = $matcher-&gt;match($request-&gt;getPathInfo());</code></pre>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣7.png" alt="8" /></p>
+<h6 id="五控制器处理相应功能c">五、控制器处理相应功能（C）</h6>
+<p>在路由处理中，框架已经得到了路由和控制器的关联关系。下面就要执行相应的控制器（上面的_controller值）。</p>
+<p>首先，在phoenix项目下，创建app/Http/Controllers/DashboardController.php（仿造Laravel的目录结构）。</p>
+<pre><code><code># DashboardController.php
+namespace App\Http\Controllers; # 注意这里App命名空间，自己定义，并没有注册到autoload
+
+class DashboardController{
+
+    public function index()
+    {
+        echo &#39;Hello SexyPhoenix&#39;;
+    }
+}</code></pre>
+<p>App命名空间是框架定义的，需要注册后，才能用，打开项目的composer.json文件。</p>
+<pre><code><code># composer.json
+
+&quot;autoload&quot;: {
+    &quot;psr-4&quot;: {
+        &quot;App\\&quot;: &quot;app/&quot;
+    }
+}</code></pre>
+<pre><code><code>composer dump-autoload # 更新命名空间</code></pre>
+<p>到这里，控制器的准备工作就做完了，接下来的问题就是如果利用得到的路由和控制器的映射关系去执行控制器，也就是下面的代码。</p>
+<pre><code><code>App\Http\Controllers\DashboardController::index</code></pre>
+<p>其实也很简单，就是用&quot;::&quot;分隔，得到两个值，一个是类名，一个是方法名，再用php的call_user_func去执行。</p>
+<p>但自己去写可能过去粗暴，可用性低，在执行前，要先判断DashboardController类是否存在，index方法是否存在，index方法的权限，是否是公共方法，以及各种参数等等，</p>
+<p>自己去写的话，会很麻烦，为了方便，继续用symfony的组件。</p>
+<pre><code><code>composer require symfony/http-kernel</code></pre>
+<p>http-kernel组件，是框架的内核，很重要的组件，它提供了各种钩子，及其方便框架扩展，也提供了控制器及其参数的“解析器”（这里需要了解下<a href="https://www.php.net/manual/zh/book.reflection.php">php的反射机制</a>）。</p>
+<p>更新index.php代码。</p>
+<pre><code><code># index.php
+......
+use Symfony\Component\HttpKernel\Controller\ControllerResolver; # add
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver; # add
+
+......
+
+$route = $matcher-&gt;match($request-&gt;getPathInfo());
+$request-&gt;attributes-&gt;add($route); # add 将路由映射关系写入request对象的附加属性中。
+
+$controller = (new ControllerResolver())-&gt;getController($request); # add 处理控制器
+$arguments = (new ArgumentResolver())-&gt;getArguments($request, $controller); # add 处理方法的参数
+
+$response = call_user_func_array($controller, $arguments);
+
+$response-&gt;send();</code></pre>
+<p>更新DashboardController.php代码。</p>
+<pre><code><code>namespace App\Http\Controllers;
+
+use Symfony\Component\HttpFoundation\Request; # add
+use Symfony\Component\HttpFoundation\Response;# add
+
+class DashboardController{
+
+    public function index(Request $request)
+    {   
+        $name = $request-&gt;get(&#39;name&#39;, &#39;world&#39;); # add
+
+        return new Response(&#39;Hello &#39;.$name); # add
+    }
+}</code></pre>
+<p>用http-kernel好处就是可以处理各种问题，比如Request作为参数注入。</p>
+<p>访问 http://dev.phoenix.goods/dashboard?name=SexyPhoenix， 得到 Hello SexyPhoenix。</p>
+<blockquote>
+<p><a href="http://www.symfonychina.com/doc/current/components/http_kernel.html">http-kernel组件的使用说明</a></p>
+</blockquote>
+<h6 id="六分离模板v">六、分离模板（V）</h6>
+<p>现在的框架只是简单的输出字符串，在正式环境中当然不可能这么简单，要能够返回正常的HTML页面。</p>
+<p>而复杂的HTML也不能放在控制器中处理，需要分离出来，单独处理。Symfony为框架同样提供了相关的组件。</p>
+<pre><code><code>composer require symfony/templating</code></pre>
+<blockquote>
+<p><a href="http://www.symfonychina.com/doc/current/components/templating.html">Templating组件使用说明</a></p>
+</blockquote>
+<p>处理框架的目录结构。</p>
+<p>在phoenix项目下，创建resources/views文件夹，继续在views下创建dashboard.php文件。</p>
+<pre><code><code># dashboard.php
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+    &lt;head&gt;
+        &lt;meta charset=&quot;utf-8&quot;&gt;
+        &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge&quot;&gt;
+        &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+        &lt;title&gt;Phoenix&lt;/title&gt;
+        &lt;style&gt;
+            html, body {
+                color: #000;
+                font-family: &#39;Raleway&#39;, sans-serif;
+                font-weight: 100;
+                height: 100vh;
+                margin: 0;
+            }
+        &lt;/style&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;div&gt;
+            &lt;h2&gt;Hello, &lt;b&gt;&lt;?php echo $name?&gt;&lt;/b&gt;&lt;/h2&gt;
+            &lt;h3&gt;your mailbox：&lt;?php echo $email?&gt;&lt;/h3&gt;
+            &lt;h3&gt;your github：&lt;?php echo $github?&gt;&lt;/h3&gt;
+        &lt;/div&gt;
+    &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p>在app/Http/Controllers下创建Controller.php文件。</p>
+<pre><code><code># Controller.php
+
+namespace App\Http\Controllers;
+
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Templating\PhpEngine;
+use Symfony\Component\Templating\TemplateNameParser;
+use Symfony\Component\Templating\Loader\FilesystemLoader;
+
+class Controller {
+
+    /**
+     * $templete 模板文件
+     * $data 数据
+     */
+    public function render($templete, array $data)
+    {
+        return new Response(
+            (new PhpEngine(
+                new TemplateNameParser(), 
+                new FilesystemLoader(getcwd().&#39;/resources/views/%name%&#39;)
+            ))
+            -&gt;render($templete, $data)
+        );
+    }
+}</code></pre>
+<p>改造DashboardController.php 代码。</p>
+<pre><code><code>namespace App\Http\Controllers;
+
+use Symfony\Component\HttpFoundation\Request;
+
+class DashboardController extends Controller{ # 继承Controller
+
+    public function index(Request $request)
+    {   
+        $name = $request-&gt;get(&#39;name&#39;, &#39;world&#39;);
+
+        $data = [
+            &#39;name&#39;   =&gt; $name,
+            &#39;email&#39;  =&gt; &#39;sexyphoenix@163.com&#39;,
+            &#39;github&#39; =&gt; &#39;https://github.com/SexyPhoenix&#39;
+        ];
+
+        return $this-&gt;render(&#39;dashboard.php&#39;, $data);
+    }
+}</code></pre>
+<p>访问 http://dev.phoenix.goods/dashboard?name=SexyPhoenix， 页面正常显示。</p>
+<p><img src="./images/一次框架性能的比较，引起了我对搭建web框架的兴趣8.png" alt="9" /></p>
+<h6 id="七分离模型m">七、分离模型（M）</h6>
+<p>分离完模板后，架构的数据还是在控制器中处理，同样要做分离。不过这一步，同学们可以根据自己的意愿来，比如你可以添加仓库层、服务层等。</p>
+<p>这里就做简单点，在app目录下，创建Models文件夹，继续创建User.php文件。</p>
+<pre><code><code># User.php
+namespace App\Models;
+
+class User {
+    
+    protected $emails = [];
+
+    protected $githubs = [];
+
+    public function getEmailByName(string $name)
+    {
+        $this-&gt;setEmails();
+
+        return array_key_exists($name, $this-&gt;emails) ? $this-&gt;emails[$name] : &#39;&#39;; 
+    }
+
+    public function getGithubByName($name)
+    {
+        $this-&gt;setGithubs();
+
+        return array_key_exists($name, $this-&gt;githubs) ? $this-&gt;githubs[$name] : &#39;&#39;; 
+    }
+
+    public function setEmails()
+    {
+        $this-&gt;emails = [
+            &#39;SexyPhoenix&#39; =&gt; &#39;sexyphoenix@163.com&#39;
+        ];
+    }
+
+    public function setGithubs()
+    {
+        $this-&gt;githubs = [
+            &#39;SexyPhoenix&#39; =&gt; &#39;https://github.com/SexyPhoenix&#39;
+        ];
+    }
+}</code></pre>
+<p>更新DashboardController.php。</p>
+<pre><code><code># DashboardController.php
+......
+use App\Models\User #add 
+......
+
+public function index(Request $request)
+{
+    $name = $request-&gt;get(&#39;name&#39;, &#39;world&#39;);
+
+    $user = new User(); # add
+    $data = [
+        &#39;name&#39;   =&gt; $name,
+        &#39;email&#39;  =&gt; $user-&gt;getEmailByName($name),  # update
+        &#39;github&#39; =&gt; $user-&gt;getGithubByName($name),# update
+    ];
+
+    return $this-&gt;render(&#39;dashboard.php&#39;, $data);
+}
+</code></pre>
+<p>访问页面，正常显示。</p>
+<h6 id="八剥离核心代码">八、剥离核心代码</h6>
+<p>框架的基本架构已经搭建完成，但此时的核心代码都写在了index.php里面，另写项目的话，无法复用此架构，接下来剥离出核心代码。</p>
+<p>在phoenix项目下创建Core文件夹，继续创建Phoenix.php文件，移入核心代码并优化。</p>
+<pre><code><code># Phoenix.php
+
+namespace Core; #注意此命名空间需要注册
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Loader\YamlFileLoader;
+use Symfony\Component\Config\FileLocator;
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\Matcher\UrlMatcher;
+use Symfony\Component\HttpKernel\Controller\ControllerResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
+
+class Phoenix {
+
+    public $request;
+
+    public $routeMap;
+
+    public function handle(Request $request)
+    {
+        $this-&gt;request = $request;
+
+        try {
+
+            //url map
+            $this-&gt;getRouteMap();
+
+            $this-&gt;setRequestRoute();
+
+            $controller = (new ControllerResolver())-&gt;getController($request);
+            $arguments = (new ArgumentResolver())-&gt;getArguments($request, $controller);
+
+            return call_user_func_array($controller, $arguments);   
+
+        } catch(\Exception $e) {
+
+            return new Response(&#39;File Not Found&#39;, 404);
+        }
+    }
+
+    public function setRequestRoute()
+    {
+        $this-&gt;request-&gt;attributes-&gt;add($this-&gt;routeMap-&gt;match($this-&gt;request-&gt;getPathInfo()));
+    }
+
+    public function getRouteMap()
+    {    
+        $this-&gt;routeMap = new UrlMatcher(
+            $this-&gt;getCollection(), 
+            (new RequestContext())-&gt;fromRequest($this-&gt;request)
+        );
+    }
+
+    public function getCollection()
+    {
+        return (
+            new YamlFileLoader(
+               new FileLocator(array(getcwd()))
+            )
+        )-&gt;load(&#39;routes/web.yaml&#39;);
+    }
+}</code></pre>
+<p>更新index.php代码。</p>
+<pre><code><code>ini_set(&#39;display_errors&#39;, 1);
+error_reporting(-1);
+
+require_once __DIR__.&#39;/vendor/autoload.php&#39;;
+
+$kernel = new Core\Phoenix();
+
+$response = $kernel-&gt;handle(
+    Symfony\Component\HttpFoundation\Request::createFromGlobals()
+);
+
+$response-&gt;send();</code></pre>
+<p>注册Core命名空间，打开composer.json文件。</p>
+<pre><code><code># composer.json
+&quot;autoload&quot;: {
+    &quot;psr-4&quot;: {
+        &quot;App\\&quot;: &quot;app/&quot;,
+        &quot;Core\\&quot;: &quot;core/&quot;
+    }
+}</code></pre>
+<pre><code><code>composer dump-autoload # 更新命名空间</code></pre>
+<p>刷新页面，显示正常。</p>
+<h6 id="九优化框架">九、优化框架</h6>
+<p>在前面用到HttpKernel组件时，为什么介绍它是框架的内核呢？</p>
+<p>因为HttpKernel里面有个很重要的概念，<strong>派遣事件，给注册过的不同监听器监听</strong>。</p>
+<p>是用Mediator模式设计的，这种模式带来的好处，就是使框架的扩展性得到极大的提高。</p>
+<p>在请求到响应之前设计了八种钩子，方便后期扩展，详情看下面的链接。</p>
+<blockquote>
+<p><a href="https://github.com/symfony/symfony/blob/3.1/src/Symfony/Component/HttpKernel/KernelEvents.php">KernelEvents钩子介绍</a></p>
+</blockquote>
+<p>同时，也可以用另一种监听事件的方式，通过一个event subscriber（事件订阅器），向派遣器精确通报它要订阅哪些事件。下面对路由优化时，会用到这。</p>
+<blockquote>
+<p><a href="http://www.symfonychina.com/doc/current/components/event_dispatcher.html">EventDispatcher组件使用说明</a></p>
+</blockquote>
+<p>HttpKernel组件的功能仅止于此吗？ 当然不，<strong>它里面有一个很重要的类“HttpKernel类”，将框架的核心Core/Phoenix.php的程序都实现了</strong>。</p>
+<p>只要phoenix框架核心类Phoenix继承HttpKernel，并调用它的构造方法就行了。</p>
+<p>下面来改造Core/Phoenix.php代码。</p>
+<pre><code><code># Phoenix.php
+namespace Core;
+
+use Symfony\Component\HttpFoundation\RequestStack; # add
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Loader\YamlFileLoader;
+use Symfony\Component\Config\FileLocator;
+use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing\Matcher\UrlMatcher;
+use Symfony\Component\EventDispatcher\EventDispatcher; # add
+use Symfony\Component\HttpKernel\HttpKernel; # add 
+use Symfony\Component\HttpKernel\Controller\ControllerResolver;
+use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
+use Symfony\Component\HttpKernel\EventListener\RouterListener;
+
+class Phoenix extends HttpKernel{ # 继承HttpKernel
+
+    public function __construct()
+    {
+        $matcher      = new UrlMatcher($this-&gt;getCollection(), new RequestContext());
+        $requestStack = new RequestStack();
+
+        $dispatcher   = new EventDispatcher();
+        $dispatcher-&gt;addSubscriber(new RouterListener($matcher,  $requestStack)); # 订阅路由
+        
+        # HttpKernel的构造函数，可以点下面的链接进去看看
+        parent::__construct(
+
+            $dispatcher,
+            new ControllerResolver(),
+            $requestStack,
+            new ArgumentResolver()
+        );
+    }
+
+    public function getCollection()
+    {
+        return (
+            new YamlFileLoader(
+               new FileLocator(array(getcwd()))
+            )
+        )-&gt;load(&#39;routes/web.yaml&#39;);
+    }
+}</code></pre>
+<blockquote>
+<p><a href="https://github.com/symfony/symfony/blob/3.1/src/Symfony/Component/HttpKernel/HttpKernel.php">HttpKernel类</a></p>
+</blockquote>
+<p>index.php的代码不用变，HttpKernel类里面也有handle方法。建议同学们看看HttpKernel类的源码。</p>
+<h6 id="十依赖注入dependency-injection">十、依赖注入（Dependency Injection）</h6>
+<p>Phoenix类继承了HttpKernel，是整个架构的核心，在框架里面定义了“路由监听”，但如果框架不仅仅要对路由进行监听，还要对response阶段进行监听呢？是不是继续修改Phoenix类呢？</p>
+<p>这样的设计对于框架来说，是绝对不友好的。那有没有方法解决呢？</p>
+<p>当然有，可以通过在外面注入对象，框架通过type检测，自动引入相关对象。</p>
+<p>首先下载Symfony的DependencyInjection组件。</p>
+<pre><code><code>composer require symfony/dependency-injection</code></pre>
+<p>在core文件夹下创建container.php文件</p>
+<pre><code><code># container.php
+namespace Core;
+
+use Symfony\Component\DependencyInjection;
+use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\Routing\Loader\YamlFileLoader;
+use Symfony\Component\Config\FileLocator;
+
+$app = new ContainerBuilder();
+$app-&gt;register(&#39;context&#39;, &#39;Symfony\Component\Routing\RequestContext&#39;);
+$app-&gt;register(&#39;matcher&#39;, &#39;Symfony\Component\Routing\Matcher\UrlMatcher&#39;)
+    -&gt;setArguments(array(getCollection(), new Reference(&#39;context&#39;)));
+
+$app-&gt;register(&#39;request_stack&#39;, &#39;Symfony\Component\HttpFoundation\RequestStack&#39;);
+$app-&gt;register(&#39;controller_resolver&#39;, &#39;Symfony\Component\HttpKernel\Controller\ControllerResolver&#39;);
+$app-&gt;register(&#39;argument_resolver&#39;, &#39;Symfony\Component\HttpKernel\Controller\ArgumentResolver&#39;);
+    
+$app-&gt;register(&#39;listener.router&#39;, &#39;Symfony\Component\HttpKernel\EventListener\RouterListener&#39;) # 路由监听
+    -&gt;setArguments(array(new Reference(&#39;matcher&#39;), new Reference(&#39;request_stack&#39;)));
+
+$app-&gt;register(&#39;dispatcher&#39;, &#39;Symfony\Component\EventDispatcher\EventDispatcher&#39;)
+    -&gt;addMethodCall(&#39;addSubscriber&#39;, array(new Reference(&#39;listener.router&#39;)));            
+
+$app-&gt;register(&#39;phoenix&#39;, &#39;Core\Phoenix&#39;)
+-&gt;setArguments(array(
+    new Reference(&#39;dispatcher&#39;),
+    new Reference(&#39;controller_resolver&#39;),
+    new Reference(&#39;request_stack&#39;),
+    new Reference(&#39;argument_resolver&#39;),
+));
+
+
+return $app;
+
+function getCollection()
+{
+    return (
+        new YamlFileLoader(
+           new FileLocator(array(getcwd()))
+        )
+    )-&gt;load(&#39;routes/web.yaml&#39;);
+}
+</code></pre>
+<p>别名和对象一一对应，后面可以通过别名获取对象。</p>
+<p>去掉core/phoenix.php里面的代码。</p>
+<pre><code><code>namespace Core;
+
+use Symfony\Component\HttpKernel\HttpKernel;
+
+class Phoenix extends HttpKernel{
+
+    // public function __construct()
+    // {
+    //     $matcher      = new UrlMatcher($this-&gt;getCollection(), new RequestContext());
+    //     $requestStack = new RequestStack();
+
+    //     $dispatcher   = new EventDispatcher();
+    //     $dispatcher-&gt;addSubscriber(new RouterListener($matcher,  $requestStack));
+
+    //     parent::__construct(
+
+    //         $dispatcher,
+    //         new ControllerResolver(),
+    //         $requestStack,
+    //         new ArgumentResolver()
+    //     );
+    // }
+
+    // public function getCollection()
+    // {
+    //     return (
+    //         new YamlFileLoader(
+    //            new FileLocator(array(getcwd()))
+    //         )
+    //     )-&gt;load(&#39;routes/web.yaml&#39;);
+    // }
+}</code></pre>
+<p>更新index.php代码。</p>
+<pre><code><code>ini_set(&#39;display_errors&#39;, 1);
+error_reporting(-1);
+
+require_once __DIR__.&#39;/vendor/autoload.php&#39;;
+
+$app = require_once __DIR__.&#39;/core/container.php&#39;; # add 
+
+$response = $app-&gt;get(&#39;phoenix&#39;) # 通过别名获取
+    -&gt;handle(
+        Symfony\Component\HttpFoundation\Request::createFromGlobals()
+    );
+
+$response-&gt;send();</code></pre>
+<p>访问 http://dev.phoenix.goods/dashboard?name=SexyPhoenix， 显示正常。</p>
+<p>到这里，框架的整个基本设计就结束了，之后需要什么功能，就可以自己用composer安装组件了,composer还是很好用的。</p>
+<p>同学们如果有什么疑问的，欢迎在评论区一起交流，ヾ(●´∀｀●) 。</p>
+<p>最后，附一份最终代码 <a href="https://github.com/SexyPhoenix/phoenix">phoenix web 架构</a>。</p>
+<blockquote>
+<p><a href="http://www.symfonychina.com/doc/current/create_framework/index.html">参考Symfony官网 - 创建你自己的框架</a></p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

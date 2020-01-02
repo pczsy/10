@@ -1,0 +1,435 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Elasticsearch中mapping全解实战' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Elasticsearch中mapping全解实战</center></div><div class='banquan'>原文出处:本文由博客园博主海向提供。<br/>
+原文连接:https://www.cnblogs.com/haixiang/p/12040272.html</div><br>
+    <p>💛原文地址为<a href="https://www.cnblogs.com/haixiang/p/12040272.html" class="uri">https://www.cnblogs.com/haixiang/p/12040272.html</a>，转载请注明出处!<br />
+🍎<strong>es与SpringBoot的整合以及常用CRUD、搜索API已被作者封装,开箱即用效果很好,欢迎star谢谢!</strong><a href="https://github.com/Motianshi/all-search">github</a></p>
+<h2 id="mapping简介">Mapping简介</h2>
+<p>mapping 是用来定义文档及其字段的存储方式、索引方式的手段，例如利用<code>mapping</code> 来定义以下内容：</p>
+<ul>
+<li>哪些字段需要被定义为全文检索类型</li>
+<li>哪些字段包含<code>number</code>、<code>date</code>类型等</li>
+<li>格式化时间格式</li>
+<li>自定义规则，用于控制动态添加字段的映射</li>
+</ul>
+<h2 id="mapping-type">Mapping Type</h2>
+<p>每个索引都拥有唯一的 <code>mapping type</code>，用来决定文档将如何被索引。<code>mapping type</code>由下面两部分组成</p>
+<ul>
+<li><p>Meta-fields<br />
+元字段用于自定义如何处理文档的相关元数据。 元字段的示例包括文档的_index，_type，_id和_source字段。</p></li>
+<li><p>Fields or properties<br />
+映射类型包含与文档相关的字段或属性的列表。</p></li>
+</ul>
+<h2 id="分词器最佳实践">分词器最佳实践</h2>
+<p>因为后续的<code>keyword</code>和<code>text</code>设计分词问题，这里给出分词最佳实践。即<font color=liblue><strong>索引时用ik_max_word，搜索时分词器用ik_smart</strong></font>，这样索引时最大化的将内容分词，搜索时更精确的搜索到想要的结果。</p>
+<p>例如我想搜索的是小米手机，我此时的想法是想搜索出小米手机的商品，而不是小米音响、小米洗衣机等其他产品，也就是说商品信息中必须只有小米手机这个词。</p>
+<p>我们后续会使用<code>&quot;search_analyzer&quot;: &quot;ik_smart&quot;</code>来实现这样的需求。</p>
+<h2 id="字段类型">字段类型</h2>
+<ul>
+<li>一种简单的数据类型，例如<code>text</code>、<code>keyword</code>、<code>double</code>、<code>boolean</code>、<code>long</code>、<code>date</code>、<code>ip</code>类型。</li>
+<li>也可以是一种分层的json对象（支持属性嵌套）。</li>
+<li>也可以是一些不常用的特殊类型，例如<code>geo_point</code>、<code>geo_shape</code>、<code>completion</code></li>
+</ul>
+<p>针对同一字段支持多种字段类型可以更好地满足我们的搜索需求，例如一个<code>string</code>类型的字段可以设置为<code>text</code>来支持全文检索，与此同时也可以让这个字段拥有<code>keyword</code>类型来做排序和聚合，另外我们也可以为字段单独配置分词方式，例如<code>&quot;analyzer&quot;: &quot;ik_max_word&quot;,</code></p>
+<h3 id="text-类型">text 类型</h3>
+<p><code>text</code>类型的字段用来做全文检索，例如邮件的主题、淘宝京东中商品的描述等。这种字段在被索引存储前<font color=liblue><strong>先进行分词</strong></font>，存储的是分词后的结果，而不是完整的字段。<code>text</code>字段不适合做排序和聚合。如果是一些结构化字段，分词后无意义的字段建议使用<code>keyword</code>类型，例如邮箱地址、主机名、商品标签等。</p>
+<p>常有参数包含以下</p>
+<ul>
+<li>analyzer：用来分词，包含<font color=liblue><strong>索引存储阶段</strong></font>和<font color=liblue><strong>搜索阶段</strong></font>（其中查询阶段可以被<font color=liblue><strong>search_analyzer</strong></font>参数覆盖），该参数默认设置为index的analyzer设置或者standard analyzer</li>
+<li>index：是否可以被搜索到。默认是<code>true</code></li>
+<li>fields：Multi-fields允许同一个字符串值同时被不同的方式索引，例如用不同的analyzer使一个field用来排序和聚类，另一个同样的string用来分析和全文检索。下面会做详细的说明</li>
+<li>search_analyzer：这个字段用来指定<font color=liblue><strong>搜索阶段</strong></font>时使用的分词器，默认使用<code>analyzer</code>的设置</li>
+<li>search_quote_analyzer：搜索遇到短语时使用的分词器，默认使用<code>search_analyzer</code>的设置</li>
+</ul>
+<h3 id="keyword-类型">keyword 类型</h3>
+<p><code>keyword</code>用于索引结构化内容（例如电子邮件地址，主机名，状态代码，邮政编码或标签）的字段，这些字段被拆分后不具有意义，所以在es中应<font color=liblue><strong>索引完整的字段</strong></font>，而不是分词后的结果。</p>
+<p>通常用于过滤（例如在博客中根据发布状态来查询所有已发布文章），排序和聚合。<code>keyword</code>只能按照字段精确搜索，例如根据文章id查询文章详情。如果想根据本字段进行全文检索相关词汇，可以使用<code>text</code>类型。</p>
+<pre><code><code>PUT my_index
+{
+  &quot;mappings&quot;: {
+    &quot;properties&quot;: {
+      &quot;tags&quot;: {
+        &quot;type&quot;:  &quot;keyword&quot;
+      }
+    }
+  }
+}</code></pre>
+<ul>
+<li>index：是否可以被搜索到。默认是<code>true</code></li>
+<li><p>fields：Multi-fields允许同一个字符串值同时被不同的方式索引，例如用不同的analyzer使一个field用来排序和聚类，另一个同样的string用来分析和全文检索。下面会做详细的说明</p></li>
+<li><p>null_value：如果该字段为空，设置的默认值，默认为<code>null</code></p></li>
+<li><p>ignore_above：设置索引字段大小的阈值。该字段不会索引大小超过该属性设置的值，默认为2147483647，代表着可以接收任意大小的值。但是这一值可以被<code>PUT Mapping Api</code>中新设置的<code>ignore_above</code>来覆盖这一值。</p></li>
+</ul>
+<h3 id="date类型">date类型</h3>
+<p>支持排序，且可以通过<code>format</code>字段对时间格式进行格式化。</p>
+<p><code>json</code>中没有时间类型，所以在es在规定可以是以下的形式：</p>
+<ul>
+<li>一段格式化的字符串，例如<code>&quot;2015-01-01&quot;</code>或者<code>&quot;2015/01/01 12:10:30&quot;</code></li>
+<li><p>一段<code>long</code>类型的数字，指距某个时间的毫秒数，例如<code>1420070400001</code></p></li>
+<li><p>一段<code>integer</code>类型的数字，指距某个时间的秒数</p></li>
+</ul>
+<h3 id="object类型">object类型</h3>
+<p><code>mapping</code>中不用特意指定field为<code>object</code>类型，因为这是它的默认类型。</p>
+<p><code>json</code>类型天生具有层级的概念，文档内部还可以包含<code>object</code>类型进行嵌套。例如：</p>
+<pre><code><code>PUT my_index/_doc/1
+{ 
+  &quot;region&quot;: &quot;US&quot;,
+  &quot;manager&quot;: { 
+    &quot;age&quot;:     30,
+    &quot;name&quot;: { 
+      &quot;first&quot;: &quot;John&quot;,
+      &quot;last&quot;:  &quot;Smith&quot;
+    }
+  }
+}</code></pre>
+<p>在es中上述对象会被按照以下的形式进行索引：</p>
+<pre><code><code>{
+  &quot;region&quot;:             &quot;US&quot;,
+  &quot;manager.age&quot;:        30,
+  &quot;manager.name.first&quot;: &quot;John&quot;,
+  &quot;manager.name.last&quot;:  &quot;Smith&quot;
+}</code></pre>
+<p><code>mapping</code>可以对不同字段进行不同的设置</p>
+<pre><code><code>PUT my_index
+{
+  &quot;mappings&quot;: {
+    &quot;properties&quot;: { 
+      &quot;region&quot;: {
+        &quot;type&quot;: &quot;keyword&quot;
+      },
+      &quot;manager&quot;: { 
+        &quot;properties&quot;: {
+          &quot;age&quot;:  { &quot;type&quot;: &quot;integer&quot; },
+          &quot;name&quot;: { 
+            &quot;properties&quot;: {
+              &quot;first&quot;: { &quot;type&quot;: &quot;text&quot; },
+              &quot;last&quot;:  { &quot;type&quot;: &quot;text&quot; }
+            }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+<h3 id="nest类型">nest类型</h3>
+<p><code>nest</code>类型是一种特殊的<code>object</code>类型，它允许<code>object</code>可以以数组形式被索引，而且数组中的某一项都可以被独立检索。</p>
+<p>而且es中没有内部类的概念，而是通过简单的列表来实现<code>nest</code>效果，例如下列结构的文档：</p>
+<pre><code><code>PUT my_index/_doc/1
+{
+  &quot;group&quot; : &quot;fans&quot;,
+  &quot;user&quot; : [ 
+    {
+      &quot;first&quot; : &quot;John&quot;,
+      &quot;last&quot; :  &quot;Smith&quot;
+    },
+    {
+      &quot;first&quot; : &quot;Alice&quot;,
+      &quot;last&quot; :  &quot;White&quot;
+    }
+  ]
+}</code></pre>
+<p>上面格式的对象会被按照下列格式进行索引，因此会发现一个user中的两个属性值不再匹配，<code>alice</code>和<code>white</code>失去了联系</p>
+<pre><code><code>{
+  &quot;group&quot; :        &quot;fans&quot;,
+  &quot;user.first&quot; : [ &quot;alice&quot;, &quot;john&quot; ],
+  &quot;user.last&quot; :  [ &quot;smith&quot;, &quot;white&quot; ]
+}</code></pre>
+<h3 id="range类型">range类型</h3>
+<p>支持以下范围类型：</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">类型</th>
+<th>范围</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">integer_range</td>
+<td><code>-2的31次</code> 到 <code>2的31次-1</code>.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">float_range</td>
+<td>32位单精度浮点数</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">long_range</td>
+<td><code>-2的63次</code> 到 <code>2的63次-1</code>.</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">double_range</td>
+<td>64位双精度浮点数</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">date_range</td>
+<td>unsigned 64-bit integer milliseconds</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ip_range</td>
+<td>ipv4和ipv6或者两者的混合</td>
+</tr>
+</tbody>
+</table>
+<p>使用范例为：</p>
+<pre><code><code>PUT range_index
+{
+  &quot;settings&quot;: {
+    &quot;number_of_shards&quot;: 2
+  },
+  &quot;mappings&quot;: {
+    &quot;properties&quot;: {
+      &quot;age_range&quot;: {
+        &quot;type&quot;: &quot;integer_range&quot;
+      },
+      &quot;time_frame&quot;: {
+        &quot;type&quot;: &quot;date_range&quot;, 
+        &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis&quot;
+      }
+    }
+  }
+}
+
+PUT range_index/_doc/1?refresh
+{
+  &quot;age_range&quot; : { 
+    &quot;gte&quot; : 10,
+    &quot;lte&quot; : 20
+  },
+  &quot;time_frame&quot; : { 
+    &quot;gte&quot; : &quot;2015-10-31 12:00:00&quot;, 
+    &quot;lte&quot; : &quot;2015-11-01&quot;
+  }
+}</code></pre>
+<h2 id="实战同时使用keyword和text类型">实战：同时使用keyword和text类型</h2>
+<p><strong>注：term是查询时对关键字不分词，keyword是索引时不分词</strong></p>
+<p>上述我们讲解过<code>keyword</code>和<code>text</code>一个不分词索引，一个是分词后索引，我们利用他们的<code>fields</code>属性来让当前字段同时具备<code>keyword</code>和<code>text</code>类型。</p>
+<p>首先我们创建索引并指定<code>mapping</code>，为<code>title</code>同时设置<code>keyword</code>和<code>text</code>属性</p>
+<pre><code><code>PUT /idx_item/
+{
+  &quot;settings&quot;: {
+    &quot;index&quot;: {
+        &quot;number_of_shards&quot; : &quot;2&quot;,
+        &quot;number_of_replicas&quot; : &quot;0&quot;
+    }
+  },
+  &quot;mappings&quot;: {
+    &quot;properties&quot;: {
+      &quot;itemId&quot; : {
+        &quot;type&quot;: &quot;keyword&quot;,
+        &quot;ignore_above&quot;: 64
+      },
+      &quot;title&quot; : {
+        &quot;type&quot;: &quot;text&quot;,
+        &quot;analyzer&quot;: &quot;ik_max_word&quot;, 
+        &quot;search_analyzer&quot;: &quot;ik_smart&quot;, 
+        &quot;fields&quot;: {
+          &quot;keyword&quot; : {&quot;ignore_above&quot; : 256, &quot;type&quot; : &quot;keyword&quot;}
+        }
+      },
+      &quot;desc&quot; : {&quot;type&quot;: &quot;text&quot;, &quot;analyzer&quot;: &quot;ik_max_word&quot;},
+      &quot;num&quot; : {&quot;type&quot;: &quot;integer&quot;},
+      &quot;price&quot; : {&quot;type&quot;: &quot;long&quot;}
+    }
+  }
+}</code></pre>
+<p>我们已经往es中插入以下数据</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">_index</th>
+<th style="text-align: left;">_type</th>
+<th style="text-align: left;">_id</th>
+<th style="text-align: left;">_score</th>
+<th style="text-align: left;">itemId</th>
+<th style="text-align: left;">title</th>
+<th style="text-align: left;">desc</th>
+<th style="text-align: left;">num</th>
+<th style="text-align: left;">Price</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">idx_item</td>
+<td style="text-align: left;">_doc</td>
+<td style="text-align: left;">rvsX-W4Bo-iJGWqbQ8dk</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">苏泊尔煮饭SL3200</td>
+<td style="text-align: left;">让煮饭更简单，让生活更快乐</td>
+<td style="text-align: left;">100</td>
+<td style="text-align: left;">200</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">idx_item</td>
+<td style="text-align: left;">_doc</td>
+<td style="text-align: left;">sPsY-W4Bo-iJGWqbscfU</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">厨房能手威猛先生</td>
+<td style="text-align: left;">你煲粥，我洗锅</td>
+<td style="text-align: left;">100</td>
+<td style="text-align: left;">30</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">idx_item</td>
+<td style="text-align: left;">_doc</td>
+<td style="text-align: left;">r_sX-W4Bo-iJGWqbhMew</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">2</td>
+<td style="text-align: left;">苏泊尔煲粥好能手型号SL322</td>
+<td style="text-align: left;">你煲粥，我煲粥，我们一起让煲粥更简单</td>
+<td style="text-align: left;">100</td>
+<td style="text-align: left;">190</td>
+</tr>
+</tbody>
+</table>
+<p><code>title=”苏泊尔煮饭SL3200“</code> 根据<code>text</code>以及最细粒度分词设置<code>&quot;analyzer&quot;: &quot;ik_max_word&quot;</code>，在es中按照以下形式进行索引存储</p>
+<pre><code><code>{ &quot;苏泊尔&quot;,&quot;煮饭&quot;, &quot;sl3200&quot;, &quot;sl&quot;,&quot;3200&quot;}</code></pre>
+<p><code>title.keyword=”苏泊尔煮饭SL3200</code>因为不分词，所以在es中索引存储形式为</p>
+<pre><code><code>苏泊尔煮饭SL3200</code></pre>
+<p>我们首先对<code>title.keyword</code>进行搜索，只能搜索到第一条数据，因为<code>match</code>搜索会将关键字分词然后去搜索，分词后的结果包含<code>&quot;苏泊尔煮饭SL3200&quot;</code>所以搜索成功，我们将搜索关键字改为<code>苏泊尔</code>、<code>煮饭</code>等都不会查到数据。</p>
+<pre><code><code>GET idx_item/_search
+{
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: {
+        &quot;match&quot;: {&quot;title.keyword&quot;: &quot;苏泊尔煮饭SL3200&quot;}
+        }
+    }
+  }
+}</code></pre>
+<p>我们改用<code>term</code>搜索，他搜索不会分词，正好与es中的数据精准匹配，也只有第一条数据，我们将搜索关键字改为<code>苏泊尔</code>、<code>煮饭</code>等都不会查到数据。</p>
+<pre><code><code>GET idx_item/_search
+{
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: {
+        &quot;term&quot;: {&quot;title.keyword&quot;: &quot;苏泊尔煮饭SL3200&quot;}
+        }
+    }
+  }
+}</code></pre>
+<p>我们继续对<code>title</code>使用<code>match</code>进行查询，结果查到了第一条和第三条数据，因为它们在es中被索引的数据包含<code>苏泊尔</code>关键字</p>
+<pre><code><code>GET idx_item/_search
+{
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: {&quot;match&quot;: {&quot;title&quot;: &quot;苏泊尔&quot;}
+        }
+    }
+  }
+}</code></pre>
+<p>我们如果搜索<code>苏泊尔煮饭SL3200</code>会发现没有返回数据，因为<code>title</code>在索引时没有<code>苏泊尔煮饭SL3200</code>这一项，而<code>term</code>时搜索关键字也不分词，所以无法匹配到数据。但是我们将内容改为<code>苏泊尔</code>时，就可以搜索到第一条和第三条内容，因为第一条和第三条的<code>title</code>被分词后的索引包含<code>苏泊尔</code>字段，所以可以查出第一三条。</p>
+<pre class="jsaon"><code>&quot;term&quot;: {&quot;title&quot;: &quot;苏泊尔煮饭SL3200&quot;}</code></pre>
+<h2 id="实战格式化时间以及按照时间排序">实战：格式化时间、以及按照时间排序</h2>
+<p>我们创建索引<code>idx_pro</code>，将<code>mytimestamp</code>和<code>createTime</code>字段分别格式化成两种时间格式</p>
+<pre><code><code>PUT /idx_pro/
+{
+  &quot;settings&quot;: {
+    &quot;index&quot;: {
+        &quot;number_of_shards&quot; : &quot;2&quot;,
+        &quot;number_of_replicas&quot; : &quot;0&quot;
+    }
+  },
+  &quot;mappings&quot;: {
+    &quot;properties&quot;: {
+      &quot;proId&quot; : {
+        &quot;type&quot;: &quot;keyword&quot;,
+        &quot;ignore_above&quot;: 64
+      },
+      &quot;name&quot; : {
+        &quot;type&quot;: &quot;text&quot;,
+        &quot;analyzer&quot;: &quot;ik_max_word&quot;, 
+        &quot;search_analyzer&quot;: &quot;ik_smart&quot;, 
+        &quot;fields&quot;: {
+          &quot;keyword&quot; : {&quot;ignore_above&quot; : 256, &quot;type&quot; : &quot;keyword&quot;}
+        }
+      },
+      &quot;mytimestamp&quot; : {
+        &quot;type&quot;: &quot;date&quot;,
+        &quot;format&quot;: &quot;epoch_millis&quot;
+      },
+      &quot;createTime&quot; : {
+        &quot;type&quot;: &quot;date&quot;,
+        &quot;format&quot;: &quot;yyyy-MM-dd HH:mm:ss&quot;
+      }
+    }
+  }
+}</code></pre>
+<p>插入四组样本数据</p>
+<pre><code><code>POST idx_pro/_doc
+{
+  &quot;proId&quot; : &quot;1&quot;,
+  &quot;name&quot; : &quot;冬日工装裤&quot;,
+  &quot;timestamp&quot; : 1576312053946,
+  &quot;createTime&quot; : &quot;2019-12-12 12:56:56&quot;
+}
+POST idx_pro/_doc
+{
+  &quot;proId&quot; : &quot;2&quot;,
+  &quot;name&quot; : &quot;冬日羽绒服&quot;,
+  &quot;timestamp&quot; : 1576313210024,
+  &quot;createTime&quot; : &quot;2019-12-10 10:50:50&quot;
+}
+POST idx_pro/_doc
+{
+  &quot;proId&quot; : &quot;3&quot;,
+  &quot;name&quot; : &quot;花花公子外套&quot;,
+  &quot;timestamp&quot; : 1576313239816,
+  &quot;createTime&quot; : &quot;2019-12-19 12:50:50&quot;
+}
+POST idx_pro/_doc
+{
+  &quot;proId&quot; : &quot;4&quot;,
+  &quot;name&quot; : &quot;花花公子羽绒服&quot;,
+  &quot;timestamp&quot; : 1576313264391,
+  &quot;createTime&quot; : &quot;2019-12-12 11:56:56&quot;
+}</code></pre>
+<p>我们可以使用<code>sort</code>参数来进行排序，并且支持数组形式，即同时使用多字段排序，只要改为<code>[]</code>就行</p>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;sort&quot;:{&quot;createTime&quot;: {&quot;order&quot;: &quot;asc&quot;}}, 
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: {&quot;match_all&quot;: {}}
+    }
+  }
+}</code></pre>
+<p>我们也可以使用<code>range</code>参数来搜索指定时间范围内的数据，当然<code>range</code>也支持<code>integer</code>、<code>long</code>等类型</p>
+<pre><code><code>GET idx_pro/_search
+{
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: {
+        &quot;range&quot;: {
+          &quot;timestamp&quot;: {
+            &quot;gt&quot;: &quot;1576313210024&quot;,
+            &quot;lt&quot;: &quot;1576313264391&quot;
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

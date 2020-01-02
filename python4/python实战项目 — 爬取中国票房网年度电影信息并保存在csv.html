@@ -1,0 +1,111 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python实战项目 — 爬取中国票房网年度电影信息并保存在csv' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python实战项目 — 爬取中国票房网年度电影信息并保存在csv</center></div><div class='banquan'>原文出处:本文由博客园博主羊肉串552提供。<br/>
+原文连接:https://www.cnblogs.com/chen-jun552/p/11310187.html</div><br>
+    <p><span style="font-size: 16px;">&nbsp;</span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<div class="cnblogs_Highlighter">
+<pre><code>import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import time
+
+
+def spider(url, headers):
+    print("正在抓取url:  " + url)
+    datas = requests.get(url=url, headers=headers).text
+    # 解析url
+    soup = BeautifulSoup(datas, 'lxml')
+    # 获取数据集合，find_all 返回的是集合类型，所以取[0], 找table标签下 的 属性是 id：tbContent
+    moives_tables = soup.find_all('table', {'id': 'tbContent'})[0]
+    # 获取每一个子节点 tr标签
+    moives = moives_tables.findAll('tr')
+    # 获取电影名字，电影名字在每个tr标签里面的第一个td标签里面，由于是有多个td所以要用for遍历
+    names = [tr.find_all('td')[0].a.get('title') for tr in moives[1:]]
+    # 获取电影的详情页url地址，而且下面提供给获取导演使用，因为导演信息不在主页面上
+    hrefs = [tr.find_all('td')[0].a.get('href') for tr in moives[1:]]
+    # 获取电影类型
+    types = [tr.find_all('td')[1].string for tr in moives[1:]]
+    # 获取票房数据
+    box_offices = [int(tr.find_all('td')[2].string) for tr in moives[1:]]
+    # 获取平均票价
+    Average_fare = [tr.find_all('td')[3].string for tr in moives[1:]]
+    # 获取上映日期
+    show_time = [tr.find_all('td')[6].string for tr in moives[1:]]
+    # print(names, hrefs, types, box_offices, Average_fare, show_time)
+    # print(len(hrefs))
+    daoyans = []
+    for href in hrefs:
+        try:
+            daoyan_datas = requests.get(href)
+            # 出现错误的原因是因为这里的daoyan_datas是requests对象，无法用BeautifulSoup解析，可以在daoyan_datas后面加上content
+            soup = BeautifulSoup(daoyan_datas.content, 'lxml')
+            # 获取导演，由于数据是带换行的，所以要用replace("\n","") 取消换行
+            daoyan = soup.select('dl.dltext dd')[0].get_text().replace("\n", "")
+            #print(daoyan)
+            daoyans.append(daoyan)
+            #print(len(daoyans))
+            time.sleep(0.5)
+        except:
+            daoyans.append("获取失败")
+    # 数据拼接,得到的数据类型是  &lt;class 'pandas.core.frame.DataFrame'&gt; ，所以要用 DataFrame() 函数来写入excel
+    df = pd.DataFrame({
+        'name': names,
+        'href': hrefs,
+        'type': types,
+        'box_office': box_offices,
+        'Average_fare': Average_fare,
+        'show_time': show_time,
+        'directors': daoyans
+    })
+    download(df)
+
+
+'''
+问题是不能连续存储，都是重新创建文件csv, os文件操作 mode='a'
+'''
+def download(df):
+    df.to_csv('D://box_office.csv', mode='a', index=False, header=False)
+    print("done")
+
+
+if __name__ == "__main__":
+    start_time = time.time()
+    headers = {
+        'Cookie': 'Hm_lvt_daabace29afa1e8193c0e3000d391562=1570691612; Hm_lpvt_daabace29afa1e8193c0e3000d391562=1570691612',
+        'Host': 'www.cbooo.cn',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
+    }
+    base_url = "http://www.cbooo.cn/year?year="
+    for i in range(2008, 2020):
+        url = base_url + str(i)
+        spider(url, headers)
+        time.sleep(2)
+print(round((time.time() - start_time), 3))
+</pre>
+</div>
+<p>　　</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

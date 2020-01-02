@@ -1,0 +1,219 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修用Python帮你实现IP子网计算' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>用Python帮你实现IP子网计算</center></div><div class='banquan'>原文出处:本文由博客园博主Singvis提供。<br/>
+原文连接:https://www.cnblogs.com/singvis/p/11604432.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#前言">0. 前言</a></li>
+        <li><a href="#ipaddress模块介绍">1. ipaddress模块介绍</a><ul>
+        <li><a href="#ip主机地址">1.1 IP主机地址</a></li>
+        <li><a href="#定义网络">1.2 定义网络</a></li>
+        <li><a href="#主机接口">1.3 主机接口</a></li>
+        <li><a href="#检查addressnetworkinterface对象">1.4 检查address/network/interface对象</a><ul>
+        <li><a href="#检查ip版本v4或者v6">1.4.1 检查IP版本(v4或者v6)：</a></li>
+        <li><a href="#从接口ip获取网段">1.4.2 从接口IP获取网段</a></li>
+        <li><a href="#计算网段有多少个ip地址">1.4.3 计算网段有多少个IP地址</a></li>
+        <li><a href="#计算网段有多少个可用ip地址">1.4.4 计算网段有多少个可用IP地址</a></li>
+        <li><a href="#获取掩码与反掩码">1.4.5 获取掩码与反掩码</a></li>
+        </ul></li>
+        <li><a href="#获取网络号与广播地址">1.6 获取网络号与广播地址</a></li>
+        <li><a href="#异常处理">1.7 异常处理</a></li>
+        </ul></li>
+        <li><a href="#计算ip子网代码演示">2. 计算IP子网代码演示</a><ul>
+        <li><a href="#完整代码">2.1 完整代码</a></li>
+        <li><a href="#运行结果">2.2 运行结果</a></li>
+        </ul></li>
+        <li><a href="#碎碎语">3. 碎碎语</a><ul>
+        <li><a href="#官方参考文档">3.1 官方参考文档</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="前言">0. 前言</h1>
+<p>IP地址目前存在两个版本：IPv4和IPv6，平常我们见到最多的就是IPv4了，如<code>192.168.1.1/24</code>，当然,IPv4地址池资源紧缺，IPv6已悄然大量部署了。</p>
+<p>我们在设计网络架构时必须要对设备互联地址、环回地址、业务地址进行规划，那怎么规划？给你一个A类地址你怎么办？最重要是不是得计算？口算怕不准确吧？心算行不行，就不怕你没这本事，哈哈！</p>
+<p>下面请用python帮你搞定这一切吧！</p>
+<h1 id="ipaddress模块介绍">1. ipaddress模块介绍</h1>
+<h2 id="ip主机地址">1.1 IP主机地址</h2>
+<p><strong>说明：不带掩码</strong></p>
+<p>怎么判断是ipv4地址，还是ipv6地址呢？使用<code>ipaddress.ip_address()</code> 函数可以来知晓:</p>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_address(&#39;192.168.1.1&#39;)
+IPv4Address(&#39;192.168.1.1&#39;)
+&gt;&gt;&gt; ipaddress.ip_address(&#39;192.168.1.1&#39;).version
+4
+
+&gt;&gt;&gt; ipaddress.ip_address(&#39;fe80::1&#39;)
+IPv6Address(&#39;fe80::1&#39;)
+&gt;&gt;&gt; ipaddress.ip_address(&#39;fe80::1&#39;).version
+6</code></pre>
+<p>如果带上掩码就会报错：</p>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_address(&#39;192.168.1.1/32&#39;)
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;/usr/lib/python3.5/ipaddress.py&quot;, line 54, in ip_address
+    address)
+ValueError: &#39;192.168.1.1/32&#39; does not appear to be an IPv4 or IPv6 address</code></pre>
+<h2 id="定义网络">1.2 定义网络</h2>
+<p><strong>说明：表示网段</strong></p>
+<p>一个IP地址，通常由网络号+网络前缀组成，如<code>192.168.1.0/24</code>,可以通过<code>ipaddress.ip_network</code>函数来表示，缺省情况下，python只能识别网络号，如果是IP主机就会报错，当然你可以通过<code>strict=False</code>来避免。</p>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.0/24&#39;)
+IPv4Network(&#39;192.168.1.0/24&#39;)
+
+#缺省，输入主机位就会报错
+&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.1/24&#39;)
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;/usr/lib/python3.5/ipaddress.py&quot;, line 74, in ip_network
+    return IPv4Network(address, strict)
+  File &quot;/usr/lib/python3.5/ipaddress.py&quot;, line 1536, in __init__
+    raise ValueError(&#39;%s has host bits set&#39; % self)
+ValueError: 192.168.1.1/24 has host bits set  #提示是主机IP
+
+#修改位非严格模式，缺省为strict=True
+&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.1/24&#39; , strict=False)
+IPv4Network(&#39;192.168.1.0/24&#39;)   #返回网络号</code></pre>
+<h2 id="主机接口">1.3 主机接口</h2>
+<p><strong>说明：表示接口地址(ip/掩码)</strong><br />
+一般在路由器、交换机、防火墙接口上配置IP地址，格式如192.168.1.1/24，如果使用以上<code>ipaddress.ip_address()</code>和<code>ipaddress.ip_network</code>函数的话，就不太好表示，那么可以通过<code>ipaddress.ip_interface()</code>函数类表示。</p>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_interface(&#39;192.168.1.1/24&#39;)
+IPv4Interface(&#39;192.168.1.1/24&#39;)</code></pre>
+<h2 id="检查addressnetworkinterface对象">1.4 检查address/network/interface对象</h2>
+<h3 id="检查ip版本v4或者v6">1.4.1 检查IP版本(v4或者v6)：</h3>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_address(&#39;192.168.1.1&#39;).version
+4
+&gt;&gt;&gt; ipaddress.ip_address(&#39;fe80::1&#39;).version
+6</code></pre>
+<h3 id="从接口ip获取网段">1.4.2 从接口IP获取网段</h3>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_interface(&#39;192.168.1.1/24&#39;).network
+IPv4Network(&#39;192.168.1.0/24&#39;)
+
+&gt;&gt;&gt; ipaddress.ip_interface(&#39;fe80::/64&#39;).network
+IPv6Network(&#39;fe80::/64&#39;)</code></pre>
+<h3 id="计算网段有多少个ip地址">1.4.3 计算网段有多少个IP地址</h3>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.0/24&#39;).num_addresses
+256
+
+&gt;&gt;&gt; ipaddress.ip_network(&#39;fe80::/64&#39;).num_addresses
+18446744073709551616</code></pre>
+<h3 id="计算网段有多少个可用ip地址">1.4.4 计算网段有多少个可用IP地址</h3>
+<pre><code><code>&gt;&gt;&gt; net = ipaddress.ip_network(&#39;192.168.1.0/24&#39;)
+&gt;&gt;&gt; for x in net.hosts():
+...     print(x)
+... 
+192.168.1.1
+192.168.1.2
+    ...
+192.168.1.100
+192.168.1.101
+    ...
+192.168.1.254
+
+&gt;&gt;&gt; [x for x in net.hosts()][0]     #获取第一个可用IP
+IPv4Address(&#39;192.168.1.1&#39;)
+&gt;&gt;&gt; [x for x in net.hosts()][-1]    #获取最后一个可用IP
+IPv4Address(&#39;192.168.1.254&#39;)</code></pre>
+<h3 id="获取掩码与反掩码">1.4.5 获取掩码与反掩码</h3>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.1/24&#39; , strict=False).netmask
+IPv4Address(&#39;255.255.255.0&#39;)    #获取掩码
+
+&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.1/24&#39; , strict=False).hostmask
+IPv4Address(&#39;0.0.0.255&#39;)    #获取反掩码</code></pre>
+<h2 id="获取网络号与广播地址">1.6 获取网络号与广播地址</h2>
+<pre><code><code>&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.1/24&#39; , strict=False).network_address
+IPv4Address(&#39;192.168.1.0&#39;)      #获取网络号
+
+&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.1/24&#39; , strict=False).broadcast_address
+IPv4Address(&#39;192.168.1.255&#39;)    #获取广播地址</code></pre>
+<h2 id="异常处理">1.7 异常处理</h2>
+<p>如果遇到IP地址格式不符合要求等这些情况，那怎么处理呢？</p>
+<pre><code><code>#错误显示,报&quot;ValueError&quot;
+&gt;&gt;&gt; ipaddress.ip_network(&#39;192.168.1.1/24&#39;)
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+  File &quot;/usr/lib/python3.5/ipaddress.py&quot;, line 74, in ip_network
+    return IPv4Network(address, strict)
+  File &quot;/usr/lib/python3.5/ipaddress.py&quot;, line 1536, in __init__
+    raise ValueError(&#39;%s has host bits set&#39; % self)
+ValueError: 192.168.1.1/24 has host bits set
+
+#通过try-except语句来处理异常情况
+&gt;&gt;&gt; import ipaddress
+&gt;&gt;&gt; def cal_ip(net):
+...     try:
+...         net = ipaddress.ip_network(net)
+...         print(net)
+...     except ValueError:
+...         print(&#39;您输入格式有误，请检查！&#39;)
+... 
+&gt;&gt;&gt; cal_ip(net = &#39;192.168.1.1/24&#39;)
+您输入格式有误，请检查！</code></pre>
+<h1 id="计算ip子网代码演示">2. 计算IP子网代码演示</h1>
+<h2 id="完整代码">2.1 完整代码</h2>
+<pre><code><code>#!/usr/bin/env python3
+#-*- coding:UTF-8 -*-
+#欢迎关注微信公众号：点滴技术
+
+import ipaddress
+
+def cal_ip(ip_net):
+    try:
+        net = ipaddress.ip_network(ip_net, strict=False)
+        print(&#39;IP版本号： &#39; + str(net.version))
+        print(&#39;是否是私有地址： &#39; + str(net.is_private))
+        print(&#39;IP地址总数: &#39; + str(net.num_addresses))
+        print(&#39;可用IP地址总数： &#39; + str(len([x for x in net.hosts()])))
+        print(&#39;网络号： &#39; + str(net.network_address))
+        print(&#39;起始可用IP地址： &#39; + str([x for x in net.hosts()][0]))
+        print(&#39;最后可用IP地址： &#39; + str([x for x in net.hosts()][-1]))
+        print(&#39;可用IP地址范围： &#39; + str([x for x in net.hosts()][0]) + &#39; ~ &#39; + str([x for x in net.hosts()][-1]))
+        print(&#39;掩码地址： &#39; + str(net.netmask))
+        print(&#39;反掩码地址： &#39; + str(net.hostmask))
+        print(&#39;广播地址： &#39; + str(net.broadcast_address))
+    except ValueError:
+        print(&#39;您输入格式有误，请检查！&#39;)
+
+if __name__ == &#39;__main__&#39;:
+    ip_net = &#39;192.168.1.1/24&#39;
+    cal_ip(ip_net)</code></pre>
+<h2 id="运行结果">2.2 运行结果</h2>
+<pre><code><code>IP版本号： 4
+是否是私有地址： True
+IP地址总数: 256
+可用IP地址总数： 254
+网络号： 192.168.1.0
+起始可用IP地址： 192.168.1.1
+最后可用IP地址： 192.168.1.254
+可用IP地址范围： 192.168.1.1 ~ 192.168.1.254
+掩码地址： 255.255.255.0
+反掩码地址： 0.0.0.255
+广播地址： 192.168.1.255</code></pre>
+<h1 id="碎碎语">3. 碎碎语</h1>
+<p>怎么样，学完之后是不是很亢奋，不需要借助其他工具进行计算了吧，用python就帮你搞定了。</p>
+<h3 id="官方参考文档">3.1 官方参考文档</h3>
+<p><a href="https://docs.python.org/3.8/howto/ipaddress.html" class="uri">https://docs.python.org/3.8/howto/ipaddress.html</a></p>
+<hr />
+<p>如果喜欢的我的文章，欢迎关注我的公众号：点滴技术，扫码关注，不定期分享</p>
+<p><img src="./images/用Python帮你实现IP子网计算0.png" alt="点滴技术" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

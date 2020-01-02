@@ -1,0 +1,152 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS</center></div><div class='banquan'>原文出处:本文由博客园博主饭勺oO提供。<br/>
+原文连接:https://www.cnblogs.com/fanshaoO/p/12054985.html</div><br>
+    <blockquote>
+<p>现在好多使用gitlab-ci的持续集成的教程，大部分都是发布到linux系统上的，但是目前还是有很大一部分企业使用的都是windows系统使用IIS在部署.NET应用程序。这里写一下如何使用gitlab-ci配合gitlab-runner持续集成到IIS吧。</p>
+</blockquote>
+<h2 id="安装gitlab">安装gitlab</h2>
+<p>网上有很多安装gitlab的方法，这里推荐使用docker安装，真的超级超级方便。<br />
+这里有一篇文章<br />
+docker安装配置gitlab详细过程<br />
+<a href="https://www.cnblogs.com/zuxing/articles/9329152.html" class="uri">https://www.cnblogs.com/zuxing/articles/9329152.html</a><br />
+这里就不细说了。毕竟重点不是说怎么安装gitlab哈哈哈。</p>
+<h2 id="配置windows服务器环境">配置windows服务器环境</h2>
+<ol>
+<li>windows配置IIS环境</li>
+<li>需要在服务器安装Node，yarn，git，dotnet2.2-sdk，dotnet-hosting。所需安装包如下图所示（自己去找下载链接哈哈哈）：<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS0.png" /></li>
+</ol>
+<p>第一次需要手动使用git配置用户密码，否则无法拉取gitlab上的代码。<br />
+单独使用git clone命令，将代码拉取下来。成功验证完用户权限信息后可删除文件。</p>
+<h2 id="在windows服务器上安装gitlab-runner">在windows服务器上安装gitlab-runner</h2>
+<blockquote>
+<p>这里说一下为什么选gitlab-runner，不使用jenkins。（两种方式我都尝试过）<br />
+jenkins很强大很好，不需要自己安装编译环境，直接可以集成各种编译环境。但是需要额外部署一个jenkins服务，和gitlab服务分开，需要gitlab的webhooks触发事件。（没有运维团队一个人用的话觉得比较麻烦）<br />
+而gitlab-runner在windows环境把编译环境安装完，直接启动一个服务，把gitlab-runner注册到gitlab上即可。</p>
+</blockquote>
+<p>在服务器上安装gitlab-runner<br />
+下载地址<br />
+<a href="https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-windows-amd64.exe" class="uri">https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-windows-amd64.exe</a></p>
+<p>在服务器中创建gitlab-runner目录，将下载好的gitlab-runner.exe放入，打开CMD。执行安装命令，gitlab-runner.exe install</p>
+<p>其他操作系统安装方式查看 <a href="https://docs.gitlab.com/runner/install/" class="uri">https://docs.gitlab.com/runner/install/</a></p>
+<p>注册gitlab-runner到私有gitlab，执行命令gitlab-runner.exe register</p>
+<p>打开http://gitlabserver/admin/runners 查看gitlab-runner注册时所需的url以及注册token。<br />
+./gitlab-runner.exe register</p>
+<ul>
+<li>第一步填入URL</li>
+</ul>
+<pre><code><code>Please enter the gitlab-ci coordinator URL (e.g. https://gitlab.com )
+http://gitlabserver/</code></pre>
+<ul>
+<li>第二步填入token</li>
+</ul>
+<pre><code><code>Please enter the gitlab-ci token for this runner
+xxx</code></pre>
+<ul>
+<li>第三步填入runner描述</li>
+</ul>
+<pre><code><code>Please enter the gitlab-ci description for this runner
+[hostname] my-runner</code></pre>
+<ul>
+<li>第四步填入runner标签</li>
+</ul>
+<pre><code><code>Please enter the gitlab-ci tags for this runner (comma separated):
+my-tag,another-tag</code></pre>
+<ul>
+<li>第五步选择runner执行环境</li>
+</ul>
+<pre><code><code>Please enter the executor: ssh, docker+machine, docker-ssh+machine, kubernetes, docker, parallels, virtualbox, docker-ssh, shell:
+Shell</code></pre>
+<p>因为是直接部署到IIS，所以没有选择docker容器的方式。<br />
+这里是windows服务器所以使用powershell作为默认shell执行环境<br />
+启动gitlab-runner<br />
+执行命令gitlab-runner.exe start即可启动。</p>
+<h2 id="配置gitlab-ci.yml">配置gitlab-ci.yml</h2>
+<p>使用gitlab-ci需要在项目跟路径添加.gitlab-ci.yml文件，在文件中添加CI所需要的命令。<br />
+详细的命令参数在此页面可查看http://gitlabserver/help/ci/yaml/README<br />
+每一个最高级的名字分别表示一个任务。<br />
+before_script和after_script中的指令是在管道执行前后所运行的指令。<br />
+gitlab-ci中默认有三个管道，执行顺序分别是build，test，deploy，同一个stage的任务是并行执行的。<br />
+这里我们只需要配置执行的编译发布脚本即可，一步到位哈哈哈，当然也可以分几个步骤，这里我偷懒了哈哈哈<br />
+Script下表示需要执行的命令。Only表示限定哪个分支可以触发。<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS1.png" /></p>
+<h2 id="超简单只要会写powershell脚本即可">超简单！只要会写powershell脚本即可</h2>
+<p>这里配合IIS的话我们直接将编译完的发布文件拷贝到IIS的站点目录下即可。<br />
+为了方便，将powershell脚本单独编写到build.ps1文件中，下面针对52ABP前后端分离项目编写如下powershell脚本。</p>
+<pre><code><code># COMMON PATHS
+$buildFolder = (Get-Item -Path &quot;./&quot; -Verbose).FullName
+$slnFolder = Join-Path $buildFolder &quot;src/aspnet-core&quot;
+$webHostFolder = Join-Path $slnFolder &quot;src/Web.Host&quot;
+$ngFolder = Join-Path $buildFolder &quot;src/angular&quot;
+Set-Location /
+$rootFolder = (Get-Item -Path &quot;./&quot; -Verbose).FullName
+$outputFolder = Join-Path $rootFolder &quot;publish&quot;
+$endOutputFolder = Join-Path $outputFolder &quot;Host&quot;
+$fontOutputFolder = (Join-Path $outputFolder &quot;ng&quot;)
+
+## RESTORE NUGET PACKAGES #####################################################
+echo &quot;开始还原后台&quot;
+Set-Location $slnFolder
+dotnet restore
+echo &quot;还原后台结束&quot;
+## PUBLISH WEB HOST PROJECT ###################################################
+echo &quot;开始发布后台，发布目录为：&quot;$endOutputFolder
+Set-Location $webHostFolder
+dotnet publish --output $endOutputFolder
+echo &quot;发布后台结束&quot;
+## PUBLISH ANGULAR UI PROJECT #################################################
+echo &quot;开始发布前端，发布目录为：&quot;$fontOutputFolder
+Set-Location $ngFolder
+&amp; yarn
+&amp; yarn build
+Remove-Item $fontOutputFolder -Force -Recurse -ErrorAction Ignore
+Copy-Item (Join-Path $ngFolder &quot;dist&quot;) $fontOutputFolder -Recurse
+echo &quot;发布前端结束&quot;</code></pre>
+<p>将.gitlab-ci.yml和build.ps1文件放入项目根目录，提交文件。<br />
+Gitlab-CI识别到.gitlab.yml文件后会自动执行CI脚本。</p>
+<p><img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS2.png" /><br />
+大佬说这里脚本写的有点弱，菜鸡水平没办法，powershell写的牛逼的可以直接操作IIS的API哈哈哈，这里我就不会了哈哈哈</p>
+<h2 id="配置iis环境">配置IIS环境</h2>
+<p>Asp.net core发布到IIS需要安装Hosting Bundle，安装后，在IIS上添加网站，配置好基本目录信息后，修改应用程序池，选择无托管代码。<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS3.png" /><br />
+将asp.net core网站目录指向发布目录即可自动运行。</p>
+<p>IIS配置angular前端环境。<br />
+由于angular是单页面前端项目，所以需要配置URL重写，否则页面刷新会出现404。<br />
+在IIS中安装URL重写功能，若没有，可以通过Web平台安装程序安装功能。<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS4.png" /></p>
+<p>在angular项目的src目录下添加web.config文件，添加如下内容。<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS5.png" /><br />
+然后在前端项目根路径的angular.json文件中添加如下配置，将web.config配置成在发布时复制过去。<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS6.png" /><br />
+在IIS添加网站配置好后，将发布后的静态文件复制到网站目录即可。<br />
+这些复制的步骤直接可以通过powershell脚本自动化执行。</p>
+<h2 id="结果截图">结果截图</h2>
+<p>下图就是我折腾过程中执行的截图<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS7.png" /></p>
+<h2 id="thats-all">That's all</h2>
+<p>看完是不是觉得好简单的样子哈哈哈，只需要安装好相应的编译环境，然后写一下powershell脚本就行了，所以只要会写powershell脚本，那其他都不是问题了是吧~~<br />
+觉得写的不好的话，大佬们有意见欢迎评论吐槽~~~<br />
+<img src="./images/超简单！asp.net core前后端分离项目使用gitlab-ci持续集成到IIS8.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

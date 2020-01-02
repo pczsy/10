@@ -1,0 +1,155 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修垃圾回收机制' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>垃圾回收机制</center></div><div class='banquan'>原文出处:本文由博客园博主626提供。<br/>
+原文连接:https://www.cnblogs.com/fengqiang626/p/11700986.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#引用计数器">1. 引用计数器</a></li>
+        <li><a href="#循环引用">2. 循环引用</a></li>
+        <li><a href="#标记清除分代回收">3. 标记清除&amp;分代回收</a></li>
+        </ul>
+    </div>
+</div>
+<p><strong>Python的垃圾回收机制是以：引用计数器为主，标记清除和分代回收为辅。</strong></p>
+<h2 id="引用计数器">1. 引用计数器</h2>
+<p>每个对象内部都维护了一个值，该值记录这此对象被引用的次数，如果次数为0，则Python垃圾回收机制会自动清除此对象。下图是Python源码中引用计数器存储的代码。</p>
+<p><img src="./images/垃圾回收机制0.png" /></p>
+<p><strong>引用计数器的获取及代码示例：</strong></p>
+<pre><code><code>import sys
+ 
+# 在内存中创建一个字符串对象&quot;Jedan&quot;，对象引用计数器的值为：1
+nick_name = &#39;Jedan&#39;
+ 
+# 应该输入2，实际输出2，因为getrefcount方法时把 nick_name 当做参数传递了，引发引用计数器+1，所以打印时值为：2
+# 注意：getrefcount 函数执行完毕后，会自动-1，所以本质上引用计数器还是1.
+print(sys.getrefcount(nick_name))
+ 
+# 变量 real_name 也指向的字符串对象&quot;Jedan&quot;，即：引用计数器再 +1，所以值为：2
+real_name = nick_name
+ 
+# 应该输出2，实际输出3. 因为getrefcount方法时把 real_name 当做参数传递了，引发引用计数器+1，所以打印时值为：3
+# 注意：getrefcount 函数执行完毕后，会自动-1，所以本质上引用计数器还是2.
+print(sys.getrefcount(nick_name))
+ 
+# 删除reald_name变量，并让其指向对象中的引用计数器-1
+del real_name
+ 
+# 应该输出1，实际输出2，因为getrefcount方法时把 real_name 当做参数传递了，引发引用计数器+1，所以打印时值为：2.
+print(sys.getrefcount(nick_name))
+ 
+ 
+# ############ getrefcount 注释信息 ############
+&#39;&#39;&#39;
+def getrefcount(p_object): # real signature unknown; restored from __doc__
+    &quot;&quot;&quot;
+    getrefcount(object) -&gt; integer
+     
+    Return the reference count of object.  The count returned is generally
+    one higher than you might expect, because it includes the (temporary)
+    reference as an argument to getrefcount().
+    &quot;&quot;&quot;
+    return 0
+&#39;&#39;&#39;</code></pre>
+<h2 id="循环引用">2. 循环引用</h2>
+<p>通过引用计数器的方式基本上可以完成Python的垃圾回收，但它还是具有明显的缺陷，即：<strong>“循环引用”</strong> 。</p>
+<pre><code><code>#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+import gc
+import objgraph
+ 
+ 
+class Foo(object):
+    def __init__(self):
+        self.data = None
+ 
+ 
+# 在内存创建两个对象，即：引用计数器值都是1
+obj1 = Foo()
+obj2 = Foo()
+ 
+# 两个对象循环引用，导致内存中对象的应用+1，即：引用计数器值都是2
+obj1.data = obj2
+obj2.data = obj1
+ 
+# 删除变量，并将引用计数器-1。
+del obj1
+del obj2
+ 
+# 关闭垃圾回收机制，因为python的垃圾回收机制是：引用计数器、标记清除、分代回收 配合已解决循环引用的问题，关闭他便于之后查询内存中未被释放对象。
+gc.disable()
+ 
+# 至此，由于循环引用导致内存中创建的obj1和obj2两个对象引用计数器不为0，无法被垃圾回收机制回收。
+# 所以，内存中Foo类的对象就还显示有2个。
+print(objgraph.count(&#39;Foo&#39;))</code></pre>
+<p><strong>注意：</strong>gc.collect() 可以主动触发垃圾回收；</p>
+<p>循环引用的问题会引发内存中的对象一直无法释放，从而内存逐渐增大，最终导致内存泄露。</p>
+<p>为了解决循环引用的问题，Python又在引用计数器的基础上引入了标记清除和分代回收的机制。</p>
+<p>so，不必再担心循环引用的问题了。</p>
+<p>Reference cycles involving lists, tuples, instances, classes, dictionaries, and functions are found.</p>
+<p>Python GC 源码文档：<a href="http://www.arctrix.com/nas/python/gc/" class="uri">http://www.arctrix.com/nas/python/gc/</a></p>
+<h2 id="标记清除分代回收">3. 标记清除&amp;分代回收</h2>
+<p>Python为了解决循环引用，针对 lists, tuples, instances, classes, dictionaries, and functions 类型，每创建一个对象都会将对象放到一个双向链表中，每个对象中都有 _ob_next 和 _ob_prev 指针，用于挂靠到链表中。</p>
+<pre><code><code>/* Nothing is actually declared to be a PyObject, but every pointer to
+ * a Python object can be cast to a PyObject*.  This is inheritance built
+ * by hand.  Similarly every pointer to a variable-size Python object can,
+ * in addition, be cast to PyVarObject*.
+ */
+typedef struct _object {
+    _PyObject_HEAD_EXTRA # 双向链表
+    Py_ssize_t ob_refcnt;
+    struct _typeobject *ob_type;
+} PyObject;
+ 
+typedef struct {
+    PyObject ob_base;
+    Py_ssize_t ob_size; /* Number of items in variable part */
+} PyVarObject;
+ 
+ 
+/* Define pointers to support a doubly-linked list of all live heap objects. */
+#define _PyObject_HEAD_EXTRA            \
+    struct _object *_ob_next;           \
+    struct _object *_ob_prev;</code></pre>
+<p>随着对象的创建，该双向链表上的对象会越来越多。</p>
+<ul>
+<li>当对象个数超过 700个 时，Python解释器就会进行垃圾回收。</li>
+<li>当代码中主动执行 gc.collect() 命令时，Python解释器就会进行垃圾回收。</li>
+</ul>
+<pre><code><code>import gc
+ 
+gc.collect()</code></pre>
+<p>Python解释器在垃圾回收时，会遍历链表中的每个对象，如果存在循环引用，就将存在循环引用的对象的引用计数器 -1，同时Python解释器也会将计数器等于0（可回收）和不等于0（不可回收）的一分为二，把计数器等于0的所有对象进行回收，把计数器不为0的对象放到另外一个双向链表表（即：分代回收的下一代）。</p>
+<p><strong>关于分代回收（generations）：</strong></p>
+<p>The GC classifies objects into three generations depending on how many collection sweeps they have survived. New objects are placed in the youngest generation (generation <code>0</code>). If an object survives a collection it is moved into the next older generation. Since generation <code>2</code> is the oldest generation, objects in that generation remain there after a collection. In order to decide when to run, the collector keeps track of the number object allocations and deallocations since the last collection. When the number of allocations minus the number of deallocations exceeds <em>threshold0</em>, collection starts. Initially only generation <code>0</code> is examined. If generation <code>0</code> has been examined more than <em>threshold1</em> times since generation <code>1</code> has been examined, then generation <code>1</code> is examined as well. Similarly, <em>threshold2</em> controls the number of collections of generation <code>1</code> before collecting generation <code>2</code>.</p>
+<pre><code><code># 默认情况下三个阈值为 (700,10,10) ，也可以主动去修改默认阈值。
+import gc
+ 
+gc.set_threshold(threshold0[, threshold1[, threshold2]])</code></pre>
+<p><strong>官方文档： </strong><a href="https://docs.python.org/3/library/gc.html" class="uri">https://docs.python.org/3/library/gc.html</a></p>
+<p><strong>参考文档：</strong></p>
+<p>　　<a href="http://www.wklken.me/posts/2015/09/29/python-source-gc.html" class="uri">http://www.wklken.me/posts/2015/09/29/python-source-gc.html</a></p>
+<p>　　<a href="https://yq.aliyun.com/users/yqzdoezsuvujg/album?spm=a2c4e.11155435.0.0.d07467451AwRxO" class="uri">https://yq.aliyun.com/users/yqzdoezsuvujg/album?spm=a2c4e.11155435.0.0.d07467451AwRxO</a></p>
+<p>Python的垃圾回收机制是以：引用计数器为主，标记清除和分代回收为辅。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

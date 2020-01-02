@@ -1,0 +1,106 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修一、初识asyncio协程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>一、初识asyncio协程</center></div><div class='banquan'>原文出处:本文由博客园博主西瓜你个兔子提供。<br/>
+原文连接:https://www.cnblogs.com/FuckSpider/p/11555970.html</div><br>
+    <h3 id="初识asyncio协程">初识asyncio协程</h3>
+<h4 id="一基本概念">一、基本概念</h4>
+<p>​ 要想了解学习协程相关知识要先对以下几个概念先行了解：</p>
+<ul>
+<li><p><strong>阻塞</strong></p>
+<p>​ 阻塞状态是指程序未得到某所需计算资源时的挂起状态，简单说就是程序在等待某个操作未执行完前无法执行其他操作。</p></li>
+<li><p><strong>非阻塞</strong></p>
+<p>​ 非阻塞状态是指在等待某项操作执行完前可以继续运行其他操作，也就是不会被阻塞。</p></li>
+<li><p><strong>同步</strong></p>
+<p>​ 不同程序单元为了完成某项任务，在执行过程中以某种通信方式保证协调一致，假如有一个售票窗口，你必须等前面的人买完票，轮到你才能买，简言之同步意味着有序。</p></li>
+<li><p><strong>异步</strong></p>
+<p>​ 不同程序单元为了完成某项任务，在执行过程中无需进行通信也能完成任务，例如爬虫，只要抓取目标url即可，无需关心其它抓取目标，简言之异步意味着无序。</p></li>
+<li><p><strong>并发</strong></p>
+<p>​ 简单说就是操作系统在处理多个任务时快速切换，例如你在看电视时来电话了，此时你选择关闭电视，接完电话再打开看，这样的过程就是并发；</p></li>
+<li><p><strong>并行</strong></p>
+<p>​ 简单说就是操作系统同时处理多个任务，例如你在看电视时来电话了，此时你选择边看电视边接电话，这样的过程就是并行。</p></li>
+<li><p><strong>协程</strong></p>
+<p>​ 协程拥有自己的寄存器上下文和栈。协程调度切换时，将寄存器上下文和栈保存到其他地方，在切回来的时候，恢复先前保存的寄存器上下文和栈。因此协程能保留上一次调用时的状态，即所有局部状态的一个特定组合，每次过程重入时，就相当于进入上一次调用的状态。</p></li>
+</ul>
+<h4 id="二asyncio-异步io">二、asyncio 异步I/O</h4>
+<p>​ <code>asyncio</code>是用来编写并发代码的库，被用作多个提供高性能异步框架的基础，往往是构建I/O密集型和高层级结构化网络代码的最佳选择。</p>
+<p>​ 在了解<code>asyncio</code>的使用方法前，首先有必要先介绍一下，这几个贯穿始终的概念：</p>
+<ul>
+<li><p><strong>event_loop事件循环：</strong>程序开启一个无限的事件循环，程序员会把一些函数注册到事件循环上。当满足事件发生的时候，调用相应的协程函数。</p></li>
+<li><p><strong>coroutine协程：</strong>协程对象，指一个使用<code>async</code>关键字定义的函数，它的调用不会立即执行函数，而是会返回一个协程对象。协程对象需要注册到事件循环，由事件循环调用。</p></li>
+<li><p><strong>task任务：</strong>一个协程对象就是一个原生可以挂起的函数，任务则是对协程进一步封装，其中包含任务的各种状态。</p></li>
+<li><p><strong>future对象：</strong>代表将来执行或没有执行的任务的结果，与<code>task</code>没有本质上的区别。</p></li>
+<li><p><strong>async/await关键字：</strong><code>python3.5</code> 用于定义协程的关键字，<code>async</code>定义一个协程，<code>await</code>用于挂起阻塞的异步调用接口。</p></li>
+</ul>
+<h4 id="三定义一个协程">三、定义一个协程</h4>
+<p>​ 干看概念总归是难以理解并记住的，下面动手来实现一个协程</p>
+<pre><code><code>from collection.abc import Coroutine
+
+async def a(name):
+    print(&#39;hello&#39;,name)
+
+if __name__ == &#39;__main__&#39;:
+    test = a(&#39;world&#39;)   # 输出 hello world
+    print(isinstance(test,Coroutine))  # 输出 True</code></pre>
+<p>通过以上的实例我们就完成了一个最简单的协程，可以发现其与普通函数不同的仅仅是在函数名前加了<code>async</code></p>
+<h4 id="四协程的工作流程">四、协程的工作流程</h4>
+<p>一个完整的协程工作流程如下：</p>
+<ul>
+<li><p>定义/创建一个协程对象</p></li>
+<li>将协程转为<code>task</code>任务</li>
+<li>定义事件循环容器</li>
+<li><p>将task任务放到事件循环容器触发</p></li>
+</ul>
+<p>参照下面示例可以完整了解这个流程：</p>
+<pre><code><code>import asyncio
+
+async def a(name):  # 定义一个协程
+    print(&#39;hello&#39;,name)
+
+if __name__ == &quot;__main__&quot;:
+    coroutine = a(&#39;world&#39;)  # 第一步，定义一个协程对象
+    task = asyncio.ensure_future(coroutine)  # 第二步，将协程转换成task任务
+    loop = asyncio.get_event_loop()  # 第三步，定义一个事件循环容器
+    loop.run_until_complete(task)  # 第四步，将task任务放到事件循环容器</code></pre>
+<h4 id="五阻塞和await">五、阻塞和await</h4>
+<p>​ 在程序运行过程中遇到耗时的操作时会挂起该协程，转而执行别的协程，当挂起的协程运行完毕时再从别的协程切换回去，不等当前这个协程运没运行完毕。举个例子：假如有协程A和协程B，当协程A遇到阻塞耗时的操作时便转向运行协程B，当协程A的耗时操作结束再从协程B切换回去，不管协程B有没有运行完毕。</p>
+<p>​ 由前面<code>asyncio</code>的概念可以知道，使用<code>await</code>可以挂起一个协程。</p>
+<pre><code><code>import asyncio
+
+async def a(name):
+    await asyncio.sleep(3)  # 模拟耗时的操作，不用time.sleep是因为time模块不支持异步
+    print(&#39;hello&#39;,name)
+    
+if __name__ == &quot;__main__&quot;:
+    coroutine = a(&#39;world&#39;)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(coroutine)</code></pre>
+<p>补充说明<code>await</code>后面的对象必须的格式：</p>
+<ul>
+<li>原生协程（coroutine）对象</li>
+<li>一个由types.coroutine()修饰的生成器</li>
+<li>一个<strong>包含_await方法的对象</strong>返回的一个迭代器<br />
+<strong>简言之就是协程，任务，Future三种</strong></li>
+</ul>
+<p>总结：至此我们已经初步了解了什么是异步，什么是<code>asyncio</code>，以及协程的工作流程，并进行了实践。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

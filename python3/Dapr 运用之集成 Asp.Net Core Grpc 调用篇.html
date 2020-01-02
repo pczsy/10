@@ -1,0 +1,449 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Dapr 运用之集成 Asp.Net Core Grpc 调用篇' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Dapr 运用之集成 Asp.Net Core Grpc 调用篇</center></div><div class='banquan'>原文出处:本文由博客园博主Zhang_Xiang提供。<br/>
+原文连接:https://www.cnblogs.com/Zhang-Xiang/p/12061268.html</div><br>
+    <p>前置条件： <a href="https://www.cnblogs.com/Zhang-Xiang/p/12035354.html">《Dapr 运用》</a></p>
+<hr />
+<h2 id="改造-productservice-以提供-grpc-服务">改造 ProductService 以提供 gRPC 服务</h2>
+<ol>
+<li><p>从 NuGet 或程序包管理控制台安装 gRPC 服务必须的包</p>
+<ul>
+<li>Grpc.AspNetCore</li>
+</ul></li>
+<li>配置 Http/2
+<ul>
+<li><p>gRPC 服务需要 Http/2 协议</p>
+<pre><code><code>public static IHostBuilder CreateHostBuilder(string[] args)
+{
+    return Host.CreateDefaultBuilder(args)
+        .ConfigureWebHostDefaults(webBuilder =&gt;
+        {
+            webBuilder.ConfigureKestrel(options =&gt;
+            {
+                options.Listen(IPAddress.Loopback, 50![](https://img2018.cnblogs.com/blog/757544/201912/757544-20191218205830077-211023565.png)
+01, listenOptions =&gt;
+                {
+                    listenOptions.Protocols = HttpProtocols.Http2;
+                });
+            });
+            webBuilder.UseStartup&lt;Startup&gt;();
+        });
+}</code></pre></li>
+</ul></li>
+<li><p>新建了 product.proto 以定义 GRPC 服务，它需要完成的内容是返回所有产品集合，当然目前产品内容只有一个 ID</p>
+<ul>
+<li><p>定义产品 proto</p>
+<pre class="proto"><code>syntax = &quot;proto3&quot;;
+
+package productlist.v1;
+
+option csharp_namespace = &quot;ProductList.V1&quot;;
+
+service ProductRPCService{
+    rpc GetAllProducts(ProductListRequest) returns(ProductList);
+}
+
+message ProductListRequest{
+
+}
+
+message ProductList {
+    repeated Product results = 1;
+}
+
+message Product {
+    string ID=1;
+}</code></pre>
+说明
+<ul>
+<li>定义产品列表 gRPC 服务，得益于宇宙第一 IDE Visual Studio ，只要添加 Grpc.Tools 包就可以自动生成 gRPC 所需的代码，这里不再需要手动去添加 Grpc.Tools ，官方提供的 Grpc.AspNetCore 中已经集成了</li>
+<li>定义了一个服务 ProductRPCService</li>
+<li>定义了一个函数 ProductRPCService</li>
+<li>定义了一个请求构造 ProductListRequest ，内容为空</li>
+<li>定义了一个请求返回构造 ProductList ，使用 repeated 表明返回数据是集合</li>
+<li>定义了一个数据集合中的一个对象 Product<br />
+</li>
+</ul></li>
+<li><p>添加 ProductListService 文件，内容如下</p>
+<pre><code><code>    public class ProductListService : ProductRPCService.ProductRPCServiceBase
+    {
+        private readonly ProductContext _productContext;
+
+        public ProductListService(ProductContext productContext)
+        {
+            _productContext = productContext;
+        }
+
+        public override async Task&lt;ProductList.V1.ProductList&gt; GetAllProducts(ProductListRequest request, ServerCallContext context)
+        {
+            IList&lt;Product&gt; results = await _productContext.Products.ToListAsync();
+            var productList = new ProductList.V1.ProductList();
+            foreach (Product item in results)
+            {
+                productList.Results.Add(new ProductList.V1.Product
+                {
+                    ID = item.ProductID.ToString()
+                });
+            }
+
+            return productList;
+        }
+    }</code></pre></li>
+</ul></li>
+<li><p>在 Startup.cs 修改代码如下</p>
+<pre><code><code>public void ConfigureServices(IServiceCollection services)
+{
+    //启用 gRPC 服务
+    services.AddGrpc();
+    services.AddTransient&lt;ProductListService&gt;();
+    ...
+}</code></pre>
+<p>这里的 services.AddTransient<ProductListService>(); 的原因是在 Dapr 中需要使用构造器注入，以完成 <code>GetAllProducts(...)</code> 函数的调用</p>
+<pre><code><code>public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+{
+    if (env.IsDevelopment())
+    {
+        app.UseDeveloperExceptionPage();
+    }
+
+    app.UseRouting();
+
+    app.UseEndpoints(endpoints =&gt;
+    {
+        ...
+
+        //添加 gRPC 到路由管道中
+        endpoints.MapGrpcService&lt;DaprClientService&gt;();
+    });
+}</code></pre>
+<p>这里添加的代码的含义分别是启用 gRPC 服务和添加 gRPC 路由。得益于 <code>ASP.NET Core</code> 中间件的优秀设计，<code>ASP.NET Core</code> 可同时支持 Http 服务。</p></li>
+<li><p>添加 daprclient.proto 文件以生成 Dapr Grpc 服务，daprclient.proto 内容如下</p>
+<pre class="proto"><code>syntax = &quot;proto3&quot;;
+
+package daprclient;
+
+import &quot;google/protobuf/any.proto&quot;;
+import &quot;google/protobuf/empty.proto&quot;;
+import &quot;google/protobuf/duration.proto&quot;;
+
+option java_outer_classname = &quot;DaprClientProtos&quot;;
+option java_package = &quot;io.dapr&quot;;
+
+// User Code definitions
+service DaprClient {
+rpc OnInvoke (InvokeEnvelope) returns (google.protobuf.Any) {}
+rpc GetTopicSubscriptions(google.protobuf.Empty) returns (GetTopicSubscriptionsEnvelope) {}
+rpc GetBindingsSubscriptions(google.protobuf.Empty) returns (GetBindingsSubscriptionsEnvelope) {}
+rpc OnBindingEvent(BindingEventEnvelope) returns (BindingResponseEnvelope) {}
+rpc OnTopicEvent(CloudEventEnvelope) returns (google.protobuf.Empty) {}
+}
+
+message CloudEventEnvelope {
+string id = 1;
+string source = 2;
+string type = 3;
+string specVersion = 4;
+string dataContentType = 5;
+string topic = 6;
+google.protobuf.Any data = 7;
+}
+
+message BindingEventEnvelope {
+    string name = 1;
+    google.protobuf.Any data = 2;
+    map&lt;string,string&gt; metadata = 3;
+}
+
+message BindingResponseEnvelope {
+google.protobuf.Any data = 1;
+repeated string to = 2;
+repeated State state = 3;
+string concurrency = 4;
+}
+
+message InvokeEnvelope {
+    string method = 1;
+    google.protobuf.Any data = 2;
+    map&lt;string,string&gt; metadata = 3;
+}
+
+message GetTopicSubscriptionsEnvelope {
+repeated string topics = 1;
+}
+
+message GetBindingsSubscriptionsEnvelope {
+repeated string bindings = 1;
+}
+
+message State {
+string key = 1;
+google.protobuf.Any value = 2;
+string etag = 3;
+map&lt;string,string&gt; metadata = 4;
+StateOptions options = 5;
+}
+
+message StateOptions {
+string concurrency = 1;
+string consistency = 2;
+RetryPolicy retryPolicy = 3;
+}
+
+message RetryPolicy {
+int32 threshold = 1;
+string pattern = 2;
+google.protobuf.Duration interval = 3;
+}</code></pre>
+说明
+<ul>
+<li>此文件为官方提供，Dapr 0.3 版本之前提供的已经生成好的代码，现在看源码可以看出已经改为提供 proto 文件了，这里我认为提供 proto 文件比较合理</li>
+<li>此文件定义了5个函数，此文主要讲的就是 <code>OnInvoke()</code> 函数</li>
+<li><code>OnInvoke()</code> 请求构造为 <code>InvokeEnvelope</code>
+<ul>
+<li>method 提供调用方法名称</li>
+<li>data 请求数据</li>
+<li>metadata 额外数据，此处使用键值对形式体现</li>
+</ul></li>
+</ul></li>
+<li><p>创建 DaprClientService.cs 文件，此文件用于终结点路由，内容为</p>
+<pre><code><code>public class DaprClientService : DaprClient.DaprClientBase
+{
+    private readonly ProductListService _productListService;
+
+    /// &lt;summary&gt;
+    /// Initializes a new instance of the &lt;see cref=&quot;ProductService&quot; /&gt; class.
+    /// &lt;/summary&gt;
+    /// &lt;param name=&quot;productListService&quot;&gt;&lt;/param&gt;
+    public DaprClientService(ProductListService productListService)
+    {
+        _productListService = productListService;
+    }
+
+    public override async Task&lt;Any&gt; OnInvoke(InvokeEnvelope request, ServerCallContext context)
+    {
+        switch (request.Method)
+        {
+            case &quot;GetAllProducts&quot;:
+                ProductListRequest productListRequest = ProductListRequest.Parser.ParseFrom(request.Data.Value);
+                ProductList.V1.ProductList productsList = await _productListService.GetAllProducts(productListRequest, context);
+                return Any.Pack(productsList);
+        }
+
+        return null;
+    }
+}</code></pre>
+说明
+<ul>
+<li>使用构造器注入已定义好的 <code>ProductListService</code></li>
+<li><code>InvokeEnvelope</code> 中的 <code>Method</code> 用于路由数据</li>
+<li>使用 <code>ProductListRequest.Parser.ParseFrom</code> 转换请求构造</li>
+<li>使用 <code>Any.Pack()</code> 打包需要返回的数据</li>
+</ul></li>
+<li><p>运行 productService</p>
+<pre class="cmd"><code>dapr run --app-id productService --app-port 5001 --protocol grpc dotnet run</code></pre></li>
+</ol>
+<blockquote>
+<p><strong>小结</strong><br />
+至此，ProductService 服务完成。此时 ProductService.Api.csproj Protobuf 内容为</p>
+<pre class="cmd"><code>&lt;ItemGroup&gt;
+  &lt;Protobuf Include=&quot;Protos\daprclient.proto&quot; GrpcServices=&quot;Server&quot; /&gt;
+ &lt;Protobuf Include=&quot;Protos\productList.proto&quot; GrpcServices=&quot;Server&quot; /&gt;
+ &lt;/ItemGroup&gt;</code></pre>
+</blockquote>
+<h2 id="改造-storageservice-服务以完成-dapr-grpc-服务调用">改造 StorageService 服务以完成 Dapr GRPC 服务调用</h2>
+<ol>
+<li><p>添加 productList.proto 文件，内容同 ProductService 中的 productList.proto</p></li>
+<li><p>添加 dapr.proto 文件，此文件也为官方提供，内容为</p>
+<pre class="proto"><code>syntax = &quot;proto3&quot;;
+
+package dapr;
+
+import &quot;google/protobuf/any.proto&quot;;
+import &quot;google/protobuf/empty.proto&quot;;
+import &quot;google/protobuf/duration.proto&quot;;
+
+option java_outer_classname = &quot;DaprProtos&quot;;
+option java_package = &quot;io.dapr&quot;;
+
+option csharp_namespace = &quot;Dapr.Client.Grpc&quot;;
+
+
+// Dapr definitions
+service Dapr {
+rpc PublishEvent(PublishEventEnvelope) returns (google.protobuf.Empty) {}
+rpc InvokeService(InvokeServiceEnvelope) returns (InvokeServiceResponseEnvelope) {}
+rpc InvokeBinding(InvokeBindingEnvelope) returns (google.protobuf.Empty) {}
+rpc GetState(GetStateEnvelope) returns (GetStateResponseEnvelope) {}
+rpc SaveState(SaveStateEnvelope) returns (google.protobuf.Empty) {}
+rpc DeleteState(DeleteStateEnvelope) returns (google.protobuf.Empty) {}
+}
+
+message InvokeServiceResponseEnvelope {
+google.protobuf.Any data = 1;
+map&lt;string,string&gt; metadata = 2;
+}
+
+message DeleteStateEnvelope {
+string key = 1;
+string etag = 2;
+StateOptions options = 3;
+}
+
+message SaveStateEnvelope {
+repeated StateRequest requests = 1;
+}
+
+message GetStateEnvelope {
+    string key = 1;
+    string consistency = 2;
+}
+
+message GetStateResponseEnvelope {
+google.protobuf.Any data = 1;
+string etag = 2;
+}
+
+message InvokeBindingEnvelope {
+string name = 1;
+google.protobuf.Any data = 2;
+map&lt;string,string&gt; metadata = 3;
+}
+
+message InvokeServiceEnvelope {
+string id = 1;
+string method = 2;
+google.protobuf.Any data = 3;
+map&lt;string,string&gt; metadata = 4;
+}
+
+message PublishEventEnvelope {
+    string topic = 1;
+    google.protobuf.Any data = 2;
+}
+
+message State {
+string key = 1;
+google.protobuf.Any value = 2;
+string etag = 3;
+map&lt;string,string&gt; metadata = 4;
+StateOptions options = 5;
+}
+
+message StateOptions {
+string concurrency = 1;
+string consistency = 2;
+RetryPolicy retryPolicy = 3;
+}
+
+message RetryPolicy {
+int32 threshold = 1;
+string pattern = 2;
+google.protobuf.Duration interval = 3;
+}
+
+message StateRequest {
+string key = 1;
+google.protobuf.Any value = 2;
+string etag = 3;
+map&lt;string,string&gt; metadata = 4;
+StateRequestOptions options = 5;
+}
+
+message StateRequestOptions {
+string concurrency = 1;
+string consistency = 2;
+StateRetryPolicy retryPolicy = 3;
+}
+
+message StateRetryPolicy {
+int32 threshold = 1;
+string pattern = 2;
+google.protobuf.Duration interval = 3;
+}</code></pre>
+说明
+<ul>
+<li>此文件提供6个 GRPC 服务，此文介绍的函数为 <code>InvokeService()</code>
+<ul>
+<li>请求构造为 InvokeServiceEnvelope
+<ul>
+<li>id 请求的服务的 --app-id ，比如 productService</li>
+<li>method 请求的方法</li>
+<li>data 请求函数的签名</li>
+<li>metadata 元数据键值对</li>
+</ul></li>
+</ul></li>
+</ul></li>
+<li><p>修改 StorageController 中的 <code>InitialStorage()</code> 函数为</p>
+<pre><code><code>/// &lt;summary&gt;
+/// 初始化仓库.
+/// &lt;/summary&gt;
+/// &lt;returns&gt;是否成功.&lt;/returns&gt;
+[HttpGet(&quot;InitialStorage&quot;)]
+public async Task&lt;bool&gt; InitialStorage()
+{
+    string defaultPort = Environment.GetEnvironmentVariable(&quot;DAPR_GRPC_PORT&quot;) ?? &quot;5001&quot;;
+
+    // Set correct switch to make insecure gRPC service calls. This switch must be set before creating the GrpcChannel.
+    AppContext.SetSwitch(&quot;System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport&quot;, true);
+
+    // Create Client
+    string daprUri = $&quot;http://127.0.0.1:{defaultPort}&quot;;
+    GrpcChannel channel = GrpcChannel.ForAddress(daprUri);
+    var client = new Dapr.Client.Grpc.Dapr.DaprClient(channel);
+
+    InvokeServiceResponseEnvelope result = await client.InvokeServiceAsync(new InvokeServiceEnvelope
+    {
+        Method = &quot;GetAllProducts&quot;,
+        Id = &quot;productService&quot;,
+        Data = Any.Pack(new ProductListRequest())
+    });
+    ProductList.V1.ProductList productResult = ProductList.V1.ProductList.Parser.ParseFrom(result.Data.Value);
+
+    var random = new Random();
+
+    foreach (Product item in productResult.Results)
+    {
+        _storageContext.Storage.Add(new Storage
+        {
+            ProductID = Guid.Parse(item.ID),
+            Amount = random.Next(1, 1000)
+        });
+    }
+
+    await _storageContext.SaveChangesAsync();
+    return true;
+}</code></pre></li>
+<li><p>启动 StorageService</p>
+<pre class="cmd"><code>dapr run --app-id storageService --app-port 5003 dotnet run</code></pre></li>
+<li><p>使用 Postman 请求 StorageService 的 InitialStorage<br />
+<img src="./images/Dapr 运用之集成 Asp.Net Core Grpc 调用篇0.png" /></p></li>
+<li><p>使用 MySql Workbench 查看结果<br />
+<img src="./images/Dapr 运用之集成 Asp.Net Core Grpc 调用篇1.png" /></p></li>
+</ol>
+<blockquote>
+<p><strong>小结</strong><br />
+至此，以 Dapr 框架使用 GRPC 客户端在 StorageService 中完成了对 ProductService 服务的调用。</p>
+</blockquote>
+<p><a href="https://github.com/SoMeDay-Zhang/DaprDemos/tree/master/dotnetcore">源码地址</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

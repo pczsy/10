@@ -1,0 +1,205 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击</center></div><div class='banquan'>原文出处:本文由博客园博主东寻提供。<br/>
+原文连接:https://www.cnblogs.com/ustca/p/12090872.html</div><br>
+    <p>漏洞产生的原因主要有系统机制和编码规范两方面，由于网络协议的开放性，目前以 Web 漏洞居多</p>
+<hr />
+<p>关于系统机制漏洞的典型有JavaScript/CSS history hack，而编码规范方面的漏洞典型有心血漏洞（Heart Bleed）。<br />
+在对漏洞概念有一定了解后，将搭建一个测试网站，对CSS欺骗、SQL注入与CSRF攻击进行实验测试。</p>
+<h1 id="javascriptcss-history-hack-漏洞">JavaScript/CSS history hack 漏洞</h1>
+<p>漏洞影响：攻击者能够获取用户浏览器的某些历史记录。</p>
+<p>攻击原理：利用浏览器自动查询历史记录，以及CSS对访问过的和未访问过超链接样式的不同渲染。比如 <a href="https://www.baidu.com">百度</a> 这个链接是紫色，因为你最近访问过百度。而 <a href="https://www.cnblogs.com/ustca/p/12060580.html">自建CA证书搭建https服务器</a> 这个链接是黑色，因为你当前没有访问过我上一篇博客。如果是紫色，删除访问历史后刷新会变成黑色。</p>
+<p>攻击方法：由于JavaScript可以读取任何元素的CSS信息，所以能分辨浏览器应用了哪种样式从而判断用户是否访问过该链接。攻击者可以搭建自己的网站，在上面定义一些网站的超链接。当其他用户访问该网站时，浏览器会自动根据用户的历史记录判断哪些网址曾经访问过，从而以不同颜色呈现给用户。</p>
+<p>攻击者的网站后台可以将用户访问过的网站发回给服务器，达到的效果是能够检测用户是否访问过某个网站，但并不是直接获取用户访问的历史记录。</p>
+<p>该漏洞已被修复，如今虽然能够看到对超链接状态的不同显示，但是js已无法获取到其中的颜色差异。</p>
+<h1 id="heart-bleed漏洞">Heart Bleed漏洞</h1>
+<p>又称为心脏出血漏洞，编号(CVE-2014-0160)</p>
+<p>漏洞由来：该漏洞由谷歌白帽子尼尔·梅塔（Neel Mehta）提出，他可从特定服务器上随机获取64k的工作日志，整个过程如同钓鱼，攻击可以一次次持续进行，大量敏感数据会泄露。</p>
+<p>产生原因：编码时未能在memcpy()调用用户输入的内容前，对长度进行边界检查。攻击者可以输入超出范围的字节，再返回等长的缓存内容。</p>
+<p>攻击方法：<br />
+OpenSSL有一个叫 Heartbeat（心跳检测）的拓展，所谓心跳检测，就是建立一个 Client Hello 问询来检测对方服务器是不是正常在线，服务器发回 Server hello，表明SSL通讯正常。就像我们打电话时会问对方 “喂听得到吗？”一样。<br />
+<a href="https://www.cnblogs.com/ustca/p/12060580.html">刚才测试超链接的博客有关于SSL与https的介绍</a></p>
+<p>每次问询都会附加一个问询的字符长度，如果这个字符长度大于实际的长度，服务器仍是会返回相同规模的字符信息，于是形成了内存里信息的越界访问。</p>
+<p>漏洞影响：每发起一个心跳，服务器就能泄露一点点数据（理论上最多泄露 64K），这些数据里可能包括用户的登录账号密码、电子邮件甚至是加密密钥等信息，也可能并没有包含这些信息，但攻击者可以不断利用 “心跳”来获取更多的信息。就这样，服务器一点一点泄露越来越多的信息，就像是心脏慢慢在出血，心脏出血的名字由此而来，漏洞目前已修复，但该漏洞被提出之前是否已被利用就不得而知。</p>
+<hr />
+<p>以上是两种类型漏洞的简单介绍，以下将对CSS欺骗、SQL注入与CSRF攻击进行实验</p>
+<hr />
+<h1 id="css欺骗">CSS欺骗</h1>
+<p>正如名字一样，CSS欺骗主要是作为一种欺骗手段，给浏览器用户呈现出虚假信息。</p>
+<pre><code><code>虽然是很简单的手段，但是应用却十分广泛</code></pre>
+<p>欺骗原理：通过CSS定位方式和伪类，实现网页内容覆盖</p>
+<p>html如人的骨骼，css是外表装饰，js控制页面的效果类似神经，CSS欺骗主要是利用CSS对页面的渲染。</p>
+<h4 id="定位方式和伪类简介">定位方式和伪类简介</h4>
+<p>CSS对网页元素的定位方式有以下四种：</p>
+<ul>
+<li>静态定位（static）：所有元素的默认定位方式，可以将元素定位于静态位置，所谓静态位置就是各个元素在HTML文档流中默认的位置。</li>
+<li>相对定位（relative）：不脱离文档流，参考自身静态位置通过 top,bottom,left,right定位，并且可以通过z-index进行层次分级。</li>
+<li>绝对定位（absolute）：脱离文档流，通过 top,bottom,left,right 选取其最近的父级元素定位，当父级 position 为 static 时，absolute元素将以body坐标原点进行定位，可以通过z-index进行层次分级。</li>
+<li>固定定位（fixed）：所固定的对象是当前可视窗口（浏览器窗口）而并非是body或是父级元素，页面滚动也不会移动，可通过z-index进行层次分级。</li>
+</ul>
+<p>常用定位方式：子绝父相</p>
+<ul>
+<li>当子元素是绝对定位时，父元素采用相对定位，这样父容器既可以在原文档流中保留位置，子元素也能参照父容器绝对定位。</li>
+</ul>
+<p>CSS伪类可以与 CSS 类配合使用，有anchor伪类、first-child伪类等。</p>
+<p>如anchor伪类：</p>
+<ul>
+<li>a:link {color:#FF0000;} /* 未访问的链接 */</li>
+<li>a:visited {color:#00FF00;} /* 已访问的链接 */</li>
+<li>a:hover {color:#FF00FF;} /* 鼠标划过链接 */</li>
+<li>a:active {color:#0000FF;} /* 已选中的链接 */</li>
+</ul>
+<p>欺骗案例：早年的淘宝店铺装修直接使用css控制页面显示效果，有商户就此制作虚假店铺信息。</p>
+<p>以下是2012年前后的一家店铺信息<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击0.png" alt="在这里插入图片描述" /><br />
+图中所呈现的信息并非真实的店铺信息。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击1.png" alt="店铺中" /><br />
+30天销售量实际值为0，通过店铺装修时设置背景图，呈现出了580件的字样。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击2.png" alt="在这里插入图片描述" /><br />
+“购物须知”被背景图伪装成了 “优质商家 7天无理由退换”。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击3.png" alt="在这里插入图片描述" /><br />
+评价详情与成交记录同样是使用背景图进行虚假宣传。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击4.png" alt="在这里插入图片描述" /><br />
+实际并没有买家评价，只是添加了背景图片。</p>
+<p>为什么说CSS欺骗虽然简单但是应用广泛？</p>
+<p>就个人网页浏览经历而言，在4G之前或者4G刚开始那个时候，这种利用图片做虚假页面是很常见的。</p>
+<p>最近一次是2018年双十一时候，在某电商平台申请退款，商家一直不理会，在平台进行投诉时发现提交投诉的按钮怎么点都没反应。一开始以为是手机显示不兼容，后来发现那个页面下半部分是张图片，提交按钮只是图片的一部分。</p>
+<p>不过双十一也可以理解，但是就大多数没什么计算机基础的网民而言，CSS欺骗还是很有效的。</p>
+<p>下面将会先介绍SQL注入，然后再将CSS欺骗与SQL注入结合，在搭建的测试网站上实现利用SQL注入前端代码进行CSS欺骗。</p>
+<h1 id="sql注入">SQL注入</h1>
+<p>SQL注入即是指web应用程序对用户输入数据的合法性没有判断或过滤不严，攻击者可以在web应用程序中事先定义好的查询语句的结尾上添加额外的SQL语句，在管理员不知情的情况下实现非法操作，是目前最常见危险的漏洞之一。</p>
+<p>SQL注入不是一个过期的安全问题，恰恰相反，它是一种非常容易被使用的攻击方式，SQL注入并不需要高深的攻击手段便可以轻易使敏感的数据库信息被非法浏览或删除。</p>
+<p>一般注入过程：</p>
+<ol>
+<li>SQL注入点探测。<br />
+通过适当的分析应用程序，判断什么地方存在SQL注入点。通常只要带有输入提交的动态网页，并且动态网页访问数据库，就可能存在SQL注入漏洞。</li>
+<li>收集后台数据库信息。<br />
+不同数据库的注入方法、函数都不尽相同，在注入之前先要判断一下数据库的类型。可以输入特殊字符如单引号，让程序返回错误信息，根据错误信息提示进行判断；还可以使用特定函数来判断，比如输入“1 and version（）&gt;0”，程序返回正常说明version（）函数被数据库识别并执行，而version（）函数是MySQL特有的函数，因此可以推断后台数据库为MySQL。</li>
+<li>猜解用户名和密码。<br />
+数据库中的表和字段命名一般都是有规律的，通过构造特殊SQL语句在数据库中依次猜解出表名、字段名、字段数、用户名和密码。</li>
+</ol>
+<h1 id="网站搭建与sql注入测试">网站搭建与SQL注入测试</h1>
+<p>如果有简单网站的搭建经验，只需要理解了SQL注入的原理，就可以构建自己的测试。<br />
+下图是搭建的测试网站的登陆界面：<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击5.png" alt="在这里插入图片描述" /><br />
+先注册一个userA的账号并登录：<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击6.png" alt="在这里插入图片描述" /><br />
+网站有三个简单的页面，分别是Home、Users、Transfer：</p>
+<ul>
+<li>Home: 显示用户的zoobars（当前网站用户的虚拟货币）数量，设置用户的个人简介。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击7.png" alt="在这里插入图片描述" /></li>
+<li>Users：可以搜索其他用户并显示用户财富和简介。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击8.png" alt="在这里插入图片描述" /></li>
+<li>Transfer：可以将自己的zoobars转给其他用户。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击9.png" alt="在这里插入图片描述" /></li>
+</ul>
+<p>以下有两种SQL注入可以使得自己的zoobars变多：</p>
+<ol>
+<li>通过填写个人简介修改自己的zoobars，会改动数据库zoobars数量</li>
+<li>通过填写个人简介注入CSS代码，使得别人搜索自己时zoobars看上去变多，不会改动数据库zoobars数量</li>
+</ol>
+<h4 id="方法一">方法一</h4>
+<p>注入代码：</p>
+<pre class="bash"><code>userA的个人简介&#39;, Zoobars=&#39;20</code></pre>
+<p><img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击10.png" alt="在这里插入图片描述" /><br />
+保存个人简介后刷新页面，userA的zoobars变成了20，简介显示“userA的个人简介”：<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击11.png" alt="在这里插入图片描述" /><br />
+这种方法直接改动了数据库数据，后台更新个人简介的php代码如下：</p>
+<pre class="php"><code>&lt;?php
+  if($_POST[&#39;profile_submit&#39;]) {  // Check for profile submission
+    $profile = $_POST[&#39;profile_update&#39;];
+    $sql = &quot;UPDATE Person SET Profile=&#39;$profile&#39; &quot;.
+           &quot;WHERE PersonID=$user-&gt;id&quot;;
+    $db-&gt;executeQuery($sql);      // Overwrite profile in database
+  }
+  $sql = &quot;SELECT Profile FROM Person WHERE PersonID=$user-&gt;id&quot;;
+  $rs = $db-&gt;executeQuery($sql);
+  $rs = mysqli_fetch_array($rs);
+  echo $rs[&quot;Profile&quot;];
+?&gt;</code></pre>
+<p>第4、5行的$sql值是数据库要执行的语句，方法1使得实际执行的sql语句变成了：</p>
+<pre class="sql"><code>UPDATE Person SET Profile=&#39;userA的个人简介&#39;, Zoobars=&#39;20&#39; WHERE PersonID=userA</code></pre>
+<h4 id="方法二">方法二</h4>
+<p>由于场景不同，有时候会使用方法二注入，仅修改网页的显示进行CSS欺骗：<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击12.png" alt="在这里插入图片描述" /><br />
+userA的zoobars数量是20，通过SQL注入前端代码，可以使得这个网站的用户在搜索userA时看到的数量为200，这里为了方便观察，欺骗的字体设置了红色。</p>
+<p>注入代码：</p>
+<pre class="css"><code>&lt;span style=&quot;color:#000000;position:relative;left:60px;top:-54px;&quot;&gt;0&lt;/span&gt;</code></pre>
+<p><img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击13.png" alt="在这里插入图片描述" /><br />
+与之前介绍淘宝商家用CSS直接设置背景图片不同，这里是通过SQL注入在个人简介里写了个相对定位的<span>标签，当网站用户搜索userA的个人简介时，个人简介里的html代码会被浏览器解释渲染成数字0，并显示在zoobars数量的后面。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击14.png" alt="在这里插入图片描述" /><br />
+下面将介绍与浏览器机制相关的另一种攻击方式。</p>
+<h1 id="csrf攻击">CSRF攻击</h1>
+<p>CSRF（Cross-site request forgery），即跨站请求伪造。</p>
+<p>引诱浏览器用户访问自己的攻击网站进行跨站访问，通过浏览器保存用户原网站cookie的机制，在攻击网站获取用户的身份权限并伪造请求进行攻击。</p>
+<p>浏览器机制：</p>
+<pre><code><code>当用户登录某一网站后，本地会保存一份cookie用于身份认证，如果cookie没有过期，就不需要反复进行登录操作。</code></pre>
+<p>与JavaScript/CSS history hack不同的是，CSRF暂时无法像修改CSS或JS引擎那样进行漏洞修补，因为目前的浏览器需要这种机制。</p>
+<p>场景模拟：程序员登录博客园浏览博客，发现一篇不错的博客后打算分享到朋友圈，但第一次分享时网页会要求先登录朋友圈。当登录分享成功后，没过多久程序员又发现一篇不错的博客，打算再次分享，以此往复循环，浏览器会怎么做？</p>
+<p>目前浏览器的机制是会在第一次登陆后保存用户的cookie，使得用户在有效期内不必反复认证身份，所以后续的跨站不需要再登录。（没有实际操作过，也可能博客园分享每次都需要登录，只是举个例子模拟网页跨站情景）</p>
+<p>浏览器保存cookie的机制是需要的，但同时给了攻击者可乘之机。</p>
+<p>web中用户身份验证的漏洞：</p>
+<pre><code><code>简单的身份验证只能保证请求发自某个用户的浏览器，却不能保证请求本身是用户自愿发出的。</code></pre>
+<p>也就是说，用户的浏览器发送了一条请求，同时浏览器的cookie也能证明用户身份，但是并不能保证这条请求是用户主动在原网站上进行的操作。</p>
+<h4 id="以搭建的网站为例进行攻击演示">以搭建的网站为例进行攻击演示</h4>
+<p>攻击步骤：</p>
+<ol>
+<li>搭建一个网页，用于伪造请求，请求内容是从被攻击者的账户转1个zoobar到自己账户</li>
+<li>在攻击者申请的网站账户里，填写个人简介，SQL注入一个自己的网站连接</li>
+<li>诱导其他用户点击攻击者账号个人简介上的网页链接进行攻击</li>
+</ol>
+<p><strong>搭建网页</strong></p>
+<p>原网页与代码：<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击15.png" alt="在这里插入图片描述" /><br />
+Transfer界面点击Send按钮会发送一条请求，执行转账操作。</p>
+<p>攻击者需要制作一个自己的网站，在网站上编写攻击操作。<br />
+这里直接将原网站的界面代码复制了一份，然后Send的金额写入默认值1，转账对象默认设置成攻击者的userA账户，再通过JS代码让网站在加载时自动执行Send按钮的提交操作。</p>
+<p>攻击网页与代码：<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击16.png" alt="在这里插入图片描述" /><br />
+虽然看上去一样，但是通过浏览器地址可以看出这个另一个网页，用来模拟进行攻击的网站。</p>
+<p>然后在个人简介里注入一个超链接：</p>
+<pre class="css"><code>&lt;a href=&quot;https://localhost/myzoo/send.php&quot;&gt;点击获取&lt;/a&gt;</code></pre>
+<p>网址是攻击者自己的网站<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击17.png" alt="在这里插入图片描述" /><br />
+这时其他用户搜索userA时，会看到如下简介：<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击18.png" alt="在这里插入图片描述" /><br />
+目前userB的zoobars数量为9，如果点击一下这个链接，会跳转到攻击者网站并自动给userA转一个zoobar，之后userA的数量变成21个，userB只剩下8个。<br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击19.png" alt="在这里插入图片描述" /><br />
+<img src="./images/浅析history hack、心血漏洞、CSS欺骗、SQL注入与CSRF攻击20.png" alt="在这里插入图片描述" /><br />
+攻击实际上就是通过用户浏览器保存的cookie认证，伪造出用户请求。</p>
+<p>应对CSRF攻击的方法有很多，有一种是可以通过检查请求的Referer字段判断请求的来源网站，不过这是一个攻防的过程，攻击者也有可能进一步攻击篡改Referer字段。</p>
+<h1 id="小结">小结</h1>
+<ul>
+<li>JavaScript/CSS history hack<br />
+利用了浏览器为了方便用户浏览而查询历史记录的机制漏洞，已通过完善CSS/JS修补。</li>
+<li>心血漏洞<br />
+代码不规范引起的数据泄露漏洞，已被修补。</li>
+<li>CSS欺骗<br />
+常用的欺骗技术，需要根据特定场景结合其他攻击方式。</li>
+<li>SQL注入<br />
+最常见安全漏洞之一，数据泄露的主要原因之一，安全风险较高，一定程度上超过缓冲区溢出漏洞，只能尽量避免。</li>
+<li>跨站请求伪造<br />
+利用浏览器的机制漏洞，无法直接根治，与SQL注入一样是个攻防的过程。</li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

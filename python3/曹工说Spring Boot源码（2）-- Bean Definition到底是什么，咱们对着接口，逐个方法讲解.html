@@ -1,0 +1,233 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修曹工说Spring Boot源码（2）-- Bean Definition到底是什么，咱们对着接口，逐个方法讲解' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>曹工说Spring Boot源码（2）-- Bean Definition到底是什么，咱们对着接口，逐个方法讲解</center></div><div class='banquan'>原文出处:本文由博客园博主三国梦回提供。<br/>
+原文连接:https://www.cnblogs.com/grey-wolf/p/12051957.html</div><br>
+    <h1 id="写在前面的话">写在前面的话</h1>
+<p>相关背景及资源：</p>
+<p><a href="https://www.cnblogs.com/grey-wolf/p/12044199.html">曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享</a></p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn">工程代码地址</a> <a href="https://www.processon.com/view/link/5deeefdee4b0e2c298aa5596">思维导图地址</a></p>
+<p>工程结构图：</p>
+<p><img src="./images/曹工说Spring Boot源码（2）-- Bean Definition到底是什么，咱们对着接口，逐个方法讲解0.png" /></p>
+<h1 id="正文">正文</h1>
+<p>我这里，先把<code>org.springframework.beans.factory.config.BeanDefinition</code>接口的方法再简单列一下：</p>
+<pre><code><code>public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
+    // scope：单例
+    String SCOPE_SINGLETON = ConfigurableBeanFactory.SCOPE_SINGLETON;
+    // scope：prototype
+    String SCOPE_PROTOTYPE = ConfigurableBeanFactory.SCOPE_PROTOTYPE;
+    // 角色：属于应用程序的bean
+    int ROLE_APPLICATION = 0;
+    // 角色：支持？不甚了解，先跳过
+    int ROLE_SUPPORT = 1;
+    // 角色：属于框架自身的bean
+    int ROLE_INFRASTRUCTURE = 2;
+    // parent bean的名字
+    String getParentName();
+    
+    void setParentName(String parentName);
+    // 核心属性，此为bean的class名称
+    String getBeanClassName();
+
+    void setBeanClassName(String beanClassName);
+    // 核心属性，本属性获取工厂bean的名称，getFactoryMethodName获取工厂方法的名称，配合使用，生成         // 本bean
+    String getFactoryBeanName();
+
+    void setFactoryBeanName(String factoryBeanName);
+
+    String getFactoryMethodName();
+
+    void setFactoryMethodName(String factoryMethodName);
+    //scope，bean是单例的，还是每次new一个（prototype），就靠它了
+    String getScope();
+
+    void setScope(String scope);
+    // 懒bean？默认情况下，都是容器启动时，初始化；如果设置了这个值，容器启动时不会初始化，首次getBean    // 时才初始化
+    boolean isLazyInit();
+
+    void setLazyInit(boolean lazyInit);
+    // 在本bean初始化之前，需要先初始化的bean；注意，这里不是说本bean依赖的其他需要注入的bean
+    String[] getDependsOn();
+
+    void setDependsOn(String[] dependsOn);
+    // 是否够资格作为自动注入的候选bean。。。如果这里返回false，那就连自动注入的资格都没得
+    boolean isAutowireCandidate();
+
+    void setAutowireCandidate(boolean autowireCandidate);
+    // 当作为依赖，要注入给某个bean时，当有多个候选bean时，本bean是否为头号选手
+    boolean isPrimary();
+
+    void setPrimary(boolean primary);
+    
+    // 通过xml &lt;bean&gt;方式定义bean时，通过&lt;constructor-arg&gt;来定义构造器的参数，这里即：获取构造器参数
+    ConstructorArgumentValues getConstructorArgumentValues();
+    
+    // 通过xml &lt;bean&gt;方式定义bean时，通过 &lt;property name=&quot;testService&quot; ref=&quot;testService&quot;/&gt; 这种方     式来注入依赖，这里即：获取property注入的参数值
+    MutablePropertyValues getPropertyValues();
+    // 是否单例
+    boolean isSingleton();
+    // 是否prototype
+    boolean isPrototype();
+
+    // 是否为抽象的，还记得&lt;bean&gt;方式定义的时候，可以这样指定吗？&lt;bean id=&quot;testByPropertyController&quot; class=&quot;org.springframework.simple.TestByPropertyController&quot; abstract=&quot;true&quot;&gt;
+    boolean isAbstract();
+
+    // 获取角色
+    int getRole();
+
+    // 获取描述
+    String getDescription();
+    
+    String getResourceDescription();
+    // 未知。。。
+    BeanDefinition getOriginatingBeanDefinition();
+}</code></pre>
+<h2 id="beanname">beanName</h2>
+<p>虽然这个接口里没这个东西，但这个我要重点说下，默认规则是：beanClassName按驼峰转换后的名字。</p>
+<p>这里面有个重点是，<code>org.springframework.beans.factory.support.DefaultListableBeanFactory</code>中，采用了下面的字段来存bean和对应的BeanDefinition。</p>
+<pre><code><code>/** Map of bean definition objects, keyed by bean name */
+    private final Map&lt;String, BeanDefinition&gt; beanDefinitionMap = new ConcurrentHashMap&lt;String, BeanDefinition&gt;(64);</code></pre>
+<p>这里说了，key是beanName。</p>
+<p>那大家想过没，我如果同一个上下文中，有两个beanName相同的BeanDefinition会怎样呢？</p>
+<p>之前spring cloud项目集成feign时，我们的代码是下面这样的,即假设生产者提供了10个服务，分属不同的模块：</p>
+<pre><code><code>@FeignClient(name = &quot;SCM&quot;,path = &quot;scm&quot;,configuration = { FeignConfig.class })
+public interface ScmCenterService extends ScmFeignCenterService {
+}</code></pre>
+<pre><code><code>@FeignClient(name = &quot;SCM&quot;,path = &quot;scm&quot;,configuration = { FeignConfig.class })
+public interface ScmClientConfigService extends ScmFeignClientConfigService {
+}</code></pre>
+<p>我们这里，就是按照不同模块，在多个接口里来继承feign api。</p>
+<p>结果呢，启动报错了，就是因为beanName重复了，具体可以参考下面的链接：</p>
+<p><a href="https://www.cnblogs.com/yangchongxing/p/10954992.html">【Feign】@FeignClient相同名字错误 The bean 'xxx.FeignClientSpecification', defined in null, could not be registered</a></p>
+<p>最终解决这个问题，就是要加个配置，</p>
+<pre><code><code>spring:
+  main:
+    allow-bean-definition-overriding: true</code></pre>
+<p>这个配置，在spring之前的版本里，默认是true，结果在spring boot里，默认改为false了。</p>
+<p>我这边通过下面的代码测试了一下：</p>
+<ol>
+<li><p>当这个配置为true时</p>
+<pre><code><code> public static void main(String[] args) throws Exception {
+     ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{&quot;classpath:application-context.xml&quot;},false);
+        // 这里设为true，不设也可以，默认就是true
+        context.setAllowBeanDefinitionOverriding(true);
+     context.refresh();
+
+        DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
+        GenericBeanDefinition beanDefinition = new GenericBeanDefinition();
+        beanDefinition.setBeanClass(String.class);
+        beanFactory.registerBeanDefinition(&quot;testService&quot;, beanDefinition);</code></pre>
+<p>console中有如下提示：</p>
+<blockquote>
+<p>信息: Overriding bean definition for bean 'testService': replacing [Generic bean: class [org.springframework.simple.TestService]; scope=; abstract=false; lazyInit=false; autowireMode=0; dependencyCheck=0; autowireCandidate=true; primary=false; factoryBeanName=null; factoryMethodName=null; initMethodName=null; destroyMethodName=null; defined in class path resource [application-context.xml]] with [Generic bean: class [java.lang.String]; scope=; abstract=false; lazyInit=false; autowireMode=0; dependencyCheck=0; autowireCandidate=true; primary=false; factoryBeanName=null; factoryMethodName=null; initMethodName=null; destroyMethodName=null]</p>
+</blockquote></li>
+<li><p>当这个配置为false时</p>
+<pre><code><code>context.setAllowBeanDefinitionOverriding(false);</code></pre>
+<p>会直接报错：</p>
+<blockquote>
+<p>Invalid bean definition with name 'testService' defined in null: Cannot register bean definition [Generic bean: class [java.lang.String]; scope=; abstract=false; lazyInit=false; autowireMode=0; dependencyCheck=0; autowireCandidate=true; primary=false; factoryBeanName=null; factoryMethodName=null; initMethodName=null; destroyMethodName=null] for bean 'testService':</p>
+<p>//这里说，早已存在xxx</p>
+<p>There is already [Generic bean: class [org.springframework.simple.TestService]; scope=; abstract=false; lazyInit=false; autowireMode=0; dependencyCheck=0; autowireCandidate=true; primary=false; factoryBeanName=null; factoryMethodName=null; initMethodName=null; destroyMethodName=null; defined in class path resource [application-context.xml]] bound.</p>
+</blockquote>
+<p>测试代码在：</p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-xml-demo" class="uri">https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-xml-demo</a></p>
+<p>​</p></li>
+</ol>
+<h2 id="scope">scope</h2>
+<p>这个不多说了，默认为<code>singleton</code>，在容器内只会有一个bean。prototype，每次getBean的时候都会new一个对象，这个一般不会在启动时去初始化，如果写的有问题的话，启动时不报错，runtime的时候报运行时异常。</p>
+<p>其他几个scope，web相关的，先不多说。</p>
+<h2 id="parentname">parentName</h2>
+<p>指定parentBean的名称，以前xml的时候可能会用，现在注解驱动了，基本很少用了。</p>
+<h2 id="beanclassname">beanClassName</h2>
+<p>核心属性，bean的class类型，这里说的是实际类型，而一般不是接口的名称。比如，我们的注解一般是加在class上的，而不是加在接口上，对吧；即使加在接口上，那肯定也是动态代理技术，对吧，毕竟，bean是要以这个class的元数据来进行创建（一般通过反射）</p>
+<h2 id="factorybeannamefactorymethodname">factoryBeanName、factoryMethodName</h2>
+<p>如果本bean是通过其他工厂bean来创建，则这两个字段为对应的工厂bean的名称，和对应的工厂方法的名称</p>
+<h2 id="lazyinit">lazyInit</h2>
+<p>是否延迟初始化，取值为true、false、default。</p>
+<blockquote>
+<pre><code><code>Indicates whether or not this bean is to be lazily initialized.
+If false, it will be instantiated on startup by bean factories
+that perform eager initialization of singletons. The default is
+&quot;false&quot;.</code></pre>
+</blockquote>
+<p>简单说：如果设了这个为true，则启动时不初始化；否则在启动时进行初始化，这也是spring官方推荐的，可以尽早发现问题。</p>
+<h2 id="dependson">dependsOn</h2>
+<p>通过这个属性设置的bean，会保证先于本bean被初始化</p>
+<blockquote>
+<pre><code><code>The names of the beans that this bean depends on being initialized.
+The bean factory will guarantee that these beans get initialized
+before this bean.</code></pre>
+</blockquote>
+<h2 id="autowirecandidate布尔">autowireCandidate，布尔</h2>
+<p>这个是个boolean值，表示是否可以被其他的bean使用@autowired的方式来注入。如果设置为false的话，那完了，没资格被别人注入。</p>
+<h2 id="primary布尔">primary，布尔</h2>
+<p>表示当有多个候选bean满足@autowired要求时，其中primary被设置为true的，会被注入；否则会报二义性错误，即：程序期待注入一个，却发现了很多个。</p>
+<h2 id="constructorargumentvalues">constructorArgumentValues</h2>
+<p>构造函数属性值。我测试发现，通过下面的方式，这个字段是用不上的：</p>
+<pre><code><code>public class TestController {
+
+    TestService testService;
+    
+    @Autowired
+    public TestController(TestService testService) {
+        this.testService = testService;
+    }
+}</code></pre>
+<p>这个字段，什么时候有值呢，当采用下面的方式的时候，就会用这种：</p>
+<pre><code><code>public class TestController {
+
+    TestService testService;
+
+    public TestController(TestService testService) {
+        this.testService = testService;
+    }
+}</code></pre>
+<pre><code><code>    &lt;bean name=&quot;testService&quot; class=&quot;org.springframework.simple.TestService&quot; /&gt;
+
+    &lt;bean id=&quot;testController&quot; class=&quot;org.springframework.simple.TestController&quot;&gt;
+        &lt;constructor-arg ref=&quot;testService&quot;/&gt;
+    &lt;/bean&gt;</code></pre>
+<p>演示图如下：</p>
+<p><img src="./images/曹工说Spring Boot源码（2）-- Bean Definition到底是什么，咱们对着接口，逐个方法讲解1.png" /></p>
+<h2 id="propertyvalues">propertyValues</h2>
+<p>property方式注入时的属性值。在以下方式时，生效：</p>
+<pre><code><code>public class TestByPropertyController {
+
+    TestService testService;
+    
+    //注意，这里是set方法注入
+    public void setTestService(TestService testService) {
+        this.testService = testService;
+    }
+}</code></pre>
+<pre><code><code>&lt;bean name=&quot;testService&quot; class=&quot;org.springframework.simple.TestService&quot; /&gt;
+  
+&lt;bean id=&quot;testByPropertyController&quot; class=&quot;org.springframework.simple.TestByPropertyController&quot;  &gt;
+        &lt;property name=&quot;testService&quot; ref=&quot;testService&quot;/&gt;
+    &lt;/bean&gt;
+</code></pre>
+<p>演示图如下：</p>
+<p><img src="./images/曹工说Spring Boot源码（2）-- Bean Definition到底是什么，咱们对着接口，逐个方法讲解2.png" /></p>
+<h1 id="总结">总结</h1>
+<p>今天内容大概到这里，有问题请留言</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

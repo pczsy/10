@@ -1,0 +1,87 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python批量删除mysql中千万级大量数据' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python批量删除mysql中千万级大量数据</center></div><div class='banquan'>原文出处:本文由博客园博主柯广的博客提供。<br/>
+原文连接:https://www.cnblogs.com/data-magnifier/p/11516132.html</div><br>
+    <h2 id="场景描述">场景描述</h2>
+<p>线上<code>mysql</code>数据库里面有张表保存有每天的统计结果，每天有1千多万条，这是我们意想不到的，统计结果咋有这么多。运维找过来，磁盘占了<code>200G</code>，最后问了运营，可以只保留最近3天的，前面的数据，只能删了。删，怎么删？<br />
+因为这是线上数据库，里面存放有很多其它数据表，如果直接删除这张表的数据，肯定不行，可能会对其它表有影响。尝试每次只删除一天的数据，还是卡顿的厉害，没办法，写个Python脚本批量删除吧。<br />
+具体思路是：</p>
+<ol>
+<li>每次只删除一天的数据；</li>
+<li>删除一天的数据，每次删除50000条；</li>
+<li>一天的数据删除完，开始删除下一天的数据；</li>
+</ol>
+<h2 id="python代码">Python代码</h2>
+<pre><code><code># -*-coding:utf-8 -*-
+
+import sys
+
+# 这是我们内部封装的Python Module
+sys.path.append(&#39;/var/lib/hadoop-hdfs/scripts/python_module2&#39;)
+import keguang.commons as commons
+import keguang.timedef as timedef
+import keguang.sql.mysqlclient as mysql
+
+
+def run(starttime, endtime, regx):
+    tb_name = &#39;statistic_ad_image_final_count&#39;
+    days = timedef.getDays(starttime,endtime,regx)
+    # 遍历删除所有天的数据
+    for day in days:
+        print &#39;%s 数据删除开始&#39;%(day)
+        mclient = getConn()
+        sql = &#39;&#39;&#39;
+        select 1 from %s where date = &#39;%s&#39; limit 1
+        &#39;&#39;&#39;%(tb_name, day)
+        print sql
+        result = mclient.query(sql)
+        # 如果查询到了这一天的数据，继续删除
+        while result is not ():
+            sql = &#39;delete from %s where date = &quot;%s&quot; limit 50000&#39;%(tb_name, day)
+            print sql
+            mclient.execute(sql)
+            sql = &#39;&#39;&#39;
+            select 1 from %s where date = &#39;%s&#39; limit 1
+            &#39;&#39;&#39;%(tb_name, day)
+            print sql
+            result = mclient.query(sql)
+        print &#39;%s 数据删除完成&#39;%(day)
+        mclient.close()
+
+
+# 返回mysql 连接
+def getConn():
+    return mysql.MysqlClient(host = &#39;0.0.0.0&#39;, user = &#39;test&#39;, passwd = &#39;test&#39;, db= &#39;statistic&#39;)
+
+if __name__ == &#39;__main__&#39;:
+    regx = &#39;%Y-%m-%d&#39;
+    yesday = timedef.getYes(regx, -1)
+    starttime = &#39;2019-08-17&#39;
+    endtime =&#39;2019-08-30&#39;
+    run(starttime, endtime, regx)</code></pre>
+<p>循环判断数据，如果有，继续删除当天<code>50000</code>条数据；否则，开始删除下一天的数据。花了半个小时，终于删除完了。</p>
+<hr />
+<p>欢迎关注我的微信公众号<br />
+<img src="./images/Python批量删除mysql中千万级大量数据0.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

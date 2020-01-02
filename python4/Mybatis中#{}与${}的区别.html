@@ -1,0 +1,144 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Mybatis中#{}与${}的区别' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Mybatis中#{}与${}的区别</center></div><div class='banquan'>原文出处:本文由博客园博主宜春提供。<br/>
+原文连接:https://www.cnblogs.com/yichunguo/p/11991027.html</div><br>
+    <h2 id="前言">前言</h2>
+<p>在开发中使用Mybatis经常使用到#{}与${}，依旧有很多开发者对二者的使用不是很清晰，正所谓好记性不如烂笔头，特此总结一下。</p>
+<p>在mybatis中动态 sql 是其主要特性之一，在 mapper 中定义的参数传到 xml 中之后，在执行操作之前 mybatis 会对其进行动态解析。mybatis 提供了两种支持动态 sql 的语法：#{} 以及 $ {}，其最大的区别则是<font color=red><strong>#{}方式能够很大程度防止sql注入(安全)，${}方式无法防止Sql注入</strong></font>。什么？？不懂什么是Sql注入？额。。。Sql注入指的是程序解析时会将你传入的参数作为原来SQL语句的一部分，打乱原来SQL的结构</font>，而通常我们只是需要传入一个参数而已.</p>
+<h2 id="彻底理解sql注入">彻底理解SQL注入</h2>
+<p>什么？还不懂SQL注入，我湖了QAQ。。。那就来个最简单的例子：一般开发，肯定是在前台有两个输入框，一个用户名，一个密码，会在后台里，读取前台传入的这两个参数，拼成一段SQL，例如： select count(1) from tab where usesr=userinput and pass = passinput,把这段SQL连接数据后，看这个用户名/密码是否存在，如果存在的话，就可以登陆成功了，如果不存在，就报一个登陆失败的错误。对吧。<br />
+但是有这样的情况，这段SQL是根据用户输入拼出来，如果用户故意输入可以让后台解析失败的字符串，这就是SQL注入，例如，用户在输入密码的时候，输入 '''' ' or 1=1'', 这样，后台的程序在解析的时候，拼成的SQL语句，可能是这样的： select count(1) from tab where user=userinput and pass='' or 1=1; 看这条语句，可以知道，在解析之后，用户没有输入密码，加了一个恒等的条件 1=1，这样，这段SQL执行的时候，返回的 count值肯定大于1的，如果程序的逻辑没加过多的判断，这样就能够使用用户名 userinput登陆，而不需要密码。<br />
+防止SQL注入，首先要对密码输入中的单引号进行过滤，再在后面加其它的逻辑判断，或者不用这样的动态SQL拼</p>
+<h2 id="关于">关于 # { }</h2>
+<blockquote>
+<p>1、#{}表示一个占位符号 相当于 <code>jdbc</code>中的<font color=red> <strong>?</strong> </font>符号<br />
+#{}实现的是向prepareStatement中的预处理语句中设置参数值，sql语句中#{}表示一个占位符即?</p>
+</blockquote>
+<blockquote>
+<p>2、#{}将传入的数据都当成一个字符串，会对自动传入的数据加一个<font color=red>双引号</font>。如：<code>select * from user where id=  #{user_id}</code>，如果传入的值是11,那么解析成sql时的值为<code>where id=&quot;11&quot;</code> ，</p>
+</blockquote>
+<blockquote>
+<p>3、如果sql语句中只有<code>一个参数</code>,此时参数名称可以<code>随意定义</code><br />
+如果sql语句有<font color=red><strong>多</strong></font>个参数,此时参数名称应该是与当前表关联[实体类的属性名]或则[Map集合关键字]，<font
+color=red><strong>不能随便写，必须对应</strong></font>！如下图</p>
+</blockquote>
+<p><img src="./images/Mybatis中#{}与${}的区别0.png" alt="在这里插入图片描述" /></p>
+<h2 id="关于-1">关于$ { }</h2>
+<blockquote>
+<p>1、$ {}将传入的数据<font color=red>直接显示生成</font>在sql中。如：<code>select * from user where id= $ {user_id}</code>，如果传入的值是11,那么解析成sql时的值为<code>where id=11</code></p>
+</blockquote>
+<blockquote>
+<p>2、<code>$ {value}</code>中<code>value</code>值有限制只能写对应的value值<font color=red>不能随便写，</font>因为<code>${}</code>不会自动进行jdbc类型转换</p>
+</blockquote>
+<blockquote>
+<p>3、简单来说,在<code>JDBC</code>不支持使用占位符的地方,都可以使用<code>${}</code></p>
+</blockquote>
+<h2 id="mybatis中与的区别">Mybatis中#{}与${}的区别</h2>
+<p>简单来说区别就是</p>
+<blockquote>
+<p><font color=red><strong>#{}方式能够很大程度防止sql注入(安全)，${}方式无法防止Sql注入</strong></font></p>
+</blockquote>
+<blockquote>
+<p>在<code>JDBC</code>能使用占位符的地方,最好优先使用<code>#{}</code></p>
+</blockquote>
+<blockquote>
+<p>在<code>JDBC</code>不支持使用占位符的地方,就只能使用<code>${}</code>，典型情况就是 <font color=red><strong>动态参数</strong></font></p>
+</blockquote>
+<p>比如 有两张表,分别是<code>emp_2017</code> 和 <code>emp_2018</code> .如果需要在查询语句中 <font color=red><strong>动态指定表名</strong></font>,就只能使用${}</p>
+<pre><code><code>&lt;select&gt;
+      select *  from emp_ ${year}
+&lt;select&gt;</code></pre>
+<p>再比如MyBatis <font color=red><strong>排序时使用<code>order by</code> 动态参数</strong></font>时,此时也只能使用${}</p>
+<pre><code><code>&lt;select&gt;
+       select  *  from dept order by ${name}
+&lt;/select&gt;</code></pre>
+<h2 id="代码案例">代码案例</h2>
+<p>一般# {}与$ {}用的比较多的地方是模糊查询方面，所以下面来一个模糊查询的案例</p>
+<h2 id="使用案例"><strong>使用#{}案例</strong></h2>
+<p><strong>1、映射文件</strong></p>
+<p>在User.xml配置文件中添加如下内容：</p>
+<pre><code><code>&lt;!-- 如果返回多个结果，mybatis会自动把返回的结果放在list容器中 --&gt;
+    &lt;!-- resultType的配置和返回一个结果的配置一样 --&gt;
+    &lt;select id=&quot;queryUserByUsername1&quot; parameterType=&quot;string&quot;
+        resultType=&quot;cn.itcast.mybatis.pojo.User&quot;&gt;
+        SELECT * FROM `user` WHERE username LIKE #{username}
+    &lt;/select&gt;</code></pre>
+<p><strong>2、测试程序</strong></p>
+<p>MybatisTest中添加测试方法如下：</p>
+<pre><code><code>@Test
+    public void testQueryUserByUsername1() throws Exception {
+        // 4. 创建SqlSession对象
+        SqlSession sqlSession = sqlSessionFactory.openSession();
+
+        // 5. 执行SqlSession对象执行查询，获取结果User
+        // 查询多条数据使用selectList方法
+        List&lt;Object&gt; list = sqlSession.selectList(&quot;queryUserByUsername1&quot;, &quot;%王%&quot;);
+
+        // 6. 打印结果
+        for (Object user : list) {
+            System.out.println(user);
+        }
+
+        // 7. 释放资源
+        sqlSession.close();
+    }</code></pre>
+<p>测试效果如下图：<br />
+<img src="./images/Mybatis中#{}与${}的区别1.png" alt="在这里插入图片描述" /></p>
+<h2 id="使用-案例"><strong>使用$ {}案例</strong></h2>
+<p><strong>1、映射文件：</strong></p>
+<p>在User.xml配置文件中添加如下内容：</p>
+<pre><code><code>&lt;!-- 如果传入的参数是简单数据类型，${}里面必须写value --&gt;
+    &lt;select id=&quot;queryUserByUsername2&quot; parameterType=&quot;string&quot;
+        resultType=&quot;cn.itcast.mybatis.pojo.User&quot;&gt;
+        SELECT * FROM `user` WHERE username LIKE &#39;%${value}%&#39;
+    &lt;/select&gt;
+</code></pre>
+<p><strong>2.测试程序：</strong><br />
+MybatisTest中添加测试方法如下：</p>
+<pre><code><code>@Test
+public void testQueryUserByUsername2() throws Exception {
+    // 4. 创建SqlSession对象
+    SqlSession sqlSession = sqlSessionFactory.openSession();
+
+    // 5. 执行SqlSession对象执行查询，获取结果User
+    // 查询多条数据使用selectList方法
+    List&lt;Object&gt; list = sqlSession.selectList(&quot;queryUserByUsername2&quot;, &quot;王&quot;);
+
+    // 6. 打印结果
+    for (Object user : list) {
+        System.out.println(user);
+    }
+
+    // 7. 释放资源
+    sqlSession.close();
+}
+</code></pre>
+<p>当然两个案例效果一致！</p>
+<p><strong>如果本文对你有一点点帮助，那么请点个赞呗，谢谢~</strong></p>
+<blockquote>
+<p><strong>最后，若有不足或者不正之处，欢迎指正批评，感激不尽！如果有疑问欢迎留言，绝对第一时间回复！</strong></p>
+</blockquote>
+<p>欢迎各位关注我的公众号，一起探讨技术，向往技术，追求技术，说好了来了就是盆友喔...</p>
+<p><img src="./images/Mybatis中#{}与${}的区别2.png" alt="在这里插入图片描述" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

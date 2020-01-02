@@ -1,0 +1,132 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修使用 Ocelot 匹配路由的方法匹配路由' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>使用 Ocelot 匹配路由的方法匹配路由</center></div><div class='banquan'>原文出处:本文由博客园博主WeihanLi提供。<br/>
+原文连接:https://www.cnblogs.com/weihanli/p/12043955.html</div><br>
+    <h1 id="使用-ocelot-匹配路由的方法匹配路由">使用 Ocelot 匹配路由的方法匹配路由</h1>
+<h2 id="intro">Intro</h2>
+<p>之前我们在 Ocelot 网关的基础上<a href="https://www.cnblogs.com/weihanli/p/custom-authentication-authorization-in-ocelot.html">自定义了一个认证授权的 Ocelot 中间件</a>，根据请求的路径和 Method 进行匹配，找到对应的权限配置，并判断是否可以拥有访问资源的角色，如果没有则返回 401/403，如果有权限则转发到下游服务。</p>
+<p>原来的匹配方式是首先根据请求路径和方法完全匹配，如果匹配不到则尝试使用正则匹配。</p>
+<p>我们这次要做的就是将原来的正则匹配替换成 Ocelot 內部的路由匹配方式，这样我们在配置的时候就不再需要配置两套了，一边写 Ocelot 路由的配置，一边写权限的配置，这样能减少不少工作量</p>
+<h2 id="深入-ocelot-路由匹配">深入 Ocelot 路由匹配</h2>
+<p>我们想使用 Ocelot 的路由匹配，首先应该了解 Ocelot 的执行过程，然后找到对应的路由匹配的地方，看路由匹配使用到了哪一个服务，用这个服务在我们自己的业务逻辑里匹配即可。</p>
+<p>先来看一下 Ocelot 的服务注册，Ocelot 的服务注册</p>
+<p><img src="./images/使用 Ocelot 匹配路由的方法匹配路由0.png" /></p>
+<p>可以看到主要的服务注册代码应该在 <code>OcelotBuilder</code> 中，查看 <code>OcelotBuilder</code> <a href="https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DependencyInjection/OcelotBuilder.cs" class="uri">https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DependencyInjection/OcelotBuilder.cs</a></p>
+<p><img src="./images/使用 Ocelot 匹配路由的方法匹配路由1.png" /></p>
+<p>可以看到，Ocelot 的服务注册都在这里， Ocelot 内部好多都是基于接口的，所以需要找对应的实现的话可以看它的服务注册是注册的哪一个服务即可。</p>
+<p>简单分析一下，Ocelot 的路由匹配过程一定在寻找下游地址的时候，根据上游的请求信息（直接请求网关的请求）匹配，所以我们首先找到 <code>DownstreamRouteFinderMiddleware</code> <a href="https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DownstreamRouteFinder/Middleware/DownstreamRouteFinderMiddleware.cs" class="uri">https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DownstreamRouteFinder/Middleware/DownstreamRouteFinderMiddleware.cs</a></p>
+<p><img src="./images/使用 Ocelot 匹配路由的方法匹配路由2.png" /></p>
+<p>由上面的代码，我们可以看到，下游路由地址是通过 <code>IDownstreamRouteFinder</code> 来找下游路由的，转到对应的实现代码： <a href="https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DownstreamRouteFinder/Finder/DownstreamRouteFinder.cs" class="uri">https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DownstreamRouteFinder/Finder/DownstreamRouteFinder.cs</a></p>
+<p><img src="./images/使用 Ocelot 匹配路由的方法匹配路由3.png" /></p>
+<p>这里我们可以看到是通过 <code>IUrlPathToUrlTemplateMatcher</code> 来进行路由匹配的，所以我们需要用到这个服务，然后看这个 <code>Match</code> 方法的参数，前两个参数比较明确，第一个参数是上游请求的地址，第二个参数是请求的 queryString，第三个参数则是 Ocelot 内部构建出来的路由模板信息 <code>UpstreamPathTemplate</code>，然后我们就需要知道怎么构建一个 <code>UpstreamPathTemplate</code> 对象，继续探索</p>
+<p>直接看 <code>UpstreamPathTemplate</code>，表示一脸懵逼，不知道怎么构建， 全局搜素了一下，发现有一个 <code>IUpstreamTemplatePatternCreator</code> 里面定义了一个 <code>Create</code> 的方法</p>
+<p><img src="./images/使用 Ocelot 匹配路由的方法匹配路由4.png" /></p>
+<p>这个方法看上去简单了好多，查看 <code>IReRoute</code> 的定义 <a href="https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/Configuration/File/IReRoute.cs" class="uri">https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/Configuration/File/IReRoute.cs</a></p>
+<p><img src="./images/使用 Ocelot 匹配路由的方法匹配路由5.png" /></p>
+<p>我们只需要根据路径模板构建一个 <code>IReRoute</code> 对象即可，Ocelot 中有一个实现了 <code>IReRoute</code> 的类 <code>FileReRoute</code>，但是感觉有些复杂，就没有用，自定义了一个类型实现了 <code>IReRoute</code></p>
+<p>自此，我们就已经找到了要使用 Ocelot 路由匹配所需要的服务了：</p>
+<ul>
+<li><code>IUrlPathToUrlTemplateMatcher</code></li>
+<li><code>IUpstreamTemplatePatternCreator</code></li>
+</ul>
+<h2 id="使用-ocelot-路由匹配">使用 Ocelot 路由匹配</h2>
+<p>上面提到了我们没有使用 <code>FileReRoute</code> 对象，所以我们就需要自定义一个 <code>IReRoute</code> 对象：</p>
+<pre><code><code>private class FakeReRoute : IReRoute
+{
+    public string UpstreamPathTemplate { get; set; }
+    public bool ReRouteIsCaseSensitive { get; set; }
+    public int Priority { get; set; }
+}</code></pre>
+<p>使用 Ocelot 路由匹配示例：</p>
+<pre><code><code>public class UrlBasedAuthenticationMiddleware : Ocelot.Middleware.OcelotMiddleware
+{
+    private readonly GatewayOptions _gatewayOptions;
+    private readonly IMemoryCache _memoryCache;
+    private readonly OcelotRequestDelegate _next;
+
+    private readonly IUrlPathToUrlTemplateMatcher _urlTemplateMatcher;
+    private readonly IUpstreamTemplatePatternCreator _templatePatternCreator;
+
+    public UrlBasedAuthenticationMiddleware(OcelotRequestDelegate next, IOptions&lt;GatewayOptions&gt; options, IMemoryCache memoryCache, IOcelotLoggerFactory loggerFactory,
+        IUrlPathToUrlTemplateMatcher urlTemplateMatcher,
+        IUpstreamTemplatePatternCreator templatePatternCreator)
+        : base(loggerFactory.CreateLogger&lt;UrlBasedAuthenticationMiddleware&gt;())
+    {
+        _next = next;
+
+        _gatewayOptions = options.Value;
+        _memoryCache = memoryCache;
+
+        _urlTemplateMatcher = urlTemplateMatcher;
+        _templatePatternCreator = templatePatternCreator;
+    }
+
+    public async Task Invoke(DownstreamContext context)
+    {
+        var permissions = await _memoryCache.GetOrCreateAsync(_gatewayOptions.ApiPermissionsCacheKey, async entry =&gt;
+        {
+            using (var conn = new SqlConnection(_gatewayOptions.PermissionsConnectionString))
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1);
+                return (await conn.QueryAsync&lt;ApiPermission&gt;(@&quot;&quot;)).Select(_ =&gt; _.GetViewModel()).ToArray();
+            }
+        });
+
+        var request = context.HttpContext.Request;
+        
+        var permission = permissions.FirstOrDefault(p =&gt;
+                                request.Path.Value.Equals(p.PathPattern, StringComparison.OrdinalIgnoreCase) &amp;&amp;
+                                p.Method == request.Method.ToUpper());
+        if (null == permission)
+        {
+            permission = permissions.FirstOrDefault(p =&gt;
+                p.Method == request.Method.ToUpper() &amp;&amp;
+                _urlTemplateMatcher.Match(request.Path.Value, request.QueryString.Value,
+                    _templatePatternCreator.Create(new FakeReRoute()
+                    {
+                        UpstreamPathTemplate = p.PathPattern
+                    })).Data.Match
+            );
+        }
+
+        // ...
+        await _next.Invoke(context);
+    }
+
+    private class FakeReRoute : IReRoute
+    {
+        public string UpstreamPathTemplate { get; set; }
+        public bool ReRouteIsCaseSensitive { get; set; }
+        public int Priority { get; set; }
+    }
+}</code></pre>
+<h2 id="more">More</h2>
+<p>这样，apiPermission 的 Path 配置基本可以使用和 Ocelot 配置一样的路由，可以更方便的配置，避免 996 咯</p>
+<h2 id="reference">Reference</h2>
+<ul>
+<li><a href="https://github.com/ThreeMammals/Ocelot" class="uri">https://github.com/ThreeMammals/Ocelot</a></li>
+<li><a href="https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DependencyInjection/OcelotBuilder.cs#L95" class="uri">https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DependencyInjection/OcelotBuilder.cs#L95</a></li>
+<li><a href="https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DownstreamRouteFinder/UrlMatcher/IUrlPathToUrlTemplateMatcher.cs" class="uri">https://github.com/ThreeMammals/Ocelot/blob/13.5.2/src/Ocelot/DownstreamRouteFinder/UrlMatcher/IUrlPathToUrlTemplateMatcher.cs</a></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

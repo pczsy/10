@@ -1,0 +1,138 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修C++通过Swig跨线程回调Python代码' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>C++通过Swig跨线程回调Python代码</center></div><div class='banquan'>原文出处:本文由博客园博主西北望射天狼提供。<br/>
+原文连接:https://www.cnblogs.com/gujf2016/p/11671565.html</div><br>
+    <p>C++&nbsp;定义 Callback 类.&nbsp;PyThreadStateLock&nbsp;保证垮线程调用成功：</p>
+<p><span style="color: #0000ff;">&nbsp;</span></p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code>#include &lt;Python/Python.h&gt;
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> Callback
+{
+</span><span style="color: #0000ff;">public</span><span style="color: #000000;">:
+    Callback(){}
+    
+    </span><span style="color: #0000ff;">virtual</span> ~<span style="color: #000000;">Callback(){}
+    </span><span style="color: #0000ff;">virtual</span> <span style="color: #0000ff;">void</span> call(ObjWithPyCallback&amp; <span style="color: #0000ff;">object</span><span style="color: #000000;">){}
+};
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> ObjWithPyCallback
+{
+</span><span style="color: #0000ff;">public</span><span style="color: #000000;">:
+    
+    ObjWithPyCallback();
+    </span>~<span style="color: #000000;">ObjWithPyCallback();
+    </span><span style="color: #0000ff;">void</span> setCallback(Callback &amp;<span style="color: #000000;">callback);
+    </span><span style="color: #0000ff;">void</span><span style="color: #000000;"> call(); 
+    
+</span><span style="color: #0000ff;">private</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">void</span><span style="color: #000000;"> NotifyThread();
+    Callback</span>*<span style="color: #000000;"> callback_;
+};<br />
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> PyThreadStateLock
+{
+</span><span style="color: #0000ff;">public</span><span style="color: #000000;">:
+    PyThreadStateLock(</span><span style="color: #0000ff;">void</span><span style="color: #000000;">)
+    {
+        state </span>=<span style="color: #000000;"> PyGILState_Ensure( );
+    }
+    
+    </span>~PyThreadStateLock(<span style="color: #0000ff;">void</span><span style="color: #000000;">)
+    {
+        PyGILState_Release( state );
+    }
+</span><span style="color: #0000ff;">private</span><span style="color: #000000;">:
+    PyGILState_STATE state;
+};</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>Callback.cpp</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">ObjWithPyCallback::ObjWithPyCallback() : callback_(NULL)
+{
+    Py_Initialize();
+    PyEval_InitThreads();
+    PyEval_ReleaseLock();
+}
+
+ObjWithPyCallback::</span>~<span style="color: #000000;">ObjWithPyCallback()
+{    
+}
+
+</span><span style="color: #0000ff;">void</span> ObjWithPyCallback::setCallback(Callback &amp;<span style="color: #000000;">callback)
+{
+    callback_ </span>= &amp;<span style="color: #000000;">callback;
+}
+
+</span><span style="color: #0000ff;">void</span><span style="color: #000000;"> ObjWithPyCallback::call()
+{
+    </span><span style="color: #0000ff;">if</span> ( !<span style="color: #000000;"> callback_ )
+    {
+        std::cerr </span>&lt;&lt; <span style="color: #800000;">"</span><span style="color: #800000;">No callback is set.\n</span><span style="color: #800000;">"</span><span style="color: #000000;">;
+    }
+    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">
+    {
+        thread(</span>&amp;ObjWithPyCallback::NotifyThread, <span style="color: #0000ff;">this</span>).detach();<span style="color: #008000;">//</span><span style="color: #008000;">call in another thread
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">callback_-&gt;call(*this);</span><span style="color: #008000;">//</span><span style="color: #008000;">call directly</span>
+<span style="color: #000000;">        
+    }
+}
+
+</span><span style="color: #0000ff;">void</span><span style="color: #000000;"> ObjWithPyCallback::NotifyThread()
+{
+    </span><span style="color: #0000ff;">class</span> PyThreadStateLock PyThreadLock;<span style="color: #008000;">//</span><span style="color: #008000;">fix segmentation fault </span>
+    callback_-&gt;call(*<span style="color: #0000ff;">this</span><span style="color: #000000;">);
+}</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>.i 文件中</p>
+<div class="cnblogs_code">
+<pre><code>%module(directors=<span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">) cb
+</span>%<span style="color: #000000;">{
+   #include </span><span style="color: #800000;">"</span><span style="color: #800000;">Callback.h</span><span style="color: #800000;">"</span>
+%<span style="color: #000000;">}
+</span>%feature(<span style="color: #800000;">"</span><span style="color: #800000;">director</span><span style="color: #800000;">"</span><span style="color: #000000;">) Callback;
+
+</span>%include <span style="color: #800000;">"</span><span style="color: #800000;">Callback.h</span><span style="color: #800000;">"</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>在 python&nbsp;中调用：</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> cb
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> CB(cb.Callback):
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        super(CB, self).</span><span style="color: #800080;">__init__</span><span style="color: #000000;">()
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> call(self, x):
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Hello from CB!</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(x)
+
+o </span>=<span style="color: #000000;"> cb.ObjWithPyCallback()
+mycb</span>=<span style="color: #000000;">CB()
+o.setCallback(mycb)
+o.call()</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

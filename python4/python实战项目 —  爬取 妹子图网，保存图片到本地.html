@@ -1,0 +1,229 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python实战项目 —  爬取 妹子图网，保存图片到本地' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python实战项目 —  爬取 妹子图网，保存图片到本地</center></div><div class='banquan'>原文出处:本文由博客园博主羊肉串552提供。<br/>
+原文连接:https://www.cnblogs.com/chen-jun552/p/11383074.html</div><br>
+    <p>&nbsp;</p>
+<p>重点：</p>
+<p>1. 用def函数</p>
+<p>2. 使用 os.path.dirname("路径保存") ， 实现每组图片保存在独立的文件夹中</p>
+<p>&nbsp;</p>
+<p>方法1：</p>
+<div class="cnblogs_Highlighter">
+<pre><code>import requests
+from lxml import etree
+import os
+import time
+
+start = time.time()
+
+
+def mz_spider(base_url, headers_one):
+    res = requests.get(url=base_url, headers=headers_one)           # 请求链接
+    base_html = etree.HTML(res.text)                             # 解析html
+
+    img_src = base_html.xpath('//div[@class="postlist"]/ul/li/a/@href')
+    for img_url in img_src:
+        # print(img_url)
+        img_parse(img_url)
+
+
+def img_parse(img_url):
+    headers = {
+        "User-Agent": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/5.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E; SE 2.X MetaSr 1.0)",
+        'Referer': "https://www.mzitu.com/"
+    }
+    res_sec = requests.get(url=img_url, headers=headers)
+    html_sec = etree.HTML(res_sec.text)
+
+    try:
+        # 由于会出现 list index out of range，所以用try进行,获取标题
+        title = html_sec.xpath('//div[@class="content"]/h2/text()')[0]
+        # print(title)
+        # 获取图片总页数
+        page_num = html_sec.xpath('//div[@class="pagenavi"]/a/span/text()')[-2]
+        # print("这组图一共有：{} 页".format(page_num))
+        # 拼接图片详情页地址
+        for num in range(1, int(page_num) + 1):
+            # 拼接每个图片url
+            img_per_url = img_url + "/" + str(num)
+            download_img(img_per_url, title)
+    except Exception as e:
+        print(e)
+    else:
+        pass
+
+
+# 下载图片
+def download_img(img_per_url, title):
+    res_per = requests.get(url=img_per_url, headers=headers_one)
+    html_per = etree.HTML(res_per.text)
+
+    # 提取每个图片的url
+    img_down_url = html_per.xpath('//div[@class="main-image"]/p/a/img/@src')[0]
+
+    # 解析图片url 把 html3 每个图片再解析拿到 content
+    res_down = requests.get(img_down_url, headers=headers_one)
+    # 把图片文件装入内容
+    data = res_down.content
+    # 下载文件，设置保存文件和路径
+    # 获取文件所在的路径,注意的是路径是 D:/图片/mz
+    path = os.path.dirname("D:\图片\mz\\0.py")
+    img_name = img_down_url.split('/')[-1]
+    # 设置文件夹名称
+    folder_name = title.replace(' ', '')
+    # 保存的地址是 C:\py_code\new_code\mz\"title"
+    root_dir = path + "\\" + folder_name
+
+    # 新建文档的文件夹
+    if not os.path.exists(root_dir):
+        os.makedirs(root_dir)
+
+    # 设置保存文件的绝对地址
+    with open(root_dir + "\\" + img_name, "wb") as f:
+        f.write(data)
+        # 强行把缓冲区中的内容放到磁盘中
+        f.flush()
+        f.close()
+        print(img_name + "__文件下载成功: " + title)
+
+
+if __name__ == "__main__":
+    headers_one = {
+        "User-Agent": 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0; Trident/4.0)',
+        'Referer': "https://www.mzitu.com/"
+    }
+
+    for i in range(1, 10):
+        base_url = 'https://www.mzitu.com/page/{}/'.format(str(i))
+        time.sleep(0.5)
+        mz_spider(base_url, headers_one)
+
+print("全部下载完成，耗时 %d s" % (start - time.time()))
+</pre>
+</div>
+<p>　　</p>
+<p>方法2：</p>
+<div class="cnblogs_Highlighter">
+<pre><code>import requests
+from lxml import etree
+import time
+import os
+
+start = time.time()
+headers_one = {
+        "User-Agent": 'Mozilla/5.0 (Windows; U; Windows NT 5.2) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.2.149.27 Safari/525.13',
+        'Referer': "https://www.mzitu.com/"
+    }
+
+headers_two = {
+    "User-Agent": 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36',
+    'Referer': "https://www.mzitu.com/"
+}
+
+headers_three = {
+    "User-Agent": 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+    'Referer': "https://www.mzitu.com/"
+}
+
+# 构建所有要抓取的页面链接
+for i in range(1, 3):
+    base_url = 'https://www.mzitu.com/page/{}/'.format(str(i))
+    print(" &mdash;&mdash;&mdash;&mdash; 现在抓取第{}页   ".format(i) + base_url)
+
+    base_response = requests.get(url=base_url, headers=headers_one)         # 请求链接
+    print(base_response)
+    base_html = etree.HTML(base_response.text)                              # 解析html
+
+    # 第一层主页面，获取每组图片的链接和详细信息
+    # 获取每组图片的主链接
+    img_urls = base_html.xpath('//div[@class="postlist"]/ul/li/a/@href')
+
+    for img_url in img_urls:
+        print("抓取第{}页, 这组图片的 img_url： ".format(i) + img_url)
+        # 第二层，每组图片的详细页面
+        res_two = requests.get(url=img_url, headers=headers_two)
+        html_sec = etree.HTML(res_two.text)
+
+        try:
+            # 由于会出现 list index out of range，所以用try进行
+            # 获取标题
+            title = html_sec.xpath('//div[@class="content"]/h2/text()')[0]
+            # 获取图片总页数
+            page_num = html_sec.xpath('//div[@class="pagenavi"]/a/span/text()')[-2]
+            print("这组图一共有：{} 页".format(page_num))
+            page = int(page_num) + 1
+
+            # 拼接图片详情页地址
+            for num in range(1, page):
+                # 拼接每个图片url
+                img_per_url = img_url + "/" + str(num)
+                # print("组图中的第{}张图的URL  ".format(num) + img_per_url)
+                # 解析每个图片所在的网页，获取每个图片的URL
+                res_three = requests.get(url=img_per_url, headers=headers_three)
+                html_url = etree.HTML(res_three.text)
+                # 提取每个图片的url
+                img_down_url = html_url.xpath('//div[@class="main-image"]/p/a/img/@src')[0]
+                # print("图片下载的 img_down_url： " + img_down_url)
+
+                # 第三层，解析图片url 把 html3 每个图片再解析拿到 content
+                res_four = requests.get(img_down_url, headers=headers_three)
+                # 把图片文件
+                data = res_four.content
+
+                # 下载文件，设置保存文件和路径
+                # 获取文件所在的路径,注意的是路径是 C:/py_code/new_code/mz
+                path = os.path.dirname("C:/py_code/new_code/mz/0.py")
+                # 获取图片名称
+                img_name = img_down_url.split('/')[-1]
+                # 设置文件夹名称
+                folder = title.replace(' ', '')
+                # 保存的地址是 C:/py_code/new_code/mz/"title"
+                root_dir = path + "/" + folder
+
+                # 新建文档的文件夹
+                if not os.path.exists(root_dir):
+                    os.makedirs(root_dir)
+                else:
+                    # 如果存在就不做更改
+                    pass
+                # 设置保存文件的绝对地址
+                with open(root_dir + "/" + img_name, "wb") as f:
+                    f.write(data)
+                    # 强行把缓冲区中的内容放到磁盘中
+                    f.flush()
+                    f.close()
+                    print(img_name + "__文件下载成功: " + title)
+                    time.sleep(0.5)
+
+        except Exception as e:
+            print(e)
+            continue
+        else:
+            pass
+
+print("完了,程序耗时是：%f s" % (start-time.time()))
+</pre>
+</div>
+<p>　　</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

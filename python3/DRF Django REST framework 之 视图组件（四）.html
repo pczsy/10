@@ -1,0 +1,196 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DRF Django REST framework 之 视图组件（四）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DRF Django REST framework 之 视图组件（四）</center></div><div class='banquan'>原文出处:本文由博客园博主Nolinked提供。<br/>
+原文连接:https://www.cnblogs.com/pungchur/p/12028325.html</div><br>
+    <h2>引言</h2>
+<p>在我们有几十上百的视图类，都有get,post等方法，在功能类似时，会导致大量的重复代码出现，显然还有很多可以优化的地方。这也就有了视图组件，它的功能非常强大，能很好的优化接口逻辑。</p>
+<h2>视图组件</h2>
+<h3 id="使用mixin优化接口逻辑">使用视图组件的mixin优化接口逻辑</h3>
+<ol>
+<li>导入&nbsp;<span class="cnblogs_code">mixins</span>&nbsp;</li>
+<li>定义序列化类</li>
+<li>定义视图类</li>
+</ol>
+<div class="cnblogs_code">
+<pre><code><strong><span style="color: #008000;">#</span><span style="color: #008000;"> 1.导入mixins</span></strong>
+<span style="color: #0000ff;">from</span> rest_framework.mixins <span style="color: #0000ff;">import</span><span style="color: #000000;"> (
+    ListModelMixin,
+    CreateModelMixin,
+    DestroyModelMixin,
+    UpdateModelMixin,
+    RetrieveModelMixin
+)
+</span><span style="color: #0000ff;">from</span> rest_framework.generics <span style="color: #0000ff;">import</span><span style="color: #000000;"> GenericAPIView
+
+</span><span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+</span><strong><span style="color: #008000;">#</span><span style="color: #008000;"> 2.定义序列化类</span></strong>
+<span style="color: #0000ff;">from</span> DrfOne.drf_serializers <span style="color: #0000ff;">import</span><span style="color: #000000;"> BookSerializer
+
+
+</span><strong><span style="color: #008000;">#</span><span style="color: #008000;"> 3.定义视图类</span></strong>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ListModelMixin, CreateModelMixin, GenericAPIView):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class =<span style="color: #000000;"> BookSerializer
+    </span><span style="color: #0000ff;">def</span> get(self, request, *args, **<span style="color: #000000;">kwargs):
+        </span><span style="color: #0000ff;">return</span> self.list(request, *args, **<span style="color: #000000;">kwargs)
+
+    </span><span style="color: #0000ff;">def</span> post(self, request, *args, **<span style="color: #000000;">kwargs):
+        </span><span style="color: #0000ff;">return</span> self.create(request, *args, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookFilterView(RetrieveModelMixin, UpdateModelMixin, DestroyModelMixin, GenericAPIView):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class =<span style="color: #000000;"> BookSerializer
+
+    </span><span style="color: #0000ff;">def</span> get(self, request, *args, **<span style="color: #000000;">kwargs):
+        </span><span style="color: #0000ff;">return</span> self.retrieve(request, *args, **<span style="color: #000000;">kwargs)
+
+    </span><span style="color: #0000ff;">def</span> put(self, request, *args, **<span style="color: #000000;">kwargs):
+        </span><span style="color: #0000ff;">return</span> self.update(request, *args, **<span style="color: #000000;">kwargs)
+
+    </span><span style="color: #0000ff;">def</span> delete(self, request, *args, **<span style="color: #000000;">kwargs):
+        </span><span style="color: #0000ff;">return</span> self.destroy(request, *args, **kwargs)</pre>
+</div>
+<p>定义序列化类</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> rest_framework <span style="color: #0000ff;">import</span><span style="color: #000000;"> serializers
+
+</span><span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookSerializer(serializers.ModelSerializer):
+    </span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Meta:
+        model </span>=<span style="color: #000000;"> models.Book
+        fields </span>= <span style="color: #800000;">"</span><span style="color: #800000;">__all__</span><span style="color: #800000;">"</span><span style="color: #000000;">
+        extra_kwargs </span>=<span style="color: #000000;"> {
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 仅写</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">publish</span><span style="color: #800000;">"</span>: {<span style="color: #800000;">'</span><span style="color: #800000;">write_only</span><span style="color: #800000;">'</span><span style="color: #000000;">: True},
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">authors</span><span style="color: #800000;">"</span>: {<span style="color: #800000;">'</span><span style="color: #800000;">write_only</span><span style="color: #800000;">'</span><span style="color: #000000;">: True},
+        }
+
+    publish_name </span>= serializers.CharField(max_length=32, read_only=True, source=<span style="color: #800000;">"</span><span style="color: #800000;">publish.name</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    publish_address </span>= serializers.CharField(max_length=32, read_only=True, source=<span style="color: #800000;">"</span><span style="color: #800000;">publish.address</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    author_name </span>=<span style="color: #000000;"> serializers.SerializerMethodField()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_author_name(self, book_obj):
+        author_list </span>=<span style="color: #000000;"> list()
+        </span><span style="color: #0000ff;">for</span> author <span style="color: #0000ff;">in</span><span style="color: #000000;"> book_obj.authors.all():
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 注意列表添加字段，author.name而不是author</span>
+<span style="color: #000000;">            author_list.append(author.name)
+        </span><span style="color: #0000ff;">return</span> author_list</pre>
+</div>
+<p>注意：操作单条数据的&nbsp;<span class="cnblogs_code">url</span>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.urls <span style="color: #0000ff;">import</span><span style="color: #000000;"> path, re_path
+
+</span><span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> views
+
+urlpatterns </span>=<span style="color: #000000;"> [
+    path(</span><span style="color: #800000;">'</span><span style="color: #800000;">books/</span><span style="color: #800000;">'</span><span style="color: #000000;">, views.BookView.as_view()),
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 需要命名为pk</span>
+    re_path(<span style="color: #800000;">"</span><span style="color: #800000;">books/(?P&lt;pk&gt;\d+)/</span><span style="color: #800000;">"</span><span style="color: #000000;">, views.BookFilterView.as_view()),
+]</span></pre>
+</div>
+<p>通过上面代码发现&nbsp;<span class="cnblogs_code">get</span>&nbsp;,&nbsp;<span class="cnblogs_code">post</span>&nbsp;等方法内容相似，可以进行再次封装。</p>
+<h3 id="使用mixin优化接口逻辑">使用视图组件的view优化接口逻辑</h3>
+<ol>
+<li>导入&nbsp;<span class="cnblogs_code">generics</span>&nbsp;</li>
+<li>导入序列化类</li>
+<li>定义视图类</li>
+</ol>
+<p>对&nbsp;<span class="cnblogs_code">mixins</span>&nbsp;再次优化其余内容不变</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 1.导入generics</span>
+<span style="color: #0000ff;">from</span> rest_framework <span style="color: #0000ff;">import</span><span style="color: #000000;"> generics
+
+</span><span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 2.导入序列化类</span>
+<span style="color: #0000ff;">from</span> DrfOne.drf_serializers <span style="color: #0000ff;">import</span><span style="color: #000000;"> BookSerializer
+
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 3.定义视图类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(generics.ListCreateAPIView):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class =<span style="color: #000000;"> BookSerializer
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> BookFilterView(generics.RetrieveUpdateDestroyAPIView):
+    queryset </span>=<span style="color: #000000;"> models.Book.objects.all()
+    serializer_class </span>= BookSerializer</pre>
+</div>
+<p>发现还是有重复代码，再次优化，也就是&nbsp;<span class="cnblogs_code">viewset</span>&nbsp;。</p>
+<h3 id="使用mixin优化接口逻辑">使用视图组件的viewset优化接口逻辑</h3>
+<p>看似已经优化的非常完美了，但是在一个对性能要求极高的项目里面，我们的程序还可以继续优化，不断的优化程序是每个程序员必备的技能。</p>
+<ol>
+<li>定义&nbsp;<span class="cnblogs_code">url</span>&nbsp;</li>
+<li>导入&nbsp;<span class="cnblogs_code">viewset</span>&nbsp;</li>
+<li>导入序列化类</li>
+<li>定义视图类</li>
+</ol>
+<p><strong>注意urls.py的变化</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.urls <span style="color: #0000ff;">import</span><span style="color: #000000;"> path, re_path
+
+</span><span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> views
+
+
+urlpatterns </span>=<span style="color: #000000;"> [
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> path('books/', views.BookView.as_view()),</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> re_path("books/(?P&lt;pk&gt;\d+)/", views.BookFilterView.as_view()),</span>
+<span style="color: #000000;">
+    path(</span><span style="color: #800000;">"</span><span style="color: #800000;">books/</span><span style="color: #800000;">"</span><span style="color: #000000;">, views.BookView.as_view({
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">get</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">list</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">post</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">create</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    })),
+    re_path(</span><span style="color: #800000;">'</span><span style="color: #800000;">books/(?P&lt;pk&gt;\d+)/</span><span style="color: #800000;">'</span><span style="color: #000000;">, views.BookView.as_view({
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">get</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">retrieve</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">put</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">update</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">delete</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">destroy</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    })),
+]</span></pre>
+</div>
+<p>views.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> 2.导入viewset模块里的ModelViewSet类</span>
+<span style="color: #0000ff;">from</span> rest_framework.viewsets <span style="color: #0000ff;">import</span><span style="color: #000000;"> ModelViewSet
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 导入应用里的models</span>
+<span style="color: #0000ff;">from</span> DrfOne <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 3.导入序列化类</span>
+<span style="color: #0000ff;">from</span> DrfOne.drf_serializers <span style="color: #0000ff;">import</span><span style="color: #000000;"> BookSerializer
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 4.定义视图类</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> BookView(ModelViewSet):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 获取数据源, 固定写法</span>
+    queryset =<span style="color: #000000;"> models.Book.objects.all()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 序列化类, 固定写法</span>
+    serializer_class = BookSerializer</pre>
+</div>
+<p><span style="color: #33cccc;"><strong>~&gt;.&lt;~</strong></span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

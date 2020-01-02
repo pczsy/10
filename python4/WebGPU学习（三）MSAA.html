@@ -1,0 +1,196 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修WebGPU学习（三）MSAA' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>WebGPU学习（三）MSAA</center></div><div class='banquan'>原文出处:本文由博客园博主Wonder-YYC提供。<br/>
+原文连接:https://www.cnblogs.com/chaogex/p/12003722.html</div><br>
+    <p>大家好，本文学习MSAA以及在WebGPU中的实现。</p>
+<p>上一篇博文<br />
+<a href="https://www.cnblogs.com/chaogex/p/11993144.html">WebGPU学习（二）: 学习“绘制一个三角形”示例</a></p>
+<p>下一篇博文<br />
+<a href="https://www.cnblogs.com/chaogex/p/12004546.html">WebGPU学习（四）:Alpha To Coverage</a></p>
+<h1 id="学习msaa">学习MSAA</h1>
+<h2 id="介绍">介绍</h2>
+<p>MSAA（多重采样抗锯齿），是硬件实现的抗锯齿技术</p>
+<h2 id="动机">动机</h2>
+<p>参考<a href="https://www.cnblogs.com/ghl_carmack/p/8245032.html">深入剖析MSAA</a> ：</p>
+<blockquote>
+<p>具体到实时渲染领域中，走样有以下三种：<br />
+1.几何体走样（几何物体的边缘有锯齿），几何走样由于对几何边缘采样不足导致。<br />
+2.着色走样，由于对着色器中着色公式（渲染方程）采样不足导致。比较明显的现象就是高光闪烁。<br />
+3.时间走样，主要是对高速运动的物体采样不足导致。比如游戏中播放的动画发生跳变等。</p>
+</blockquote>
+<p>这里讨论几何体走样。<br />
+<img src="./images/WebGPU学习（三）MSAA0.png" alt="anti_aliasing_rasterization.png-27.2kB" /></p>
+<p>如上图所示，我们要绘制一个三角形。它由三个顶点组成，红线范围内的三角形是片元primitive覆盖的区域。<br />
+primitive会被光栅化为fragment，而一个fragment最终对应屏幕上的一个像素，如图中的小方块所示。</p>
+<p>gpu会根据像素中心的采样点是否被pritimive覆盖来判断是否生成该fragment和执行对应的fragment shader。</p>
+<p>图中红色的点是被覆盖的采样点，它所在的像素会被渲染。</p>
+<p>下图是最终渲染的结果，我们看到三角形边缘产生了锯齿：<br />
+<img src="./images/WebGPU学习（三）MSAA1.png" alt="anti_aliasing_rasterization_filled.png-14.2kB" /></p>
+<h2 id="原理">原理</h2>
+<p>MSAA通过增加采样点来减轻几何体走样。<br />
+它包括4个步骤：<br />
+1.针对采样点进行覆盖检测<br />
+2.每个被覆盖的fragment执行一次fragment shader<br />
+3.针对采样点进行深度检测和模版检测<br />
+4.解析（resolve）</p>
+<p>下面以4X MSAA为例（每个像素有4个采样点），说明每个步骤：</p>
+<p>1.针对采样点进行覆盖检测</p>
+<p>gpu会计算每个fragment的coverage（覆盖率），从而得知对应像素的每个采样点是否被覆盖的信息。</p>
+<p>coverage相关知识可以参考<a href="https://zhuanlan.zhihu.com/p/95931422">WebGPU学习（四）:Alpha To Coverage</a> -&gt; 学习Alpha To Coverage -&gt; 原理</p>
+<p>这里为了简化，我们只考虑通过“检测每个像素有哪些采样点被primitive覆盖”来计算coverager：</p>
+<p><img src="./images/WebGPU学习（三）MSAA2.png" alt="anti_aliasing_rasterization_samples.png-38.9kB" /></p>
+<p>如上图所示，蓝色的采样点是在三角形中，是被覆盖的采样点。</p>
+<p>2.每个被覆盖的fragment执行一次fragment shader</p>
+<p>如果一个像素至少有一个采样点被覆盖，那么会执行一次它对应的fragment（注意，只执行一次哈，不是执行4次）（它所有的输入varying变量都是针对其像素中心点而言的，所以计算的输出的颜色始终是针对该栅格化出的像素中心点而言的），输出的颜色保存在color buffer中（覆盖的采样点都要保存同一个输出的颜色）</p>
+<p>3.针对采样点进行深度检测和模版检测</p>
+<p>所有采样点的深度值和模版值都要存到depth buffer和stencil buffer中（无论是否被覆盖）。</p>
+<p>被覆盖的采样点会进行深度检测和模版检测，通过了的采样点会进入“解析”步骤。</p>
+<p>那为什么要保存所有采样点的深度和模版值了（包括没有被覆盖的）？因为它们在深度检测和模版检测阶段决定所在的fragment是否被丢弃：</p>
+<blockquote>
+<p>那是因为之后需要每个sample（采样点）都执行一下depth-test，以确定整个fragment是否要流向（通往缓冲区输出的）流水线下一阶段——只有当全部fragment-sample的Depth-Test都Fail掉的时候，才决定抛弃掉这个fragment（蒙版值stencil也是这样的，每个sample都得进行Stencil-Test）。</p>
+</blockquote>
+<p>4.解析</p>
+<p>什么是解析？</p>
+<p>根据<a href="https://www.cnblogs.com/ghl_carmack/p/8245032.html">深入剖析MSAA</a> 的说法：</p>
+<blockquote>
+<p>像超采样一样，过采样的信号必须重新采样到指定的分辨率，这样我们才可以显示它。<br />
+这个过程叫解析（resolving）。</p>
+</blockquote>
+<p>根据<a href="http://www.zwqxin.com/archives/opengl/talk-about-alpha-to-coverage.html">乱弹纪录II:Alpha To Coverage</a> 的说法：</p>
+<blockquote>
+<p>在把所有像素输出到渲染缓冲区前执行Resolve以生成单一像素值。<br />
+。。。。。。<br />
+也该是时候谈到一直说的“计算输出的颜色”是怎么一回事了。MultiSample的Resolve阶段，如果是屏幕输出的话这个阶段会发生在设备的屏幕输出直前；如果是FBO输出，则是发生在把这个Multisample-FBO映射到非multisample的FBO（或屏幕）的时候（见[多重采样(MultiSample)下的FBO反锯齿] ）。Resolve，说白了就是把MultiSample的存储区域的数据，根据一定法则映射到可以用于显示的Buffer上了（这里的输出缓冲区包括了Color、Depth或还有Stencil这几个）。Depth和Stencil前面已经提及了法则了，Color方面其实也简单，一般的显卡的默认处理就是把sample的color取平均了。注意，因为depth-test等Test以及Coverage mask的影响下，有些sample是不参与计算的（被摒弃），例如4XMSAA下上面的0101，就只有两个sample，又已知各sample都对应的只是同一个颜色值，所以输出的颜色 = 2 * fragment color / 4 = 0.5 * fragment color。也就是是说该fragemnt最终显示到屏幕（或Non-MS-FBO）上是fragment shader计算出的color值的一半——这不仅是颜色亮度减半还包括真·透明度值的减半。</p>
+</blockquote>
+<p>我的理解：<br />
+“解析”是把每个像素经过上述步骤得到的采样点的颜色值，取平均值，得到这个像素的颜色值。</p>
+<p><img src="./images/WebGPU学习（三）MSAA3.png" alt="anti_aliasing_sample_points.png-6.7kB" /><br />
+如上图右边所示，像素的2个采样点进入了“解析”，最终该像素的颜色值为 0.5（2/4） * 原始颜色值</p>
+<p>经过上述所有步骤后，最终的渲染结果如下：<br />
+<img src="./images/WebGPU学习（三）MSAA4.png" alt="anti_aliasing_rasterization_samples_filled.png-50.4kB" /></p>
+<h2 id="总结">总结</h2>
+<p>MSAA能减轻几何体走样，但会增加color buffer、depth buffer、stencil buffer开销。</p>
+<h2 id="参考资料">参考资料</h2>
+<p><a href="https://www.cnblogs.com/ghl_carmack/p/8245032.html">深入剖析MSAA</a><br />
+<a href="http://www.zwqxin.com/archives/opengl/talk-about-alpha-to-coverage.html">乱弹纪录II:Alpha To Coverage</a><br />
+<a href="https://learnopengl.com/Advanced-OpenGL/Anti-Aliasing">Anti Aliasing</a></p>
+<h1 id="webgpu实现msaa">WebGPU实现MSAA</h1>
+<p>有下面几个要点：</p>
+<ul>
+<li>能够查询最大的采样个数sample count</li>
+</ul>
+<p>目前我没找到查询的方法，但至少支持4个采样点</p>
+<p>参考 <a href="https://github.com/gpuweb/gpuweb/issues/108">Investigation: Multisampled Render Targets and Resolve Operations</a>：</p>
+<blockquote>
+<p>We can say that 4xMSAA is guaranteed on all WebGPU implementations, and we need to provide APIs for queries on whether we can create a multisampled texture with given format and sample count.</p>
+</blockquote>
+<ul>
+<li>设置sample count</li>
+</ul>
+<pre><code><code>dictionary GPURenderPipelineDescriptor : GPUPipelineDescriptorBase {
+...
+    unsigned long sampleCount = 1;
+...
+};</code></pre>
+<pre><code><code>dictionary GPUTextureDescriptor : GPUObjectDescriptorBase {
+...
+    unsigned long sampleCount = 1;
+...
+};</code></pre>
+<p>我们在WebGPU 规范中看到render pipeline descriptor和texture descriptor可以设置sampleCount。</p>
+<ul>
+<li>设置resolveTarget</li>
+</ul>
+<p>在“解析”步骤中，需要重新采样到指定的分辨率：</p>
+<blockquote>
+<p>过采样的信号必须重新采样到指定的分辨率，这样我们才可以显示它</p>
+</blockquote>
+<p>所以我们应该设置color的resolveTarget（depth、stencil不支持resolveTarget），它包含“分辨率”的信息。</p>
+<p>我们来看下WebGPU 规范：</p>
+<pre><code><code>dictionary GPURenderPassColorAttachmentDescriptor {
+    required GPUTextureView attachment;
+    GPUTextureView resolveTarget;
+
+    required (GPULoadOp or GPUColor) loadValue;
+    GPUStoreOp storeOp = &quot;store&quot;;
+};</code></pre>
+<p>resolveTarget在render pass colorAttachment descriptor中设置，它的类型是GPUTextureView。</p>
+<p>而GPUTextureView是从GPUTexture得来的，我们来看下GPUTexture的descriptor的定义：</p>
+<pre><code><code>dictionary GPUExtent3DDict {
+    required unsigned long width;
+    required unsigned long height;
+    required unsigned long depth;
+};
+typedef (sequence&lt;unsigned long&gt; or GPUExtent3DDict) GPUExtent3D;
+
+dictionary GPUTextureDescriptor : GPUObjectDescriptorBase {
+...
+  required GPUExtent3D size;
+...
+};</code></pre>
+<p>GPUTextureDescriptor的size属性有width和height属性，只要texture对应了屏幕大小，我们就能获得屏幕“分辨率”的信息（depth设为1，因为分辨率只有宽、高，没有深度）。</p>
+<h2 id="实现sample">实现sample</h2>
+<p>我们对应到sample来看下。</p>
+<p>打开webgpu-samplers-&gt;<a href="https://github.com/yyc-git/webgpu-samples/blob/master/src/examples/helloTriangleMSAA.ts">helloTriangleMSAA.ts</a>文件。</p>
+<p>代码基本上与我们上篇文章学习的webgpu-samplers-&gt;<a href="https://github.com/yyc-git/webgpu-samples/blob/master/src/examples/helloTriangle.ts">helloTriangle.ts</a>差不多，</p>
+<h3 id="我们看下创建render-pipeline代码">我们看下创建render pipeline代码</h3>
+<pre><code><code>    const sampleCount = 4;
+
+    const pipeline = device.createRenderPipeline({
+    ...
+      sampleCount,
+    });</code></pre>
+<p>这里设置了sample count为4</p>
+<h3 id="我们看下frame函数-render-pass-descrptor代码">我们看下frame函数-&gt;render pass descrptor代码</h3>
+<pre><code><code>      const renderPassDescriptor: GPURenderPassDescriptor = {
+        colorAttachments: [{
+          attachment: attachment,
+          resolveTarget: swapChain.getCurrentTexture().createView(),
+          ...
+        }],
+      };</code></pre>
+<ul>
+<li>设置attachment为多重采样的texture的view</li>
+</ul>
+<p>该texture的创建代码为：</p>
+<pre><code><code>    const texture = device.createTexture({
+      size: {
+        width: canvas.width,
+        height: canvas.height,
+        depth: 1,
+      },
+      sampleCount,
+      format: swapChainFormat,
+      usage: GPUTextureUsage.OUTPUT_ATTACHMENT,
+    });
+    const attachment = texture.createView();</code></pre>
+<p>注意：texture的sampleCount应该与render pipeline的sampleCount一样，都是4</p>
+<ul>
+<li>设置resolveTarget为swapChain对应的view</li>
+</ul>
+<p>swapChain.getCurrentTexture()获得的texture的大小是与屏幕相同，所以它包含了屏幕分辨率的信息。</p>
+<h2 id="参考资料-1">参考资料</h2>
+<p><a href="https://github.com/yyc-git/webgpu-samples/blob/master/src/examples/helloTriangleMSAA.ts">helloTriangleMSAA.ts</a><br />
+<a href="https://github.com/gpuweb/gpuweb/issues/108">Investigation: Multisampled Render Targets and Resolve Operations</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

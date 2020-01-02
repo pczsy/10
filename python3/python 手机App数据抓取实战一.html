@@ -1,0 +1,678 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python 手机App数据抓取实战一' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python 手机App数据抓取实战一</center></div><div class='banquan'>原文出处:本文由博客园博主风，又奈何提供。<br/>
+原文连接:https://www.cnblogs.com/CYHISTW/p/11561769.html</div><br>
+    <h1>前言</h1>
+<p>当前手机使用成为互联网主流，每天手机App产生大量数据，学习爬虫的人也不能只会爬取网页数据，我们需要学习如何从手机 APP 中获取数据，本文就以豆果美食为例，讲诉爬取手机App的流程</p>
+<h2>环境准备</h2>
+<ul>
+<li>python3</li>
+<li>fiddler</li>
+<li>一款支持桥接模式的安卓虚拟机（本文使用夜神模拟器）</li>
+</ul>
+<p>需要准备的知识有：</p>
+<ul>
+<li>requests的使用</li>
+<li>mongodb的使用</li>
+<li>fiddler抓包工具的基本操作</li>
+<li>线程池ThreadPoolExecutor的基本使用</li>
+</ul>
+<hr />
+<p>&nbsp;</p>
+<h2>项目开始</h2>
+<p>我们项目的目标是将豆果美食App中所有的菜谱都抓取下来到我们的本地数据库中</p>
+<p>本文不再讲解fiddler、安卓模拟器、以及某些python第三方库的安装，不会的同学可以百度，非常简单的操作</p>
+<p>我们抓取的流程大概就是</p>
+<ol>
+<li>安卓模拟器使用代理连接至fiddler</li>
+<li>打开安卓模拟器进行操作</li>
+<li>分析fiddler抓到的数据</li>
+<li>使用python模拟数据给服务器发送request请求得到响应数据</li>
+<li>使用多线程抓取并在本地保存至数据库</li>
+</ol><hr />
+<p>&nbsp;</p>
+<h3><strong>1）安卓模拟器使用代理连接至fiddler</strong></h3>
+<p>打开fiddler，进行设置 打开最上方菜单栏中的 Tools 菜单中的 Options 选项 即配置选项进行以下配置（主要就是前3项的配置）</p>
+<p><img src="./images/python 手机App数据抓取实战一0.png" alt="" width="424" height="288" /><img src="./images/python 手机App数据抓取实战一1.png" alt="" width="426" height="289" /><img src="./images/python 手机App数据抓取实战一2.png" alt="" width="426" height="288" /></p>
+<p>第三张图片中的8889就是我们fiddler监听的端口号，一会我们将模拟器配置代理就可以从fiddler中抓取数据包</p>
+<p>打开安卓模拟器的网络连接的桥接模式（夜神模拟器包括此功能，此步骤需要重启），使用夜神的童鞋推荐使用android4 以为我一开始使用android5发现桥接模式无法联网</p>
+<p><img src="./images/python 手机App数据抓取实战一3.png" alt="" width="543" height="410" /></p>
+<p>然后我们现在看下我们电脑的IP地址 打开命令行输入 ipconfig 命令即可</p>
+<p>例如当前我的地址为&nbsp;172.20.10.2 那么打开安卓模拟器的设置中的无线连接选项，长按网络名称如下图出现修改网络选项 接下来选择高级设置添加手动代理 将自己电脑的IP与fiddler中的端口号输入</p>
+<p><img src="./images/python 手机App数据抓取实战一4.png" alt="" width="272" height="496" /><img src="./images/python 手机App数据抓取实战一5.png" alt="" width="270" height="497" /></p>
+<p>接下来测试是否能连接到fiddler 打开fiddler 然后安卓模拟器打开浏览器随便开一个网页，看看fiddler是否可以抓到包</p>
+<p><img src="./images/python 手机App数据抓取实战一6.png" alt="" width="666" height="542" /></p>
+<p>发现现在是可以抓到数据包的，但是浏览器一直在提醒安全证书有问题，这是因为我们模拟器中没有添加fiddler的证书，我们可以在模拟器浏览器中访问我们电脑的IP地址和端口号来安装证书</p>
+<p>点击图中的最下方的超链接下载证书&nbsp; 然后安装证书，注意这一步可能需要我们设置下模拟器的锁屏密码自己设置即可</p>
+<p><img src="./images/python 手机App数据抓取实战一7.png" alt="" width="345" height="457" /><img src="./images/python 手机App数据抓取实战一8.png" alt="" width="251" height="459" /></p>
+<p>至此我们第一步模拟器连接到fiddler已经完成，接下来可以进行抓取的操作了</p>
+<hr />
+<p>&nbsp;</p>
+<h3><strong>2）打开安卓模拟器进行操作</strong></h3>
+<p>模拟器安装好豆果美食app开始操作&nbsp; 进入App （图一）&nbsp; 点击菜谱分类（即index页面（图二）） 点进去具体食材（图三）然后选择菜谱（图四）</p>
+<p>&nbsp;</p>
+<p><img src="./images/python 手机App数据抓取实战一9.png" alt="" width="278" height="507" /><img src="./images/python 手机App数据抓取实战一10.png" alt="" width="279" height="508" /><img src="./images/python 手机App数据抓取实战一11.png" alt="" width="280" height="510" /><img src="./images/python 手机App数据抓取实战一12.png" alt="" width="280" height="509" /></p>
+<p>分别进行以上操作后我们的fiddler就会抓取到很多数据包&nbsp; 然后我们现在打开fiddler来分析下到底是哪些数据包对我们有用</p>
+<hr />
+<h3>3）分析fiddler抓取的数据</h3>
+<p>我们先来看下这时候fiddler中出现了什么 看起来很多数据包不知道如何下手</p>
+<p><img src="./images/python 手机App数据抓取实战一13.png" alt="" width="709" height="569" /></p>
+<p>学过编程的同学们都知道一般程序的请求数据都是通过api接口的，我们发现fiddler中抓取到一些名称为 api.douguo.net&nbsp; 的数据包 我们来看看是不是我们想要的数据包</p>
+<p>我们点击名称以api 接口的几个数据包就会发现里面返回的数据正是我们想要的数据（出现了分类茄子等内容的数据），所以我们现在将其他没用的数据包删掉，只留下对我们有用的数据包</p>
+<p>并且我们根据某些数据包的url名称也会看出点东西，因为编程的命名一般不会杂乱无章的，所以有些名称直接就暴露了数据包的内容</p>
+<p>最后我们简单的用fiddler看返回的response可以看出来我们需要用的就是以下三个 返回的数据分别对应着刚刚模拟器操作的图二图三图四 也正是菜谱的内容</p>
+<p><img src="./images/python 手机App数据抓取实战一14.png" alt="" width="533" height="308" /></p>
+<hr />
+<h3>4）使用python模拟数据给服务器发送request请求得到响应数据</h3>
+<p>现在我们对于抓取到的三个包的request分析进行模拟，向服务器发送请求，看看我们能否收到想要的响应</p>
+<p>打开pycharm 编写文件&nbsp; 首先我们分析第一个包 也就是菜谱分类页面如下图</p>
+<p><img src="./images/python 手机App数据抓取实战一15.png" alt="" width="330" height="603" /><img src="./images/python 手机App数据抓取实战一16.png" alt="" width="797" height="604" /></p>
+<p>可以看出来request请求是 POST 方法 头部信息和发送的data 都在fiddler中可以看出来 现在编写py文件</p>
+<p>将头部信息复制到notepad或者其他文本处理工具中将文本使用查找替换成我们要的字典格式如图（记得将空格删除）</p>
+<p><img src="./images/python 手机App数据抓取实战一17.png" alt="" width="436" height="303" /></p>
+<p>douguo_test.py文件编写如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_request(url,data):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">有些头部信息不需要已经进行了注释，因为可能会造成服务器检测我们多次请求问题</span>
+    headers =<span style="color: #000000;"> {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">version</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">6945.4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">device</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO R11</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">sdk</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">19,4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">imei</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">channel</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">baidu</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"mac": "3C:A0:67:68:D1:F5",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">resolution</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1280*720</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">dpi</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"android-id": "3ca06768d1f58615",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"pseudo-id": "768d1f586153ca06",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">brand</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">scale</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">timezone</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">28800</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">language</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">zh</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">cns</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">carrier</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">CMCC</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"imsi": " 460076016067682",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Linux; Android 4.4.2; OPPO R11 Build/NMF26X) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-code</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">9d77be448da77d86aa48ae9d822d70d0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-timestamp</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569203760</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">uuid</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">b2db10e9-cb21-4c36-ba4c-be62d8b3c67c</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">newbie</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">reach</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">10000</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"lon": "112.573081",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"lat": "37.735522",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"cid": "140100",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">application/x-www-form-urlencoded; charset=utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Accept-Encoding</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">gzip, deflate</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Connection</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Keep-Alive</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Cookie": "duid=61248941",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Host</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">api.douguo.net</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Content-Length": "68",</span>
+<span style="color: #000000;">    }
+
+    response </span>= requests.post(url=url,data=data,headers=<span style="color: #000000;">headers)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> response
+
+url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/flatcatalogs</span><span style="color: #800000;">'</span><span style="color: #000000;">
+data </span>=<span style="color: #000000;"> {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"_session" : "1568947372977863254011601605",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"v" : "1568891837",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span> : <span style="color: #800000;">"</span><span style="color: #800000;">2305</span><span style="color: #800000;">"</span><span style="color: #000000;">
+}
+
+response </span>=<span style="color: #000000;"> douguo_request(url,data)
+</span><span style="color: #0000ff;">print</span>(response.text)</pre>
+</div>
+<p>然后我们发现打印出一个json格式的东西，接下来我们将打印的东西放进 json.cn网站中读取一下（这样可以更方便的看json数据）</p>
+<p><img src="./images/python 手机App数据抓取实战一18.png" alt="" width="919" height="420" /></p>
+<p>我们发现没错正是我们想要的分类数据&nbsp; &nbsp;接下来继续下一步的操作</p>
+<p>我们点开三个数据包会发现三个数据包的头部信息与POST方法都一样，不一样的是请求的 url 和 data 内容&nbsp; 所以我们编写的第一个request函数可以反复使用</p>
+<p>第一个我们已经可以得到页面索引，现在我们来看如何进入具体食材的列表视图 如茄子 分析第二个数据包发送的data 发现data中存在些乱码，这是url编码后的结果，我们转换一下就好了</p>
+<p><img src="./images/python 手机App数据抓取实战一19.png" alt="" width="648" height="325" /></p>
+<p>因此我们发现，其实data就是发送了具体食材的名称，那么名称从哪里获取的呢？没错就是我们刚刚返回的json中就包含，因此我们需要编写一个可以分析json结构获取名称然后组成data的函数</p>
+<p>继续编写如下</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_request(url,data):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">有些头部信息不需要已经进行了注释，因为可能会造成服务器检测我们多次请求问题</span>
+    headers =<span style="color: #000000;"> {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">version</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">6945.4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">device</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO R11</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">sdk</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">19,4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">imei</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">channel</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">baidu</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"mac": "3C:A0:67:68:D1:F5",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">resolution</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1280*720</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">dpi</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"android-id": "3ca06768d1f58615",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"pseudo-id": "768d1f586153ca06",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">brand</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">scale</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">timezone</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">28800</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">language</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">zh</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">cns</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">carrier</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">CMCC</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"imsi": " 460076016067682",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Linux; Android 4.4.2; OPPO R11 Build/NMF26X) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-code</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">9d77be448da77d86aa48ae9d822d70d0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-timestamp</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569203760</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">uuid</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">b2db10e9-cb21-4c36-ba4c-be62d8b3c67c</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">newbie</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">reach</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">10000</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"lon": "112.573081",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"lat": "37.735522",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"cid": "140100",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">application/x-www-form-urlencoded; charset=utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Accept-Encoding</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">gzip, deflate</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Connection</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Keep-Alive</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Cookie": "duid=61248941",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Host</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">api.douguo.net</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Content-Length": "68",</span>
+<span style="color: #000000;">    }
+
+    response </span>= requests.post(url=url,data=data,headers=<span style="color: #000000;">headers)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> response
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_index():
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/flatcatalogs</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">"_session" : "1568947372977863254011601605",</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">"v" : "1568891837",</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span> : <span style="color: #800000;">"</span><span style="color: #800000;">2305</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    }
+    response </span>=<span style="color: #000000;"> douguo_request(url, data)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">需要把json数据变为dict</span>
+    response_dict =<span style="color: #000000;"> json.loads(response.text)
+    </span><span style="color: #0000ff;">for</span> item1 <span style="color: #0000ff;">in</span> response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        </span><span style="color: #0000ff;">for</span> item2 <span style="color: #0000ff;">in</span> item1[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+            </span><span style="color: #0000ff;">for</span> item3 <span style="color: #0000ff;">in</span> item2[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+                data</span>=<span style="color: #000000;">{
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+                    </span><span style="color: #008000;">#</span><span style="color: #008000;"> "_session": "1568947372977863254011601605",</span>
+                    <span style="color: #800000;">"</span><span style="color: #800000;">keyword</span><span style="color: #800000;">"</span>: item3[<span style="color: #800000;">'</span><span style="color: #800000;">name</span><span style="color: #800000;">'</span><span style="color: #000000;">],
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">400</span><span style="color: #800000;">"</span><span style="color: #000000;">
+                }
+                </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(data)
+
+douguo_index()</span></pre>
+</div>
+<p>运行得到如下图</p>
+<p><img src="./images/python 手机App数据抓取实战一20.png" alt="" width="703" height="425" /></p>
+<p>没错我们现在已经构建好了要发送的data数据&nbsp;</p>
+<p>接下来我们继续构造另一个发送的函数 来获取具体食材的菜谱列表（我们只选取食材的最火的前10个菜谱） 当前我们先测试第一个获取的也就是茄子，一会我们使用队列来多线程抓取</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_request(url,data):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">有些头部信息不需要已经进行了注释，因为可能会造成服务器检测我们多次请求问题</span>
+    headers =<span style="color: #000000;"> {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">version</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">6945.4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">device</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO R11</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">sdk</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">19,4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">imei</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">channel</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">baidu</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"mac": "3C:A0:67:68:D1:F5",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">resolution</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1280*720</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">dpi</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"android-id": "3ca06768d1f58615",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"pseudo-id": "768d1f586153ca06",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">brand</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">scale</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">timezone</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">28800</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">language</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">zh</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">cns</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">carrier</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">CMCC</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"imsi": " 460076016067682",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Linux; Android 4.4.2; OPPO R11 Build/NMF26X) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-code</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">9d77be448da77d86aa48ae9d822d70d0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-timestamp</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569203760</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">uuid</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">b2db10e9-cb21-4c36-ba4c-be62d8b3c67c</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">newbie</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">reach</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">10000</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"lon": "112.573081",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"lat": "37.735522",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"cid": "140100",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">application/x-www-form-urlencoded; charset=utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Accept-Encoding</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">gzip, deflate</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Connection</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Keep-Alive</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Cookie": "duid=61248941",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Host</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">api.douguo.net</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Content-Length": "68",</span>
+<span style="color: #000000;">    }
+
+    response </span>= requests.post(url=url,data=data,headers=<span style="color: #000000;">headers)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> response
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_index():
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/flatcatalogs</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">"_session" : "1568947372977863254011601605",</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">"v" : "1568891837",</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span> : <span style="color: #800000;">"</span><span style="color: #800000;">2305</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    }
+    response </span>=<span style="color: #000000;"> douguo_request(url, data)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">需要把json数据变为dict</span>
+    response_dict =<span style="color: #000000;"> json.loads(response.text)
+    </span><span style="color: #0000ff;">for</span> item1 <span style="color: #0000ff;">in</span> response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        </span><span style="color: #0000ff;">for</span> item2 <span style="color: #0000ff;">in</span> item1[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+            </span><span style="color: #0000ff;">for</span> item3 <span style="color: #0000ff;">in</span> item2[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+                data</span>=<span style="color: #000000;">{
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+                    </span><span style="color: #008000;">#</span><span style="color: #008000;"> "_session": "1568947372977863254011601605",</span>
+                    <span style="color: #800000;">"</span><span style="color: #800000;">keyword</span><span style="color: #800000;">"</span>: item3[<span style="color: #800000;">'</span><span style="color: #800000;">name</span><span style="color: #800000;">'</span><span style="color: #000000;">],
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">400</span><span style="color: #800000;">"</span><span style="color: #000000;">
+                }
+                </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> data
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_item(data):
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">当前处理食材</span><span style="color: #800000;">'</span>, data[<span style="color: #800000;">'</span><span style="color: #800000;">keyword</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/search/universalnew/0/10</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    response </span>= douguo_request(url=url,data=<span style="color: #000000;">data)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(response.text)
+
+douguo_item(douguo_index())</span></pre>
+</div>
+<p>又输出了一个json数据，接着我们放进网页查看</p>
+<p><img src="./images/python 手机App数据抓取实战一21.png" alt="" width="989" height="420" /></p>
+<p>现在我们已经得到了菜谱的作者、介绍等信息但是没有菜谱的详细信息，我们可以进行简单的赋值操作&nbsp;</p>
+<p><img src="./images/python 手机App数据抓取实战一22.png" alt="" width="1004" height="487" /></p>
+<p>但是现在我们并没有需要的原料和具体的制作步骤，所以接下来我们分析最后一个数据包，可以得到具体的原料，制作步骤等信息</p>
+<p><img src="./images/python 手机App数据抓取实战一23.png" alt="" width="662" height="553" /></p>
+<p>可以发现同样的我们只需要修改数据包发送的data的部分数据就可以，同上面方法类似继续编写程序然后给字典对象赋值</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_request(url,data):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">有些头部信息不需要已经进行了注释，因为可能会造成服务器检测我们多次请求问题</span>
+    headers =<span style="color: #000000;"> {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">version</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">6945.4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">device</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO R11</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">sdk</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">19,4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">imei</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">channel</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">baidu</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"mac": "3C:A0:67:68:D1:F5",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">resolution</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1280*720</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">dpi</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"android-id": "3ca06768d1f58615",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"pseudo-id": "768d1f586153ca06",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">brand</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">scale</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">timezone</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">28800</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">language</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">zh</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">cns</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">carrier</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">CMCC</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"imsi": " 460076016067682",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Linux; Android 4.4.2; OPPO R11 Build/NMF26X) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-code</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">9d77be448da77d86aa48ae9d822d70d0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-timestamp</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569203760</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">uuid</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">b2db10e9-cb21-4c36-ba4c-be62d8b3c67c</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">newbie</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">reach</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">10000</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"lon": "112.573081",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"lat": "37.735522",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"cid": "140100",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">application/x-www-form-urlencoded; charset=utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Accept-Encoding</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">gzip, deflate</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Connection</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Keep-Alive</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Cookie": "duid=61248941",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Host</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">api.douguo.net</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Content-Length": "68",</span>
+<span style="color: #000000;">    }
+
+    response </span>= requests.post(url=url,data=data,headers=<span style="color: #000000;">headers)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> response
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_index():
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/flatcatalogs</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">"_session" : "1568947372977863254011601605",</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">"v" : "1568891837",</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span> : <span style="color: #800000;">"</span><span style="color: #800000;">2305</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    }
+    response </span>=<span style="color: #000000;"> douguo_request(url, data)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">需要把json数据变为dict</span>
+    response_dict =<span style="color: #000000;"> json.loads(response.text)
+    </span><span style="color: #0000ff;">for</span> item1 <span style="color: #0000ff;">in</span> response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        </span><span style="color: #0000ff;">for</span> item2 <span style="color: #0000ff;">in</span> item1[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+            </span><span style="color: #0000ff;">for</span> item3 <span style="color: #0000ff;">in</span> item2[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+                data</span>=<span style="color: #000000;">{
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+                    </span><span style="color: #008000;">#</span><span style="color: #008000;"> "_session": "1568947372977863254011601605",</span>
+                    <span style="color: #800000;">"</span><span style="color: #800000;">keyword</span><span style="color: #800000;">"</span>: item3[<span style="color: #800000;">'</span><span style="color: #800000;">name</span><span style="color: #800000;">'</span><span style="color: #000000;">],
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">400</span><span style="color: #800000;">"</span><span style="color: #000000;">
+                }
+                </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> data
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_item(data):
+    item_index_number </span>=<span style="color: #000000;"> 0
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">当前处理食材</span><span style="color: #800000;">'</span>, data[<span style="color: #800000;">'</span><span style="color: #800000;">keyword</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/search/universalnew/0/10</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    list_response </span>= douguo_request(url=url,data=<span style="color: #000000;">data)
+    list_response_dict </span>=<span style="color: #000000;"> json.loads(list_response.text)
+    </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span> list_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipes</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        item_index_number </span>= item_index_number + 1
+        <span style="color: #008000;">#</span><span style="color: #008000;">创建一个字典对象用来存放数据</span>
+        caipu_info =<span style="color: #000000;"> {}
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai</span><span style="color: #800000;">'</span>] = data[<span style="color: #800000;">'</span><span style="color: #800000;">keyword</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">author</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">an</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">id</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai_name</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">n</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">describe</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">cookstory</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">cailiao_list</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">major</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">更多细节需要继续编写请求</span>
+        detail_url=<span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/detail/</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+        detail_data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">_session</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569204243934866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">author_id</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">11101</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">最下面一条需要我们修改为指定的参数  注意引号与加号写法</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_ext</span><span style="color: #800000;">"</span>:<span style="color: #800000;">'</span><span style="color: #800000;">{"query":{"id":</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span>])+<span style="color: #800000;">'</span><span style="color: #800000;">,"kw":</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai</span><span style="color: #800000;">'</span>])+<span style="color: #800000;">'</span><span style="color: #800000;">,"idx":</span><span style="color: #800000;">'</span>+str(item_index_number)+<span style="color: #800000;">'</span><span style="color: #800000;">,"src":"11101","type":"13"}}</span><span style="color: #800000;">'</span><span style="color: #000000;">
+        }
+        detail_response </span>= douguo_request(url=detail_url,data=<span style="color: #000000;">detail_data)
+        detail_response_dict </span>=<span style="color: #000000;"> json.loads(detail_response.text)
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">tips</span><span style="color: #800000;">'</span>] = detail_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">tips</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">cook_step</span><span style="color: #800000;">'</span>] = detail_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cookstep</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(caipu_info)
+
+douguo_item(douguo_index())</span></pre>
+</div>
+<p>现在我们大部分的工作已经完成了，我们已经可以获取到食材的各种信息，接下来就是最后一步了。</p>
+<hr />
+<h3>5）使用多线程抓取并在本地保存至数据库</h3>
+<p>大家肯定会发现我们刚刚虽然抓取成功了，但是我们只抓取了茄子的数据，那么还有很多很多的食材菜谱，我们该怎样操作呢？对了就是利用线程池进行多线程抓取提升效率</p>
+<p>下面开始编写代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #008000;">#</span><span style="color: #008000;">引入队列</span>
+<span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Queue
+</span><span style="color: #008000;">#</span><span style="color: #008000;">引入线程池</span>
+<span style="color: #0000ff;">from</span> concurrent.futures <span style="color: #0000ff;">import</span><span style="color: #000000;"> ThreadPoolExecutor
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">创建队列</span>
+queue_list =<span style="color: #000000;"> Queue()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_request(url,data):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">有些头部信息不需要已经进行了注释，因为可能会造成服务器检测我们多次请求问题</span>
+    headers =<span style="color: #000000;"> {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">version</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">6945.4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">device</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO R11</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">sdk</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">19,4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">imei</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">channel</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">baidu</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"mac": "3C:A0:67:68:D1:F5",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">resolution</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1280*720</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">dpi</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"android-id": "3ca06768d1f58615",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"pseudo-id": "768d1f586153ca06",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">brand</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">scale</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">timezone</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">28800</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">language</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">zh</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">cns</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">carrier</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">CMCC</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"imsi": " 460076016067682",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Linux; Android 4.4.2; OPPO R11 Build/NMF26X) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-code</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">9d77be448da77d86aa48ae9d822d70d0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-timestamp</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569203760</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">uuid</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">b2db10e9-cb21-4c36-ba4c-be62d8b3c67c</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">newbie</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">reach</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">10000</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"lon": "112.573081",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"lat": "37.735522",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"cid": "140100",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">application/x-www-form-urlencoded; charset=utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Accept-Encoding</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">gzip, deflate</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Connection</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Keep-Alive</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Cookie": "duid=61248941",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Host</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">api.douguo.net</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Content-Length": "68",</span>
+<span style="color: #000000;">    }
+
+    response </span>= requests.post(url=url,data=data,headers=<span style="color: #000000;">headers)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> response
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_index():
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/flatcatalogs</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">"_session" : "1568947372977863254011601605",</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">"v" : "1568891837",</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span> : <span style="color: #800000;">"</span><span style="color: #800000;">2305</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    }
+    response </span>=<span style="color: #000000;"> douguo_request(url, data)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">需要把json数据变为dict</span>
+    response_dict =<span style="color: #000000;"> json.loads(response.text)
+    </span><span style="color: #0000ff;">for</span> item1 <span style="color: #0000ff;">in</span> response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        </span><span style="color: #0000ff;">for</span> item2 <span style="color: #0000ff;">in</span> item1[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+            </span><span style="color: #0000ff;">for</span> item3 <span style="color: #0000ff;">in</span> item2[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+                data</span>=<span style="color: #000000;">{
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+                    </span><span style="color: #008000;">#</span><span style="color: #008000;"> "_session": "1568947372977863254011601605",</span>
+                    <span style="color: #800000;">"</span><span style="color: #800000;">keyword</span><span style="color: #800000;">"</span>: item3[<span style="color: #800000;">'</span><span style="color: #800000;">name</span><span style="color: #800000;">'</span><span style="color: #000000;">],
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">400</span><span style="color: #800000;">"</span><span style="color: #000000;">
+                }
+                </span><span style="color: #008000;">#</span><span style="color: #008000;">放入队列使用put方法</span>
+<span style="color: #000000;">                queue_list.put(data)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_item(data):
+    item_index_number </span>=<span style="color: #000000;"> 0
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">当前处理食材</span><span style="color: #800000;">'</span>, data[<span style="color: #800000;">'</span><span style="color: #800000;">keyword</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/search/universalnew/0/10</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    list_response </span>= douguo_request(url=url,data=<span style="color: #000000;">data)
+    list_response_dict </span>=<span style="color: #000000;"> json.loads(list_response.text)
+    </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span> list_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipes</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        item_index_number </span>= item_index_number + 1
+        <span style="color: #008000;">#</span><span style="color: #008000;">创建一个字典对象用来存放数据</span>
+        caipu_info =<span style="color: #000000;"> {}
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai</span><span style="color: #800000;">'</span>] = data[<span style="color: #800000;">'</span><span style="color: #800000;">keyword</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">author</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">an</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">id</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai_name</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">n</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">describe</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">cookstory</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">cailiao_list</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">major</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">更多细节需要继续编写请求</span>
+        detail_url=<span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/detail/</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+        detail_data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">_session</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569204243934866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">author_id</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">11101</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">最下面一条需要我们修改为指定的参数  注意引号与加号写法</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_ext</span><span style="color: #800000;">"</span>:<span style="color: #800000;">'</span><span style="color: #800000;">{"query":{"id":</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span>])+<span style="color: #800000;">'</span><span style="color: #800000;">,"kw":</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai</span><span style="color: #800000;">'</span>])+<span style="color: #800000;">'</span><span style="color: #800000;">,"idx":</span><span style="color: #800000;">'</span>+str(item_index_number)+<span style="color: #800000;">'</span><span style="color: #800000;">,"src":"11101","type":"13"}}</span><span style="color: #800000;">'</span><span style="color: #000000;">
+        }
+        detail_response </span>= douguo_request(url=detail_url,data=<span style="color: #000000;">detail_data)
+        detail_response_dict </span>=<span style="color: #000000;"> json.loads(detail_response.text)
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">tips</span><span style="color: #800000;">'</span>] = detail_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">tips</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">cook_step</span><span style="color: #800000;">'</span>] = detail_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cookstep</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">当前处理的菜谱是：</span><span style="color: #800000;">'</span>,caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_name</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(caipu_info)
+
+douguo_index()
+</span><span style="color: #008000;">#</span><span style="color: #008000;">同时进行处理的任务数</span>
+pool = ThreadPoolExecutor(max_workers=25<span style="color: #000000;">)
+</span><span style="color: #0000ff;">while</span>(queue_list.qsize()&gt;<span style="color: #000000;">0):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">注意多线程写法，douguo_item函数后一定不能加括号</span>
+    pool.submit(douguo_item,queue_list.get())</pre>
+</div>
+<p>再次运行，发现现在已经可以抓取所有的菜谱，然后我们只需要进行最后一步将数据保存到本地数据库就彻底大功告成了</p>
+<p>我们可以先编写一个入库函数douguo_mongo.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> pymongo
+</span><span style="color: #0000ff;">from</span> pymongo.collection <span style="color: #0000ff;">import</span><span style="color: #000000;"> Collection
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Cnonnect_mongo(object):
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">本地数据库host为127.0.0.1 端口为27017 具体可以打开mongodb查看</span>
+        self.client = pymongo.MongoClient(host=<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,port=27017<span style="color: #000000;">)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">数据库名称</span>
+        self.dbdata = self.client[<span style="color: #800000;">'</span><span style="color: #800000;">douguomeishi</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> insert_item(self,item):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">数据表名称为 douguo_item</span>
+        db_collection = Collection(self.dbdata,<span style="color: #800000;">'</span><span style="color: #800000;">douguo_item</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        db_collection.insert(item)
+
+mongo_info </span>= Cnonnect_mongo()</pre>
+</div>
+<p>然后我们去爬虫文件引用刚刚写的入库对象类并使用插入函数</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #008000;">#</span><span style="color: #008000;">引入队列</span>
+<span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Queue
+</span><span style="color: #008000;">#</span><span style="color: #008000;">引入线程池</span>
+<span style="color: #0000ff;">from</span> concurrent.futures <span style="color: #0000ff;">import</span><span style="color: #000000;"> ThreadPoolExecutor
+</span><span style="color: #008000;">#</span><span style="color: #008000;">引用入库类对象</span>
+<span style="color: #0000ff;">from</span> handel_mongo <span style="color: #0000ff;">import</span><span style="color: #000000;"> mongo_info
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">创建队列</span>
+queue_list =<span style="color: #000000;"> Queue()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_request(url,data):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">有些头部信息不需要已经进行了注释，因为可能会造成服务器检测我们多次请求问题</span>
+    headers =<span style="color: #000000;"> {
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">version</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">6945.4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">device</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO R11</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">sdk</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">19,4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">imei</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">channel</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">baidu</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"mac": "3C:A0:67:68:D1:F5",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">resolution</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1280*720</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">dpi</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"android-id": "3ca06768d1f58615",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"pseudo-id": "768d1f586153ca06",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">brand</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">OPPO</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">scale</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1.5</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">timezone</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">28800</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">language</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">zh</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">cns</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">3</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">carrier</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">CMCC</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"imsi": " 460076016067682",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Linux; Android 4.4.2; OPPO R11 Build/NMF26X) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.0.0 Mobile Safari/537.36</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-code</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">9d77be448da77d86aa48ae9d822d70d0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">act-timestamp</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569203760</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">uuid</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">b2db10e9-cb21-4c36-ba4c-be62d8b3c67c</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">newbie</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">reach</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">10000</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"lon": "112.573081",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"lat": "37.735522",</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">"cid": "140100",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">application/x-www-form-urlencoded; charset=utf-8</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Accept-Encoding</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">gzip, deflate</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">"</span><span style="color: #800000;">Connection</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Keep-Alive</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Cookie": "duid=61248941",</span>
+        <span style="color: #800000;">"</span><span style="color: #800000;">Host</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">api.douguo.net</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">"Content-Length": "68",</span>
+<span style="color: #000000;">    }
+
+    response </span>= requests.post(url=url,data=data,headers=<span style="color: #000000;">headers)
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> response
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_index():
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/flatcatalogs</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>:<span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">"_session" : "1568947372977863254011601605",</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">"v" : "1568891837",</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span> : <span style="color: #800000;">"</span><span style="color: #800000;">2305</span><span style="color: #800000;">"</span><span style="color: #000000;">
+    }
+    response </span>=<span style="color: #000000;"> douguo_request(url, data)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">需要把json数据变为dict</span>
+    response_dict =<span style="color: #000000;"> json.loads(response.text)
+    </span><span style="color: #0000ff;">for</span> item1 <span style="color: #0000ff;">in</span> response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        </span><span style="color: #0000ff;">for</span> item2 <span style="color: #0000ff;">in</span> item1[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+            </span><span style="color: #0000ff;">for</span> item3 <span style="color: #0000ff;">in</span> item2[<span style="color: #800000;">'</span><span style="color: #800000;">cs</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+                data</span>=<span style="color: #000000;">{
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+                    </span><span style="color: #008000;">#</span><span style="color: #008000;"> "_session": "1568947372977863254011601605",</span>
+                    <span style="color: #800000;">"</span><span style="color: #800000;">keyword</span><span style="color: #800000;">"</span>: item3[<span style="color: #800000;">'</span><span style="color: #800000;">name</span><span style="color: #800000;">'</span><span style="color: #000000;">],
+                    </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">400</span><span style="color: #800000;">"</span><span style="color: #000000;">
+                }
+                </span><span style="color: #008000;">#</span><span style="color: #008000;">放入队列使用put方法</span>
+<span style="color: #000000;">                queue_list.put(data)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> douguo_item(data):
+    item_index_number </span>=<span style="color: #000000;"> 0
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">当前处理食材</span><span style="color: #800000;">'</span>, data[<span style="color: #800000;">'</span><span style="color: #800000;">keyword</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+    url </span>= <span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/search/universalnew/0/10</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    list_response </span>= douguo_request(url=url,data=<span style="color: #000000;">data)
+    list_response_dict </span>=<span style="color: #000000;"> json.loads(list_response.text)
+    </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span> list_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipes</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+        item_index_number </span>= item_index_number + 1
+        <span style="color: #008000;">#</span><span style="color: #008000;">创建一个字典对象用来存放数据</span>
+        caipu_info =<span style="color: #000000;"> {}
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai</span><span style="color: #800000;">'</span>] = data[<span style="color: #800000;">'</span><span style="color: #800000;">keyword</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">author</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">an</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">id</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">shicai_name</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">n</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">describe</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">cookstory</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">cailiao_list</span><span style="color: #800000;">'</span>] = item[<span style="color: #800000;">'</span><span style="color: #800000;">major</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">更多细节需要继续编写请求</span>
+        detail_url=<span style="color: #800000;">'</span><span style="color: #800000;">http://api.douguo.net/recipe/detail/</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+        detail_data </span>=<span style="color: #000000;"> {
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">client</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">_session</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">1569204243934866174010601603</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">author_id</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">0</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #800000;">"</span><span style="color: #800000;">_vs</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">11101</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">最下面一条需要我们修改为指定的参数  注意引号与加号写法</span>
+            <span style="color: #800000;">"</span><span style="color: #800000;">_ext</span><span style="color: #800000;">"</span>:<span style="color: #800000;">'</span><span style="color: #800000;">{"query":{"id":</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_id</span><span style="color: #800000;">'</span>])+<span style="color: #800000;">'</span><span style="color: #800000;">,"kw":</span><span style="color: #800000;">'</span>+str(caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai</span><span style="color: #800000;">'</span>])+<span style="color: #800000;">'</span><span style="color: #800000;">,"idx":</span><span style="color: #800000;">'</span>+str(item_index_number)+<span style="color: #800000;">'</span><span style="color: #800000;">,"src":"11101","type":"13"}}</span><span style="color: #800000;">'</span><span style="color: #000000;">
+        }
+        detail_response </span>= douguo_request(url=detail_url,data=<span style="color: #000000;">detail_data)
+        detail_response_dict </span>=<span style="color: #000000;"> json.loads(detail_response.text)
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">tips</span><span style="color: #800000;">'</span>] = detail_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">tips</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        caipu_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">cook_step</span><span style="color: #800000;">'</span>] = detail_response_dict[<span style="color: #800000;">'</span><span style="color: #800000;">result</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">recipe</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">cookstep</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">当前处理的菜谱是：</span><span style="color: #800000;">'</span>,caipu_info[<span style="color: #800000;">'</span><span style="color: #800000;">shicai_name</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">保存到数据库</span>
+<span style="color: #000000;">        mongo_info.insert_item(caipu_info)
+
+douguo_index()
+</span><span style="color: #008000;">#</span><span style="color: #008000;">同时进行处理的任务数</span>
+pool = ThreadPoolExecutor(max_workers=25<span style="color: #000000;">)
+</span><span style="color: #0000ff;">while</span>(queue_list.qsize()&gt;<span style="color: #000000;">0):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">注意多线程写法，douguo_item函数后一定不能加括号</span>
+    pool.submit(douguo_item,queue_list.get())</pre>
+</div>
+<p>运行，我们的数据就保存在数据库了</p>
+<p><img src="./images/python 手机App数据抓取实战一24.png" alt="" width="970" height="351" /></p>
+<p><img src="./images/python 手机App数据抓取实战一25.png" alt="" width="940" height="473" /></p>
+<p>这就是爬取一个App的整个流程，有点繁琐，但也很有趣，一步一步的解析数据，挺有挑战性的。</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

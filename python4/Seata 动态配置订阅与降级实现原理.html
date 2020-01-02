@@ -1,0 +1,99 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Seata 动态配置订阅与降级实现原理' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Seata 动态配置订阅与降级实现原理</center></div><div class='banquan'>原文出处:本文由博客园博主后端进阶提供。<br/>
+原文连接:https://www.cnblogs.com/objcoding/p/12081250.html</div><br>
+    <p>Seata 的动态降级需要结合配置中心的动态配置订阅功能。动态配置订阅，即通过配置中心监听订阅，根据需要读取已更新的缓存值，ZK、Apollo、Nacos 等第三方配置中心都有现成的监听器可实现动态刷新配置；动态降级，即通过动态更新指定配置参数值，使得 Seata 能够在运行过程中动态控制全局事务失效（目前只有 AT 模式有这个功能）。</p>
+<p>那么 Seata 支持的多个配置中心是如何适配不同的动态配置订阅以及如何实现降级的呢？下面从源码的层面详细给大家讲解一番。</p>
+<h2 id="动态配置订阅">动态配置订阅</h2>
+<p>Seata 配置中心有一个监听器基准接口，它主要有一个抽象方法和 default 方法，如下：</p>
+<p>io.seata.config.ConfigurationChangeListener</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理0.png" /></p>
+<p>该监听器基准接口主要有两个实现类型：</p>
+<ol>
+<li>实现注册配置订阅事件监听器：用于实现各种功能的动态配置订阅，比如 GlobalTransactionalInterceptor 实现了 ConfigurationChangeListener，根据动态配置订阅实现的动态降级功能；</li>
+<li>实现配置中心动态订阅功能与适配：对于目前还没有动态订阅功能的 file 类型默认配置中心，可以实现该基准接口来实现动态配置订阅功能；对于阻塞订阅需要另起一个线程去执行，这时候可以实现该基准接口进行适配，还可以复用该基准接口的线程池；以及还有异步订阅，有订阅单个 key，有订阅多个 key 等等，我们都可以实现该基准接口以适配各个配置中心。</li>
+</ol>
+<p>这里就用默认的 file 配置中心，以它的实现类 FileListener 举例子，它的实现逻辑如下：</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理1.png" /></p>
+<p>如上，</p>
+<ul>
+<li><p>dataId：为订阅的配置属性；</p></li>
+<li><p>listener：配置订阅事件监听器，用于将外部传入的 listener 作为一个 wrapper，执行真正的变更逻辑，这里特别需要注意的是，<strong>该监听器与 FileListener 同样实现了 ConfigurationChangeListener 接口，只不过 FileListener 是用于给 file 提供动态配置订阅功能，而 listener 用于执行配置订阅事件</strong>；</p></li>
+<li><p>executor：用于处理配置变更逻辑的线程池，在 ConfigurationChangeListener#onProcessEvent 方法中用到。</p></li>
+</ul>
+<p><strong>FileListener#onChangeEvent 方法的实现让 file 具备了动态配置订阅的功能</strong>，它的逻辑如下：</p>
+<p>无限循环获取订阅的配置属性当前的值，从缓存中获取旧的值，判断是否有变更，如果有变更就执行外部传入 listener 的逻辑。</p>
+<p>ConfigurationChangeEvent 用于保存配置变更的事件类，它的成员属性如下：</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理2.png" /></p>
+<p>这里的 getConfig 方法是如何感知 file 配置的变更呢？我们点进去，发现它最终的逻辑如下：</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理3.png" /></p>
+<p>发现它是创建一个 future 类，然后包装成一个 Runnable 放入线程池中异步执行，最后调用 get 方法阻塞获取值，那么我们继续往下看：</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理4.png" /></p>
+<p>allowDynamicRefresh：动态刷新配置开关；</p>
+<p>targetFileLastModified：file 最后更改的时间缓存。</p>
+<p>以上逻辑：</p>
+<p>获取 file 最后更新的时间值 tempLastModified，然后对比对比缓存值 targetFileLastModified，如果 tempLastModified &gt; targetFileLastModified，说明期间配置有更改过，这时就重新加载 file 实例，替换掉旧的 fileConfig，使得后面的操作能够获取到最新的配置值。</p>
+<p>添加一个配置属性监听器的逻辑如下：</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理5.png" /></p>
+<p>configListenersMap 为 FileConfiguration 的配置监听器缓存，它的数据结构如下：</p>
+<pre><code><code>ConcurrentMap&lt;String/*dataId*/, Set&lt;ConfigurationChangeListener&gt;&gt; configListenersMap</code></pre>
+<p>从数据结构上可看出，每个配置属性可关联多个事件监听器。</p>
+<p>最终执行 onProcessEvent 方法，这个是监听器基准接口里面的 default 方法，它会调用 onChangeEvent 方法，即最终会调用 FileListener 中的实现。</p>
+<h2 id="动态降级">动态降级</h2>
+<p>有了以上的动态配置订阅功能，我们只需要实现 ConfigurationChangeListener 监听器，就可以做各种各种的功能，目前 Seata 只有动态降级有用到动态配置订阅的功能。</p>
+<p>在「<a href="https://mp.weixin.qq.com/s/n9MHk47zSsFQmV-gBq_P1A">Seata AT 模式启动源码分析</a>」这篇文章中讲到，Spring 集成 Seata 的项目中，在 AT 模式启动时，会用 用GlobalTransactionalInterceptor 代替了被 GlobalTransactional 和 GlobalLock 注解的方法，GlobalTransactionalInterceptor 实现了 MethodInterceptor，最终会执行 invoker 方法，那么想要实现动态降级，就可以在这里做手脚。</p>
+<ul>
+<li>在 GlobalTransactionalInterceptor 中加入一个成员变量：</li>
+</ul>
+<pre><code><code>private volatile boolean disable; </code></pre>
+<p>在构造函数中进行初始化赋值：</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理6.png" /></p>
+<p>ConfigurationKeys.DISABLE_GLOBAL_TRANSACTION（service.disableGlobalTransaction）这个参数目前有两个功能：</p>
+<ol>
+<li>在启动时决定是否开启全局事务；</li>
+<li>在开启全局事务后，决定是否降级。</li>
+</ol>
+<ul>
+<li>实现 ConfigurationChangeListener：</li>
+</ul>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理7.png" /></p>
+<p>这里的逻辑简单，就是判断监听事件是否属于 ConfigurationKeys.DISABLE_GLOBAL_TRANSACTION 配置属性，如果是，直接更新 disable 值。</p>
+<ul>
+<li>接下来在 GlobalTransactionalInterceptor#invoke 中做点手脚</li>
+</ul>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理8.png" /></p>
+<p>如上，disable = true 时，不执行全局事务与全局锁。</p>
+<ul>
+<li>配置中心订阅降级监听器</li>
+</ul>
+<p>io.seata.spring.annotation.GlobalTransactionScanner#wrapIfNecessary</p>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理9.png" /></p>
+<p>在 Spring AOP 进行 wrap 逻辑过程中，当前配置中心将订阅降级事件监听器。</p>
+<blockquote>
+<p>更多精彩文章请关注作者维护的公众号「后端进阶」，这是一个专注后端相关技术的公众号。<br />
+关注公众号并回复「后端」免费领取后端相关电子书籍。<br />
+欢迎分享，转载请保留出处。</p>
+</blockquote>
+<p><img src="./images/Seata 动态配置订阅与降级实现原理10.png" alt="公众号「后端进阶」，专注后端技术分享！" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

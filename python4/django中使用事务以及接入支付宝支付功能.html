@@ -1,0 +1,245 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修django中使用事务以及接入支付宝支付功能' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>django中使用事务以及接入支付宝支付功能</center></div><div class='banquan'>原文出处:本文由博客园博主志浩hzh提供。<br/>
+原文连接:https://www.cnblogs.com/HZHST/p/11479732.html</div><br>
+    <p><span style="font-size: 14pt;">之前一直想记录一下在项目中使用到的事务以及支付宝支付功能，自己一直犯懒没有完，趁今天有点兴致，在这记录一下。</span></p>
+<p><span style="font-size: 14pt;">商城项目必备的就是支付订单的功能，所以就会涉及到订单的保存以及支付接口的引入。先来看看订单的保存，在数据库模型涉及之初，将订单分成了两个表，一个为订单表，记录订单的基本信息，如订单号，用户信息，运费之类，一个为订单商品表，记录该订单中的商品信息。在保存订单时，肯定会涉及到两个表的新建和保存，其实还有一张表也需要进行一些修改，那就是商品表，当一个订单保存成功，意味着本次交易成功，商品售出，商品的库存应该进行修改。所以，在保存订单这一操作中，涉及到的表有三张。所以在保存订单时，多表数据的修改，要嘛同时成功，要嘛同时失败，这就跟数据库中的事务很像，因此，在这里引入事务，来完成订单保存的功能。</span></p>
+<p><span style="font-size: 14pt;">在Django中可以通过<code>django.db.transaction</code>模块提供的<code>atomic</code>来定义一个事务，<code>atomic</code>提供两种用法，一种是装饰器，一种是with语句。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.db <span style="color: #0000ff;">import</span><span style="color: #000000;"> transaction
+
+@transaction.atomic
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> viewfunc(request):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 这些代码会在一个事务中执行</span>
+    ...</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.db <span style="color: #0000ff;">import</span><span style="color: #000000;"> transaction
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> viewfunc(request):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 这部分代码不在事务中，会被Django自动提交</span>
+<span style="color: #000000;">    ...
+
+    with transaction.atomic():
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 这部分代码会在事务中执行</span>
+        ...　　　　</pre>
+</div>
+<p><span style="font-size: 14pt;">在Django中，还提供了保存点的支持，可以在事务中创建保存点来记录数据的特定状态，数据库出现错误时，可以恢复到数据保存点的状态</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.db <span style="color: #0000ff;">import</span><span style="color: #000000;"> transaction
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 创建保存点</span>
+save_id =<span style="color: #000000;"> transaction.savepoint()  
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 回滚到保存点</span>
+<span style="color: #000000;">transaction.savepoint_rollback(save_id)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 提交从保存点到当前状态的所有数据库事务操作</span>
+transaction.savepoint_commit(save_id)</pre>
+</div>
+<p><span style="font-size: 14pt;">所以，可以在序列化器的create方法中，创建一个事务，还进行数据的修改保存还有新建，若有地方出错，则直接回滚，若没有问题则提交事务。代码如下</span></p>
+<div class="cnblogs_code">
+<pre><code><code class="lang-python">    <span class="hljs-function"><span class="hljs-keyword">def <span class="hljs-title">create<span class="hljs-params">(self, validated_data):
+        <span class="hljs-string">"""
+        保存订单
+        """
+        <span class="hljs-comment"># 获取当前下单用户
+        user = self.context[<span class="hljs-string">'request'].user
+
+        <span class="hljs-comment"># 组织订单编号 20170903153611+user.id
+        <span class="hljs-comment"># timezone.now() -&gt; datetime
+        order_id = timezone.now().strftime(<span class="hljs-string">'%Y%m%d%H%M%S') + (<span class="hljs-string">'%09d' % user.id)
+
+        address = validated_data[<span class="hljs-string">'address']
+        pay_method = validated_data[<span class="hljs-string">'pay_method']
+
+        <span class="hljs-comment"># 生成订单
+        <span class="hljs-keyword">with transaction.atomic():
+            <span class="hljs-comment"># 创建一个保存点
+            save_id = transaction.savepoint()
+
+            <span class="hljs-keyword">try:
+                <span class="hljs-comment"># 创建订单信息
+                order = OrderInfo.objects.create(
+                    order_id=order_id,
+                    user=user,
+                    address=address,
+                    total_count=<span class="hljs-number">0,
+                    total_amount=Decimal(<span class="hljs-number">0),
+                    freight=Decimal(<span class="hljs-number">10),
+                    pay_method=pay_method,
+                    status=OrderInfo.ORDER_STATUS_ENUM[<span class="hljs-string">'UNSEND'] <span class="hljs-keyword">if pay_method == OrderInfo.PAY_METHODS_ENUM[<span class="hljs-string">'CASH'] <span class="hljs-keyword">else OrderInfo.ORDER_STATUS_ENUM[<span class="hljs-string">'UNPAID']
+                )
+                <span class="hljs-comment"># 获取购物车信息
+                redis_conn = get_redis_connection(<span class="hljs-string">"cart")
+                redis_cart = redis_conn.hgetall(<span class="hljs-string">"cart_%s" % user.id)
+                cart_selected = redis_conn.smembers(<span class="hljs-string">'cart_selected_%s' % user.id)
+
+                <span class="hljs-comment"># 将bytes类型转换为int类型
+                cart = {}
+                <span class="hljs-keyword">for sku_id <span class="hljs-keyword">in cart_selected:
+                    cart[int(sku_id)] = int(redis_cart[sku_id])
+
+                <span class="hljs-comment"># # 一次查询出所有商品数据
+                <span class="hljs-comment"># skus = SKU.objects.filter(id__in=cart.keys())
+
+                <span class="hljs-comment"># 处理订单商品
+                sku_id_list = cart.keys()
+                <span class="hljs-keyword">for sku_id <span class="hljs-keyword">in sku_id_list:
+                    <span class="hljs-keyword">while <span class="hljs-keyword">True:
+                        sku = SKU.objects.get(id=sku_id)
+
+                        sku_count = cart[sku.id]
+
+                        <span class="hljs-comment"># 判断库存
+                        origin_stock = sku.stock  <span class="hljs-comment"># 原始库存
+                        origin_sales = sku.sales  <span class="hljs-comment"># 原始销量
+
+                        <span class="hljs-keyword">if sku_count &gt; origin_stock:
+                            transaction.savepoint_rollback(save_id)
+                            <span class="hljs-keyword">raise serializers.ValidationError(<span class="hljs-string">'商品库存不足')
+
+                        <span class="hljs-comment"># 用于演示并发下单
+                        <span class="hljs-comment"># import time
+                        <span class="hljs-comment"># time.sleep(5)
+
+                        <span class="hljs-comment"># 减少库存
+                        <span class="hljs-comment"># sku.stock -= sku_count
+                        <span class="hljs-comment"># sku.sales += sku_count
+                        <span class="hljs-comment"># sku.save()
+                        new_stock = origin_stock - sku_count
+                        new_sales = origin_sales + sku_count
+
+                        <span class="hljs-comment"># 根据原始库存条件更新，返回更新的条目数，乐观锁
+                        ret = SKU.objects.filter(id=sku.id, stock=origin_stock).update(stock=new_stock, sales=new_sales)
+                        <span class="hljs-keyword">if ret == <span class="hljs-number">0:
+                            <span class="hljs-keyword">continue
+
+                        <span class="hljs-comment"># 累计商品的SPU 销量信息
+                        sku.goods.sales += sku_count
+                        sku.goods.save()
+
+                        <span class="hljs-comment"># 累计订单基本信息的数据
+                        order.total_count += sku_count  <span class="hljs-comment"># 累计总金额
+                        order.total_amount += (sku.price * sku_count)  <span class="hljs-comment"># 累计总额
+
+                        <span class="hljs-comment"># 保存订单商品
+                        OrderGoods.objects.create(
+                            order=order,
+                            sku=sku,
+                            count=sku_count,
+                            price=sku.price,
+                        )
+
+                        <span class="hljs-comment"># 更新成功
+                        <span class="hljs-keyword">break
+
+                <span class="hljs-comment"># 更新订单的金额数量信息
+                order.total_amount += order.freight
+                order.save()
+
+            <span class="hljs-keyword">except serializers.ValidationError:
+                <span class="hljs-keyword">raise
+            <span class="hljs-keyword">except Exception <span class="hljs-keyword">as e:
+                logger.error(e)
+                transaction.savepoint_rollback(save_id)
+                <span class="hljs-keyword">raise
+
+            <span class="hljs-comment"># 提交事务
+            transaction.savepoint_commit(save_id)
+
+            <span class="hljs-comment"># 更新redis中保存的购物车数据
+            pl = redis_conn.pipeline()
+            pl.hdel(<span class="hljs-string">'cart_%s' % user.id, *cart_selected)
+            pl.srem(<span class="hljs-string">'cart_selected_%s' % user.id, *cart_selected)
+            pl.execute()
+            <span class="hljs-keyword">return order</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></code></pre>
+</div>
+<p><span style="font-size: 14pt;">还有一点需要注意的是，当订单提交，购物车中相应的商品应该进行删除。好了，以上就是django中的事务。</span></p>
+<p><span style="font-size: 14pt;">再来说说支付宝支付功能的引入，现在基本上所有的项目涉及到支付功能时都会引入第三方支付，其中使用最广泛的应该就是支付宝和微信了，这里我使用的是支付宝支付。当订单创建完成，接下来就是支付了。</span></p>
+<p><span style="font-size: 14pt;">支付宝开发平台网址<a href="https://open.alipay.com/platform/home.htm" target="_blank">https://open.alipay.com/platform/home.htm</a>。由于开发者账户需要经过审核，支付宝有提供沙箱环境，来进行测试。沙箱应用：<a href="https://docs.open.alipay.com/200/105311" target="_blank">https://docs.open.alipay.com/200/105311</a>。</span><span style="font-size: 14pt;">沙箱账号：<a href="https://openhome.alipay.com/platform/appDaily.htm?tab=account" target="_blank">https://openhome.alipay.com/platform/appDaily.htm?tab=account</a>。python对接支付宝SDK：<a href="https://github.com/fzlee/alipay/blob/master/README.zh-hans.md" target="_blank">https://github.com/fzlee/alipay/blob/master/README.zh-hans.md</a>。SDK：<a href="https://docs.open.alipay.com/270/106291/" target="_blank">https://docs.open.alipay.com/270/106291/</a>。</span></p>
+<p><span style="font-size: 14pt;">先来缕一下流程，用户点击按钮请求支付宝支付界面，先进行登录，登录成功后进行支付操作，支付成功会进行回调。</span></p>
+<p><span style="font-size: 14pt;">首先第一步，用户点击按钮，后端会进行url的拼接，将拼接好的url返给前端，前端进行跳转，跳转到支付宝相关界面，用户进行登录和支付等操作。</span></p>
+<p><span style="font-size: 14pt;">查看pythonsdk，首先我们可以通过openssl命令生成一个密钥(公钥和私钥），私钥自己留存，公钥用户校验。命令如下：</span></p>
+<pre><code>openssl
+OpenSSL<span class="pl-k">&gt; genrsa -out app_private_key.pem   2048  <span class="pl-c"><span class="pl-c"># 私钥
+OpenSSL<span class="pl-k">&gt; rsa -in app_private_key.pem -pubout -out app_public_key.pem <span class="pl-c"><span class="pl-c"># 导出公钥
+OpenSSL<span class="pl-k">&gt; <span class="pl-c1">exit<br /><br /><span style="font-size: 14pt;">同时，你要从支付宝获得一个公钥字符串，格式可参考：<a href="https://github.com/fzlee/alipay/blob/master/tests/certs/ali/ali_public_key.pem">https://github.com/fzlee/alipay/blob/master/tests/certs/ali/ali_public_key.pem<br /></a></span><span style="font-size: 14pt;">由于上面我们用的是RSA生成的密钥，所以在支付宝中我们也需要RSA的公钥<br /><img src="./images/django中使用事务以及接入支付宝支付功能0.png" alt="" width="1178" height="176" /></span></span></span></span></span></span></span></span></span></pre>
+<p>&nbsp;</p>
+<pre><code></pre>
+<p><span class="pl-k"><span class="pl-c"><span class="pl-c"><span class="pl-k"><span class="pl-c"><span class="pl-c"><span class="pl-k"><span class="pl-c1"><span style="font-size: 14pt;">设置好了密钥，我们就可以开始写视图，代码如下：</span></span></span></span></span></span></span></span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> PaymentView(APIView):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    支付
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    permission_classes </span>=<span style="color: #000000;"> (IsAuthenticated,)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get(self, request, order_id):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        获取支付链接
+        </span><span style="color: #800000;">"""</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 判断订单信息是否正确</span>
+        <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            order </span>= OrderInfo.objects.get(order_id=order_id, user=<span style="color: #000000;">request.user,
+                                          pay_method</span>=OrderInfo.PAY_METHODS_ENUM[<span style="color: #800000;">"</span><span style="color: #800000;">ALIPAY</span><span style="color: #800000;">"</span><span style="color: #000000;">],
+                                          status</span>=OrderInfo.ORDER_STATUS_ENUM[<span style="color: #800000;">"</span><span style="color: #800000;">UNPAID</span><span style="color: #800000;">"</span><span style="color: #000000;">])
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> OrderInfo.DoesNotExist:
+            </span><span style="color: #0000ff;">return</span> Response({<span style="color: #800000;">'</span><span style="color: #800000;">message</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">订单信息有误</span><span style="color: #800000;">'</span>}, status=<span style="color: #000000;">status.HTTP_400_BAD_REQUEST)
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 构造支付宝支付链接地址</span>
+        alipay =<span style="color: #000000;"> AliPay(
+            appid</span>=<span style="color: #000000;">settings.ALIPAY_APPID,
+            app_notify_url</span>=None,  <span style="color: #008000;">#</span><span style="color: #008000;"> 默认回调url</span>
+            app_private_key_path=os.path.join(os.path.dirname(os.path.abspath(<span style="color: #800080;">__file__</span>)), <span style="color: #800000;">"</span><span style="color: #800000;">keys/app_private_key.pem</span><span style="color: #800000;">"</span><span style="color: #000000;">),
+            alipay_public_key_path</span>=os.path.join(os.path.dirname(os.path.abspath(<span style="color: #800080;">__file__</span>)), <span style="color: #800000;">"</span><span style="color: #800000;">keys/alipay_public_key.pem</span><span style="color: #800000;">"</span>),  <span style="color: #008000;">#</span><span style="color: #008000;"> 支付宝的公钥，验证支付宝回传消息使用，不是你自己的公钥,</span>
+            sign_type=<span style="color: #800000;">"</span><span style="color: #800000;">RSA2</span><span style="color: #800000;">"</span>,  <span style="color: #008000;">#</span><span style="color: #008000;"> RSA 或者 RSA2</span>
+            debug=settings.ALIPAY_DEBUG  <span style="color: #008000;">#</span><span style="color: #008000;"> 默认False</span>
+<span style="color: #000000;">        )
+
+        order_string </span>=<span style="color: #000000;"> alipay.api_alipay_trade_page_pay(
+            out_trade_no</span>=<span style="color: #000000;">order_id,
+            total_amount</span>=<span style="color: #000000;">str(order.total_amount),
+            subject</span>=<span style="color: #800000;">"</span><span style="color: #800000;">美多商城%s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> order_id,
+            return_url</span>=<span style="color: #800000;">"</span><span style="color: #800000;">http://www.meiduo.site:8080/pay_success.html</span><span style="color: #800000;">"</span><span style="color: #000000;">, 
+        )
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 需要跳转到https://openapi.alipay.com/gateway.do? + order_string</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 拼接链接返回前端</span>
+        alipay_url = settings.ALIPAY_URL + <span style="color: #800000;">"</span><span style="color: #800000;">?</span><span style="color: #800000;">"</span> +<span style="color: #000000;"> order_string
+        </span><span style="color: #0000ff;">return</span> Response({<span style="color: #800000;">'</span><span style="color: #800000;">alipay_url</span><span style="color: #800000;">'</span>: alipay_url})</pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 14pt;">相关的参数可以提前在配置文件中配置好（ALPAY_APPID，ALPAY_URL，ALPAY_DEBUG）注意ALPAY为True时才启用沙箱环境。当用户支付成功，会对你填写的回调网址进行回调，返回的参数如下图。</span><span style="font-size: 14pt;"><code class="lang-python"><br /></code></span></p>
+<p><span style="font-size: 14pt;"><img src="./images/django中使用事务以及接入支付宝支付功能1.png" alt="" width="1032" height="322" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 14pt;"></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<pre><code><span style="font-size: 14pt;">前端页面将此数据发送给后端，后端检验并保存支付结果。以上就是全部过程。具体的过程可以参考pythonsdk。<br /><br />本人QQ：595395786，欢迎交流！！</span></pre>
+<p><span style="font-size: 14pt;">&nbsp;</span></p>
+<p>&nbsp;</p>
+<pre><code><span style="font-size: 14pt;"><code class="lang-python"><span class="hljs-comment"><span class="hljs-string"><span class="hljs-string"><span class="hljs-keyword"><br /><br /><br /></span></span></span></span></code></span></pre>
+<p>&nbsp;</p>
+<pre><code><span class="pl-k"><span class="pl-c"><span class="pl-c"><span class="pl-k"><span class="pl-c"><span class="pl-c"><span class="pl-k"><span class="pl-c1"><span style="font-size: 14pt;">&nbsp;</span></span></span></span></span></span></span></span></span></pre>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

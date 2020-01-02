@@ -1,0 +1,148 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Qt事件分发机制源码分析之QApplication对象构建过程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Qt事件分发机制源码分析之QApplication对象构建过程</center></div><div class='banquan'>原文出处:本文由博客园博主IT文艺男提供。<br/>
+原文连接:https://www.cnblogs.com/appsucc/p/12004967.html</div><br>
+    <p>我们在新建一个Qt GUI项目时，<code>main</code>函数里会生成类似下面的代码：</p>
+<pre><code><code>int main(int argc, char *argv[])
+{
+    QApplication application(argc, argv);
+    CQDialog dialog(NULL);
+    dialog.show();
+    return application.exec();
+}</code></pre>
+<p>对应的步骤解释如下</p>
+<p><strong>1.构建<code>QApplication</code>对象<br />
+2.构建<code>CQDialog主界面</code><br />
+3.主界面显示<br />
+4.<code>QApplication</code>对象进入事件循环处理直至退出</strong></p>
+<p>上述步骤包含<code>QApplication</code>对象构建过程、主界面显示过程、事件循环处理过程三个主题。</p>
+<p>这篇博文主要讲解第一个主题，即<code>QApplication</code>对象构建过程。</p>
+<p><code>QApplication</code>类继承关系如下图所示</p>
+<p><img src="./images/Qt事件分发机制源码分析之QApplication对象构建过程0.png" /></p>
+<p>查看Qt源码<code>QApplication</code>的构造函数</p>
+<pre><code><code>#ifdef Q_QDOC
+QApplication::QApplication(int &amp;argc, char **argv)
+#else
+QApplication::QApplication(int &amp;argc, char **argv, int _internal)
+#endif
+    : QGuiApplication(*new QApplicationPrivate(argc, argv, _internal))
+{
+    Q_D(QApplication);
+    d-&gt;init();
+}</code></pre>
+<p><code>QApplication</code>父类<code>QGuiApplication</code>的构造函数</p>
+<pre><code><code>QGuiApplication::QGuiApplication(QGuiApplicationPrivate &amp;p)
+    : QCoreApplication(p)
+{
+}</code></pre>
+<p>可以看到<code>QGuiApplication</code>的构造函数为空内容,进入到<code>QGuiApplication</code>父类<code>QCoreApplication</code>的构造函数</p>
+<pre><code><code>QCoreApplication::QCoreApplication(QCoreApplicationPrivate &amp;p)
+#ifdef QT_NO_QOBJECT
+    : d_ptr(&amp;p)
+#else
+    : QObject(p, 0)
+#endif
+{
+    d_func()-&gt;q_ptr = this;
+    // note: it is the subclasses&#39; job to call
+    // QCoreApplicationPrivate::eventDispatcher-&gt;startingUp();
+}</code></pre>
+<p>其也没有实际性的内容。</p>
+<p>主要集中在<code>QApplicationPrivate</code>、<code>QGuiApplicationPrivate</code>、<code>QCoreApplicationPrivate</code>类的内部处理，这也是Qt一贯的用法，即信息隐藏。</p>
+<p>其类关系图如下</p>
+<p><img src="./images/Qt事件分发机制源码分析之QApplication对象构建过程1.png" /></p>
+<p>因此函数调用返回到<code>QApplication</code>构造函数中，<code>QApplicationPrivate::init</code>函数被调用用于初始化操作</p>
+<pre><code><code>void QApplicationPrivate::init()
+{
+#if defined(Q_OS_MACOS)
+    QMacAutoReleasePool pool;
+#endif
+
+    QGuiApplicationPrivate::init();
+
+    initResources();
+
+    qt_is_gui_used = (application_type != QApplicationPrivate::Tty);
+    process_cmdline();
+
+    // Must be called before initialize()
+    qt_init(this, application_type);
+    initialize();
+    eventDispatcher-&gt;startingUp();
+
+#ifdef QT_EVAL
+    extern void qt_gui_eval_init(QCoreApplicationPrivate::Type);
+    qt_gui_eval_init(application_type);
+#endif
+#ifndef QT_NO_ACCESSIBILITY
+    // factory for accessible interfaces for widgets shipped with Qt
+    QAccessible::installFactory(&amp;qAccessibleFactory);
+#endif
+
+}</code></pre>
+<p><code>QGuiApplicationPrivate::init</code>会调用<code>QCoreApplicationPrivate::init</code>，<code>QCoreApplicationPrivate::init</code>会进行eventDispatcher的创建，如下代码所示</p>
+<pre><code><code>#ifndef QT_NO_QOBJECT
+    // use the event dispatcher created by the app programmer (if any)
+    if (!eventDispatcher)
+        eventDispatcher = threadData-&gt;eventDispatcher.load();
+    // otherwise we create one
+    if (!eventDispatcher)
+        createEventDispatcher();
+    Q_ASSERT(eventDispatcher);
+
+    if (!eventDispatcher-&gt;parent()) {
+        eventDispatcher-&gt;moveToThread(threadData-&gt;thread);
+        eventDispatcher-&gt;setParent(q);
+    }
+
+    threadData-&gt;eventDispatcher = eventDispatcher;
+    eventDispatcherReady();
+#endif</code></pre>
+<p>基于多态性，<code>QGuiApplicationPrivate::createEventDispatcher</code>被调用</p>
+<pre><code><code>void QGuiApplicationPrivate::createEventDispatcher()
+{
+    Q_ASSERT(!eventDispatcher);
+
+    if (platform_integration == 0)
+        createPlatformIntegration();
+
+    // The platform integration should not mess with the event dispatcher
+    Q_ASSERT(!eventDispatcher);
+
+    eventDispatcher = platform_integration-&gt;createEventDispatcher();
+}</code></pre>
+<p><code>createEventDispatcher</code>函数里做两件事情</p>
+<p><strong>1.创建平台插件(Windows、Linux)<br />
+2.根据平台插件创建eventDispatcher</strong></p>
+<p>以我在Windows平台上开发为例</p>
+<p><strong>1.创建<code>QWindowsIntegration</code>以及<code>QWindowsGuiEventDispatcher</code><br />
+2.在<code>QWindowsIntegration</code>创建过程中会生成<code>QWindowsContext</code>对象</strong></p>
+<p><code>QEventDispatcherWin32</code>类继承关系如下图所示</p>
+<p><img src="./images/Qt事件分发机制源码分析之QApplication对象构建过程2.png" /></p>
+<p>因此，<code>QApplication</code>构造时创建了eventDispatcher</p>
+<p>关于<code>QApplication</code>对象构建过程就讲述完毕了，后续博文会看到eventDispatcher、<code>QWindowsContext</code>的用途</p>
+<blockquote>
+<p>有部分代码位于qtbase\src\plugins\platforms源码目录</p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

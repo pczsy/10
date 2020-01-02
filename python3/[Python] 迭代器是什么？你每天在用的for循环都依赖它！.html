@@ -1,0 +1,139 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[Python] 迭代器是什么？你每天在用的for循环都依赖它！' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[Python] 迭代器是什么？你每天在用的for循环都依赖它！</center></div><div class='banquan'>原文出处:本文由博客园博主AyiStar提供。<br/>
+原文连接:https://www.cnblogs.com/ayistar/p/11380640.html</div><br>
+    <h3 id="从循环说起">从循环说起</h3>
+<p><em>顺序</em>，<em>分支</em>，<em>循环</em>是编程语言的三大逻辑结构，在Python中都得到了支持，而Python更是为循环结构提供了非常便利的语法：<code>for ... in ...</code></p>
+<p>刚从C语言转入Python的同学可能倾向于写索引下标式的循环，例如下面的代码像遍历C中的数组一样遍历了一个Python中的列表：</p>
+<pre><code><code>&gt;&gt;&gt; colors = [&#39;black&#39;, &#39;white&#39;, &#39;red&#39;, &#39;blue&#39;]
+&gt;&gt;&gt; for i in range(len(colors)):
+...     print(colors[i])
+...
+black
+white
+red
+blue</code></pre>
+<p>但如果将列表(list)替换为集合(set)，这个方法就不奏效了：</p>
+<pre><code><code>&gt;&gt;&gt; colors = set([&#39;black&#39;, &#39;white&#39;, &#39;red&#39;, &#39;blue&#39;])
+&gt;&gt;&gt; for i in range(len(colors)):
+...     print(colors[i])
+...
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 2, in &lt;module&gt;
+TypeError: &#39;set&#39; object does not support indexing</code></pre>
+<p>这是因为set不像list，string，tuple这些结构，其中的元素从逻辑上讲本身是没有序的，与之类似的还有dict，因而Python在设计set这个内置数据结构时，并没有实现其下标索引。但<strong>遍历</strong>集合这个操作本身是合理并且常见的，我们可以如下实现对集合的遍历：</p>
+<pre><code><code>&gt;&gt;&gt; colors = set([&#39;black&#39;, &#39;white&#39;, &#39;red&#39;, &#39;blue&#39;])
+&gt;&gt;&gt; for color in colors:
+...     print(color)
+...
+red
+blue
+black
+white</code></pre>
+<p>至于元素输出的<strong>顺序</strong>为何是这样，这与set的具体实现有关，不在本文的讨论范围内，本文要探究的是，这种<code>for...in...</code>循环到底是如何运作的。</p>
+<hr />
+<h3 id="轮到你出场了迭代器">轮到你出场了，迭代器</h3>
+<p>想知道for循环的运作模式，首先要介绍<strong>迭代器(iterator)</strong>的概念。迭代器并不是Python独有的概念，事实上，在C++，Java等其他语言中，都可以看到迭代器的身影，站在更高的角度，迭代器不是一个语言特性，而是一种设计模式，它提升了语言的抽象能力和代码的服用，减少程序员的心智负担。为证明这一点，下面我们就以Python中的迭代器进行说明。</p>
+<p>在Python中，<strong>迭代器</strong>泛指一类实现了<strong>迭代器协议</strong>的对象，具体来说，任何实现了<code>__next__</code>函数的对象都是迭代器，该函数可以通过Python的内置函数<code>next</code>进行调用，该函数的逻辑应该返回数据结构中的<em>下一个迭代对象</em>或抛出<code>StopIteration</code>异常。以下代码是列表迭代器的一个示例，我们暂时不关心该列表迭代器是怎么来的。</p>
+<pre><code><code>&gt;&gt;&gt; colors = [&#39;black&#39;, &#39;white&#39;, &#39;red&#39;, &#39;blue&#39;]
+&gt;&gt;&gt; color_iterator = iter(colors)
+&gt;&gt;&gt; next(color_iterator)
+&#39;black&#39;
+&gt;&gt;&gt; next(color_iterator)
+&#39;white&#39;
+&gt;&gt;&gt; next(color_iterator)
+&#39;red&#39;
+&gt;&gt;&gt; next(color_iterator)
+&#39;blue&#39;
+&gt;&gt;&gt; next(color_iterator)
+Traceback (most recent call last):
+  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;
+StopIteration</code></pre>
+<p>可以看到，每次对迭代器调用<code>next</code>函数，迭代器或返回应被迭代的下一个对象，或抛出一个<code>StopIteration</code>异常，上层的调用者可通过捕获该异常得知迭代已经结束。</p>
+<hr />
+<h3 id="他来了可迭代对象">他来了，可迭代对象</h3>
+<p><strong>可迭代对象(Iterable)</strong>是另一个重要概念，顾名思义，它应该泛指满足可以被迭代，即拥有<em>迭代器</em>的一类对象。在Python的<strong>迭代器协议</strong>里，任何实现了<code>__iter__</code>函数的对象都是可迭代对象，该函数可以通过Python的内置函数<code>iter</code>调用，该函数逻辑上应该返回一个迭代器对象，即返回一个实现了<code>__next__</code>函数的对象。我们还是以列表作为例子。</p>
+<pre><code><code>&gt;&gt;&gt; colors = [&#39;black&#39;, &#39;white&#39;, &#39;red&#39;, &#39;blue&#39;]
+&gt;&gt;&gt; type(colors)
+&lt;class &#39;list&#39;&gt;
+&gt;&gt;&gt; color_iterator = iter(colors)
+&gt;&gt;&gt; type(color_iterator)
+&lt;class &#39;list_iterator&#39;&gt;</code></pre>
+<p>可以看到，<code>colors</code>和<code>color_iterator</code>是两个不同的对象，后者是前者的<code>__iter__</code>函数返回的一个新对象。</p>
+<hr />
+<h3 id="为什么要这么复杂">为什么要这么复杂？</h3>
+<p>你可能已经在问了，为什么要制定这么复杂的所谓<strong>协议</strong>？是的，对于每一个类来说，按照规定实现<code>__next__</code>和<code>__iter__</code>方法听上去很麻烦。但是，当很多类都遵循这个协议麻烦一点的时候，对于调用者而言，事情开始变得简单。换句话说，当<strong>所有</strong>逻辑上可以被迭代的对象都告诉你，”我已经按照迭代器协议实现了协议里要求的方法“，作为调用者，你不必再关心他们怎么实现的，你可以用一个<strong>统一</strong>的方式去迭代他们，无论这是一个列表，一个字符串，一个集合，还是一个字典。</p>
+<p>事实上，<code>for...in...</code>就是这么做的。</p>
+<hr />
+<h3 id="揭秘for循环">揭秘for循环</h3>
+<p>Python的<code>for...in...</code>循环实际上等价于以下代码</p>
+<pre><code><code>colors = [&#39;black&#39;, &#39;white&#39;, &#39;red&#39;, &#39;blue&#39;]
+
+for color in colors:
+    print(color)
+# 等价于
+color_iterator = iter(colors)
+while True:
+    try:
+        color = next(color_iterator)
+        print(color)
+    except StopIteration:
+        break</code></pre>
+<p>当我们毫无顾忌地对列表/字符串/集合/字典/...各式各样的数据结构<code>for...in...</code>时，Python并不是像魔法师一样天然地知道这些对象该怎么去遍历，而是<strong>按部就班</strong>地用<code>iter</code>取出迭代器，用<code>next</code>取出下一个迭代对象，如果捕获<code>StopIteration</code>，就停止迭代。所以，这些功劳来自于这些对象严格地遵从了<strong>迭代器协议</strong>。</p>
+<hr />
+<h3 id="自己实现一个可迭代对象">自己实现一个可迭代对象</h3>
+<p>当我们自定义类时，是不是也应该考虑调用者的感受？下面我们就自己实现一个符合迭代器协议的类。</p>
+<pre><code><code>class MyIterable():
+    def __init__(self):
+        self.data = [&#39;I&#39;, &#39;love&#39;, &#39;python&#39;]
+    def __iter__(self):
+        self.index = 0
+        return self
+    def __next__(self):
+        if self.index &lt; len(self.data):
+            ret = self.data[self.index]
+            self.index += 1
+            return ret
+        else:
+            raise StopIteration
+
+a = MyIterable()
+for x in a:
+    print(x)
+
+&#39;&#39;&#39;
+执行结果：
+I
+love
+Python
+&#39;&#39;&#39;</code></pre>
+<p>解释一下：<code>MyIterable</code>的数据存放在成员变量<code>data</code>中，即实现了<code>__next__</code>的方法，所以本身就是一个迭代器，因而它的<code>__iter__</code>只需要返回<code>self</code>，但在返回之前，将成员变量<code>index</code>归0，意味着从头开始迭代。在<code>__next__</code>中，如果<code>index</code>比元素总数少，则返回该下标索引的数据，并使得索引自增，否则就抛出<code>StopIteration</code>表示迭代结束。</p>
+<p>可以看到，在调用者看来，<code>MyIterable</code>的数据内部是如何存放的，一共有多少数据，该怎么访问他们，这些都<strong>不用关心</strong>，只要<code>MyIterable</code>老老实实地遵守了迭代器协议，一句<code>for...in...</code>就能进行遍历。</p>
+<hr />
+<h3 id="总结">总结</h3>
+<p>我们通过深入解析Pyhton中<code>for</code>循环的工作机制，接触了<strong>迭代器</strong>，<strong>可迭代对象</strong>这些Python中乃至通用编程中重要的概念。可以说，迭代器具体来说是语言所规定的一种协议，一个具体的对象实现了协议所规定的<strong>接口</strong>后，就能让自己<strong>看上去</strong>是一个迭代器，使用者使用起来也只需要按照<strong>接口</strong>去使用，减少了心智负担；更抽象来说，迭代器是一种设计模式，对于遍历这种编程中非常常用的操作，通过指定某种模式和规则，让代码的开发和调用都变得更加规范，更加方便。</p>
+<p>迭代器在Python中的使用当然不止<code>for</code>循环这么简单，在<strong>生成器</strong>等更高级的语法糖中，迭代器也扮演至关重要的角色，欢迎大家持续关注！</p>
+<p>获取最新文章更新，欢迎关注我的个人公众号：StackOverflow Daily<br />
+<img src="./images/[Python] 迭代器是什么？你每天在用的for循环都依赖它！0.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,169 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Mysql指定部分数据同步' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Mysql指定部分数据同步</center></div><div class='banquan'>原文出处:本文由博客园博主沉默的旅行者提供。<br/>
+原文连接:https://www.cnblogs.com/hwj2019/p/11551922.html</div><br>
+    <div>一、需求背景</div>
+<div>朋友的公司需要每天定时从源端定时同步一部分数据到目标端，库中存在company_id列的表，只将指定的company_id列导入到目标端数据库；存在company_id列的表，将表中所有的数据导入到目标端。</div>
+<div>&nbsp;</div>
+<div>二、实现思路</div>
+<div>1 远端与目标端的ip地址、账号、密码、端口号等信息保存在配置文件中，由我朋友自己填写；</div>
+<div>2 通过information_schema.`COLUMNS`获取需要导出的表数据；</div>
+<div>3 通过mysqldump导出表</div>
+<div>4 通过通过mysql -e 的方式导入数据</div>
+<div>5 预先在目标端建立相对应的schema</div>
+<div>&nbsp;</div>
+<div>三、代码实现</div>
+<div>3.1 配置文件db.conf</div>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">[db]
+source_host</span>=<span style="color: #000000;">源端IP
+source_port</span>=<span style="color: #000000;">源端端口
+source_user</span>=<span style="color: #000000;">源端用户名
+source_passwd</span>=<span style="color: #000000;">源端密码
+dest_host</span>=<span style="color: #000000;">目标端用户名
+dest_port</span>=<span style="color: #000000;">目标端端口
+dest_user</span>=<span style="color: #000000;">目标端用户名
+dest_passwd</span>=目标端密码</pre>
+</div>
+<p>&nbsp;</p>
+<div>3.2 实现代码</div>
+<div>
+<div class="cnblogs_code" onclick="cnblogs_code_show('0c160aa5-2c3d-49e7-9d76-52701f49d6bf')"><img id="code_img_closed_0c160aa5-2c3d-49e7-9d76-52701f49d6bf" class="code_img_closed" src="./images/Mysql指定部分数据同步0.png" alt="" /><img id="code_img_opened_0c160aa5-2c3d-49e7-9d76-52701f49d6bf" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('0c160aa5-2c3d-49e7-9d76-52701f49d6bf',event)" src="./images/Mysql指定部分数据同步1.png" alt="" />
+<div id="cnblogs_code_open_0c160aa5-2c3d-49e7-9d76-52701f49d6bf" class="cnblogs_code_hide">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding: utf-8 -*-</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> @Time    : 2019-09-11 10:25</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> @Author  : Huangwenjun</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> @Email   : 350920551@qq.com</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> @File    : rsyncdata.py</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> @Software: PyCharm</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> @exe_location:</span>
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> pymysql
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> configparser
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> RsyncData():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        self.get_item()
+        self.mysql_host </span>= self.item[<span style="color: #800000;">'</span><span style="color: #800000;">source_host</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        self.mysql_port </span>= int(self.item[<span style="color: #800000;">'</span><span style="color: #800000;">source_port</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+        self.mysql_user </span>= self.item[<span style="color: #800000;">'</span><span style="color: #800000;">source_user</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        self.mysql_pwd </span>= self.item[<span style="color: #800000;">'</span><span style="color: #800000;">source_passwd</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        self.dest_host</span>=self.item[<span style="color: #800000;">'</span><span style="color: #800000;">dest_host</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        self.dest_port</span>=int(self.item[<span style="color: #800000;">'</span><span style="color: #800000;">dest_port</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+        self.dest_user </span>= self.item[<span style="color: #800000;">'</span><span style="color: #800000;">dest_user</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        self.dest_pwd </span>= self.item[<span style="color: #800000;">'</span><span style="color: #800000;">dest_passwd</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        self.conn_source()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_item(self):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        读取配置文件信息
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        cf </span>=<span style="color: #000000;"> configparser.ConfigParser()
+        cf.read(</span><span style="color: #800000;">'</span><span style="color: #800000;">db.conf</span><span style="color: #800000;">'</span>, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        config </span>=<span style="color: #000000;"> {}
+        </span><span style="color: #0000ff;">for</span> db <span style="color: #0000ff;">in</span><span style="color: #000000;"> cf.sections():
+            items </span>=<span style="color: #000000;"> {}
+            </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span><span style="color: #000000;"> cf.items(db):
+                items[item[0]] </span>= item[1<span style="color: #000000;">]
+            config[db] </span>=<span style="color: #000000;"> items
+        self.item </span>= config[<span style="color: #800000;">'</span><span style="color: #800000;">db</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> conn_source(self):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        连接源端数据库
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        self.source_conn </span>= pymysql.connect(host=self.dest_host, port=self.dest_port, user=<span style="color: #000000;">self.dest_user,
+                                                 passwd</span>=self.dest_pwd, charset=<span style="color: #800000;">'</span><span style="color: #800000;">utf8mb4</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> execute_sql(self, conn, sql):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        执行sql
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        curs </span>=<span style="color: #000000;"> conn.cursor()
+        curs.execute(sql)
+        </span><span style="color: #0000ff;">if</span> sql.startswith(<span style="color: #800000;">'</span><span style="color: #800000;">select</span><span style="color: #800000;">'</span><span style="color: #000000;">):
+            rows </span>=<span style="color: #000000;"> curs.fetchall()
+            curs.close()
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> rows
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            curs.execute(</span><span style="color: #800000;">'</span><span style="color: #800000;">commit</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+            curs.close()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> close(self):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        关闭数据库连接
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        self.source_conn.close()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> backup_table(self,table_schema,table_name,is_com):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        备份表
+        :param table_schema: 数据库schema
+        :param table_name: 表名称
+        :param is_com: 是否包含company_id
+        </span><span style="color: #800000;">"""</span>
+        <span style="color: #0000ff;">if</span> is_com&gt;=1<span style="color: #000000;">:
+            backup_cmd</span>=<span style="color: #800000;">"</span><span style="color: #800000;">mysqldump -u%s -p%s -h %s -P %s --single-transaction %s %s --where='company_id=1'&gt;%s.sql</span><span style="color: #800000;">"</span>%<span style="color: #000000;">(self.mysql_user,self.mysql_pwd,self.mysql_host,self.mysql_port,table_schema,table_name,table_name)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            backup_cmd </span>= <span style="color: #800000;">"</span><span style="color: #800000;">mysqldump -u%s -p%s -h %s -P %s --single-transaction %s %s&gt;%s.sql</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> (
+            self.mysql_user, self.mysql_pwd, self.mysql_host,self.mysql_port, table_schema, table_name, table_name)
+        os.system(backup_cmd)
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> mysql_import(self,table_schema,table_name):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        数据导入
+        :param table_schema: 数据库schema
+        :param table_name: 表名称
+        </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+        import_cmd</span>=<span style="color: #800000;">'</span><span style="color: #800000;">mysql -u%s -p%s -h %s -P %s -D %s -e"source %s.sql"</span><span style="color: #800000;">'</span>%<span style="color: #000000;">(self.dest_user,self.dest_pwd,self.dest_host,self.dest_port,table_schema,table_name)
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(import_cmd)
+        os.system(import_cmd)
+
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+        执行入口
+        :return:
+        </span><span style="color: #800000;">"""</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;">从源端获取库 表名称</span>
+        sql=<span style="color: #800000;">"</span><span style="color: #800000;">select table_schema,table_name,sum(case when column_name='company_id' then 1 else 0 end) company_id_count from information_schema.`COLUMNS` where TABLE_SCHEMA not in ('mysql','information_schema','performance_schema','sys') group by table_schema,table_name</span><span style="color: #800000;">"</span><span style="color: #000000;">
+        rows</span>=<span style="color: #000000;">self.execute_sql(self.source_conn,sql)
+        </span><span style="color: #0000ff;">for</span> row <span style="color: #0000ff;">in</span><span style="color: #000000;"> rows:
+            table_schema</span>=<span style="color: #000000;">row[0]
+            table_name</span>=row[1<span style="color: #000000;">]
+            is_comid</span>=row[2<span style="color: #000000;">]
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">数据备份</span>
+<span style="color: #000000;">            self.backup_table(table_schema,table_name,is_comid)
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">数据导入</span>
+<span style="color: #000000;">            self.mysql_import(table_schema,table_name)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    rsync_data</span>=<span style="color: #000000;">RsyncData()
+    rsync_data.run()
+    rsync_data.close()</span></pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<p>&nbsp;</p>
+</div>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

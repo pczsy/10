@@ -1,0 +1,142 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Lua-Async 协程的高级用法' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Lua-Async 协程的高级用法</center></div><div class='banquan'>原文出处:本文由博客园博主落单的毛毛虫提供。<br/>
+原文连接:https://www.cnblogs.com/mmc1206x/p/12057003.html</div><br>
+    <h1 id="lua-async">Lua-Async</h1>
+<p>这是一个基于协程的异步调用库, 该库的设计思路类似JavaScript的Promise, 但相比Promise, 它有更多的灵活性.</p>
+<pre><code><code>--  引入Async
+local Async = require(&quot;Async&quot;)
+
+--  创建Async
+--  可传递参数到接下来的调用中
+Async.New(...)
+
+--  注册异步调用
+Async.New(...)
+:Ok(function(ok, no, ...) return no() end)  --  在Ok管道注册回调, 之后进入No管道
+:No(function(ok, no, ...) return ok() end)  --  在No管道注册回调, 之后进入Ok管道
+:Ok(function(ok, no, ...) return no() end)  --  在Ok管道注册回调, 之后进入No管道
+:No(function(ok, no, ...) return ok() end)  --  在No管道注册回调, 之后进入Ok管道
+
+--  异常捕获
+Async.New(...)
+:Error(function() print(&quot;捕获异常...&quot;) end) --  注册异常捕获函数
+:Ok(function(ok, no, ...) return no() end)  --  在Ok管道注册回调, 之后进入No管道
+:No(function(ok, no, ...) return ok() end)  --  在No管道注册回调, 之后进入Ok管道
+:Ok(function(ok, no, ...) return no() end)  --  在Ok管道注册回调, 之后进入No管道
+:No(function(ok, no, ...) return ok() end)  --  在No管道注册回调, 之后进入Ok管道</code></pre>
+<h2 id="javascript-promise-对比">JavaScript Promise 对比</h2>
+<p><strong>Js版本</strong></p>
+<pre class="js"><code>new Promise((resolve, reject) =&gt; {
+    resolve();  //  下一步
+})
+.then((resolve, reject) =&gt; {
+    reject();  //  下一步
+})
+.catch(() =&gt; { 
+    //  异常处理
+})</code></pre>
+<p><strong>Lua版本</strong></p>
+<pre><code><code>require(&quot;Async&quot;).New()
+:Ok(function(ok, no)
+    return ok()     --  下一步
+end)
+:Ok(function(ok, no)
+    return no()     --  下一步
+end)
+:No(function(ok, no)
+    return no()     --  异常处理
+end)</code></pre>
+<h2 id="简单的使用例子">简单的使用例子</h2>
+<pre><code><code>--  一个简易的定时器
+local Timer = {
+    mTasks = {}
+}
+
+--  为定时器插入一个任务
+function Timer:Insert(tick, func)
+    table.insert(self.mTasks, { mTick = os.clock() + tick, mFunc = func })
+end
+
+--  更新定时器
+function Timer:Update(tick)
+    local dels = {}
+    local time = os.clock()
+    for k, task in pairs(self.mTasks) do
+        if task.mTick &lt;= time then
+            table.insert(dels, k)
+            task.mFunc()
+        end
+    end
+
+    for i, v in ipairs(dels) do
+        self.mTasks[v] = nil
+    end
+end
+
+--  3层嵌套异步调用
+Timer:Insert(2, function() 
+    print(&quot;clock: \t&quot;, os.date(&quot;%y-%m-%d %H:%M:%S&quot;))
+    Timer:Insert(2, function()
+        print(&quot;clock: \t&quot;, os.date(&quot;%y-%m-%d %H:%M:%S&quot;))
+        Timer:Insert(2, function()
+            print(&quot;clock: \t&quot;, os.date(&quot;%y-%m-%d %H:%M:%S&quot;))
+        end)
+    end)
+end)
+
+--  通过Async 3层异步调用
+require(&quot;Async&quot;).New()
+:Ok(function(ok, no)
+    Timer:Insert(2, function() print(&quot;Async clock: &quot;, os.date(&quot;%y-%m-%d %H:%M:%S&quot;)) ok() end)
+end)
+:Ok(function(ok, no)
+    Timer:Insert(2, function() print(&quot;Async clock: &quot;, os.date(&quot;%y-%m-%d %H:%M:%S&quot;)) ok() end)
+end)
+:Ok(function(ok, no)
+    Timer:Insert(2, function() print(&quot;Async clock: &quot;, os.date(&quot;%y-%m-%d %H:%M:%S&quot;)) ok() end)
+end)
+
+while true do
+    Timer:Update(os.clock())
+end
+
+**调用结果**
+&gt; C:\MyWork\Git\Lua-Async&gt;lua demo.lua
+&gt; clock:          19-12-17 21:00:23
+&gt; Async clock:    19-12-17 21:00:23
+&gt; clock:          19-12-17 21:00:25
+&gt; Async clock:    19-12-17 21:00:25
+&gt; clock:          19-12-17 21:00:27
+&gt; Async clock:    19-12-17 21:00:27</code></pre>
+<p><strong>调用结果</strong><br />
+C:\MyWork\Git\Lua-Async&gt;lua demo.lua</p>
+<p>clock: 19-12-17 21:00:23</p>
+<p>Async clock: 19-12-17 21:00:23</p>
+<p>clock: 19-12-17 21:00:25</p>
+<p>Async clock: 19-12-17 21:00:25</p>
+<p>clock: 19-12-17 21:00:27</p>
+<p>Async clock: 19-12-17 21:00:27</p>
+<p><a href="https://github.com/mmc1993/Lua-Async">Github传送门</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

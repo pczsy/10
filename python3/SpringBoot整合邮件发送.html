@@ -1,0 +1,222 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修SpringBoot整合邮件发送' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>SpringBoot整合邮件发送</center></div><div class='banquan'>原文出处:本文由博客园博主空夜提供。<br/>
+原文连接:https://www.cnblogs.com/eknown/p/12031825.html</div><br>
+    <p>本节介绍SpringBoot项目如何快速配置和发送邮件，包括简单的邮件配置、发送简单邮件、发送HTML邮件、发送携带附件的邮件等。</p>
+<p>示例源码在：<a href="https://github.com/laolunsi/spring-boot-examples" class="uri">https://github.com/laolunsi/spring-boot-examples</a></p>
+<hr />
+<h2 id="一邮箱配置">一、邮箱配置</h2>
+<p>要确保使用的邮箱开启了客户端登录服务，以163邮箱为例：</p>
+<p><img src="./images/SpringBoot整合邮件发送0.png" /></p>
+<p><img src="./images/SpringBoot整合邮件发送1.png" /></p>
+<p>注意在发送邮件的配置中，填写的用户名是邮箱地址，密码是这里的授权码。其他邮箱如QQ、企业邮箱也是类似的配置，不懂的建议百度哦，不是很复杂的。</p>
+<p>下面我们直接进入示例吧：</p>
+<hr />
+<h2 id="二简单邮件发送">二、简单邮件发送</h2>
+<p>创建一个SpringBoot项目，引入如下依赖：</p>
+<pre><code><code>&lt;dependency&gt;
+    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+    &lt;artifactId&gt;spring-boot-starter-mail&lt;/artifactId&gt;
+&lt;/dependency&gt;</code></pre>
+<p>注：其他依赖按照自己的需求添加即可，如有问题可以参考示例项目。</p>
+<p>填写配置信息：</p>
+<pre class="yaml"><code>server:
+  port: 8012
+spring:
+  mail:
+    host: &#39;smtp.163.com&#39;
+    username: &#39;xxx@163.com&#39;
+    password: &#39;xxxx&#39; # 授权码</code></pre>
+<p>编写测试接口：</p>
+<pre class="java"><code>@RestController
+@RequestMapping(value = &quot;email&quot;)
+public class EmailAction {
+
+    @Value(&quot;${spring.mail.username}&quot;)
+    private String sendName;
+
+    private final JavaMailSender mailSender; // 也可以使用AutoWired
+
+    public EmailAction(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
+
+    @PostMapping(value = &quot;simple&quot;)
+    public String sendSimpleMsg(String msg, String email) {
+        if (StringUtils.isEmpty(msg) || StringUtils.isEmpty(email)) {
+            return &quot;请输入要发送消息和目标邮箱&quot;;
+        }
+
+        try {
+            SimpleMailMessage mail = new SimpleMailMessage();
+            mail.setFrom(sendName);
+            mail.setTo(email);
+            mail.setSubject(&quot;这是一封简单邮件&quot;);
+            mail.setText(msg);
+            mailSender.send(mail);
+            return &quot;发送成功&quot;;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return &quot;发送失败:&quot; + ex.getMessage();
+        }
+    }
+}</code></pre>
+<p>测试一下：</p>
+<p><img src="./images/SpringBoot整合邮件发送2.png" /></p>
+<hr />
+<h2 id="三html发送">三、HTML发送</h2>
+<p>除了普通的文本格式邮件，邮件还可以是HTML格式的，这样就可以自定义丰富的样式啦！</p>
+<p>发送HTML邮件也很简单，在发送邮件时指定内容为HTML即可：</p>
+<pre class="java"><code>@PostMapping(value = &quot;html&quot;)
+    public String sendHtmlMsg(String msg, String email) {
+        if (StringUtils.isEmpty(msg) || StringUtils.isEmpty(email)) {
+            return &quot;请输入要发送消息和目标邮箱&quot;;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper messageHelper = new MimeMessageHelper(message, true);
+            messageHelper.setFrom(sendName);
+            messageHelper.setTo(email);
+            messageHelper.setSubject(&quot;HTML邮件&quot;);
+            String html = &quot;&lt;div&gt;&lt;h1&gt;&lt;a name=\&quot;hello\&quot;&gt;&lt;/a&gt;&lt;span&gt;Hello&lt;/span&gt;&lt;/h1&gt;&lt;blockquote&gt;&lt;p&gt;&lt;span&gt;this is a html email.&lt;/span&gt;&lt;/p&gt;&lt;/blockquote&gt;&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;p&gt;&lt;span&gt;&quot;
+                    + msg + &quot;&lt;/span&gt;&lt;/p&gt;&lt;/div&gt;&quot;;
+            messageHelper.setText(html, true);
+            mailSender.send(message);
+            return &quot;发送成功&quot;;
+        } catch (MessagingException e) {
+            e.printStackTrace();
+            return &quot;发送失败：&quot; + e.getMessage();
+        }
+    }</code></pre>
+<p><img src="./images/SpringBoot整合邮件发送3.png" /></p>
+<hr />
+<h2 id="四含附件的邮件发送">四、含附件的邮件发送</h2>
+<p>有时候需要发送携带附件的邮件，比如投递简历，通常会携带一个PDF文件。</p>
+<p>我们这里在resources下添加一个PDF文件，然后发送邮件时携带这个文件：</p>
+<pre class="java"><code>@PostMapping(value = &quot;mime_with_file&quot;)
+    public String sendWithFile(String msg, String email) {
+        if (StringUtils.isEmpty(msg) || StringUtils.isEmpty(email)) {
+            return &quot;请输入要发送消息和目标邮箱&quot;;
+        }
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper messageHelper = new MimeMessageHelper(message, true);
+            messageHelper.setFrom(sendName);
+            messageHelper.setTo(email);
+            messageHelper.setSubject(&quot;一封包含附件的邮件&quot;);
+            messageHelper.setText(msg);
+            // 该文件位于resources目录下
+            // 文件路径不能直接写文件名，系统会报错找不到路径，而IDEA却能直接映射过去
+            // 文件路径可以写成相对路径src/main/resources/x.pdf，也可以用绝对路径：System.getProperty(&quot;user.dir&quot;) + &quot;/src/main/resources/x.pdf&quot;
+            File file = new File(&quot;src/main/resources/SpringBoot日志处理之Logback.pdf&quot;);
+            //File file = new File(System.getProperty(&quot;user.dir&quot;) + &quot;/src/main/resources/SpringBoot日志处理之Logback.pdf&quot;);
+            System.out.println(&quot;文件是否存在：&quot; + file.exists());
+            messageHelper.addAttachment(file.getName(), file);
+            mailSender.send(message);
+            return &quot;发送成功&quot;;
+        } catch (MessagingException e) {
+            e.printStackTrace();
+            return &quot;发送失败：&quot; + e.getMessage();
+        }
+    }</code></pre>
+<p>测试一下：</p>
+<p><img src="./images/SpringBoot整合邮件发送4.png" /></p>
+<hr />
+<h2 id="五html含图片发送">五、HTML含图片发送</h2>
+<p>如果HTML邮件包含图片等静态资源怎么办呢？即将图片显示在邮件中，这样邮件接收者就不用下载附件才能看到图片内容了。而且邮件内容也更加丰富了。<br />
+这个功能也很简单，使用addInline即可，可以这样做：</p>
+<pre class="java"><code>@PostMapping(value = &quot;html_with_img&quot;)
+    public String sendHtmlWithImg(String msg, String email) {
+        if (StringUtils.isEmpty(msg) || StringUtils.isEmpty(email)) {
+            return &quot;请输入要发送消息和目标邮箱&quot;;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper messageHelper = new MimeMessageHelper(message, true);
+            messageHelper.setFrom(sendName);
+            messageHelper.setTo(email);
+            messageHelper.setSubject(&quot;带静态资源图片的HTML邮件&quot;);
+            String html = &quot;&lt;div&gt;&lt;h1&gt;&lt;a name=\&quot;hello\&quot;&gt;&lt;/a&gt;&lt;span&gt;Hello&lt;/span&gt;&lt;/h1&gt;&lt;blockquote&gt;&lt;p&gt;&lt;span&gt;this is a html email.&lt;/span&gt;&lt;/p&gt;&lt;/blockquote&gt;&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;p&gt;&lt;span&gt;&quot;
+                    + msg + &quot;&lt;/span&gt;&lt;/p&gt;&lt;img src=&#39;cid:myImg&#39; /&gt;&lt;/div&gt;&quot;;
+            messageHelper.setText(html, true);
+            File file = new File(&quot;src/main/resources/wei.jpg&quot;);
+            messageHelper.addInline(&quot;myImg&quot;, file);
+            mailSender.send(message);
+            return &quot;发送成功&quot;;
+        } catch (MessagingException e) {
+            e.printStackTrace();
+            return &quot;发送失败：&quot; + e.getMessage();
+        }
+    }</code></pre>
+<p><img src="./images/SpringBoot整合邮件发送5.png" /></p>
+<hr />
+<h2 id="六使用模板发送邮件">六、使用模板发送邮件</h2>
+<p>利用模板引擎，比如thymeleaf，还可以通过模板文件来发送邮件：</p>
+<p>首先引入spring-boot-starter-thymeleaf依赖：</p>
+<pre><code><code>        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-thymeleaf&lt;/artifactId&gt;
+        &lt;/dependency&gt;</code></pre>
+<p>在resources下新建一个templates文件夹，下面创建一个EmailTemplate.html文件：</p>
+<pre class="html"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh&quot; xmlns:th=&quot;http://www.thymeleaf.org&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot; /&gt;
+    &lt;title&gt;邮件模板&lt;/title&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+    Hello, this is your msg: &lt;span th:text=&quot;${msg}&quot;&gt;&lt;/span&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<pre class="java"><code>@Autowired
+    private TemplateEngine templateEngine;
+
+    @PostMapping(value = &quot;html_with_template&quot;)
+    public String sendHtmlByTemplate(String msg, String email) {
+        if (StringUtils.isEmpty(msg) || StringUtils.isEmpty(email)) {
+            return &quot;请输入要发送消息和目标邮箱&quot;;
+        }
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper messageHelper = new MimeMessageHelper(message, true);
+            messageHelper.setFrom(sendName);
+            messageHelper.setTo(email);
+            messageHelper.setSubject(&quot;使用HTML模板文件发送邮件&quot;);
+
+            Context context = new Context();
+            context.setVariable(&quot;msg&quot;, msg);
+            messageHelper.setText(templateEngine.process(&quot;EmailTemplate&quot;, context), true);
+            mailSender.send(message);
+            return &quot;发送成功&quot;;
+        } catch (MessagingException e) {
+            e.printStackTrace();
+            return &quot;发送失败：&quot; + e.getMessage();
+        }
+    }</code></pre>
+<p><img src="./images/SpringBoot整合邮件发送6.png" /></p>
+<p>参考：https://mrbird.cc/Spring-Boot-Email.html</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

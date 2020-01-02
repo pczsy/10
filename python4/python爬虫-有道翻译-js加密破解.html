@@ -1,0 +1,124 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python爬虫-有道翻译-js加密破解' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python爬虫-有道翻译-js加密破解</center></div><div class='banquan'>原文出处:本文由博客园博主朱春雨提供。<br/>
+原文连接:https://www.cnblogs.com/zhuchunyu/p/11507114.html</div><br>
+    <h4 id="有道翻译-js加密破解">有道翻译-js加密破解</h4>
+<p>这是本地爬取的网址：<code>http://fanyi.youdao.com/</code></p>
+<p>一、分析请求</p>
+<p>我们在页面中输入：水果，翻译后的英文就是：fruit。请求携带的参数有很多，先将参数数据保存下来，做一个记录。</p>
+<p><img src="./images/python爬虫-有道翻译-js加密破解0.png" /></p>
+<p>我们再输入一个新的词：西瓜<br />
+<img src="./images/python爬虫-有道翻译-js加密破解1.png" /></p>
+<pre><code><code>i: 西瓜
+from: AUTO
+to: AUTO
+smartresult: dict
+client: fanyideskweb
+salt: 15681884266087
+sign: 1ea84aac4a04982f4a775f361ae30351
+ts: 1568188426608
+bv: a4f4c82afd8bdba188e568d101be3f53
+doctype: json
+version: 2.1
+keyfrom: fanyi.web
+action: FY_BY_REALTlME
+
+i: 水果
+from: AUTO
+to: AUTO
+smartresult: dict
+client: fanyideskweb
+salt: 15681879672603
+sign: 0f711cd437e15430dc1df1dd0948fb66
+ts: 1568187967260
+bv: a4f4c82afd8bdba188e568d101be3f53
+doctype: json
+version: 2.1
+keyfrom: fanyi.web
+action: FY_BY_REALTlME</code></pre>
+<p>对比一下，这两次请求携带的数据哪些参数不一样：很容易看出<code>i</code>,<code>salt</code>,<code>ts</code>,<code>sign</code>这四个参数是不一样的。<code>i</code>:就是你需要翻译的词，<code>ts</code>的话应该能够猜到是时间戳,<code>salt</code>他就是<code>ts</code>参数后面加了一个数字对吧。现在的话，我们就差<code>sign</code>的参数不知道是什么了吧。它是32位的数据，不出意外的话应该就是md5加密字符串了。</p>
+<p>二、加密参数破解</p>
+<p>就差<code>sign</code>不知道是怎么生成的，那就以sign为关键字，进行搜索就好。看看它出现的位置。</p>
+<p><img src="./images/python爬虫-有道翻译-js加密破解2.png" /></p>
+<p>打好断点之后，我们在换个词进行翻译:香蕉</p>
+<p><img src="./images/python爬虫-有道翻译-js加密破解3.png" /><br />
+<img src="./images/python爬虫-有道翻译-js加密破解4.png" /></p>
+<p>加密函数我就不解释了，<code>navigator.appVersion</code>就是浏览器的user-agent</p>
+<pre class="python"><code>def get_encrypt_data(keyword):
+    t = &quot;5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36&quot;
+    bv = hashlib.md5(bytes(t, encoding=&quot;utf-8&quot;)).hexdigest()
+    ts = str(int(round(time.time(), 3) * 1000))
+    salt = ts + str(random.randint(1, 10))
+    sign = hashlib.md5(
+        bytes(&quot;fanyideskweb&quot; + keyword + salt + &quot;n%A-rKaT5fb[Gy?;N5@Tj&quot;, encoding=&quot;utf-8&quot;)).hexdigest()
+    return ts, bv, salt, sign</code></pre>
+<p>三、成功响应:<br />
+<img src="./images/python爬虫-有道翻译-js加密破解5.png" /></p>
+<pre class="python"><code>import requests, time, random, hashlib
+from fake_useragent import UserAgent
+
+ua = UserAgent()
+
+url = &quot;http://fanyi.youdao.com/translate_o&quot;
+
+headers = {
+    &quot;User-Agent&quot;: ua.random,
+    &quot;Referer&quot;: &quot;http://fanyi.youdao.com/&quot;,
+}
+s = requests.Session()
+
+
+def get_encrypt_data(keyword):
+    t = &quot;5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36&quot;
+    bv = hashlib.md5(bytes(t, encoding=&quot;utf-8&quot;)).hexdigest()
+    ts = str(int(round(time.time(), 3) * 1000))
+    salt = ts + str(random.randint(1, 10))
+    sign = hashlib.md5(
+        bytes(&quot;fanyideskweb&quot; + keyword + salt + &quot;n%A-rKaT5fb[Gy?;N5@Tj&quot;, encoding=&quot;utf-8&quot;)).hexdigest()
+    return ts, bv, salt, sign
+
+
+def param():
+    dic = {}
+    dic[&quot;i&quot;] = keyword,
+    dic[&quot;from&quot;] = &quot;AUTO&quot;,
+    dic[&quot;to&quot;] = &quot;AUTO&quot;,
+    dic[&quot;smartresult&quot;] = &quot;dict&quot;,
+    dic[&quot;client&quot;] = &quot;fanyideskweb&quot;,
+    dic[&quot;doctype&quot;] = &quot;json&quot;,
+    dic[&quot;version&quot;] = &quot;2.1&quot;,
+    dic[&quot;keyfrom&quot;] = &quot;fanyi.web&quot;,
+    dic[&quot;action&quot;] = &quot;FY_BY_REALTlME&quot;,
+    dic[&quot;ts&quot;], dic[&quot;bv&quot;], dic[&quot;salt&quot;], dic[&quot;sign&quot;] = get_encrypt_data(keyword)
+    return dic
+
+
+if __name__ == &#39;__main__&#39;:
+    re = s.get(&quot;http://fanyi.youdao.com/&quot;, headers=headers)
+    keyword = input(&quot;输入你想翻译的内容&gt;&gt;&gt;:&quot;).strip()
+    response = s.post(url=url, data=param(), headers=headers)
+    msg = response.json().get(&quot;translateResult&quot;)[0][0]
+    print(&#39;&#39;&#39;翻译内容&gt;&gt;&gt;:{}
+翻译结果&gt;&gt;&gt;:{}&#39;&#39;&#39;.format(msg.get(&quot;src&quot;), msg.get(&quot;tgt&quot;)))</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

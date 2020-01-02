@@ -1,0 +1,232 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修用.NET模拟天体运动' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>用.NET模拟天体运动</center></div><div class='banquan'>原文出处:本文由博客园博主.NET骚操作提供。<br/>
+原文连接:https://www.cnblogs.com/sdflysha/p/20191214-simulate-planet-movement-using-dotnet.html</div><br>
+    <h1 id="用.net模拟天体运动">用.NET模拟天体运动</h1>
+<p>这将是一篇罕见而偏极客的文章。</p>
+<p>我上大学时就见过一些模拟太阳系等天体运动的软件和网站，觉得非常酷炫，比如这个（<a href="http://www.astronoo.com/en/articles/positions-of-the-planets.html" class="uri">http://www.astronoo.com/en/articles/positions-of-the-planets.html</a>）：<br />
+<img src="./images/用.NET模拟天体运动0.png" /></p>
+<p>其酷炫之处不仅在于天体运动轨迹能画出美妙的弧线，更重要的是其运动规律完全由<strong>万有引力</strong>定律产生，不需要对其运动轨迹进行编程。所有天体受其它天体的合力，然后按照其加速度运行。只需一个起始坐标和起始速度，就能坐下来欣赏画面。</p>
+<p>我从大学毕业后就一直对这个抱有深厚兴趣，工作第一年时我就用<code>C++</code>做过一版；后来我负责公司前端工作，又用<code>js</code>/<code>canvas</code>又做了一个重制版；由于近期爆发的<code>.NET</code>“革命”，我近期又用<code>C#</code>/<code>.NET</code>再次重制了一版。</p>
+<h1 id="需要的数学知识">需要的数学知识</h1>
+<p>由于是程序员看数学知识，此处我将使用代码来表示公式。</p>
+<ul>
+<li>万有引力，该力<code>F</code>与两个天体的质量<code>m1</code>, <code>m2</code>成正比，如距离<code>r</code>的平方成反比，用代码表示为：<code>F = m1 * m2 * G / r ^ 2</code>；</li>
+<li>牛顿第二定律，加速度<code>a</code>等于合力<code>F</code>除以质量<code>m</code>，用代码表示为：<code>a = F / m</code>；</li>
+<li>速度<code>v</code>与加速度<code>a</code>以及时间<code>t</code>的关系，用代码表示为：<code>v = a * t</code>；</li>
+<li>距离<code>s</code>与速度<code>v</code>以及时间<code>t</code>的关系，用代码表示为：<code>s = v * t</code>。</li>
+</ul>
+<p>这里面的所有知识都已经在高中物理提过了，但有两点需要注意：</p>
+<ul>
+<li>所有的力、加速度、速度以及距离都需要分为<code>x</code>轴和<code>y</code>轴两个分量；</li>
+<li>所有的时间<code>t</code>实际上是小段时间<code>dt</code>，程序将循环模拟小段时间累加起来，来模拟天体运动。</li>
+</ul>
+<h1 id="核心代码">核心代码</h1>
+<h2 id="天体类">天体类：</h2>
+<pre><code><code>class Star
+{
+    public LinkedList&lt;Vector2&gt; PositionTrack = new LinkedList&lt;SharpDX.Vector2&gt;();
+    public double Px, Py, Vx, Vy;
+    public double Mass;
+    public float Size =&gt; (float)Math.Log(Mass) * 2;
+    public Color Color = Color.Black;
+    
+    public void Move(double step)
+    {
+        Px += Vx * step;
+        Py += Vy * step;
+        PositionTrack.AddFirst(new Vector2((float)Px, (float)Py));
+        if (PositionTrack.Count &gt; 1000)
+        {
+            PositionTrack.RemoveLast();
+        }
+    }
+}</code></pre>
+<p>注意，我没指定大小<code>Size</code>，直接给值为其质量的对数乘<code>2</code>，另外注意我使用了一个<code>PositionTrack</code>的<code>链表</code>来存储其运动轨迹。</p>
+<h2 id="万有引力加速度速度计算">万有引力、加速度、速度计算</h2>
+<pre><code><code>void Step()
+{
+    foreach (var s1 in Stars)
+    {
+        // star velocity
+        // F = G * m1 * m2 / r^2
+        // F has a direction: 
+        double Fdx = 0;
+        double Fdy = 0;
+
+        const double Gm1 = 100.0f;     // G*s1.m
+        var ttm = StepDt * StepDt; // t*t/s1.m
+
+        foreach (var s2 in Stars)
+        {
+            if (s1 == s2) continue;
+
+            var rx = s2.Px - s1.Px;
+            var ry = s2.Py - s1.Py;
+            var rr = rx * rx + ry * ry;
+            var r = Math.Sqrt(rr);
+
+            var f = Gm1 * s2.Mass / rr;
+            var fdx = f * rx / r;
+            var fdy = f * ry / r;
+
+            Fdx += fdx;
+            Fdy += fdy;
+        }
+
+        // Ft = ma  -&gt; a = Ft/m
+        // v  = at  -&gt; v = Ftt/m
+        var dvx = Fdx * ttm;
+        var dvy = Fdy * ttm;
+        s1.Vx += dvx;
+        s1.Vy += dvy;
+    }
+
+    foreach (var star in Stars)
+    {
+        star.Move(StepDt);
+    }
+}</code></pre>
+<p>注意其中有个<code>foreach</code>循环，它将一一计算每个天体对某天体的力，然后通过累加的方式求出合力，最后依照合力计算加速度和速度。如果使用<code>gmp</code>等高精度计算库，该循环将存在性能热点，因此可以将这个<code>foreach</code>改成<code>Parallel.For</code>加<code>lock</code>的方式修改合力<code>Fdx</code>和<code>Fdy</code>，可以提高性能（<code>C++</code>的代码就是这样写的）。</p>
+<h2 id="绘图代码">绘图代码</h2>
+<pre><code><code>public void Draw(DeviceContext ctx)
+{
+    ctx.Clear(Color.DarkGray);
+    
+    using var solidBrash = new SolidColorBrush(ctx, Color.White);
+
+    float allHeight = ctx.Size.Height;
+    float allWidth = ctx.Size.Width;
+    float scale = allHeight / 100.0f;
+    foreach (var star in Stars)
+    {
+        using var radialBrush = new RadialGradientBrush(ctx, new RadialGradientBrushProperties
+        {
+            Center = Vector2.Zero,
+            RadiusX = 1.0f,
+            RadiusY = 1.0f,
+        }, new SharpDX.Direct2D1.GradientStopCollection(ctx, new[]
+        {
+            new GradientStop{ Color = Color.White, Position = 0f},
+            new GradientStop{ Color = star.Color, Position = 1.0f},
+        }));
+
+        ctx.Transform =
+            Matrix3x2.Scaling(star.Size) *
+            Matrix3x2.Translation(((float)star.Px + 50) * scale + (allWidth - allHeight) / 2, ((float)star.Py + 50) * scale);
+        ctx.FillEllipse(new Ellipse(Vector2.Zero, 1, 1), radialBrush);
+
+        ctx.Transform =
+            Matrix3x2.Translation(allHeight / 2 + (allWidth - allHeight) / 2, allHeight / 2);
+        foreach (var line in star.PositionTrack.Zip(star.PositionTrack.Skip(1)))
+        {
+            ctx.DrawLine(line.First * scale, line.Second * scale, solidBrash, 1.0f);
+        }
+    }
+    ctx.Transform = Matrix3x2.Identity;
+}</code></pre>
+<p>注意我在绘图代码逻辑中做了一些矩阵变换，我把所有逻辑做成了窗体分辨率无关的，假定屏幕长和宽的较小值为<code>100</code>，然后左上角坐标为<code>-50, -50</code>，右下角坐标为<code>50, 50</code>。</p>
+<h1 id="星系模拟">星系模拟</h1>
+<h2 id="太阳地球和月亮">太阳、地球和月亮</h2>
+<p>这是最容易想到了，地球绕太阳转，月亮绕地球转，创建代码如下：</p>
+<pre><code><code>public static StarSystem CreateSolarEarthMoon()
+{
+    var solar = new Star
+    {
+        Px = 0, Py = 0,
+        Vx = 0.6, Vy = 0,
+        Mass = 1000,
+        Color = Color.Red,
+    };
+
+    // Earth
+    var earth = new Star
+    {
+        Px = 0, Py = -41,
+        Vx = -5, Vy = 0,
+        Mass = 100,
+        Color = Color.Blue,
+    };
+
+    // Moon
+    var moon = new Star
+    {
+        Px = 0, Py = -45,
+        Vx = -10, Vy = 0,
+        Mass = 10,
+    };
+
+    return new StarSystem(new List&lt;Star&gt; { solar, earth, moon });
+}</code></pre>
+<p>注意所有数据都没使用真实数字模拟（不然地球绕太阳转一圈需要<code>365</code>天才能看完😂），运行效果如下：<br />
+<img src="./images/用.NET模拟天体运动1.png" /></p>
+<p>从轨迹可以看出，由于太阳引力的作用，地球会转着太阳转，但也同样由于地球和月球引力的作用，太阳也在以微小的角度在“公转”。</p>
+<h3 id="扩展">扩展</h3>
+<p>如果将太阳质量翻倍(<code>1000</code>-&gt;<code>2000</code>)，会是何种效果呢？</p>
+<p><img src="./images/用.NET模拟天体运动2.png" /></p>
+<p>可见这样一来，由于引力太大，导致地球速度变快，月亮就被地球“甩”出去了，然后地球轨道也变成了实实在在的椭圆。</p>
+<h2 id="双子星">双子星</h2>
+<p>宇宙中存在这样一种星系，它的两颗恒星互相围绕对方转，也可以模拟出来：<br />
+<img src="./images/用.NET模拟天体运动3.png" /></p>
+<p>注意两个天体在接近时速度会变快，远离时速度会变慢，这是由于万有引力与距离平方成反比决定的。</p>
+<h3 id="扩展n星系统">扩展N星系统</h3>
+<pre><code><code>static IEnumerable&lt;Star&gt; CreateStars(int N)
+{
+    for (var i = 0; i &lt; N; ++i)
+    {
+        double angle = 1.0f * i / N * Math.PI * 2;
+        double R = 45;
+        double M = 10000 * 2 / (N * Math.Sqrt(N) * Math.Log(N));
+        double v = 5;
+        double px = R * Math.Sin(angle);
+        double py = R * -Math.Cos(angle);
+        double vx = v * Math.Cos(angle);
+        double vy = v * Math.Sin(angle);
+        yield return new Star
+        {
+            Px = px,
+            Py = py,
+            Vx = vx,
+            Vy = vy,
+            Mass = M,
+        };
+    }
+}</code></pre>
+<p>通过精密的数学计算，可以让任意多的天体组织为系统，如将<code>3</code>当作<code>N</code>传入函数，即可组织为“三星系统”，运行效果如下：<br />
+<img src="./images/用.NET模拟天体运动4.png" /></p>
+<p>注意，超过<code>2</code>星的系统都不稳定（因此“三星系统”也不稳定），转过两圈之后所有天体由于<code>double</code>类型的误差已经累积到不可逆转的程度，“三星系统”会慢慢崩溃解体。</p>
+<p>看看四星系统，命运也差不多（又比“三星”稍稳定，需要等待好几圈才崩溃）：<br />
+<img src="./images/用.NET模拟天体运动5.png" /></p>
+<h1 id="展望与总结">展望与总结</h1>
+<p>由于误差是<code>double</code>类型的精度限制而累积的，在<code>C++</code>中我可以使用<code>gmp</code>、<code>mpir</code>、<code>mpfr</code>等高精度计算库来模拟计算，性能也非常高。我之前使用<code>C++</code>和<code>mpir</code>/<code>boost</code>配合，可以让四星系统稳定运行长达<code>15</code>分钟不崩溃，还能在我的<code>Windows Phone</code>(😂)上流畅运行。</p>
+<p>之前有人将<code>mpir</code>移植到了<code>.NET</code>，但不支持<code>.NET Core</code>（<a href="https://github.com/wezeku/Mpir.NET" class="uri">https://github.com/wezeku/Mpir.NET</a>），有人将<code>mpfr</code>移植到了<code>.NET</code>（<a href="https://github.com/emphasis87/mpfr.NET/pull/5" class="uri">https://github.com/emphasis87/mpfr.NET/pull/5</a>），<code>.NET Core</code>可以运行，但有坑爹的<code>bug</code>，我提了<code>PR</code>，但作者似乎没心思<code>Merge</code>😂。</p>
+<p>大小数计算在天文、地震、天气、海洋等科研领域有不可取代的作用，我挺希望<code>.NET</code>能提供一个高性能、高精度的小数计算库，如<code>BigFloat</code>。有人会问<code>.NET 4.0</code>不是提供了<code>BigInteger</code>吗？难道不够？是真不够！整数计算和小数计算不完全一样，性能这一关就过不去。但在<code>.NET Core</code>中这个问题官方似乎没有太大动力去做，我在<code>github</code>上找到了几个相关<code>issue</code>，都是<code>open</code>状态：</p>
+<ul>
+<li><a href="https://github.com/dotnet/corefx/issues/17267" class="uri">https://github.com/dotnet/corefx/issues/17267</a></li>
+<li><a href="https://github.com/dotnet/corefxlab/issues/2635" class="uri">https://github.com/dotnet/corefxlab/issues/2635</a></li>
+</ul>
+<p>本文中涉及的所有完整、可运行代码都已经上传到我的<code>github</code>博客，各位可以自行下载：<a href="https://github.com/sdcb/blog-data/tree/master/2019/20191214-simulate-planet-movement-using-dotnet" class="uri">https://github.com/sdcb/blog-data/tree/master/2019/20191214-simulate-planet-movement-using-dotnet</a></p>
+<p>喜欢的朋友 请关注我的微信公众号：【DotNet骚操作】</p>
+<p><img src="./images/用.NET模拟天体运动6.png" alt="DotNet骚操作" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

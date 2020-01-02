@@ -1,0 +1,289 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python实现文件搜索工具（简易版）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python实现文件搜索工具（简易版）</center></div><div class='banquan'>原文出处:本文由博客园博主向大海走去提供。<br/>
+原文连接:https://www.cnblogs.com/blsx/p/11239679.html</div><br>
+    <p>在python学习过程中有一次需要进行GUI 的绘制，</p>
+<p>而在python中有自带的库tkinter可以用来简单的GUI编写，于是转而学习tkinter库的使用。</p>
+<p>学以致用，现在试着编写一个简单的磁文件搜索工具，</p>
+<p>方法就是将指定的文件夹进行扫描遍历，把其中的每个文件路径数据存入数据库，</p>
+<p>然后使用数据库搜索文件就很快捷。实现的效果大致如下：</p>
+<p>&nbsp;</p>
+<p>&nbsp;<img src="./images/python实现文件搜索工具（简易版）0.png" alt="" /></p>
+<p>整个程序分为大致几个模块：</p>
+<p>主界面的绘制，</p>
+<p>指定文件夹功能函数，</p>
+<p>搜索文件功能函数，</p>
+<p>ui线程与扫描线程同步函数，</p>
+<p>扫描线程工作函数</p>
+<p>&nbsp;</p>
+<p>要实现扫描文件功能时，</p>
+<p>导入了一个这样的模块 disk.py&nbsp;</p>
+<p>这个模块实现的功能就是将指定文件夹下的所有文件遍历，并将路径和所在盘符存到一个列表中返回</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os.path as pt
+
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> scan_file(path):
+    result </span>=<span style="color: #000000;"> []
+    </span><span style="color: #0000ff;">for</span> root, dirs, files <span style="color: #0000ff;">in</span><span style="color: #000000;"> os.walk(path):
+        </span><span style="color: #0000ff;">for</span> f <span style="color: #0000ff;">in</span><span style="color: #000000;"> files:
+            file_path </span>=<span style="color: #000000;"> pt.abspath(pt.join(root, f))
+
+            result.append((file_path, file_path[0]))  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 保存路径与盘符</span>
+
+    <span style="color: #0000ff;">return</span> result</pre>
+</div>
+<p>然后我们需要将扫描到的文件存入到数据库中，</p>
+<p>因此需要编写数据库模块 datebase.py</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> sqlite3
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> DataMgr:
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 创建或打开一个数据库</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> check_same_thread 属性用来规避多线程操作数据库的问题</span>
+        self.conn = sqlite3.connect(<span style="color: #800000;">"</span><span style="color: #800000;">file.db</span><span style="color: #800000;">"</span>, check_same_thread=<span style="color: #000000;">False)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 建表</span>
+        self.conn.execute(<span style="color: #800000;">'</span><span style="color: #800000;">create table if not exists disk_table(</span><span style="color: #800000;">'</span> 
+                          <span style="color: #800000;">'</span><span style="color: #800000;">id integer primary key autoincrement,</span><span style="color: #800000;">'</span> 
+                          <span style="color: #800000;">'</span><span style="color: #800000;">file_path text,</span><span style="color: #800000;">'</span> 
+                          <span style="color: #800000;">'</span><span style="color: #800000;">drive_letter text)</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 创建索引 用来提高搜索速度</span>
+        self.conn.execute(<span style="color: #800000;">'</span><span style="color: #800000;">create index if not exists index_path on disk_table(file_path)</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 批量插入数据</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> batch_insert(self, data):
+        </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> data:
+            self.conn.execute(</span><span style="color: #800000;">'</span><span style="color: #800000;">insert into disk_table values (null,?,?)</span><span style="color: #800000;">'</span><span style="color: #000000;">, line)
+        self.conn.commit()
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 模糊搜索</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> query(self, key):
+        cursor </span>=<span style="color: #000000;"> self.conn.cursor()
+        cursor.execute(</span><span style="color: #800000;">"</span><span style="color: #800000;">select file_path from disk_table where file_path like ?</span><span style="color: #800000;">"</span>, (<span style="color: #800000;">'</span><span style="color: #800000;">%{0}%</span><span style="color: #800000;">'</span><span style="color: #000000;">.format(key),))
+        r </span>= [row[0] <span style="color: #0000ff;">for</span> row <span style="color: #0000ff;">in</span><span style="color: #000000;"> cursor]
+        cursor.close()
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> r
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> close(self):
+        self.conn.close()</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>还需要一个额外的模块为 progressbar.py</p>
+<p>这个模块的功能是在扫描时弹出一个进度条窗口，</p>
+<p>使得GUI功能看起来更完善</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> tkinter <span style="color: #0000ff;">import</span> *
+<span style="color: #0000ff;">from</span> tkinter <span style="color: #0000ff;">import</span><span style="color: #000000;"> ttk
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> GressBar:
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> start(self):
+        top </span>= Toplevel()  <span style="color: #008000;">#</span><span style="color: #008000;"> 弹出式窗口，实现多窗口时经常用到</span>
+        self.master =<span style="color: #000000;"> top
+        top.overrideredirect(True)  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 去除窗体的边框</span>
+        top.title(<span style="color: #800000;">"</span><span style="color: #800000;">进度条</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        Label(top, text</span>=<span style="color: #800000;">"</span><span style="color: #800000;">正在扫描选定路径的文件,请稍等&hellip;&hellip;</span><span style="color: #800000;">"</span>, fg=<span style="color: #800000;">"</span><span style="color: #800000;">blue</span><span style="color: #800000;">"</span>).pack(pady=2<span style="color: #000000;">)
+        prog </span>= ttk.Progressbar(top, mode=<span style="color: #800000;">'</span><span style="color: #800000;">indeterminate</span><span style="color: #800000;">'</span>, length=200)  <span style="color: #008000;">#</span><span style="color: #008000;"> 创建进度条</span>
+        prog.pack(pady=10, padx=35<span style="color: #000000;">)
+        prog.start()
+
+        top.resizable(False, False)  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 参数为false表示不允许改变窗口尺寸</span>
+<span style="color: #000000;">        top.update()
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 计算窗口大小，使显示在屏幕中央</span>
+        curWidth =<span style="color: #000000;"> top.winfo_width()
+        curHeight </span>=<span style="color: #000000;"> top.winfo_height()
+        scnWidth, scnHeight </span>=<span style="color: #000000;"> top.maxsize()
+        tmpcnf </span>= <span style="color: #800000;">'</span><span style="color: #800000;">+%d+%d</span><span style="color: #800000;">'</span> % ((scnWidth - curWidth) / 2, (scnHeight - curHeight) / 2<span style="color: #000000;">)
+        top.geometry(tmpcnf)
+        top.mainloop()
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> quit(self):
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> self.master:
+            self.master.destroy()</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>主体的search.py 代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">  1</span> <span style="color: #0000ff;">from</span> tkinter <span style="color: #0000ff;">import</span> *
+<span style="color: #008080;">  2</span> <span style="color: #0000ff;">from</span> tkinter <span style="color: #0000ff;">import</span><span style="color: #000000;"> ttk
+</span><span style="color: #008080;">  3</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> tkinter.filedialog as dir
+</span><span style="color: #008080;">  4</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> queue
+</span><span style="color: #008080;">  5</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+</span><span style="color: #008080;">  6</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> progressbar
+</span><span style="color: #008080;">  7</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> disk
+</span><span style="color: #008080;">  8</span> <span style="color: #0000ff;">from</span> database <span style="color: #0000ff;">import</span><span style="color: #000000;"> DataMgr
+</span><span style="color: #008080;">  9</span> 
+<span style="color: #008080;"> 10</span> 
+<span style="color: #008080;"> 11</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> SearchUI:
+</span><span style="color: #008080;"> 12</span> 
+<span style="color: #008080;"> 13</span>     <span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+</span><span style="color: #008080;"> 14</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 创建一个消息队列</span>
+<span style="color: #008080;"> 15</span>         self.notify_queue =<span style="color: #000000;"> queue.Queue()
+</span><span style="color: #008080;"> 16</span>         root =<span style="color: #000000;"> Tk()
+</span><span style="color: #008080;"> 17</span>         self.master =<span style="color: #000000;"> root
+</span><span style="color: #008080;"> 18</span> <span style="color: #000000;">        self.create_menu(root)
+</span><span style="color: #008080;"> 19</span> <span style="color: #000000;">        self.create_content(root)
+</span><span style="color: #008080;"> 20</span>         self.path = <span style="color: #800000;">'</span><span style="color: #800000;">D:</span><span style="color: #800000;">'</span>
+<span style="color: #008080;"> 21</span>         root.title(<span style="color: #800000;">'</span><span style="color: #800000;">the search tool</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 22</span> <span style="color: #000000;">        root.update()
+</span><span style="color: #008080;"> 23</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 在屏幕中心显示窗体</span>
+<span style="color: #008080;"> 24</span>         curWidth =<span style="color: #000000;"> root.winfo_width()
+</span><span style="color: #008080;"> 25</span>         curHeight =<span style="color: #000000;"> root.winfo_height()
+</span><span style="color: #008080;"> 26</span>         scnWidth, scnHeight = root.maxsize()  <span style="color: #008000;">#</span><span style="color: #008000;"> 得到屏幕的宽度和高度</span>
+<span style="color: #008080;"> 27</span>         tmpcnf = <span style="color: #800000;">'</span><span style="color: #800000;">+%d+%d</span><span style="color: #800000;">'</span> % ((scnWidth - curWidth)/2, (scnHeight-curHeight)/2<span style="color: #000000;">)
+</span><span style="color: #008080;"> 28</span> <span style="color: #000000;">        root.geometry(tmpcnf)
+</span><span style="color: #008080;"> 29</span> 
+<span style="color: #008080;"> 30</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 创建一个进度条对话框实例</span>
+<span style="color: #008080;"> 31</span>         self.gress_bar =<span style="color: #000000;"> progressbar.GressBar()
+</span><span style="color: #008080;"> 32</span> 
+<span style="color: #008080;"> 33</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 创建一个数据库的实例</span>
+<span style="color: #008080;"> 34</span>         self.data_mgr =<span style="color: #000000;"> DataMgr()
+</span><span style="color: #008080;"> 35</span> 
+<span style="color: #008080;"> 36</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 在UI线程启动消息队列循环</span>
+<span style="color: #008080;"> 37</span> <span style="color: #000000;">        self.process_msg()
+</span><span style="color: #008080;"> 38</span> <span style="color: #000000;">        root.mainloop()
+</span><span style="color: #008080;"> 39</span> 
+<span style="color: #008080;"> 40</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> ui线程与扫描线程同步</span>
+<span style="color: #008080;"> 41</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> process_msg(self):
+</span><span style="color: #008080;"> 42</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> after方法，相当于一个定时器，</span>
+<span style="color: #008080;"> 43</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 第一个参数是时间的毫秒值，</span>
+<span style="color: #008080;"> 44</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 第二个参数指定执行一个函数</span>
+<span style="color: #008080;"> 45</span>         self.master.after(400<span style="color: #000000;">, self.process_msg)
+</span><span style="color: #008080;"> 46</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 这样我们就在主线程建立了一个消息队列，</span>
+<span style="color: #008080;"> 47</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 每隔一段时间去消息队列里看看，</span>
+<span style="color: #008080;"> 48</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 有没有什么消息是需要主线程去做的，</span>
+<span style="color: #008080;"> 49</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 有一点需要特别注意，</span>
+<span style="color: #008080;"> 50</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 主线程消息队列里也不要干耗时操作，</span>
+<span style="color: #008080;"> 51</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 该队列仅仅用来更新UI。</span>
+<span style="color: #008080;"> 52</span>         <span style="color: #0000ff;">while</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> self.notify_queue.empty():
+</span><span style="color: #008080;"> 53</span>             <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;"> 54</span>                 msg =<span style="color: #000000;"> self.notify_queue.get()
+</span><span style="color: #008080;"> 55</span>                 <span style="color: #0000ff;">if</span> msg[0] == 1<span style="color: #000000;">:
+</span><span style="color: #008080;"> 56</span> <span style="color: #000000;">                    self.gress_bar.quit()
+</span><span style="color: #008080;"> 57</span> 
+<span style="color: #008080;"> 58</span>             <span style="color: #0000ff;">except</span><span style="color: #000000;"> queue.Empty:
+</span><span style="color: #008080;"> 59</span>                 <span style="color: #0000ff;">pass</span>
+<span style="color: #008080;"> 60</span> 
+<span style="color: #008080;"> 61</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 扫描线程工作</span>
+<span style="color: #008080;"> 62</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> execute_asyn(self):
+</span><span style="color: #008080;"> 63</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 定义一个scan函数，放入线程中去执行耗时扫描</span>
+<span style="color: #008080;"> 64</span>         <span style="color: #0000ff;">def</span><span style="color: #000000;"> scan(_queue):
+</span><span style="color: #008080;"> 65</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> self.path:
+</span><span style="color: #008080;"> 66</span>                 paths = disk.scan_file(self.path)  <span style="color: #008000;">#</span><span style="color: #008000;"> 位于disk.py</span>
+<span style="color: #008080;"> 67</span>                 self.data_mgr.batch_insert(paths)  <span style="color: #008000;">#</span><span style="color: #008000;"> 位于database.py</span>
+<span style="color: #008080;"> 68</span> 
+<span style="color: #008080;"> 69</span>             _queue.put((1<span style="color: #000000;">,))
+</span><span style="color: #008080;"> 70</span>         th = threading.Thread(target=scan, args=<span style="color: #000000;">(self.notify_queue,))
+</span><span style="color: #008080;"> 71</span>         th.setDaemon(True)  <span style="color: #008000;">#</span><span style="color: #008000;"> 设置为守护进程</span>
+<span style="color: #008080;"> 72</span> <span style="color: #000000;">        th.start()
+</span><span style="color: #008080;"> 73</span> 
+<span style="color: #008080;"> 74</span> <span style="color: #000000;">        self.gress_bar.start()
+</span><span style="color: #008080;"> 75</span> 
+<span style="color: #008080;"> 76</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 菜单绘制</span>
+<span style="color: #008080;"> 77</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> create_menu(self, root):
+</span><span style="color: #008080;"> 78</span>         menu = Menu(root)  <span style="color: #008000;">#</span><span style="color: #008000;"> 创建菜单</span>
+<span style="color: #008080;"> 79</span> 
+<span style="color: #008080;"> 80</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 二级菜单</span>
+<span style="color: #008080;"> 81</span>         file_menu = Menu(menu, tearoff=<span style="color: #000000;">0)
+</span><span style="color: #008080;"> 82</span>         file_menu.add_command(label=<span style="color: #800000;">'</span><span style="color: #800000;">设置路径</span><span style="color: #800000;">'</span>, command=<span style="color: #000000;">self.open_dir)
+</span><span style="color: #008080;"> 83</span> <span style="color: #000000;">        file_menu.add_separator()
+</span><span style="color: #008080;"> 84</span>         file_menu.add_command(label=<span style="color: #800000;">'</span><span style="color: #800000;">扫描</span><span style="color: #800000;">'</span>, command=<span style="color: #000000;">self.execute_asyn)
+</span><span style="color: #008080;"> 85</span> 
+<span style="color: #008080;"> 86</span>         about_menu = Menu(menu, tearoff=<span style="color: #000000;">0)
+</span><span style="color: #008080;"> 87</span>         about_menu.add_command(label=<span style="color: #800000;">'</span><span style="color: #800000;">version1.0</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 88</span> 
+<span style="color: #008080;"> 89</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 在菜单栏中添加菜单</span>
+<span style="color: #008080;"> 90</span>         menu.add_cascade(label=<span style="color: #800000;">'</span><span style="color: #800000;">文件</span><span style="color: #800000;">'</span>, menu=<span style="color: #000000;">file_menu)
+</span><span style="color: #008080;"> 91</span>         menu.add_cascade(label=<span style="color: #800000;">'</span><span style="color: #800000;">关于</span><span style="color: #800000;">'</span>, menu=<span style="color: #000000;">about_menu)
+</span><span style="color: #008080;"> 92</span>         root[<span style="color: #800000;">'</span><span style="color: #800000;">menu</span><span style="color: #800000;">'</span>] =<span style="color: #000000;"> menu
+</span><span style="color: #008080;"> 93</span> 
+<span style="color: #008080;"> 94</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 主界面绘制</span>
+<span style="color: #008080;"> 95</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> create_content(self, root):
+</span><span style="color: #008080;"> 96</span>         lf = ttk.LabelFrame(root, text=<span style="color: #800000;">'</span><span style="color: #800000;">文件搜索</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 97</span>         lf.pack(fill=X, padx=15, pady=8<span style="color: #000000;">)
+</span><span style="color: #008080;"> 98</span> 
+<span style="color: #008080;"> 99</span>         top_frame =<span style="color: #000000;"> Frame(lf)
+</span><span style="color: #008080;">100</span>         top_frame.pack(fill=X, expand=YES, side=TOP, padx=15, pady=8<span style="color: #000000;">)
+</span><span style="color: #008080;">101</span> 
+<span style="color: #008080;">102</span>         self.search_key =<span style="color: #000000;"> StringVar()
+</span><span style="color: #008080;">103</span>         ttk.Entry(top_frame, textvariable=self.search_key, width=50).pack(fill=X, expand=YES, side=<span style="color: #000000;">LEFT)
+</span><span style="color: #008080;">104</span>         ttk.Button(top_frame, text=<span style="color: #800000;">"</span><span style="color: #800000;">搜索</span><span style="color: #800000;">"</span>, command=self.search_file).pack(padx=15, fill=X, expand=<span style="color: #000000;">YES)
+</span><span style="color: #008080;">105</span> 
+<span style="color: #008080;">106</span>         bottom_frame =<span style="color: #000000;"> Frame(lf)
+</span><span style="color: #008080;">107</span>         bottom_frame.pack(fill=BOTH, expand=YES, side=TOP, padx=15, pady=8<span style="color: #000000;">)
+</span><span style="color: #008080;">108</span> 
+<span style="color: #008080;">109</span>         band =<span style="color: #000000;"> Frame(bottom_frame)
+</span><span style="color: #008080;">110</span>         band.pack(fill=BOTH, expand=YES, side=<span style="color: #000000;">TOP)
+</span><span style="color: #008080;">111</span> 
+<span style="color: #008080;">112</span>         self.list_val =<span style="color: #000000;"> StringVar()
+</span><span style="color: #008080;">113</span>         listbox = Listbox(band, listvariable=self.list_val, height=18<span style="color: #000000;">)
+</span><span style="color: #008080;">114</span>         listbox.pack(side=LEFT, fill=X, expand=<span style="color: #000000;">YES)
+</span><span style="color: #008080;">115</span> 
+<span style="color: #008080;">116</span>         vertical_bar = ttk.Scrollbar(band, orient=VERTICAL, command=<span style="color: #000000;">listbox.yview)
+</span><span style="color: #008080;">117</span>         vertical_bar.pack(side=RIGHT, fill=Y<span style="color: #000000;">)
+</span><span style="color: #008080;">118</span>         listbox[<span style="color: #800000;">'</span><span style="color: #800000;">yscrollcommand</span><span style="color: #800000;">'</span>] =<span style="color: #000000;"> vertical_bar.set
+</span><span style="color: #008080;">119</span> 
+<span style="color: #008080;">120</span>         horizontal_bar = ttk.Scrollbar(bottom_frame, orient=HORIZONTAL, command=<span style="color: #000000;">listbox.xview)
+</span><span style="color: #008080;">121</span>         horizontal_bar.pack(side=BOTTOM, fill=<span style="color: #000000;">X)
+</span><span style="color: #008080;">122</span>         listbox[<span style="color: #800000;">'</span><span style="color: #800000;">xscrollcommand</span><span style="color: #800000;">'</span>] =<span style="color: #000000;"> horizontal_bar.set
+</span><span style="color: #008080;">123</span> 
+<span style="color: #008080;">124</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 给list动态设置数据，set方法传入一个元组</span>
+<span style="color: #008080;">125</span>         self.list_val.set((<span style="color: #800000;">'</span><span style="color: #800000;">等待搜索</span><span style="color: #800000;">'</span><span style="color: #000000;">,))
+</span><span style="color: #008080;">126</span> 
+<span style="color: #008080;">127</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 搜索文件</span>
+<span style="color: #008080;">128</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> search_file(self):
+</span><span style="color: #008080;">129</span>         <span style="color: #0000ff;">if</span><span style="color: #000000;"> self.search_key.get():
+</span><span style="color: #008080;">130</span>             result_data =<span style="color: #000000;"> self.data_mgr.query(self.search_key.get())
+</span><span style="color: #008080;">131</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> result_data:
+</span><span style="color: #008080;">132</span> <span style="color: #000000;">                 self.list_val.set(tuple(result_data))
+</span><span style="color: #008080;">133</span> 
+<span style="color: #008080;">134</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 指定文件夹</span>
+<span style="color: #008080;">135</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> open_dir(self):
+</span><span style="color: #008080;">136</span>         d =<span style="color: #000000;"> dir.Directory()
+</span><span style="color: #008080;">137</span>         self.path = d.show(initialdir=<span style="color: #000000;">self.path)
+</span><span style="color: #008080;">138</span> 
+<span style="color: #008080;">139</span> 
+<span style="color: #008080;">140</span> <span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+</span><span style="color: #008080;">141</span>     SearchUI()</pre>
+</div>
+<p>&nbsp;</p>
+<p>问题总结：</p>
+<p>1.UI线程负责界面的绘制与更新，如果在UI线程中进行耗时操作，会影响界面的流畅性，所以需要异步线程。&nbsp;</p>
+<p>&nbsp;此时的问题在于UI的主线程与异步线程的通信问题，为什么一定要两个线程通信？</p>
+<p>因为在大多数GUI界面编程中，异步线程都是不能对当前界面进行操作更新的，否则会引起界面混乱。</p>
+<p>可以简单的理解成 &nbsp;如果异步线程也操作主界面，则两个线程对相同资源进行操作，就会导致混乱。</p>
+<p>接下来的问题是tkinter中没有提供接口进行线程通信，因此我们通过消息队列的方式来同步线程，用到的类为Queue。</p>
+<p>项目中当在消息队列中检索到消息为元组（1， ）时，说明子线程（扫描）已经结束了，告知主线程可以结束子线程了。</p>
+<p>&nbsp;</p>
+<p>2.扫描文件夹时需要将所选文件夹中的所有文件遍历一遍，发现python中提供了方法os.walk(path), 可以直接达到这一效果，所以说python在写代码时确实提供了方便。</p>
+<p>&nbsp;</p>
+<p>3.该磁盘搜索工具用到的原理是将文件路径存到数据库中，再进行检索。 选用的数据库为sqlite，已经可以满足该项目的要求。在主线程创建数据库，子线程操作数据库，有可能出现问题，因此设置check_same_thread = false 来拒绝多线程的访问。</p>
+<p>&nbsp;</p>
+<p>4.在进行GUI编程时，打算在扫描等待时添加一个进度条显示窗口，也就需要多窗口，用到了toplevel，表现为一个弹出式窗口，在使用toplevel时，要注意首先需要一个根窗口。</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

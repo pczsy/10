@@ -1,0 +1,81 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修揉碎HTTP编码过程,从此不乱码' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>揉碎HTTP编码过程,从此不乱码</center></div><div class='banquan'>原文出处:本文由博客园博主CoderJerry提供。<br/>
+原文连接:https://www.cnblogs.com/yangyuanhu/p/12005117.html</div><br>
+    <p>老生常谈之HTTP乱码问题</p>
+<h1 id="最后的结论">最后的结论?</h1>
+<p>对于get请求 在Servlet中调用request.setCharacterEncoding()设置编码是没有意义的不管你使用任何编码方式对于你的数据解码没有任何影响</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码0.png" alt="image-20191208102928478" /></p>
+<p>问题的引出,在tomcat9之后,不管你在setCharacterEncoding()设置什么编码都不会乱码,哪怕是最基础的ACSII,那有人就说了,那不挺好的,不乱吗就行了呗;</p>
+<p>没办法,我喜欢问自己为什么,凭什么不乱吗,那设置这个编码有什么意义?</p>
+<p>网上找了一下,只有问为什么乱码,没人问为啥不乱码,总有人会说设置编码要放在获取参数前,诸如此类,说的一套一套,人云亦云!</p>
+<p>带着这个问题我写了一个简单的socket程序 目的就是想服务器发送一个HTTP请求手动控制编码环节,</p>
+<p>第一次测试,直接把中文写在url中,最后用utf-8来发送给服务器</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码1.png" alt="image-20191208110011714" /></p>
+<p>服务器返回400请求解析失败</p>
+<pre><code><code>Invalid character found in the request target. The valid characters are defined in RFC 7230 and RFC 3986</code></pre>
+<p>这啥玩意?,原来RFC 3986中规定URL中只允许包含24个英文字母以及基本的字符,中文编码后其对应的二进制超过了规定返回导致报错,<strong>这一点很重要</strong></p>
+<p>这导致了我们在URL中不能传递中文参数,那不行,得解决这个问题,于是就出现了URLEncoding</p>
+<h1 id="urlencoding">URLEncoding</h1>
+<p>我们想要在url中包含中文,就必须先把中文转换为基本的字符,其原理是字符转为16进制的字符然后在每个字节前加一个%,就像下面这样</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码2.png" alt="image-20191208105031874" /></p>
+<p>结果:<strong>%e4%bd%a0</strong></p>
+<p>把这个字符拿到网页中URL解码</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码3.png" alt="image-20191208105220898" /></p>
+<p>没问题</p>
+<h3 id="模拟浏览器发送请求">模拟浏览器发送请求</h3>
+<p>注意这里数据依然是字符串格式的,要想通过socket发送则必须在进行编码,例如我们要请求的地址为<code>/untitled3/TestServlet?username=你</code></p>
+<p>我们先要使用URLEncoding将<code>你</code>转为符合RFC 3986要求的字符串,替换到原本的位置去</p>
+<p>处理过的地址为<code>/untitled3/TestServlet?username=%e4%bd%a0</code></p>
+<p>然后在把URL放到我们的HTTP请求报文中</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码4.png" alt="image-20191208110145124" /></p>
+<p>服务器端doGet方法</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码5.png" alt="image-20191208110207443" /></p>
+<p>解析成功</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码6.png" alt="image-20191208110233004" /></p>
+<p>ok服务器已经成功解析了中文但是注意我在服务器端指定的编码为ASCII,这也是我要解决的主要问题,</p>
+<h2 id="总结时间">总结时间:</h2>
+<p>客户端发送请求时数据一共经过了两次编码,</p>
+<ul>
+<li>第一次是把中文转为符合要求的<strong>字符</strong>(URLEncoding),注意还是字符</li>
+<li>第二次就是我们把整个HTTP数据进行统一编码为二进制</li>
+</ul>
+<p>那么我们服务器端执行的这个setCharacterEncoding是用在那一次呢?</p>
+<p>没错就是第一次,这就是为什么我们无论设置那种编码都不会导致乱码的原因了,</p>
+<p>决定是否乱码的核心在第二次,在上面的例子中服务器先是用ASCII来解析http整个数据包,其中的的URL为<code>/untitled3/TestServlet?username=%e4%bd%a0</code></p>
+<p>对于这个URL而言任何编码表都能解析,不会乱码,接下里就需要将里面的参数部分(问号后面的)拿出来进行反向URLEncoding,此时的反向解析就是最重要的要从字符串中提取16进制数据,在通过编码表进行解码 ,</p>
+<p>而tomcat9中默认的解码方式为UTF-8,到这里你应该明白了,为什么不乱吗?</p>
+<h2 id="说人话">说人话:</h2>
+<p>简单的说:对于get请求而言,调用setCharacterEncoding是没有任何意义的,如果我们要控制URLEncoding的解码方式,必须通过server.xml来修改</p>
+<p><img src="./images/揉碎HTTP编码过程,从此不乱码7.png" alt="image-20191208111319816" /></p>
+<p>在啰嗦一下,对于post请求,我们的数据是包含在请求体中的所以,上面的配置对于post请求没有效果,那如果请求体中包含了中文怎么办,很简单只要与客户端保持相同的解码方式即可,使用request.setCharacterEncoding方法来设置,</p>
+<p>还有问题,为什么post就可以呢? 因为RFC 3986只是说URL中的字符字节必须在某个范围内,没有限制请求体中的数据范围,所以对于请求体,你爱放中就放中文,</p>
+<p>你也可以这么理解request.setCharacterEncoding只是用来设置请求体的解码方式,对于url中的参数解码方式就必须同 server.xml来配置</p>
+<p>另外对于post服务器其实可以不设置编码只要客户端post请求头的ContentType中声明了编码即可,这也侧面印证了post才是用来给服务器传递数据的更优方法,</p>
+<p>那为什么大家喜欢用get呢?不知道,或许是因为简单?,累了就到这里吧</p>
+<p>补充下1楼的解决乱码方案也是可以的<br />
+其原理是将使用错误码表解码的结果还原为二进制，再用正确码表重新解码<br />
+当然你不管用哪种方式都必须与对方采用相同的编码方式<br />
+只要理解了其中原理，那乱码问题也就迎刃而解了</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

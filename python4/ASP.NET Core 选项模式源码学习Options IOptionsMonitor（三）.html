@@ -1,0 +1,271 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修ASP.NET Core 选项模式源码学习Options IOptionsMonitor（三）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>ASP.NET Core 选项模式源码学习Options IOptionsMonitor（三）</center></div><div class='banquan'>原文出处:本文由博客园博主HueiFeng提供。<br/>
+原文连接:https://www.cnblogs.com/yyfh/p/12047289.html</div><br>
+    <blockquote>
+<h2 id="前言">前言</h2>
+</blockquote>
+<p>IOptionsMonitor 是一种单一示例服务，可随时检索当前选项值，这在单一实例依赖项中尤其有用。IOptionsMonitor用于检索选项并管理TOption实例的选项通知， IOptionsMonitor<TOptions> 支持以下方案：</p>
+<ul>
+<li>更改通知</li>
+<li>命名选项</li>
+<li>可重载配置</li>
+<li>选择性选项失效 (IOptionsMonitorCache<TOptions>)</li>
+</ul>
+<blockquote>
+<h2 id="ioptionsmonitor">IOptionsMonitor</h2>
+</blockquote>
+<pre><code><code>
+    public interface IOptionsMonitor&lt;out TOptions&gt;
+    {
+        /// &lt;summary&gt;
+        /// 返回具有 DefaultName 的当前 TOptions 实例。
+        /// &lt;/summary&gt;
+        TOptions CurrentValue { get; }
+
+        /// &lt;summary&gt;
+        /// 返回具有给定名称的已配置的 TOptions 实例。
+        /// &lt;/summary&gt;
+        TOptions Get(string name);
+
+        /// &lt;summary&gt;
+        ///     注册一个要在命名 TOptions 更改时调用的侦听器。
+        /// &lt;/summary&gt;
+        IDisposable OnChange(Action&lt;TOptions, string&gt; listener);
+    }
+</code></pre>
+<blockquote>
+<h2 id="optionsmonitor">OptionsMonitor</h2>
+</blockquote>
+<p>OptionsMonitor通过IOptionsChangeTokenSource实现监听事件</p>
+<pre><code><code>    public class OptionsMonitor&lt;TOptions&gt; : IOptionsMonitor&lt;TOptions&gt;, IDisposable where TOptions : class, new()
+    {
+        private readonly IOptionsMonitorCache&lt;TOptions&gt; _cache;
+        private readonly IOptionsFactory&lt;TOptions&gt; _factory;
+        private readonly IEnumerable&lt;IOptionsChangeTokenSource&lt;TOptions&gt;&gt; _sources;
+        private readonly List&lt;IDisposable&gt; _registrations = new List&lt;IDisposable&gt;();
+        internal event Action&lt;TOptions, string&gt; _onChange;
+
+        /// &lt;summary&gt;
+        /// Constructor.
+        /// &lt;/summary&gt;
+        /// &lt;param name=&quot;factory&quot;&gt;The factory to use to create options.&lt;/param&gt;
+        /// &lt;param name=&quot;sources&quot;&gt;The sources used to listen for changes to the options instance.&lt;/param&gt;
+        /// &lt;param name=&quot;cache&quot;&gt;The cache used to store options.&lt;/param&gt;
+        public OptionsMonitor(IOptionsFactory&lt;TOptions&gt; factory, IEnumerable&lt;IOptionsChangeTokenSource&lt;TOptions&gt;&gt; sources, IOptionsMonitorCache&lt;TOptions&gt; cache)
+        {
+            _factory = factory;
+            _sources = sources;
+            _cache = cache;
+
+            foreach (var source in _sources)
+            {
+                var registration = ChangeToken.OnChange(
+                      () =&gt; source.GetChangeToken(),
+                      (name) =&gt; InvokeChanged(name),
+                      source.Name);
+
+                _registrations.Add(registration);
+            }
+        }
+
+        private void InvokeChanged(string name)
+        {
+            name = name ?? Options.DefaultName;
+            _cache.TryRemove(name);
+            var options = Get(name);
+            if (_onChange != null)
+            {
+                _onChange.Invoke(options, name);
+            }
+        }
+
+        /// &lt;summary&gt;
+        /// The present value of the options.
+        /// &lt;/summary&gt;
+        public TOptions CurrentValue
+        {
+            get =&gt; Get(Options.DefaultName);
+        }
+
+        /// &lt;summary&gt;
+        /// Returns a configured &lt;typeparamref name=&quot;TOptions&quot;/&gt; instance with the given &lt;paramref name=&quot;name&quot;/&gt;.
+        /// &lt;/summary&gt;
+        public virtual TOptions Get(string name)
+        {
+            name = name ?? Options.DefaultName;
+            return _cache.GetOrAdd(name, () =&gt; _factory.Create(name));
+        }
+
+        /// &lt;summary&gt;
+        /// Registers a listener to be called whenever &lt;typeparamref name=&quot;TOptions&quot;/&gt; changes.
+        /// &lt;/summary&gt;
+        /// &lt;param name=&quot;listener&quot;&gt;The action to be invoked when &lt;typeparamref name=&quot;TOptions&quot;/&gt; has changed.&lt;/param&gt;
+        /// &lt;returns&gt;An &lt;see cref=&quot;IDisposable&quot;/&gt; which should be disposed to stop listening for changes.&lt;/returns&gt;
+        public IDisposable OnChange(Action&lt;TOptions, string&gt; listener)
+        {
+            var disposable = new ChangeTrackerDisposable(this, listener);
+            _onChange += disposable.OnChange;
+            return disposable;
+        }
+
+        /// &lt;summary&gt;
+        /// Removes all change registration subscriptions.
+        /// &lt;/summary&gt;
+        public void Dispose()
+        {
+            // Remove all subscriptions to the change tokens
+            foreach (var registration in _registrations)
+            {
+                registration.Dispose();
+            }
+            _registrations.Clear();
+        }
+
+        internal class ChangeTrackerDisposable : IDisposable
+        {
+            private readonly Action&lt;TOptions, string&gt; _listener;
+            private readonly OptionsMonitor&lt;TOptions&gt; _monitor;
+
+            public ChangeTrackerDisposable(OptionsMonitor&lt;TOptions&gt; monitor, Action&lt;TOptions, string&gt; listener)
+            {
+                _listener = listener;
+                _monitor = monitor;
+            }
+
+            public void OnChange(TOptions options, string name) =&gt; _listener.Invoke(options, name);
+
+            public void Dispose() =&gt; _monitor._onChange -= OnChange;
+        }
+    }
+</code></pre>
+<p>IOptionsChangeTokenSource 的代码片段：</p>
+<pre><code><code>
+    public interface IOptionsChangeTokenSource&lt;out TOptions&gt;
+    {
+       
+        IChangeToken GetChangeToken();
+
+     
+        string Name { get; }
+    }
+</code></pre>
+<p>在OptionsMonitor的构造函数中，通过调用其GetChangeToken方法，获取到 ChangeToken ，在 InvokeChanged 完成 *_onChange* 事件的调用:</p>
+<pre><code><code>
+        private void InvokeChanged(string name)
+        {
+            name = name ?? Options.DefaultName;
+            _cache.TryRemove(name);
+            var options = Get(name);
+            if (_onChange != null)
+            {
+                _onChange.Invoke(options, name);
+            }
+        }
+</code></pre>
+<p>对外暴露OnChange方法,方便我们添加自己的业务逻辑</p>
+<pre><code><code>        public IDisposable OnChange(Action&lt;TOptions, string&gt; listener)
+        {
+            var disposable = new ChangeTrackerDisposable(this, listener);
+            _onChange += disposable.OnChange;
+            return disposable;
+        }</code></pre>
+<p>通过ChangeTrackerDisposable进行事件的注销</p>
+<pre><code><code>
+  internal class ChangeTrackerDisposable : IDisposable
+        {
+            private readonly Action&lt;TOptions, string&gt; _listener;
+            private readonly OptionsMonitor&lt;TOptions&gt; _monitor;
+
+            public ChangeTrackerDisposable(OptionsMonitor&lt;TOptions&gt; monitor, Action&lt;TOptions, string&gt; listener)
+            {
+                _listener = listener;
+                _monitor = monitor;
+            }
+
+            public void OnChange(TOptions options, string name) =&gt; _listener.Invoke(options, name);
+
+            public void Dispose() =&gt; _monitor._onChange -= OnChange;
+        }
+
+</code></pre>
+<blockquote>
+<h2 id="configurationchangetokensource">ConfigurationChangeTokenSource</h2>
+</blockquote>
+<p>ConfigurationChangeTokenSource实现IOptionsChangeTokenSource接口</p>
+<pre><code><code>
+    public class ConfigurationChangeTokenSource&lt;TOptions&gt; : IOptionsChangeTokenSource&lt;TOptions&gt;
+    {
+        private IConfiguration _config;
+
+     
+        public ConfigurationChangeTokenSource(IConfiguration config) : this(Options.DefaultName, config)
+        { }
+
+        
+        public ConfigurationChangeTokenSource(string name, IConfiguration config)
+        {
+            if (config == null)
+            {
+                throw new ArgumentNullException(nameof(config));
+            }
+            _config = config;
+            Name = name ?? Options.DefaultName;
+        }
+
+       
+        public string Name { get; }
+
+     
+        public IChangeToken GetChangeToken()
+        {
+            return _config.GetReloadToken();
+        }
+    }
+</code></pre>
+<blockquote>
+<h2 id="示例">示例</h2>
+</blockquote>
+<pre><code><code>
+    public class WeatherForecastController : ControllerBase
+    {
+        private readonly ILogger&lt;WeatherForecastController&gt; _logger;
+
+        private readonly IOptionsMonitor&lt;MyOptions&gt; _options;
+        public WeatherForecastController(IOptionsMonitor&lt;MyOptions&gt; options, ILogger&lt;WeatherForecastController&gt; logger)
+        {
+            _options = options;
+            _logger = logger;
+        }
+
+        [HttpGet]
+        public OkObjectResult Get() {
+            _options.OnChange(_=&gt;_logger.LogWarning(_options.CurrentValue.Name));
+            return Ok(string.Format(&quot;Name:{0},Url:{1}&quot;, _options.CurrentValue.Name,_options.CurrentValue.Url));
+        }
+    }
+</code></pre>
+<p>现在我们每次修改配置文件，便会触发OnChange事件</p>
+<p><img src="./images/ASP.NET Core 选项模式源码学习Options IOptionsMonitor（三）0.png" alt="image" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

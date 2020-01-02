@@ -1,0 +1,140 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[ASP.NET Core 3框架揭秘] 配置[9]：自定义配置源' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[ASP.NET Core 3框架揭秘] 配置[9]：自定义配置源</center></div><div class='banquan'>原文出处:本文由博客园博主Artech提供。<br/>
+原文连接:https://www.cnblogs.com/artech/p/inside-asp-net-core-05-09.html</div><br>
+    <p>我们在前面对配置模型中默认提供的各种IConfigurationSource实现类型进行了深入详尽的介绍，如果它们依然不能满足项目中的需求，我们还可以通过自定义IConfigurationSource实现类型来支持我们希望的配置源。就配置数据的持久化方式来说，将配置存储在<font color="#ff0000">数据库</font>中应该是一种常见的方式。接下来我们会创建一个针对数据库的IConfigurationSource实现类型，它采用Entity Framework Core来完成数据库的存取操作。</p><p>我们将这个自定义ConfigurationSource命名为DbConfigurationSource。在正式介绍<a>它</a>的实现之前，我们先来看看它在项目中的应用。我们将配置保存在SQL Server数据库中的某个数据表中，并采用Entity Framework Core来读取它。我们将连接字符串作为配置定义在一个名为&#8220;appSettings.json&#8221;的JSON文件中。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #000000;">{
+  </span>"connectionStrings"<span style="color: #000000;">: {
+    </span>"DefaultDb":  "Server = ... ; Database=...; Uid = ...; Pwd = ..."<span style="color: #000000;">
+  }
+}</span></pre></div><p>在如下所示的演示程序中，我们首先创建了一个ConfigurationBuilder对象，并在它上面注册了一个指向connectionString.json文件的JsonConfigurationSource对象。针对DbConfigurationSource对象的注册体现在扩展方法<font color="#ff0000">AddDatabase</font>上，这个方法具有两个参数，分别代表连接字符串的名称和初始的配置数据。前者正是connectionString.json设置的连接字符串名称DefaultDb，后者是一个字典对象，它提供的原始配置正好可以构成一个Profile对象。在利用ConfigurationBuilde对象创建出相应的IConfiguration对象之后，我们读取配置将其绑定为一个Profile对象。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Program
+{
+    </span><span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> Main()
+    {
+        </span><span style="color: #0000ff;">var</span> initialSettings = <span style="color: #0000ff;">new</span> Dictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;">
+        {
+            [</span><span style="color: #800000;">"</span><span style="color: #800000;">Gender</span><span style="color: #800000;">"</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">Male</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            [</span><span style="color: #800000;">"</span><span style="color: #800000;">Age</span><span style="color: #800000;">"</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">18</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            [</span><span style="color: #800000;">"</span><span style="color: #800000;">ContactInfo:EmailAddress</span><span style="color: #800000;">"</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">foobar@outlook.com</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            [</span><span style="color: #800000;">"</span><span style="color: #800000;">ContactInfo:PhoneNo</span><span style="color: #800000;">"</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">123456789</span><span style="color: #800000;">"</span><span style="color: #000000;">
+        };
+
+        </span><span style="color: #0000ff;">var</span> profile = <span style="color: #0000ff;">new</span><span style="color: #000000;"> ConfigurationBuilder()
+            .AddJsonFile(</span><span style="color: #800000;">"</span><span style="color: #800000;">appSettings.json</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+            .AddDatabase(</span><span style="color: #800000;">"</span><span style="color: #800000;">DefaultDb</span><span style="color: #800000;">"</span><span style="color: #000000;">, initialSettings)
+            .Build()
+            .Get</span>&lt;Profile&gt;<span style="color: #000000;">();
+
+        Debug.Assert(profile.Gender </span>==<span style="color: #000000;"> Gender.Male);
+        Debug.Assert(profile.Age </span>== <span style="color: #800080;">18</span><span style="color: #000000;">);
+        Debug.Assert(profile.ContactInfo.EmailAddress </span>== <span style="color: #800000;">"</span><span style="color: #800000;">foobar@outlook.com</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+        Debug.Assert(profile.ContactInfo.PhoneNo </span>== <span style="color: #800000;">"</span><span style="color: #800000;">123456789</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+    }
+}</span></pre></div><p>如上面的代码片断所示，针对DbConfigurationSource的应用仅仅体现在我们为IConfigurationBuilder对象定义的AddDatabase扩展方法上，所以使用起来是非常方便的，那么这个扩展方法背后有着怎样的逻辑实现呢？DbConfigurationSource采用Entity Framework Core并以Code First的方式进行数据操作，如下所示的ApplicationSetting是表示基本配置项的POCO类型，我们将配置项的Key以小写的方式存储。另一个ApplicationSettingsContext是对应的DbContext类型。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code>[Table(<span style="color: #800000;">"</span><span style="color: #800000;">ApplicationSettings</span><span style="color: #800000;">"</span><span style="color: #000000;">)]
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ApplicationSetting
+{
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">string</span><span style="color: #000000;"> key;
+
+    [Key]
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">string</span><span style="color: #000000;"> Key
+    {
+        </span><span style="color: #0000ff;">get</span> { <span style="color: #0000ff;">return</span><span style="color: #000000;"> key; }
+        </span><span style="color: #0000ff;">set</span> { key =<span style="color: #000000;"> value.ToLowerInvariant(); }
+    }
+
+    [Required]
+    [MaxLength(</span><span style="color: #800080;">512</span><span style="color: #000000;">)]
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">string</span> Value { <span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span><span style="color: #000000;">; }
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> ApplicationSetting()
+    { }
+
+    </span><span style="color: #0000ff;">public</span> ApplicationSetting(<span style="color: #0000ff;">string</span> key, <span style="color: #0000ff;">string</span><span style="color: #000000;"> value)
+    {
+        Key </span>=<span style="color: #000000;"> key;
+        Value </span>=<span style="color: #000000;"> value;
+    }
+}
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ApplicationSettingsContext : DbContext
+{
+    </span><span style="color: #0000ff;">public</span> ApplicationSettingsContext(DbContextOptions options) : <span style="color: #0000ff;">base</span><span style="color: #000000;">(options)
+    { }
+
+    </span><span style="color: #0000ff;">public</span> DbSet&lt;ApplicationSetting&gt; Settings { <span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span><span style="color: #000000;">; }
+}</span></pre></div><p>如下所示的是DbConfigurationSource类型<strong></strong>的定义，它的构造函数具有两个参数，第一个参数类型为Action&lt;DbContextOptionsBuilder&gt;，我们用这个委托对象来对创建DbContext采用的DbContextOptions进行设置，另一个可选的参数用来指定一些需要自动初始化的配置项。DbConfigurationSource在重写的Build方法中利用<a>这两个对象</a> 创建一个DbConfigurationProvider对象。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> DbConfigurationSource : IConfigurationSource
+{
+    </span><span style="color: #0000ff;">private</span> Action&lt;DbContextOptionsBuilder&gt;<span style="color: #000000;"> _setup;
+    </span><span style="color: #0000ff;">private</span> IDictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;"> _initialSettings;
+
+    </span><span style="color: #0000ff;">public</span> DbConfigurationSource(Action&lt;DbContextOptionsBuilder&gt; setup, IDictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt; initialSettings = <span style="color: #0000ff;">null</span><span style="color: #000000;">)
+    {
+        _setup </span>=<span style="color: #000000;"> setup;
+        _initialSettings     </span>=<span style="color: #000000;"> initialSettings;
+    }
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> IConfigurationProvider Build(IConfigurationBuilder builder)
+    {
+        </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> DbConfigurationProvider(_setup, _initialSettings);
+    }
+}</span></pre></div><p>DbConfigurationProvider派生于抽象类ConfigurationProvider。在重写的Load方法中，它会根据提供的Action&lt;DbContextOptionsBuilder&gt;创建ApplicationSettingsContext对象，<a>并利用它从数据库中读取配置数据并转换成字典对象并赋值给代表配置字典的</a><font color="#ff0000">Data</font>属性 。如果数据表中没有数据，<a>该方法</a>还会利用这个DbContext对象将提供的初始化配置添加到数据库中。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> DbConfigurationProvider: ConfigurationProvider
+{
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">readonly</span> IDictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;"> _initialSettings;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">readonly</span> Action&lt;DbContextOptionsBuilder&gt;<span style="color: #000000;"> _setup;
+
+    </span><span style="color: #0000ff;">public</span> DbConfigurationProvider(Action&lt;DbContextOptionsBuilder&gt; setup,  IDictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;"> initialSettings)
+    {
+        _setup  </span>=<span style="color: #000000;"> setup;
+        _initialSettings     </span>= initialSettings?? <span style="color: #0000ff;">new</span> Dictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;">() ;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> Load()
+    {
+        </span><span style="color: #0000ff;">var</span> builder =  <span style="color: #0000ff;">new</span> DbContextOptionsBuilder&lt;ApplicationSettingsContext&gt;<span style="color: #000000;">();
+        _setup(builder);
+        </span><span style="color: #0000ff;">using</span> (ApplicationSettingsContext dbContext =  <span style="color: #0000ff;">new</span><span style="color: #000000;"> ApplicationSettingsContext(builder.Options))
+        {
+            dbContext.Database.EnsureCreated();
+            Data </span>=<span style="color: #000000;"> dbContext.Settings.Any()
+                </span>? dbContext.Settings.ToDictionary(it =&gt; it.Key, it =&gt;<span style="color: #000000;"> it.Value,  StringComparer.OrdinalIgnoreCase)
+                : Initialize(dbContext);
+        }
+    }
+
+    </span><span style="color: #0000ff;">private</span> IDictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;"> Initialize( ApplicationSettingsContext dbContext)
+    {
+        </span><span style="color: #0000ff;">foreach</span> (<span style="color: #0000ff;">var</span> item <span style="color: #0000ff;">in</span><span style="color: #000000;"> _initialSettings)
+        {
+            dbContext.Settings.Add(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> ApplicationSetting(item.Key, item.Value));
+        }
+        </span><span style="color: #0000ff;">return</span> _initialSettings.ToDictionary(it =&gt; it.Key, it =&gt;<span style="color: #000000;"> it.Value,  StringComparer.OrdinalIgnoreCase);
+    }
+}</span></pre></div><p>实例演示中用来注册DbConfigurationSource<strong>对象</strong>的扩展方法AddDatabase具有如下的定义。该方法首先调用IConfigurationBuilder<strong>对象</strong>的Build方法创建出一个IConfiguration对象，并调用<a>该对象</a><a name="_msoanchor_5" href="file:///D:/#_msocom_5">[A5]</a> 的扩展方法GetConnectionString根据指定的连接字符串名称得到完整的连接字符串。接下来我们调用构造函数创建一个DbConfigurationSource对象并注册到ConfigurationBuilder<strong>对象</strong>上。创建DbConfigurationSource对象时指定的Action&lt;DbContextOptionsBuilder&gt;会完成针对连接字符串的设置。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid #cccccc; border-image: none; background-color: #f5f5f5;"><pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> DbConfigurationExtensions
+{
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> IConfigurationBuilder AddDatabase(  <span style="color: #0000ff;">this</span> IConfigurationBuilder builder, <span style="color: #0000ff;">string</span> connectionStringName,  IDictionary&lt;<span style="color: #0000ff;">string</span>, <span style="color: #0000ff;">string</span>&gt; initialSettings = <span style="color: #0000ff;">null</span><span style="color: #000000;">)
+    {
+        </span><span style="color: #0000ff;">var</span> connectionString =<span style="color: #000000;"> builder.Build() .GetConnectionString(connectionStringName);
+        </span><span style="color: #0000ff;">var</span> source = <span style="color: #0000ff;">new</span> DbConfigurationSource( optionsBuilder =&gt;<span style="color: #000000;"> optionsBuilder.UseSqlServer(connectionString), initialSettings);
+        builder.Add(source);
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> builder;
+    }
+}</span></pre></div><p><a name="_msocom_1"></a></p><p><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-01.html">[ASP.NET Core 3框架揭秘] 配置[1]：读取配置数据[上篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-02.html">[ASP.NET Core 3框架揭秘] 配置[2]：读取配置数据[下篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-03.html">[ASP.NET Core 3框架揭秘] 配置[3]：配置模型总体设计</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-04.html">[ASP.NET Core 3框架揭秘] 配置[4]：将配置绑定为对象</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-05.html">[ASP.NET Core 3框架揭秘] 配置[5]：配置数据与数据源的实时同步</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-06.html">[ASP.NET Core 3框架揭秘] 配置[6]：多样化的配置源[上篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-07.html">[ASP.NET Core 3框架揭秘] 配置[7]：多样化的配置源[中篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-08.html">[ASP.NET Core 3框架揭秘] 配置[8]：多样化的配置源[下篇]</a><br /><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-09.html">[ASP.NET Core 3框架揭秘] 配置[9]：自定义配置源</a> </p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

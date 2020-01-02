@@ -1,0 +1,369 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修MVC模式与Servlet执行流程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>MVC模式与Servlet执行流程</center></div><div class='banquan'>原文出处:本文由博客园博主AirSkys提供。<br/>
+原文连接:https://www.cnblogs.com/AirSky/p/12077387.html</div><br>
+    <h2 id="servlet生命周期">Servlet生命周期</h2>
+<h4 id="五个部分从加载到卸载如同人类的出生到死亡">五个部分，从加载到卸载，如同人类的出生到死亡</h4>
+<ol>
+<li>加载：Servlet容器自动处理</li>
+<li>初始化：init方法 该方法会在Servlet被加载并实例化后执行</li>
+<li><strong>服务</strong>：service抽象方法：具体实现是doGet(),doPost()方法</li>
+<li>销毁：destroy()，Servlet被系统回收时执行</li>
+<li>卸载：Servlet容器自动处理</li>
+</ol>
+<p><strong>init():</strong></p>
+<ul>
+<li>默认第一次访问Servlet时会被执行（只执行这一次，可以修改为Tomcat启动时自动执行:</li>
+<li>2.5：web.xml中<code>&lt;servlet&gt;</code>字段添加<code>&lt;load-on-startup&gt;1(代表第1个Servlet)</code>..</li>
+<li>3.0：@WebServlet(value = &quot;/Servlet3&quot;,<strong>loadOnStartup = 1</strong>)</li>
+</ul>
+<p>service():-&gt;doGet() doPost:调用几次，则执行几次<br />
+destroy():关闭tomcat服务时</p>
+<h2 id="servlet-api">Servlet API</h2>
+<p>由两个大类四个软件包组成：：<br />
+<img src="./images/MVC模式与Servlet执行流程0.png" /><br />
+即Servlet API可以适用于任何通信协议。但绝大多数情况下Servlet只用来扩展基于HTTP协议的Web服务器。<br />
+我们学习的Servlet，是位于<code>javax.servlet.http</code>包中的类和接口，是基础HTTP协议。</p>
+<h4 id="servlet继承关系">Servlet继承关系</h4>
+<p>ServletConfig:接口<br />
+ServletContext getServletContext():获取Servlet上下文对象 application<br />
+String getInitParameter(String name):在当前Servlet范围内，获取名为name的参数值(初始化参数)<br />
+a.ServletContext中的常见方法(application):<br />
+getContextPath():相对路径<br />
+getRealPath():绝对路径<br />
+setAttribute()、getAttribute()<br />
+----&gt;<br />
+String getInitParameter(String name);在当前Web容器范围内，获取名为name的参数值(初始化参数)<br />
+<code>初始化全局参数</code></p>
+<pre><code><code>    &lt;context-param&gt;
+        &lt;param-name&gt;globalParam&lt;/param-name&gt;
+        &lt;param-value&gt;global value...&lt;/param-value&gt;
+    &lt;/context-param&gt;</code></pre>
+<p><code>初始化Servlet参数</code></p>
+<ul>
+<li>Servlet2.5</li>
+</ul>
+<pre><code><code>    &lt;servlet&gt;
+        &lt;servlet-name&gt;my&lt;/servlet-name&gt;
+        &lt;servlet-class&gt;com.hacker.servlet.MyServlet&lt;/servlet-class&gt;
+        &lt;load-on-startup&gt;2&lt;/load-on-startup&gt;
+    &lt;!--配置当前Servlet初始化参数 --&gt;
+        &lt;init-param&gt;
+            &lt;param-name&gt;servletparamname&lt;/param-name&gt;
+            &lt;param-value&gt;servletparamvalue...&lt;/param-value&gt;
+        &lt;/init-param&gt;
+    &lt;/servlet&gt;</code></pre>
+<ul>
+<li>Servlet3.0</li>
+</ul>
+<pre class="java"><code>@WebServlet(value = &quot;/Servlet3&quot;,loadOnStartup = 1,initParams = {@WebInitParam(name=&quot;servletparamname30&quot;,value = &quot;servletparamvalue30&quot;)})</code></pre>
+<p><strong>注意：</strong>此注解只隶属于某一个具体的Servlet，因此无法为整个Web容器设置初始化参数(如果要通过3.0方式设置，仍需在web.xml中设置)<br />
+<code>获取全局参数</code><br />
+<strong>ServletContext对象表示Servlet应用程序。每个Web应用程序都只有一个ServletContext对象。在将一个应用程序同时部署到多个容器的分布式环境中，每台Java虚拟机上的Web应用都会有一个ServletContext对象。<br />
+通过在ServletConfig中调用getServletContext方法，也可以获得ServletContext对象。</strong></p>
+<pre class="java"><code>    @Override
+    public void init() throws ServletException {
+        System.out.println(&quot;init...&quot;);
+        //获取整个Web容器的初始化参数
+        String str=super.getServletContext().getInitParameter(&quot;globalParam&quot;);
+        System.out.println(&quot;当前Web容器的初始化的参数为&quot;+str);
+    }</code></pre>
+<p><code>获取当前Servlet参数</code><br />
+<strong>当Servlet容器初始化Servlet时，Servlet容器会给Servlet的init( )方式传入一个ServletConfig对象</strong><br />
+<strong>其中几个方法如下：</strong><br />
+<img src="./images/MVC模式与Servlet执行流程1.png" /></p>
+<pre class="java"><code>    @Override
+    public void init() throws ServletException {
+        System.out.println(&quot;init...&quot;);
+        //获取当前Servlet的初始化参数
+        String str=super.getInitParameter(&quot;servletparamname&quot;);
+        System.out.println(&quot;当前Servlet的初始化参数为&quot;+str);
+    }</code></pre>
+<h4 id="请求与响应">请求与响应</h4>
+<p>当我们在在请求Servlet容器具体的执行流程的细节是什么呢？一起来看一看<br />
+首先我们知道请求的过程最终传给了名为service的方法，那service方式到底是怎么执行的，我们先来简单的了解下<br />
+首先查看入口类继承的HTTPServlet类<br />
+<img src="./images/MVC模式与Servlet执行流程2.png" /><br />
+<img src="./images/MVC模式与Servlet执行流程3.png" /><br />
+点进去发现继承至GenericServlet，继续跟进<br />
+<img src="./images/MVC模式与Servlet执行流程4.png" /><br />
+GenericServlet实现了一个Servlet接口<br />
+<img src="./images/MVC模式与Servlet执行流程5.png" /><br />
+接口中定义了service方法，并且有两个参数ServletRequest和ServletResponse代表请求和响应，那么我们自定义的Servlet肯定不是实现的这个service方法，因为我们重写的service方法形参为HttpServletRequest和HttpServletResponse<br />
+<img src="./images/MVC模式与Servlet执行流程6.png" /><br />
+现在就来找找到底是重写的那个service方法，首先来看GenericServlet类<br />
+<img src="./images/MVC模式与Servlet执行流程7.png" /><br />
+在GenericServlet类中发现实现了service的抽象方法，传入参数为ServletRequest，明显也不是，继续跟进HTTPServlet类<br />
+<img src="./images/MVC模式与Servlet执行流程8.png" /></p>
+<p>在HTTPServlet类中发现两个service方法，很明显第二个service方法参数也是ServletRequest，所以第二个service方法为实现方法，下面来看看具体实现</p>
+<pre class="java"><code>    public void service(ServletRequest req, ServletResponse res) throws ServletException, IOException {
+        HttpServletRequest request;
+        HttpServletResponse response;
+        try {
+            request = (HttpServletRequest)req;
+            response = (HttpServletResponse)res;
+        } catch (ClassCastException var6) {
+            throw new ServletException(lStrings.getString(&quot;http.non_http&quot;));
+        }
+
+        this.service(request, response);
+    }</code></pre>
+<p>可以看到该实现方法将Servlet强转为了HttpServlet，<br />
+<img src="./images/MVC模式与Servlet执行流程9.png" /></p>
+<p>HttpServlet继承自Servlet，将父类变为了子类，把通用的响应，转换为了特需的HTTP响应，<code>之所以能够这样强制的转换，是因为在调用Servlet的Service方法时，Servlet容器总会传入一个HttpServletRequest对象和HttpServletResponse对象，预备使用HTTP。</code>因此，转换类型当然不会出错了。<br />
+<strong>PS：</strong>Java中父类想要转换为子类，父类的实例必须指向子类的应用，形如</p>
+<pre class="java"><code>    public static void main(String[] args) {
+        //Car为父类，BigCar为子类
+        Car car=new BigCar();//这里car父类对象的引用为BigCar子类 父类是子类构造出来的实例
+        BigCar bc=(BigCar)car;//所以这里可以将父类对象car强转为子类对象BigCar
+        bc.setName(&quot;ssss&quot;);//这里就可以调用子类的方法
+        test(new BigCar());
+    }
+    public static void test(Car car) {
+        BigCar bigCar = (BigCar) car;
+        if (bigCar instanceof Car) {
+            System.out.println(&quot;1&quot;);
+        }
+    }</code></pre>
+<p>最后调用了当前类中的重载方法service</p>
+<pre class="java"><code>protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String method = req.getMethod();
+        long lastModified;
+        if (method.equals(&quot;GET&quot;)) {
+            lastModified = this.getLastModified(req);
+            if (lastModified == -1L) {
+                this.doGet(req, resp);
+            } else {
+                long ifModifiedSince;
+                try {
+                    ifModifiedSince = req.getDateHeader(&quot;If-Modified-Since&quot;);
+                } catch (IllegalArgumentException var9) {
+                    ifModifiedSince = -1L;
+                }
+
+                if (ifModifiedSince &lt; lastModified / 1000L * 1000L) {
+                    this.maybeSetLastModified(resp, lastModified);
+                    this.doGet(req, resp);
+                } else {
+                    resp.setStatus(304);
+                }
+            }
+        } else if (method.equals(&quot;HEAD&quot;)) {
+            lastModified = this.getLastModified(req);
+            this.maybeSetLastModified(resp, lastModified);
+            this.doHead(req, resp);
+        } else if (method.equals(&quot;POST&quot;)) {
+            this.doPost(req, resp);
+        } else if (method.equals(&quot;PUT&quot;)) {
+            this.doPut(req, resp);
+        } else if (method.equals(&quot;DELETE&quot;)) {
+            this.doDelete(req, resp);
+        } else if (method.equals(&quot;OPTIONS&quot;)) {
+            this.doOptions(req, resp);
+        } else if (method.equals(&quot;TRACE&quot;)) {
+            this.doTrace(req, resp);
+        } else {
+            String errMsg = lStrings.getString(&quot;http.method_not_implemented&quot;);
+            Object[] errArgs = new Object[]{method};
+            errMsg = MessageFormat.format(errMsg, errArgs);
+            resp.sendError(501, errMsg);
+        }
+
+    }</code></pre>
+<p>在该方法中，将请求类型进行了划分，判定请求类型调用不同的方法，所以我们重写的service方法实际上是接收了所有类型的请求，那么可以针对不同请求重写相应的方法，来简化我们的操作。<br />
+一般装饰者就是在主体组件扩展到具体的实现类时，会引入一个中间层，把装饰者的公布部分引入进来，在引入具体的实现时，只需要实现自己特定的部分就行了。公共的就放在上面，中间层中。而GenericServlet类就可以看作是那个中间层，它在空实现Servlet类的方法后，子类在继承的时候就可以只重写需要的方法，不必重写Servlet类的所有方法了。</p>
+<h2 id="mvc案例">MVC案例</h2>
+<p>学了这么多，现在就来动手实现一个MVC简单登录案例😀，再来复现一遍什么是MVC模式:</p>
+<ul>
+<li><code>M</code>：Model ，模型 ：一个功能。用JavaBean实现。</li>
+<li><code>V</code>:View，视图： 用于展示、以及与用户交互。使用html js css jsp jquery等前端技术实现</li>
+<li><code>C</code>:Controller，控制器 ：接受请求，将请求跳转到模型进行处理；模型处理完毕后，再将处理的结果<br />
+返回给 请求处 。 可以用jsp实现， 但是一般建议使用 Servlet实现控制器。<br />
+Jsp-&gt;Java(Servlet)-&gt;JSP<br />
+我们首先看到是View那么就先来实现一个View:<code>login.jsp</code></li>
+</ul>
+<pre class="jsp"><code>&lt;%@ page contentType=&quot;text/html;charset=UTF-8&quot; language=&quot;java&quot; %&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;Login&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;form method=&quot;post&quot; action=&quot;/login&quot;&gt;
+    用户名:&lt;input type=&quot;text&quot; name=&quot;un&quot;&gt;&lt;br/&gt;
+    密码:&lt;input type=&quot;password&quot; name=&quot;pwd&quot;&gt;&lt;br/&gt;
+    &lt;input type=&quot;submit&quot; value=&quot;登录&quot;&gt;
+&lt;/form&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p>一个简单的登录界面就完成了，登录后Controller会首先接收到我们的请求，为了方便用户名和密码的存取，先新建一个JavaBean</p>
+<pre class="java"><code>package com.hacker.servlet.login;
+
+public class Login {
+    String username;
+    String password;
+
+    public Login(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+}</code></pre>
+<p>新建一个登录控制器<br />
+<img src="./images/MVC模式与Servlet执行流程10.png" /></p>
+<pre class="java"><code>package com.hacker.servlet.login;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+/**
+ * 控制器层：接受view请求，并分发给Model处理
+ * */
+public class LoginController extends HttpServlet {
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String un=req.getParameter(&quot;un&quot;);//接收POST参数un
+        String pwd=req.getParameter(&quot;pwd&quot;);//接收POST参数pwd
+        Login login=new Login(un,pwd);//封装到名为Login的JavaBean中
+        resp.setCharacterEncoding(&quot;UTF-8&quot;);//设置返回编码
+        resp.setContentType(&quot;application/json; charset=utf-8&quot;);//设置返回格式和浏览器渲染编码
+// resp.setContentType(&quot;text/html;; charset=utf-8&quot;);
+        PrintWriter out=resp.getWriter();//获取输出对象
+        LoginDao loginDao=new LoginDao();//获取一个登录模型对象
+        JSONObject jsonObject=new JSONObject();
+        try {
+            if (loginDao.login(login)){//直接传入login对象，用户名密码通过该对象的getter方法获取
+                jsonObject.put(&quot;登录成功&quot;,&quot;1&quot;);
+// out.write(&quot;{\&quot;flag\&quot;:\&quot;true\&quot;}&quot;);
+            }else {
+// out.write(&quot;{\&quot;flag\&quot;:\&quot;flase\&quot;}&quot;);
+                jsonObject.put(&quot;登录失败&quot;,&quot;0&quot;);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally {
+// out.write(jsonObject);
+            out.print(jsonObject);//返回Json格式的登陆结果
+            out.flush();
+            out.close();
+        }
+    }
+}</code></pre>
+<p>在web.xml中指定该Servlet的路径</p>
+<pre><code><code>&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;web-app xmlns=&quot;http://xmlns.jcp.org/xml/ns/javaee&quot;
+         xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+         xsi:schemaLocation=&quot;http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd&quot;
+         version=&quot;4.0&quot;&gt;
+    &lt;welcome-file-list&gt;
+        &lt;welcome-file&gt;login.jsp&lt;/welcome-file&gt;
+    &lt;/welcome-file-list&gt;
+&lt;!-- 配置Servlet --&gt;
+    &lt;servlet&gt;
+        &lt;servlet-name&gt;login&lt;/servlet-name&gt;
+        &lt;servlet-class&gt;com.hacker.servlet.login.LoginController&lt;/servlet-class&gt;
+    &lt;/servlet&gt;
+    &lt;!--配置访问方式 --&gt;
+    &lt;servlet-mapping&gt;
+        &lt;servlet-name&gt;login&lt;/servlet-name&gt;
+        &lt;url-pattern&gt;/login&lt;/url-pattern&gt;
+    &lt;/servlet-mapping&gt;
+&lt;/web-app&gt;</code></pre>
+<p>编写LoginDao模型类，首先导入Mysql Jar包<br />
+<img src="./images/MVC模式与Servlet执行流程11.png" /></p>
+<pre><code><code>package com.hacker.servlet.login;
+import java.sql.*;
+/**
+ * 模型层 用于处理登录
+ */
+public class LoginDao {
+    static final String JDBC_DRIVER = &quot;com.mysql.jdbc.Driver&quot;;
+    static final String DB_URL = &quot;jdbc:mysql://localhost:3306/test&quot;;
+    static final String USER = &quot;root&quot;;
+    static final String PASS = &quot;root&quot;;
+    Connection conn; //连接对象
+    PreparedStatement pstmt;//预编译对象
+    ResultSet rs;//结果集对象
+    Boolean flag=false;//登录结果 默认为false
+
+    public Boolean login(Login login) { //登录操作
+        try {
+            Class.forName(JDBC_DRIVER);//反射调用导入驱动，加载具体驱动类
+            conn = DriverManager.getConnection(DB_URL, USER, PASS);//与数据库建立连接
+            String sql = &quot;SELECT * FROM user WHERE username=? AND password=?&quot;;//预处理添加数据
+            pstmt = conn.prepareStatement(sql);//创建预处理执行对象(预编译SQL)
+            pstmt.setString(1, login.getUsername());//设置变量参数
+            pstmt.setString(2, login.getPassword());//设置变量参数
+            rs = pstmt.executeQuery();//返回查询到的结果集
+            if (rs.next()) {//判定结果集中是否能够读到数据
+                flag=true; //登录成功
+            }
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                //防止空指针异常
+                //关闭顺序与打开顺序相反
+                if (rs != null) rs.close();
+                if (pstmt != null) pstmt.close();
+                if (pstmt != null) conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return flag;//返回结果
+    }
+}</code></pre>
+<p>下面来试一试吧😁<br />
+<img src="./images/MVC模式与Servlet执行流程12.png" /><br />
+<img src="./images/MVC模式与Servlet执行流程13.png" /><br />
+成功启动Tomcat<br />
+<img src="./images/MVC模式与Servlet执行流程14.png" /><br />
+简洁的页面<br />
+<img src="./images/MVC模式与Servlet执行流程15.png" /><br />
+登陆成功，你能猜到密码吗？😜</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

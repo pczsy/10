@@ -1,0 +1,187 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python 入门 之 类的约束以及super()剖析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python 入门 之 类的约束以及super()剖析</center></div><div class='banquan'>原文出处:本文由博客园博主永亮提供。<br/>
+原文连接:https://www.cnblogs.com/caiyongliang/p/11593304.html</div><br>
+    <h1 id="python-入门-之-类的约束以及super剖析">Python 入门 之 类的约束以及super()剖析</h1>
+<h2 id="类的约束">1、类的约束</h2>
+<pre><code><code>第一版:
+class WechatPay:
+
+    def pay(self):
+        print(&quot;微信支付&quot;)
+
+class AliPay:
+
+    def pay(self):
+        print(&quot;支付宝支付&quot;)
+
+class QQpay:
+
+    def fuqian(self):
+        print(&quot;QQ支付&quot;)
+
+wei = WechatPay()
+ali = AliPay()
+qq = QQpay()
+
+wei.pay()
+ali.pay()
+qq.fuqian()
+
+# 当统一接口时
+def pay(object):
+    object().pay()       # QQ支付无法实现归一化</code></pre>
+<pre><code><code>第二版：
+class PayClass:
+
+    def pay(self):
+        pass
+
+class WechatPay(PayClass):
+
+    def pay(self):
+        print(&quot;微信支付&quot;)
+
+class AliPay(PayClass):
+
+    def pay(self):
+        print(&quot;支付宝支付&quot;)
+
+class QQpay(PayClass):
+
+    def fuqian(self):
+        print(&quot;QQ支付&quot;)
+
+def pay(object):
+
+    object().pay()
+
+pay(WechatPay)
+pay(QQpay)        # QQpay会执行父类的pay方法但是无法完成支付</code></pre>
+<h3 id="对类的约束有两种">（1）对类的约束有两种：</h3>
+<h4 id="提取类.-然后在类中定义好法.-在这个法中什么都不.-就抛个异常就可以了.-这样所有的类都必须重写这个法.-否则.-访问的时候就会报错.">&lt;1&gt; 提取⽗类. 然后在⽗类中定义好⽅法. 在这个⽅法中什么都不⽤⼲. 就抛⼀个异常就可以了. 这样所有的⼦类都必须重写这个⽅法. 否则. 访问的时候就会报错.</h4>
+<h4 id="使元类来描述类.-在元类中给出个抽象法.-这样类就不得不给出抽象法的具体实现.-也可以起到约束的效果.">&lt;2&gt; 使⽤元类来描述⽗类. 在元类中给出⼀个抽象⽅法. 这样⼦类就不得不给出抽象⽅法的具体实现. 也可以起到约束的效果.</h4>
+<pre><code><code>第三版:
+#  方式一:  (推荐并且常用的方式)
+# raise   主动抛出异常(主动报错)
+class PayClass:
+    def pay(self):
+        raise Exception(&quot;你子类必须要写一个pay方法&quot;)
+
+class WechatPay(PayClass):
+
+    def pay(self):
+        print(&quot;微信支付&quot;)
+
+class AliPay(PayClass):
+
+    def pay(self):
+        print(&quot;支付宝支付&quot;)
+
+class QQpay(PayClass):
+
+    def fuqian(self):
+        print(&quot;QQ支付&quot;)
+
+def pay(object):
+    object().pay()
+
+pay(WechatPay)
+pay(QQpay)     # QQpay类中没有pay方法，raise就会主动抛出异常(主动报错)
+
+
+
+# 方法二
+#  抽象类,接口类: 制定一些规则
+from abc import ABCMeta,abstractmethod   # 抽象类,接口类
+class PayClass(metaclass=ABCMeta):      # 元类
+    @abstractmethod
+    def pay(self):
+        raise Exception(&quot;你子类必须要写一个pay方法&quot;)
+
+class WechatPay(PayClass):
+
+    def pay(self):
+        print(&quot;微信支付&quot;)
+
+class AliPay(PayClass):
+
+    def pay(self):
+        print(&quot;支付宝支付&quot;)
+
+class QQpay(PayClass):
+
+   def fuqian(self):
+        print(&quot;QQ支付&quot;)
+        
+def pay(object):
+    object().pay()
+
+pay(WechatPay)
+pay(AliPay)
+pay(QQpay)     # QQpay类中没有pay方法，就会与指定的规则不符导致报错
+
+&#39;&#39;&#39;
+**总结: 约束. 其实就是⽗类对⼦类进⾏约束. ⼦类必须要写xxx⽅法. 在python中约束的⽅式和⽅法有两种:
+
+​       使⽤抽象类和抽象⽅法, 由于该⽅案来源是java和c#. 所以使⽤频率还是很少的
+
+​       使⽤⼈为抛出异常的⽅案. 并且尽量抛出的是NotImplementError. 这样比较专业, ⽽且错误比较明确.(推荐)
+&#39;&#39;&#39;</code></pre>
+<h2 id="super-剖析">2、super 剖析：</h2>
+<h3 id="super是严格按照类的继承顺序执行">super是严格按照类的继承顺序执行</h3>
+<pre><code><code>class A:
+    def f1(self):
+        print(&#39;in A&#39;)
+
+class Foo(A):
+    def f1(self):
+        super().f1()
+        print(&#39;in Foo&#39;)
+
+class Bar(A):
+    def f1(self):
+        print(&#39;in Bar&#39;)
+
+class Info(Foo,Bar):
+    def f1(self):
+        # super里的类名是指定查找mro中类名的下一个类, self是指定查找时使用的mro顺序
+        super(Info,self).f1()   # Foo() 对象的内存地址  # super(子类名,子类的mro列表)
+        print(&#39;in Info f1&#39;)
+
+
+aa = Info()  # 对象的内存地址
+aa.f1()
+
+# Info       [Info&#39;, Foo&#39;, Bar&#39;, A&#39;, &#39;object&#39;]
+
+a = Foo()
+b = a
+print(a)
+print(b)
+
+print(Info.mro())
+obj = Info()
+obj.f1()</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

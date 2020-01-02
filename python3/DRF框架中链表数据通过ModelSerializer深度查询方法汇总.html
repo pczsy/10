@@ -1,0 +1,156 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DRF框架中链表数据通过ModelSerializer深度查询方法汇总' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DRF框架中链表数据通过ModelSerializer深度查询方法汇总</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11587572.html</div><br>
+    <h1 id="drf框架中链表数据通过modelserializer深度查询方法汇总">DRF框架中链表数据通过ModelSerializer深度查询方法汇总</h1>
+<h2 id="一.准备测试和理解准备">一.准备测试和理解准备</h2>
+<h3 id="创建类">创建类</h3>
+<pre><code><code>class Test1(models.Model):
+    id = models.IntegerField(primary_key=True)
+    test_2_id= models.ForeignKey(to=&#39;Test2&#39;,on_delete=&#39;id&#39;) #这里有的创建失败了哈哈忘了会自动补全id
+
+class Test2(models.Model):
+    id = models.IntegerField(primary_key=True)
+    name = models.CharField(max_length=60)</code></pre>
+<h3 id="生成表单数据">生成表单数据</h3>
+<p>Test1</p>
+<table>
+<thead>
+<tr class="header">
+<th>id</th>
+<th>test_2_id_id</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<p>Test2</p>
+<table>
+<thead>
+<tr class="header">
+<th>id</th>
+<th>name</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>名字1</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>名字2</td>
+</tr>
+</tbody>
+</table>
+<h2 id="二.深度查询通过test1获得test2的name而不是id">二.深度查询通过Test1获得Test2的name而不是id</h2>
+<h3 id="方法一">方法一</h3>
+<p>models.py</p>
+<pre><code><code>#对于test1添加方法
+class Test1(models.Model):
+    id = models.IntegerField(primary_key=True)
+    test_2_id= models.ForeignKey(to=&#39;Test2&#39;,on_delete=&#39;id&#39;)
+    @property
+    def get_test2_name(self):
+        return self.test_2_id.name</code></pre>
+<p>views.py</p>
+<pre><code><code>from rest_framework.serializers import ModelSerializer
+from app.models import Test1
+class Test_ser(ModelSerializer):
+    class Meta:
+        model = Test1  # 这里会把Test1面的所有名称空间存在的都进行导入
+        fields = (&#39;id&#39;,&#39;get_test2_name&#39;)
+
+class Test(APIView):
+    def get(self,request):
+        test1_objs = Test1.objects.all()
+        test1_ser = Test_ser(instance=test1_objs,many=True).data
+        for a in test1_ser:
+            print(a)
+        return HttpResponse(&#39;ok&#39;)</code></pre>
+<h3 id="方法二">方法二</h3>
+<p>views.py</p>
+<pre><code><code>from rest_framework.serializers import ModelSerializer
+from app.models import Test1,Test2
+
+
+class Test_2_ser(ModelSerializer):
+    class Meta:
+        model = Test2
+        fields = &#39;__all__&#39;
+
+class Test_ser(ModelSerializer):
+    test_2_id = Test_2_ser()  #test_2_id为Test1与Test2关联的字段
+    class Meta:
+        model = Test1  
+        fields = &#39;__all__&#39;
+
+class Test(APIView):
+    def get(self,request):
+        test1_objs = Test1.objects.all()
+        test1_ser = Test_ser(instance=test1_objs,many=True).data
+        for a in test1_ser:
+            print(a)
+        return HttpResponse(&#39;ok&#39;)</code></pre>
+<h3 id="方法三">方法三</h3>
+<pre><code><code>#通过添加自定义字段
+class Test_ser(ModelSerializer):
+    test_2_name = SerializerMethodField() #自定义字段名称
+    def get_test_2_name(self,model):  #这里方法名必须get_字段名称
+        return model.test_2_id.name    #对于获取字段后的返回值
+    class Meta:
+        model = Test1  
+        fields = &#39;__all__&#39;
+
+class Test(APIView):
+    def get(self,request):
+        test1_objs = Test1.objects.all()
+        test1_ser = Test_ser(instance=test1_objs,many=True).data
+        for a in test1_ser:
+            print(a)
+        return HttpResponse(&#39;ok&#39;)</code></pre>
+<h3 id="方法四">方法四</h3>
+<pre><code><code>#通过添加自定义字段
+class Test_ser(ModelSerializer):
+    image_url=serializers.CharField(source=&#39;test_2_id.name&#39;) #test1中的test_2_id.name的内容
+    class Meta:
+        model = Test1  
+        fields = &#39;__all__&#39;
+
+class Test(APIView):
+    def get(self,request):
+        test1_objs = Test1.objects.all()
+        test1_ser = Test_ser(instance=test1_objs,many=True,context={&quot;request&quot;:request}).data
+        for a in test1_ser:
+            print(a)
+        return HttpResponse(&#39;ok&#39;)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

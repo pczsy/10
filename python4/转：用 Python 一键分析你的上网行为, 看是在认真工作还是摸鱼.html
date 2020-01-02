@@ -1,0 +1,433 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修转：用 Python 一键分析你的上网行为, 看是在认真工作还是摸鱼' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>转：用 Python 一键分析你的上网行为, 看是在认真工作还是摸鱼</center></div><div class='banquan'>原文出处:本文由博客园博主python学习者0提供。<br/>
+原文连接:https://www.cnblogs.com/xxpythonxx/p/11402618.html</div><br>
+    <h3 id="简介">简介</h3>
+<p><strong>想看看你最近一年都在干嘛？看看你平时上网是在摸鱼还是认真工作？想写年度汇报总结，但是苦于没有数据？现在，它来了。</strong></p>
+<p>这是一个能让你了解自己的浏览历史的Chrome浏览历史记录分析程序，当然了，他仅适用于Chrome浏览器或者以Chrome为内核的浏览器。</p>
+<p>在该页面中你将可以查看有关自己在过去的时间里所访问浏览的域名、URL以及忙碌天数的前十排名以及相关的数据图表。</p>
+<h3 id="部分截图">部分截图</h3>
+<p><img src="./images/转：用 Python 一键分析你的上网行为, 看是在认真工作还是摸鱼0.png" alt="img" /></p>
+<h3 id="代码思路">代码思路</h3>
+<h4 id="目录结构">1. 目录结构</h4>
+<p>首先，我们先看一下整体目录结构</p>
+<pre><code><code>Code
+├─ app_callback.py                          回调函数，实现后台功能
+├─ app_configuration.py                     web服务器配置
+├─ app_layout.py                            web前端页面配置
+├─ app_plot.py                              web图表绘制
+├─ app.py                                   web服务器的启动
+├─ assets                                   web所需的一些静态资源文件
+│  ├─ css                                   web前端元素布局文件
+│  │  ├─ custum-styles_phyloapp.css
+│  │  └─ stylesheet.css
+│  ├─ image                                 web前端logo图标
+│  │  ├─ GitHub-Mark-Light.png
+│  └─ static                                web前端帮助页面
+│  │  ├─ help.html
+│  │  └─ help.md
+├─ history_data.py                          解析chrome历史记录文件
+└─ requirement.txt                          程序所需依赖库</code></pre>
+<ul>
+<li>app_callback.py<br />
+该程序基于python，使用dash web轻量级框架进行部署。<code>app_callback.py</code>主要用于回调，可以理解为实现后台功能。</li>
+<li>app_configuration.py<br />
+顾名思义，对web服务器的一些配置操作。</li>
+<li>app_layout..py<br />
+web前端页面配置，包含html, css元素。</li>
+<li>app_plot.py<br />
+这个主要是为实现一些web前端的图表数据。</li>
+<li>app.py<br />
+web服务器的启动。</li>
+<li>assets<br />
+静态资源目录，用于存储一些我们所需要的静态资源数据。</li>
+<li>history_data.py<br />
+通过连接sqlite数据库，并解析Chrome历史记录文件。</li>
+<li>requirement.txt<br />
+运行本程序所需要的依赖库。</li>
+</ul>
+<h4 id="解析历史记录文件数据">2. 解析历史记录文件数据</h4>
+<p>与解析历史记录文件数据有关的文件为<code>history_data.py</code>文件。我们一一分析。</p>
+<pre><code><code>
+# 查询数据库内容
+def query_sqlite_db(history_db, query):
+
+    # 查询sqlite数据库
+    # 注意，History是一个文件，没有后缀名。它不是一个目录。
+    conn = sqlite3.connect(history_db)
+    cursor = conn.cursor()
+
+    # 使用sqlite查看软件，可清晰看到表visits的字段url=表urls的字段id
+    # 连接表urls和visits，并获取指定数据
+    select_statement = query
+
+    # 执行数据库查询语句
+    cursor.execute(select_statement)
+
+    # 获取数据，数据格式为元组(tuple)
+    results = cursor.fetchall()
+
+    # 关闭
+    cursor.close()
+    conn.close()
+
+    return results</code></pre>
+<p><strong>该函数的代码流程为:</strong></p>
+<ol>
+<li>连接sqlite数据库，执行查询语句，返回查询结构，最终关闭数据库连接。</li>
+</ol>
+<pre><code><code>
+# 获取排序后的历史数据
+def get_history_data(history_file_path):
+
+    try:
+
+        # 获取数据库内容
+        # 数据格式为元组(tuple)
+        select_statement = &quot;SELECT urls.id, urls.url, urls.title, urls.last_visit_time, urls.visit_count, visits.visit_time, visits.from_visit, visits.transition, visits.visit_duration FROM urls, visits WHERE urls.id = visits.url;&quot;
+        result = query_sqlite_db(history_file_path, select_statement)
+
+        # 将结果按第1个元素进行排序
+        # sort和sorted内建函数会优先排序第1个元素，然后再排序第2个元素，依此类推
+        result_sort = sorted(result, key=lambda x: (x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]))
+
+        # 返回排序后的数据
+        return result_sort
+    except:
+        # print(&#39;读取出错!&#39;)
+        return &#39;error&#39;</code></pre>
+<p><strong>该函数的代码流程为:</strong></p>
+<ol>
+<li>设置数据库查询语句<code>select_statement</code>，调用<code>query_sqlite_db()</code>函数，获取解析后的历史记录文件数据。并对返回后的历史记录数据文件按照不同元素规则进行排序。至此，经过排序的解析后的历史记录数据文件获取成功。</li>
+</ol>
+<h4 id="web服务器基本配置">3. web服务器基本配置</h4>
+<p>与web服务器基本配置有关的文件为<code>app_configuration.py</code>和<code>app.py</code>文件。包括设置web服务器的端口号，访问权限，静态资源目录等。</p>
+<h4 id="前端页面部署">4. 前端页面部署</h4>
+<p>与前端部署有关的文件为<code>app_layout.py</code>和<code>app_plot.py</code>以及<code>assets</code>目录。</p>
+<p>前端布局主要包括以下几个元素：</p>
+<ul>
+<li>上传历史记录文件组件</li>
+<li>绘制页面访问次数组件</li>
+<li>绘制页面访问停留总时间排名组件</li>
+<li>每日页面访问次数散点图组件</li>
+<li>某日不同时刻访问次数散点图组件</li>
+<li>访问次数最多的10个URL组件</li>
+<li>搜索关键词排名组件</li>
+<li>搜索引擎使用情况组件</li>
+</ul>
+<p>在<code>app_layout.py</code>中，<strong>这些组件的配置大多一样，和平常的html, css配置一样，所以我们仅仅以配置页面访问次数排名组件为例子。</strong></p>
+<pre><code><code># 页面访问次数排名
+html.Div(
+    style={&#39;margin-bottom&#39;:&#39;150px&#39;},
+    children=[
+        html.Div(
+            style={&#39;border-top-style&#39;:&#39;solid&#39;,&#39;border-bottom-style&#39;:&#39;solid&#39;},
+            className=&#39;row&#39;,
+            children=[
+                html.Span(
+                    children=&#39;页面访问次数排名, &#39;,
+                    style={&#39;font-weight&#39;: &#39;bold&#39;, &#39;color&#39;:&#39;red&#39;}
+                ),
+
+                html.Span(
+                    children=&#39;显示个数:&#39;,
+                ),
+                dcc.Input(
+                    id=&#39;input_website_count_rank&#39;,
+                    type=&#39;text&#39;,
+                    value=10,
+                    style={&#39;margin-top&#39;:&#39;10px&#39;, &#39;margin-bottom&#39;:&#39;10px&#39;}
+                ),
+            ]
+        ),
+
+
+        html.Div(
+            style={&#39;position&#39;: &#39;relative&#39;, &#39;margin&#39;: &#39;0 auto&#39;, &#39;width&#39;: &#39;100%&#39;, &#39;padding-bottom&#39;: &#39;50%&#39;, },
+            children=[
+                dcc.Loading(
+                    children=[
+                        dcc.Graph(
+                            id=&#39;graph_website_count_rank&#39;,
+                            style={&#39;position&#39;: &#39;absolute&#39;, &#39;width&#39;: &#39;100%&#39;, &#39;height&#39;: &#39;100%&#39;, &#39;top&#39;: &#39;0&#39;,
+                                   &#39;left&#39;: &#39;0&#39;, &#39;bottom&#39;: &#39;0&#39;, &#39;right&#39;: &#39;0&#39;},
+                            config={&#39;displayModeBar&#39;: False},
+                        ),
+                    ],
+                    type=&#39;dot&#39;,
+                    style={&#39;position&#39;: &#39;absolute&#39;, &#39;top&#39;: &#39;50%&#39;, &#39;left&#39;: &#39;50%&#39;, &#39;transform&#39;: &#39;translate(-50%,-50%)&#39;}
+                ),
+            ],
+        )
+    ]
+)</code></pre>
+<p>可以看到，虽然是python编写的，但是只要具备前端经验的人，都可以轻而易举地在此基础上新增或者删除一些元素，所以我们就不详细讲如何使用html和css了。</p>
+<p>在<code>app_plot.py</code>中，主要是以绘制图表相关的。使用的是<code>plotly</code>库，这是一个用于具有web交互的画图组件库。<br />
+这里以绘制<code>页面访问频率排名 柱状图</code>为例子，讲讲如何使用<code>plotly</code>库进行绘制。</p>
+<pre><code><code>
+# 绘制 页面访问频率排名 柱状图
+def plot_bar_website_count_rank(value, history_data):
+
+    # 频率字典
+    dict_data = {}
+
+    # 对历史记录文件进行遍历
+    for data in history_data:
+        url = data[1]
+        # 简化url
+        key = url_simplification(url)
+
+        if (key in dict_data.keys()):
+            dict_data[key] += 1
+        else:
+            dict_data[key] = 0
+
+    # 筛选出前k个频率最高的数据
+    k = convert_to_number(value)
+    top_10_dict = get_top_k_from_dict(dict_data, k)
+
+    figure = go.Figure(
+        data=[
+            go.Bar(
+                x=[i for i in top_10_dict.keys()],
+                y=[i for i in top_10_dict.values()],
+                name=&#39;bar&#39;,
+                marker=go.bar.Marker(
+                    color=&#39;rgb(55, 83, 109)&#39;
+                )
+            )
+        ],
+        layout=go.Layout(
+            showlegend=False,
+            margin=go.layout.Margin(l=40, r=0, t=40, b=30),
+            paper_bgcolor=&#39;rgba(0,0,0,0)&#39;,
+            plot_bgcolor=&#39;rgba(0,0,0,0)&#39;,
+            xaxis=dict(title=&#39;网站&#39;),
+            yaxis=dict(title=&#39;次数&#39;)
+        )
+    )
+
+
+    return figure</code></pre>
+<p><strong>该函数的代码流程为:</strong></p>
+<ol>
+<li>首先，对解析完数据库文件后返回的<code>history_data</code>进行遍历，获得<code>url</code>数据，并调用<code>url_simplification(url)</code>对齐进行简化。接着，依次将<code>简化后的url</code>存入字典中。</li>
+<li>调用<code>get_top_k_from_dict(dict_data, k)</code>，从字典<code>dict_data</code>中获取前<code>k</code>个最大值的数据。</li>
+<li>接着，开始绘制柱状图了。使用<code>go.Bar()</code>绘制柱状图，其中，<code>x</code>和<code>y</code>代表的是属性和属性对应的数值，为<code>list</code>格式<code>。</code>xaxis<code>和</code>yaxis`分别设置相应坐标轴的标题</li>
+<li>返回一个<code>figure</code>对象，以便于传输给前端。</li>
+</ol>
+<p>而<code>assets</code>目录下包含的数据为<code>image</code>和<code>css</code>，都是用于前端布局。</p>
+<h4 id="后台部署">5. 后台部署</h4>
+<p>与后台部署有关的文件为<code>app_callback.py</code>文件。这个文件使用回调的方式对前端页面布局进行更新。</p>
+<p>首先，我们看看关于<code>页面访问频率排名</code>的回调函数：</p>
+<pre><code><code># 页面访问频率排名
+@app.callback(
+    dash.dependencies.Output(&#39;graph_website_count_rank&#39;, &#39;figure&#39;),
+    [
+        dash.dependencies.Input(&#39;input_website_count_rank&#39;, &#39;value&#39;),
+        dash.dependencies.Input(&#39;store_memory_history_data&#39;, &#39;data&#39;)
+    ]
+)
+def update(value, store_memory_history_data):
+
+    # 正确获取到历史记录文件
+    if store_memory_history_data:
+        history_data = store_memory_history_data[&#39;history_data&#39;]
+        figure = plot_bar_website_count_rank(value, history_data)
+        return figure
+    else:
+        # 取消更新页面数据
+        raise dash.exceptions.PreventUpdate(&quot;cancel the callback&quot;)</code></pre>
+<p><strong>该函数的代码流程为:</strong></p>
+<ol>
+<li>首先确定好输入是什么(触发回调的数据)，输出是什么(回调输出的数据)，需要带上什么数据。<code>dash.dependencies.Input</code>指的是触发回调的数据，而<code>dash.dependencies.Input('input_website_count_rank', 'value')</code>表示当<code>id</code>为<code>input_website_count_rank</code>的组件的<code>value</code>发生改变时，会触发这个回调。而该回调经过<code>update(value, store_memory_history_data)</code>的结果会输出到<code>id</code>为<code>graph_website_count_rank</code>的<code>value</code>，通俗来讲，就是改变它的值。</li>
+<li>对于<code>def update(value, store_memory_history_data)</code>的解析。首先是判断输入数据<code>store_memory_history_data</code>是否不为空对象，接着读取历史记录文件<code>history_data</code>，接着调用刚才所说的<code>app_plot.py</code>文件中的<code>plot_bar_website_count_rank()</code>，返回一个<code>figure</code>对象，并将这个对象返回到前端。至此，前端页面的布局就会显示出<code>页面访问频率排名</code>的图表了。</li>
+</ol>
+<p>还有一个需要说的就是关于上次文件的过程，这里我们先贴出代码：</p>
+<pre><code><code># 上传文件回调
+@app.callback(
+
+    dash.dependencies.Output(&#39;store_memory_history_data&#39;, &#39;data&#39;),
+    [
+        dash.dependencies.Input(&#39;dcc_upload_file&#39;, &#39;contents&#39;)
+    ]
+)
+def update(contents):
+
+    if contents is not None:
+
+        # 接收base64编码的数据
+        content_type, content_string = contents.split(&#39;,&#39;)
+
+        # 将客户端上传的文件进行base64解码
+        decoded = base64.b64decode(content_string)
+
+        # 为客户端上传的文件添加后缀，防止文件重复覆盖
+        # 以下方式确保文件名不重复
+        suffix = [str(random.randint(0,100)) for i in range(10)]
+        suffix = &quot;&quot;.join(suffix)
+        suffix = suffix + str(int(time.time()))
+
+        # 最终的文件名
+        file_name = &#39;History_&#39; + suffix
+        # print(file_name)
+
+        # 创建存放文件的目录
+        if (not (exists(&#39;data&#39;))):
+            makedirs(&#39;data&#39;)
+
+        # 欲写入的文件路径
+        path = &#39;data&#39; + &#39;/&#39; + file_name
+
+        # 写入本地磁盘文件
+        with open(file=path, mode=&#39;wb+&#39;) as f:
+            f.write(decoded)
+
+
+        # 使用sqlite读取本地磁盘文件
+        # 获取历史记录数据
+        history_data = get_history_data(path)
+        
+        # 获取搜索关键词数据
+        search_word = get_search_word(path)
+
+        # 判断读取到的数据是否正确
+        if (history_data != &#39;error&#39;):
+            # 找到
+            date_time = time.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;, time.localtime(time.time()))
+            print(&#39;新接收到一条客户端的数据, 数据正确, 时间:{}&#39;.format(date_time))
+            store_data = {&#39;history_data&#39;: history_data, &#39;search_word&#39;: search_word}
+            return store_data
+        else:
+            # 没找到
+            date_time = time.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;, time.localtime(time.time()))
+            print(&#39;新接收到一条客户端的数据, 数据错误, 时间:{}&#39;.format(date_time))
+            return  None
+
+    return None</code></pre>
+<p><strong>该函数的代码流程为:</strong></p>
+<ol>
+<li><p>首先判断用户上传的数据<code>contents</code>是否不为空，接着将客户端上传的文件进行base64解码。并且，为客户端上传的文件添加后缀，防止文件重复覆盖，最终将客户端上传的文件写入本地磁盘文件。</p></li>
+<li><p>写入完毕后，使用sqlite读取本地磁盘文件，若读取正确，则返回解析后的数据，否则返回<code>None</code></p></li>
+</ol>
+<p>接下来，就是我们数据提取最核心的部分了，即从Chrome历史记录文件中提取出我们想要的数据。由于Chrome历史记录文件是一个sqlite数据库，所以我们需要使用数据库语法提取出我们想要的内容。</p>
+<pre><code><code>&#39;&#39;&#39;
+遇到问题没人解答？小编创建了一个Python学习交流QQ群：857662006 
+寻找有志同道合的小伙伴，互帮互助,群里还有不错的视频学习教程和PDF电子书！
+&#39;&#39;&#39;
+# 获取排序后的历史数据
+def get_history_data(history_file_path):
+
+    try:
+
+        # 获取数据库内容
+        # 数据格式为元组(tuple)
+        select_statement = &quot;SELECT urls.id, urls.url, urls.title, urls.last_visit_time, urls.visit_count, visits.visit_time, visits.from_visit, visits.transition, visits.visit_duration FROM urls, visits WHERE urls.id = visits.url;&quot;
+        result = query_sqlite_db(history_file_path, select_statement)
+
+        # 将结果按第1个元素进行排序
+        # sort和sorted内建函数会优先排序第1个元素，然后再排序第2个元素，依此类推
+        result_sort = sorted(result, key=lambda x: (x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]))
+
+        # 返回排序后的数据
+        return result_sort
+    except:
+        # print(&#39;读取出错!&#39;)
+        return &#39;error&#39;</code></pre>
+<p>上面<code>select_statement</code>指的是查询数据库的规则，规则如下：</p>
+<ol>
+<li>从(FROM)表<code>urls</code>中选择(SELECT)出以下字段<code>urls.id</code>, <code>urls.url</code>, <code>urls.title</code>, <code>urls.last_visit_time</code>, <code>urls.visit_count</code>，依次代表<code>URL的ID</code>，<code>URL的地址</code>，<code>URL的标题</code>，<code>URL最后的访问时间</code>，<code>URL的访问次数</code>。</li>
+<li>接着，从(FROM)表<code>visits</code>中选择(SELECT)出以下字段<code>visits.visit_time</code>, <code>visits.from_visit</code>, <code>visits.transition</code>, <code>visits.visit_duration</code>，分别代表的是<code>访问时间</code>，<code>从哪个链接跳转过来的</code>，<code>访问跳转</code>，<code>访问停留的时间</code>。</li>
+<li>对<code>步骤1</code>和<code>步骤2</code>的结果进行连接，形成一个表格。然后从中(WHERE)筛选出符合<code>urls.id = visits.url</code>的行。在<code>urls</code>中，<code>id</code>代表的是URL的<code>id</code>，在<code>visits</code>中，<code>url</code>代表的也是URL的<code>id</code>，所以只有当两者相等，才能连接一起，才能保留，否则就要去除这一行。</li>
+<li>使用排序函数<code>sorted</code>，这个函数依次是以<code>x[0]</code>，<code>x[1]</code>，<code>x[2]</code>，<code>x[3]</code>，<code>x[4]</code>，<code>x[5]</code>，<code>x[6]</code>，<code>x[7]</code>，<code>x[8]</code>进行排序，也就是指的是<code>urls.id</code>, <code>urls.url</code>, <code>urls.title</code>, <code>urls.last_visit_time</code>, <code>urls.visit_count</code>, <code>visits.visit_time</code>, <code>visits.from_visit</code>, <code>visits.transition</code>, <code>visits.visit_duration</code>。</li>
+<li>返回一个排序好的数据</li>
+</ol>
+<p>这里我们列出每个字段代表的意思：</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">字段名</th>
+<th style="text-align: left;">含义</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">urls.id</td>
+<td style="text-align: left;">url的编号</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">urls.url</td>
+<td style="text-align: left;">url的地址</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">urls.title</td>
+<td style="text-align: left;">url的标题</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">urls.last_visit_time</td>
+<td style="text-align: left;">url的最后访问时间</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">urls.visit_count</td>
+<td style="text-align: left;">url的访问次数</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">urls.visit_time</td>
+<td style="text-align: left;">url的访问时间</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">urls.from_visit</td>
+<td style="text-align: left;">从哪里访问到这个url</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">urls.transition</td>
+<td style="text-align: left;">url的跳转</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">urls.visit_duration</td>
+<td style="text-align: left;">url的停留时间</td>
+</tr>
+</tbody>
+</table>
+<h4 id="如何获取chrome历史记录文件">6. 如何获取Chrome历史记录文件</h4>
+<ol>
+<li>首先，打开浏览器，输入<code>chrome://version/</code>，其中，<code>个人资料路径</code>即为存放历史文件所在的目录。<br />
+<img src="./images/转：用 Python 一键分析你的上网行为, 看是在认真工作还是摸鱼1.png" alt="img" /></li>
+<li>跳转到<code>个人资料路径</code>，比如<code>/Users/xxx/Library/Application Support/Google/Chrome/Default</code>，找到一个叫<code>History</code>的文件，这个文件即为历史记录文件。<br />
+<img src="./images/转：用 Python 一键分析你的上网行为, 看是在认真工作还是摸鱼2.png" alt="img" /></li>
+</ol>
+<h3 id="如何运行">如何运行</h3>
+<p>在线演示程序:<a href="http://39.106.118.77:8090/">http://39.106.118.77:8090</a>(普通服务器，勿测压)</p>
+<p>运行本程序十分简单，只需要按照以下命令即可运行：</p>
+<pre><code><code># 跳转到当前目录
+cd 目录名
+# 先卸载依赖库
+pip uninstall -y -r requirement.txt
+# 再重新安装依赖库
+pip install -r requirement.txt
+# 开始运行
+python app.py
+
+# 运行成功后，通过浏览器打开http://localhost:8090</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

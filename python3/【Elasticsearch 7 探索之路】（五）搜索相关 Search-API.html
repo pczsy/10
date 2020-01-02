@@ -1,0 +1,226 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【Elasticsearch 7 探索之路】（五）搜索相关 Search-API' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【Elasticsearch 7 探索之路】（五）搜索相关 Search-API</center></div><div class='banquan'>原文出处:本文由博客园博主隐峯提供。<br/>
+原文连接:https://www.cnblogs.com/TFengStorm/p/12026562.html</div><br>
+    <p>本节主要讲解 Elasticsearch 的 搜索相关功能 Search-API，讲解什么是 URL Search 和 Request Body Search 的语法，对常用的语法都会一一进行详细介绍。</p>
+<p><strong>1.Search API</strong></p>
+<p>Search API 分为两大类一个是 URL Search 和 Request Body Search。</p>
+<ul>
+<li>URL Search
+<ul>
+<li>在 URL 中根据参数查询结果</li>
+</ul></li>
+<li>Request Body Search
+<ul>
+<li>一种基于 JSON 格式的查询语言 Query Domain Specific Language (DSL)</li>
+</ul></li>
+</ul>
+<p><strong>2.URL Search</strong></p>
+<pre><code><code>GET /movies/_search?q=love&amp;df=title&amp;sort=year:desc&amp;from=0&amp;size=10&amp;timeout=1s
+{
+    &quot;profile&quot;:&quot;true&quot;
+}</code></pre>
+<ul>
+<li>q 指定查询语句</li>
+<li>df 指定查询字段，不指定对所有字段进行查询</li>
+<li>Sort 排序</li>
+<li>from 和 size 用于分页</li>
+<li>如果要查询执行过程，可以增加 profile 为 true</li>
+</ul>
+<p><strong>2.1Query String Syntax</strong></p>
+<p><strong>2.1.1TermQuery</strong></p>
+<pre><code><code>GET /movies/_search?q=title:(Beautiful Mind)
+{
+    &quot;profile&quot;:&quot;true&quot;
+}</code></pre>
+<p>输出为有 Beautiful 或者 Mind 的电影名称</p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API0.png" /></p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API1.png" /></p>
+<p><strong>2.1.2PhraseQuery</strong></p>
+<pre><code><code>GET /movies/_search?q=title:&quot;Beautiful Mind&quot;
+{
+    &quot;profile&quot;:&quot;true&quot;
+}</code></pre>
+<p>输出为按照顺序同时出现 &quot;Beautiful Mind&quot; 这个词语的电影名称</p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API2.png" /></p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API3.png" /></p>
+<p>TermQuery 必须带有 () ,比如 (Beautiful Mind)，不带的情况是不一样的。</p>
+<p>GET /movies/_search?q=title:(Beautiful Mind)</p>
+<p>Mind 为泛查询，对所有字段都进行查询</p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API4.png" /></p>
+<p><strong>2.1.3布尔查询</strong></p>
+<ul>
+<li>AND / OR / NOT 或者 &amp;&amp; /|| / !
+<ul>
+<li>必须大写</li>
+<li>title:(Beautiful OR Mind)</li>
+</ul></li>
+</ul>
+<pre><code><code>GET /movies/_search?q=title:(Beautiful OR Mind)
+{
+    &quot;profile&quot;:&quot;true&quot;
+}</code></pre>
+<p>里面执行是 BooleanQuery，最后还是以 TermQuery 进行分组查询。</p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API5.png" /><br />
+<img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API6.png" /></p>
+<p><strong>2.1.4范围查询</strong></p>
+<ul>
+<li>[] 为闭区间，{} 为开区间</li>
+<li>year:[2018 TO 2019]，查询时间在2018-2019年的电影</li>
+</ul>
+<pre><code><code>GET /movies/_search?q= year:[2018 TO 2019]
+{
+    &quot;profile&quot;:&quot;true&quot;
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API7.png" /></p>
+<p><strong>2.1.5算数查询</strong></p>
+<ul>
+<li>year:&gt;=2018，匹配电影在2018年以后的电影</li>
+</ul>
+<pre><code><code>GET /movies/_search?q=year:&gt;=2018
+{
+    &quot;profile&quot;:&quot;true&quot;
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API8.png" /></p>
+<p><strong>2.1.6通配符和正则匹配</strong></p>
+<ul>
+<li>? 代表1个字符，*代表0到多个字符，这种不推荐，占用太多空间</li>
+<li>title:b*，匹配电影名称有 b 开头的名称</li>
+<li>title:[bu]，匹配电影名称有 b 开头的名称</li>
+</ul>
+<p>GET /movies/_search?q=title:b*</p>
+<p><strong>2.1.7模糊查询</strong></p>
+<ul>
+<li>&quot;Avengers War&quot;~2 ,Avengers 和 War 之间有两个 term，匹配 Avengers: Infinity War - Part I，不能匹配 Avengers: War。</li>
+</ul>
+<p>GET /movies/_search?q=title:&quot;Avengers War&quot;~2</p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API9.png" /></p>
+<p><strong>3.Request Body Search</strong></p>
+<p>其实在高阶使用方法上只有 Request Body Search 才能实现，所以也是推荐使用这种方法查询学习。</p>
+<p>Request Body Search 将查询语句通过通过 HTTP 方式发送到 ES，进行查询</p>
+<p><strong>3.1Query DSL</strong></p>
+<pre><code><code>POST kibana_sample_data_ecommerce/_search
+{
+  &quot;profile&quot;: true,
+  &quot;_source&quot;:[&quot;customer_first_name&quot;,&quot;customer_full_name&quot;,&quot;customer_gender&quot;],
+  &quot;from&quot;:10,
+  &quot;size&quot;:20,
+  &quot;sort&quot;:[{&quot;order_date&quot;:&quot;desc&quot;}],
+    &quot;query&quot;: {
+        &quot;match_all&quot;: {}//查询所有文档
+    }
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API10.png" /></p>
+<ul>
+<li>from 和 size 进行分页，&quot;from&quot;:10,<br />
+&quot;size&quot;:20，from 从 10 开始，返回20个结果，不填写时from=0，size=10</li>
+<li>sort 根据某些字段进行排序，最好选择日期或者数字的列进行排序</li>
+<li>_source 当你不需要对所有字段进行查询，通过 _source 选择需要展示数据，不填写则所有，）source 支持正则</li>
+</ul>
+<p><strong>3.2脚本字段</strong></p>
+<p>脚本字段简单说通过 ES 的 painless 脚本去算出一个新的字段。这个有什么用处呢？当你要对一个列排序，发现存储的有不同的单位，需要转换之后才能做一个统一的排序。</p>
+<pre><code><code>GET kibana_sample_data_ecommerce/_search
+{
+  &quot;script_fields&quot;: {
+    &quot;new_field&quot;: {
+      &quot;script&quot;: {
+        &quot;lang&quot;: &quot;painless&quot;,
+        &quot;source&quot;: &quot;doc[&#39;customer_id&#39;]+&#39;_2333333!&#39;&quot;
+      }
+    }
+  },
+  &quot;query&quot;: {
+    &quot;match_all&quot;: {}
+  }
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API11.png" /></p>
+<p>脚本字段不要选择文本类型，默认禁止，可以通过设置 fielddata = true 开启，不建议。</p>
+<p><strong>3.3Match 查询表达式</strong></p>
+<p>前面 URL Search 中讲解 Term 和 Phrase 查询，现在我们来看在 Request Body Search 是怎么实现。</p>
+<ul>
+<li>使用 quest-match 方式，下一层填写具体查询内容，</li>
+<li>查询内容两个字符串，类似于 OR 方式。</li>
+</ul>
+<pre><code><code>POST movies/_search
+{
+  &quot;query&quot;: {
+    &quot;match&quot;: {
+      &quot;title&quot;: &quot;Who Last&quot;
+    }
+  }
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API12.png" /></p>
+<p>如果你要要求 Who Last 要同时出现，增加 &quot;operator&quot;: &quot;and&quot; 实现。</p>
+<pre><code><code>POST movies/_search
+{
+  &quot;query&quot;: {
+    &quot;match&quot;: {
+      &quot;title&quot;: {
+        &quot;query&quot;: &quot;Who Christmas&quot;,
+        &quot;operator&quot;: &quot;and&quot;
+      }
+    }
+  }
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API13.png" /></p>
+<p><strong>3.4Match Phrase</strong></p>
+<ul>
+<li>通过使用 query-match_phrase 实现 Phrase 查询</li>
+<li>query 的词必须按照顺序排列</li>
+<li>slop 实现模糊查询，slop=1，表示中间可以有一个字符</li>
+</ul>
+<pre><code><code>POST movies/_search
+{
+  &quot;query&quot;: {
+    &quot;match_phrase&quot;: {
+      &quot;title&quot;: {
+        &quot;query&quot;: &quot;Who Christmas&quot;
+      }
+    }
+  }
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API14.png" /></p>
+<pre><code><code>POST movies/_search
+{
+  &quot;query&quot;: {
+    &quot;match_phrase&quot;: {
+      &quot;title&quot;: {
+        &quot;query&quot;: &quot;Who Christmas&quot;,
+        &quot;slop&quot;: 1
+      }
+    }
+  }
+}</code></pre>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API15.png" /></p>
+<p><strong>4.小结</strong></p>
+<p>本篇主要对 Search-Api 的 URL Search 和 Request Body Search 详细介绍，URL Search 和 Request Body Search 都可以简单方便查询我们想要的结果， 那么我们应该采用哪种方式进行查询呢？在简单的进行查询两种方式没有什么区别，但是在 ES 中高级使用方法只能在 Request Body Search 中做，所有这里也是推荐学习和使用这种方法，对 Request Body Search 高阶使用的方法会在之后的章节进行讲解。</p>
+<p><strong>5.数据来源</strong></p>
+<p>kibana_sample_data_ecommerce 索引是 kibana 自带的索引，需要手动在 kibana 进行点击导入</p>
+<p><img src="./images/【Elasticsearch 7 探索之路】（五）搜索相关 Search-API16.png" /></p>
+<p>movies 索引是 movielens 数据集，通过<a href="https://grouplens.org/datasets/movielens/" class="uri">https://grouplens.org/datasets/movielens/</a> 这个地址下载。通过 Logstash 导入。logstash.conf 和 数据文件在公众号后台回复 ES 获取。</p>
+<p><a href="https://www.cnblogs.com/TFengStorm/p/11949707.html">【Elasticsearch 7 探索之路】（四）Analyzer 分析</a><br />
+<a href="https://www.cnblogs.com/TFengStorm/p/11879004.html">【Elasticsearch 7 探索之路】（三）倒排索引</a><br />
+<a href="https://www.cnblogs.com/TFengStorm/p/11858745.html">【Elasticsearch 7 探索之路】（二）文档的 CRUD 和批量操作</a><br />
+<a href="https://www.cnblogs.com/TFengStorm/p/11652008.html">【Elasticsearch 7 搜索之路】（一）什么是 Elasticsearch？</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

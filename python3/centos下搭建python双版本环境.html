@@ -1,0 +1,210 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修centos下搭建python双版本环境' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>centos下搭建python双版本环境</center></div><div class='banquan'>原文出处:本文由博客园博主luyuze95提供。<br/>
+原文连接:https://www.cnblogs.com/luyuze95/p/11671787.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#centos下搭建python双版本环境">centos下搭建python双版本环境</a><ul>
+        <li><a href="#一安装python3">一、安装python3</a><ul>
+        <li><a href="#理清自带python位置">1、理清自带python位置</a></li>
+        <li><a href="#更新用于下载编译python3的相关包">2、更新用于下载编译python3的相关包</a></li>
+        <li><a href="#安装pip">3、安装pip</a></li>
+        <li><a href="#用pip安装wget">4、用pip安装wget</a></li>
+        <li><a href="#用wget下载python3的源码包">5、用wget下载python3的源码包</a></li>
+        <li><a href="#编译python3源码包">6、编译python3源码包</a></li>
+        <li><a href="#添加软链接">7、添加软链接</a></li>
+        <li><a href="#更改yum配置">8、更改yum配置</a></li>
+        <li><a href="#使用python双版本">9、使用python双版本</a></li>
+        </ul></li>
+        <li><a href="#二创建虚拟环境">二、创建虚拟环境</a><ul>
+        <li><a href="#使用virtualenv">1、使用virtualenv</a></li>
+        <li><a href="#使用virtualenvwrapper">2、使用virtualenvwrapper</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="centos下搭建python双版本环境">centos下搭建python双版本环境</h1>
+<p>centos7自带有python，版本是python2.7。但是在生产环境中，往往可能需要更高的python版本，甚至是有需要双版本python同时使用的情况。接下来我们手动安装python3，并且配置后可以并存使用。</p>
+<h2 id="一安装python3">一、安装python3</h2>
+<h3 id="理清自带python位置">1、理清自带python位置</h3>
+<pre><code><code>[root@centos ~]# whereis python
+python: /usr/bin/python2.7 /usr/bin/python /usr/lib/python2.7 /usr/lib64/python2.7 /etc/python /usr/include/python2.7 /usr/share/man/man1/python.1.gz</code></pre>
+<p>由此得知我们的python在 /usr/bin目录中</p>
+<pre><code><code>[root@centos ~]# cd /usr/bin/
+[root@centos bin]# ll python*
+lrwxrwxrwx. 1 root root    7 2月   7 09:30 python -&gt; python2
+lrwxrwxrwx. 1 root root    9 2月   7 09:30 python2 -&gt; python2.7
+-rwxr-xr-x. 1 root root 7136 8月   4 2017 python2.7</code></pre>
+<p>可以看到，python指向的是python2，python2指向的是python2.7，因此我们可以装个python3，然后将python指向python3，然后python2指向python2.7，那么两个版本的python就能共存了。</p>
+<h3 id="更新用于下载编译python3的相关包">2、更新用于下载编译python3的相关包</h3>
+<pre><code><code>yum install zlib-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gcc make</code></pre>
+<p>运行此命令即可更新</p>
+<h3 id="安装pip">3、安装pip</h3>
+<pre><code><code>yum -y install epel-release
+yum install python-pip</code></pre>
+<p>运行以上两个命令安装pip</p>
+<h3 id="用pip安装wget">4、用pip安装wget</h3>
+<pre><code><code>pip install wget</code></pre>
+<p>运行上述命令安装wget</p>
+<h3 id="用wget下载python3的源码包">5、用wget下载python3的源码包</h3>
+<pre><code><code>wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tar.xz</code></pre>
+<p>执行上述命令，即可下载python3的tar.xz的源码包</p>
+<h3 id="编译python3源码包">6、编译python3源码包</h3>
+<pre><code><code># 先对tar.xz包解压
+xz -d Python-3.6.4.tar.xz
+tar -xf Python-3.6.4.tar
+
+# 然后先进入到解压后的目录中，依次执行下面命令进行手动编译
+cd Python-3.6.4
+./configure prefix=/usr/local/python3
+make &amp;&amp; make install
+
+# 如果出现can&#39;t decompress data; zlib not available这个错误，则需要安装相关库，如果正常，则不必执行下面的命令。
+#安装依赖zlib、zlib-devel
+yum install zlib zlib
+yum install zlib zlib-devel</code></pre>
+<p>如果最后没提示出错，就代表正确安装了，在/usr/local/目录下就会有python3目录</p>
+<h3 id="添加软链接">7、添加软链接</h3>
+<pre><code><code>#将原来的链接备份
+mv /usr/bin/python /usr/bin/python.bak
+ 
+#添加python3的软链接
+ln -s /usr/local/python3/bin/python3.6 /usr/bin/python
+ 
+#测试是否安装成功了
+python -V</code></pre>
+<h3 id="更改yum配置">8、更改yum配置</h3>
+<p>更改yum配置，因为其要用到python2才能执行，否则会导致yum不能正常使用</p>
+<pre><code><code>vi /usr/bin/yum
+把#! /usr/bin/python修改为#! /usr/bin/python2
+ 
+vi /usr/libexec/urlgrabber-ext-down
+把#! /usr/bin/python 修改为#! /usr/bin/python2</code></pre>
+<h3 id="使用python双版本">9、使用python双版本</h3>
+<pre><code><code>[root@centos ~]# python2
+Python 2.7.5 (default, Jun 20 2019, 20:27:34) 
+[GCC 4.8.5 20150623 (Red Hat 4.8.5-36)] on linux2
+Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
+&gt;&gt;&gt; exit()
+[root@centos ~]# python
+Python 3.6.4 (default, Sep 27 2019, 16:54:08) 
+[GCC 4.8.5 20150623 (Red Hat 4.8.5-39)] on linux
+Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.
+&gt;&gt;&gt; exit()
+</code></pre>
+<p>至此，python双版本已经都可以正常使用了。</p>
+<h2 id="二创建虚拟环境">二、创建虚拟环境</h2>
+<p>一般在生产环境中，我们不会直接使用系统的python环境，因为这样各种依赖包存在很难管理的情况，因此，使用虚拟环境就会好很多，每一个具体的项目，我们可以使用一个单独的虚拟环境，这样各环境之间独立使用，依赖互不影响。</p>
+<h3 id="使用virtualenv">1、使用virtualenv</h3>
+<h4 id="安装">安装</h4>
+<pre><code><code>pip install virtualenv</code></pre>
+<h4 id="为一个工程创建一个虚拟环境">为一个工程创建一个虚拟环境</h4>
+<pre><code><code>$ cd my_project_dir
+$ virtualenv venv　　# venv为虚拟环境目录名，目录名自定义</code></pre>
+<p>virtualenv venv 将会在当前的目录中创建一个文件夹，包含了Python可执行文件，以及 pip 库的一份拷贝，这样就能安装其他包了。虚拟环境的名字（此例中是 venv ）可以是任意的；若省略名字将会把文件均放在当前目录。在任何你运行命令的目录中，这会创建Python的拷贝，并将之放在叫做 venv 的文件中。</p>
+<p>你可以选择使用一个Python解释器：</p>
+<pre><code><code>$ virtualenv -p /usr/bin/python2.7 venv　　　　# -p参数指定Python解释器程序路径</code></pre>
+<p>这将会使用 /usr/bin/python2.7 中的Python解释器。</p>
+<h4 id="开始使用虚拟环境">开始使用虚拟环境</h4>
+<pre><code><code>$ source venv/bin/activate　# 激活</code></pre>
+<p>从现在起，任何你使用pip安装的包将会放在 venv 文件夹中，与全局安装的Python隔绝开。</p>
+<p>像平常一样安装包，比如：</p>
+<pre><code><code>pip install requests</code></pre>
+<h4 id="退出使用虚拟环境">退出使用虚拟环境</h4>
+<p>如果你在虚拟环境中暂时完成了工作，则可以停用它：</p>
+<pre><code><code>$ . venv/bin/deactivate</code></pre>
+<p>这将会回到系统默认的Python解释器，包括已安装的库也会回到默认的。</p>
+<p>要删除一个虚拟环境，只需删除它的文件夹。（执行 rm -rf venv ）。</p>
+<p>这里virtualenv 有些不便，因为virtual的启动、停止脚本都在特定文件夹，可能一段时间后，你可能会有很多个虚拟环境散落在系统各处，你可能忘记它们的名字或者位置。</p>
+<h3 id="使用virtualenvwrapper">2、使用virtualenvwrapper</h3>
+<p>鉴于virtualenv不便于对虚拟环境集中管理，所以推荐直接使用virtualenvwrapper。 virtualenvwrapper提供了一系列命令使得和虚拟环境工作变得便利。它把你所有的虚拟环境都放在一个地方。</p>
+<h4 id="安装-1">安装</h4>
+<p>linux安装virtualenvwrapper(确保virtualenv已安装)</p>
+<pre><code><code>pip install virtualenvwrapper</code></pre>
+<h4 id="配置">配置</h4>
+<p>安装完成后，在~/.bashrc写入以下内容</p>
+<pre><code><code>export WORKON_HOME=~/Envs
+source /usr/local/bin/virtualenvwrapper.sh　</code></pre>
+<ul>
+<li>第一行：virtualenvwrapper存放虚拟环境的目录</li>
+<li>第二行：virtrualenvwrapper会安装到python的bin目录下，所以该路径是python安装目录下bin/virtualenvwrapper.sh</li>
+</ul>
+<pre><code><code>source ~/.bashrc　# 读入配置文件，立即生效</code></pre>
+<h4 id="可能存在的问题">可能存在的问题</h4>
+<ul>
+<li>问题1</li>
+</ul>
+<pre><code><code>/bin/python: No module named virtualenvwrapper
+virtualenvwrapper.sh: There was a problem running the initialization hooks.
+
+If Python could not import the module virtualenvwrapper.hook_loader,
+check that virtualenvwrapper has been installed for
+VIRTUALENVWRAPPER_PYTHON=/bin/python and that PATH is
+set properly.</code></pre>
+<ul>
+<li>问题2</li>
+</ul>
+<pre><code><code>[root@centos ~]# source .bashrc
+-bash: /usr/local/bin/virtualenvwrapper.sh: No such file or directory</code></pre>
+<ul>
+<li>解决方法
+<ul>
+<li>问题1</li>
+</ul>
+<p>在~/.bashrc写入以下内容</p>
+<pre><code><code>export VIRTUALENVWRAPPER_PYTHON=/usr/local/python36/bin/python3 # 指定虚拟使用的python解释器路径</code></pre>
+<ul>
+<li>问题2</li>
+</ul>
+<p>virtualenvwrapper.sh找不到报错，找到后拷贝到/usr/local/bin/下</p>
+<p>然后执行source ~/.bashrc　</p></li>
+</ul>
+<h4 id="开始使用">开始使用</h4>
+<ul>
+<li>创建虚拟环境</li>
+</ul>
+<pre><code><code>mkvirtualenv venv　# venv为虚拟环境的名字，自定义</code></pre>
+<p>这样会在WORKON_HOME变量指定的目录下新建名为venv的虚拟环境。若想指定python版本，可通过&quot;--python&quot;指定python解释器</p>
+<pre><code><code>mkvirtualenv --python=/usr/local/python3.5.3/bin/python venv</code></pre>
+<ul>
+<li>查看当前的虚拟环境目录</li>
+</ul>
+<pre><code><code>[root@centos ~]# workon</code></pre>
+<ul>
+<li>切换到虚拟环境</li>
+</ul>
+<pre><code><code>[root@centos ~]# workon py3
+(py3) [root@centos ~]#</code></pre>
+<ul>
+<li>退出虚拟环境</li>
+</ul>
+<pre><code><code>(py3) [root@centos ~]# deactivate
+[root@centos ~]# </code></pre>
+<ul>
+<li>删除虚拟环境</li>
+</ul>
+<pre><code><code>rmvirtualenv venv</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

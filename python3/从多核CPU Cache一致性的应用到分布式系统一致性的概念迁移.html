@@ -1,0 +1,106 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修从多核CPU Cache一致性的应用到分布式系统一致性的概念迁移' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>从多核CPU Cache一致性的应用到分布式系统一致性的概念迁移</center></div><div class='banquan'>原文出处:本文由博客园博主奔跑的猪0101提供。<br/>
+原文连接:https://www.cnblogs.com/king0101/p/12070822.html</div><br>
+    <h2><span style="color: #339966;"><strong>概述</strong></span></h2>
+<p>&nbsp; &nbsp; &nbsp; 现代多核CPU的cache模型基本都跟下图1所示一样，L1 L2 cache是每个核独占的，只有L3是共享的，当多个cpu读、写同一个变量时，就需要在多个cpu的cache之间同步数据，跟分布式系统一样，必然涉及到一致性的问题，只不过两者之间共享内容的方式不一样而已，一个通过共享内存来共享内容，另一个通过网络消息传递来共享内容。就像<a href="https://en.wikipedia.org/wiki/CPU_cache" target="_blank">wiki</a>所提及的：</p>
+<p>Interestingly enough, a shared-memory multiprocessor system really is a message-passing computer under the covers. This means that clusters of SMP machines that use distributed shared memory are using message passing to implement shared memory at two different levels of the system architecture.</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/从多核CPU Cache一致性的应用到分布式系统一致性的概念迁移0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p style="text-align: center;">&nbsp;图1、现代cpu多级cache</p>
+<h2><span style="background-color: #ffffff; color: #339966;"><strong>多核一致性与原子操作</strong></span></h2>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 多核一致性最典型的应用场景是多线程的原子操作<span lang="EN-US">,其在多线程开发中经常用到，比如在计数器的生成，这类情况下数据有并发的危险，但是用锁去保护又显得有些浪费，所以原子类型操作十分的方便。</span></p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 原子操作虽然用起来简单，但是其背景远比我们想象的要复杂。其主要在于现代计算系统过于的复杂：多处理器、多核处理器、处理器又有核心独有以及核心共享的多级缓存，在这种情况下，一个核心修改了某个变量，其他核心什么时候可见是一个十分严肃的问题。同时在极致最求性能的时代，处理器和编译器往往表现的很智能，进行极度的优化，比如什么乱序执行、指令重排等，虽然可以在当前上下文中做到很好的优化，但是放在多核环境下常常会引出新的问题来，这时候就必须提示编译器和处理器某种提示，告诉某些代码的执行顺序不能被优化。今天我们重点看一下处理器在多线程原子操作上的背景原理以及具体应用。</p>
+<h2><span style="color: #339966;">CPU Cache与内存屏障</span></h2>
+<p align="left">&nbsp; &nbsp; &nbsp;考虑下面典型的代码：</p>
+<div class="cnblogs_code">
+<pre><code>-Thread <span style="color: #800080;">1</span>-
+<span style="color: #0000ff;">void</span> foo(<span style="color: #0000ff;">void</span><span style="color: #000000;">)
+{
+   a </span>= <span style="color: #800080;">1</span><span style="color: #000000;">;
+   b </span>= <span style="color: #800080;">1</span><span style="color: #000000;">;
+}
+</span>-Thread <span style="color: #800080;">2</span>-
+<span style="color: #0000ff;">void</span> bar(<span style="color: #0000ff;">void</span><span style="color: #000000;">)
+{
+   </span><span style="color: #0000ff;">while</span> (b == <span style="color: #800080;">0</span>) <span style="color: #0000ff;">continue</span><span style="color: #000000;">;
+   assert(a </span>== <span style="color: #800080;">1</span><span style="color: #000000;">);
+}</span></pre>
+</div>
+<p>由于cpu cache的存在，thread 2在断言处可能会失败。具体的，由于各个CPU的cache是独立的，所以变量在他们各自的cache里面的顺序可能跟代码的顺序是不一致的，也就是说执行thread2的cpu可能会先看到变量b的变化，然后再看到变量a的变化，导致断言失败。就是我们常见的program order与process order的不一致的工程现象，这里就涉及到了memory consistency model的问题（类似于分布式系统的一致性）。</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;上述的代码如果要正确执行，则变量a、b之间需要有&lsquo;happen before&rsquo;的语义来约束（这里就可以联想到分布式系统中因果一致性的概念）。但是对于这个语义上的需求，硬件设计者也爱莫能助，因为CPU无法知道变量之间的关联关系。所以硬件设计者提供了memory barrier指令，让软件可以通过这些指令来告诉CPU这类关系，实现program order与process order的顺序一致。类似于下面的代码：</p>
+<div class="cnblogs_code">
+<pre><code>-Thread 1-
+<span style="color: #0000ff;">void</span> foo(<span style="color: #0000ff;">void</span><span style="color: #000000;">)
+{
+    a </span>= <span style="color: #800080;">1</span><span style="color: #000000;">;
+    memory_barrier();
+    b </span>= <span style="color: #800080;">1</span><span style="color: #000000;">;
+}</span></pre>
+</div>
+<p>增加memory barrier之后，就可以保证在执行b=1的时候，cpu已经处理过'a=1'的操作了。也就是说通过硬件提供的memory barrier语义，使得软件能够保证其之前的内存访问操作先于其后的完成。memory barrier 常用的地方包括：实现内核的锁机制、应用层编写无锁代码、原子变量等。下面我们一起看下，c++11是怎样使用内存屏障来实现原子操作的。</p>
+<h2><span style="color: #339966;"><strong>C++11的原子操作</strong></span></h2>
+<p align="left">&nbsp; &nbsp; &nbsp; &nbsp; 在C++11标准出来之前，C++标准没有一个明确的内存模型，各个C++编译器实现者各自为政，随着多线程开发的普及解决这个问题变得越来越迫切。在标准出来之前，GCC的实现是根据Intel的开发手册搞出的一系列的__sync原子操作函数集合，具体如下：</p>
+<div class="cnblogs_code">
+<pre><code>type __sync_fetch_and_OP (type *<span style="color: #000000;">ptr, type value, ...)
+type __sync_OP_and_fetch (type </span>*<span style="color: #000000;">ptr, type value, ...)
+bool__sync_bool_compare_and_swap (type </span>*<span style="color: #000000;">ptr, type oldval, type newval, ...)
+type __sync_val_compare_and_swap (type </span>*<span style="color: #000000;">ptr, type oldval, type newval, ...)
+__sync_synchronize (...)</span></pre>
+</div>
+<p align="left">&nbsp; &nbsp; &nbsp; &nbsp;在C++11新标准中规定的内存模型(memory model)颗粒要比上述的内存模型细化很多，所以软件开发者就有很多的操作空间了，如果熟悉这些内存模型，在保证业务正确的同时可以将对性能的影响减弱到最低，在硬件资源吃紧的地方，这是我们优化程序的一个重要方向。</p>
+<p align="left">&nbsp; &nbsp; &nbsp; &nbsp;我们以c++11的原子变量的保证来展开这些内存模型。原子变量的通用接口使用store()和load()方式进行存取，可以额外接受一个额外的memory order参数，这个参数就是对应了c++11的内存模型，根据执行线程之间对变量的同步需求强度，新标准下的内存模型可以分成如下几类：</p>
+<p align="left"><strong>Sequentially Consistent</strong></p>
+<p align="left">&nbsp; &nbsp; &nbsp; 该模型是最强的同步模式，参数表示为<span lang="EN-US">std::memory_order_seq_cst，同时也是默认的模型。</span></p>
+<div class="cnblogs_code">
+<pre><code>-Thread <span style="color: #800080;">1</span>-<span style="color: #000000;">
+y </span>= <span style="color: #800080;">1</span><span style="color: #000000;">
+x.store (</span><span style="color: #800080;">2</span><span style="color: #000000;">); 
+
+</span>-Thread2-
+<span style="color: #0000ff;">if</span>(x.load() ==<span style="color: #800080;">2</span><span style="color: #000000;">)
+assert (y </span>==<span style="color: #800080;">1</span>)</pre>
+</div>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;对于上面的例子，即使x和y是不相关的，通常情况下处理器或者编译器可能会对其访问进行重排，但是在seq_cst模式下，x.store(2)之前的所有memory accesses都发生在store操作之前。同时，x.load()之后的所有memory accesses都发生在load()操作之后，也就是说seq_cst模式下，内存的<span lang="EN-US">限制是双向的。</span></p>
+<p><strong>Acquire/Release&nbsp;</strong><strong><span lang="EN-US">Consistent</span></strong></p>
+<div class="cnblogs_code">
+<pre><code>std::atomic&lt;<span style="color: #0000ff;">int</span>&gt; a{<span style="color: #800080;">0</span><span style="color: #000000;">};
+intb </span>=<span style="color: #800080;">0</span><span style="color: #000000;">;<br />
+</span>-Thread <span style="color: #800080;">1</span>-<span style="color: #000000;">
+b </span>= <span style="color: #800080;">1</span><span style="color: #000000;">;
+a.store(</span><span style="color: #800080;">1</span><span style="color: #000000;">, memory_order_release);
+</span>-Thread <span style="color: #800080;">2</span>-
+<span style="color: #0000ff;">while</span>(a.load(memory_order_acquire) !=<span style="color: #800080;">1</span>)<span style="color: #008000;">/*</span><span style="color: #008000;">waiting</span><span style="color: #008000;">*/</span><span style="color: #000000;">;
+std::cout</span>&lt;&lt; b &lt;&lt;<span style="color: #800000;">'</span><span style="color: #800000;">\n</span><span style="color: #800000;">'</span>;</pre>
+</div>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;毫无疑问，如果是memory_order_seq_cst内存模型，那么上面的操作一定是成功的(打印变量b显示为1)。</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;1. memory_order_release保证在这个操作之前的memory accesses不会重排到这个操作之后去，但是这个操作之后的memory accesses可能会重排到这个操作之前去。通常这个主要是用于之前准备某些资源后，通过store+memory_order_release的方式&rdquo;Release&rdquo;给别的线程；</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;2. memory_order_acquire保证在这个操作之后的memory accesses不会重排到这个操作之前去，但是这个操作之前的memory accesses可能会重排到这个操作之后去。通常通过load+memory_order_acquire判断或者等待某个资源，一旦满足某个条件后就可以安全的&ldquo;Acquire&rdquo;消费这些资源了。</p>
+<p>&nbsp; &nbsp; &nbsp; 这个就是类似于分布式系统的因果一致性的概念。</p>
+<p><strong>Relaxed&nbsp;</strong><strong><span lang="EN-US">Consistent</span></strong></p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;这个是最宽松的模式，memory_order_relaxed没有happens-before的约束，编译器和处理器可以对memory access做任何的re-order，因此另外的线程不能对其做任何的假设，这种模式下能做的唯一保证，就是一旦线程读到了变量var的最新值，那么这个线程将再也见不到var修改之前的值了（这个类似于分布式系统单调读保证的概念）。</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;这种情况通常是在需要原子变量，但是不在线程间同步共享数据的时候会用，同时当relaxed存一个数据的时候，另外的线程将需要一个时间才能relaxed读到该值（也就是最终如果变量不再更改的话，所有的线程还是可以读取到变量最终的值的），在非缓存一致性的构架上需要刷新缓存。在开发的时候，如果你的上下文没有共享的变量需要在线程间同步，选用Relaxed就可以了。</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;这一点类似于分布式系统的最终一致性概念了。</p>
+<h2><strong><span style="color: #339966;">总结</span></strong></h2>
+<p>&nbsp; &nbsp; &nbsp; 上述的过程体现的是强一致性、因果一致性、最终一致性等概念在c++11原子操作的使用，以及当前技术圈非常热门的话题分布式系统开发中分布式一致性概念的思考与迁移。从中我们可以看出技术在发展，但是很多概念其实是一脉相承的，只有深刻理解了概念背后的原理以及相关技术发展的背景，才能勉强跟上技术的发展浪潮。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

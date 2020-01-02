@@ -1,0 +1,225 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【Python3爬虫】快就完事了--使用Celery加速你的爬虫' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【Python3爬虫】快就完事了--使用Celery加速你的爬虫</center></div><div class='banquan'>原文出处:本文由博客园博主TM0831提供。<br/>
+原文连接:https://www.cnblogs.com/TM0831/p/11405077.html</div><br>
+    <h2>一、写在前面</h2>
+<p>　　在<a href="https://www.cnblogs.com/TM0831/p/11389543.html" target="_blank">上一篇博客</a>中提到过对于网络爬虫这种包含大量网络请求的任务，是可以用Celery来做到加速爬取的，那么，这一篇博客就要具体说一下怎么用Celery来对我们的爬虫进行一个加速！</p>
+<p>&nbsp;</p>
+<h2>二、知识补充</h2>
+<h3>1.class celery.group</h3>
+<p>　　group这个类表示创建一组要并行执行的任务，不过一组任务是懒惰的，所以你需要运行并对其进行评估。要了解这个类，可以查看文档，或者在Pycharm中直接Ctrl+左键就能直接查看源码了，如下图：</p>
+<p>　　<img src="./images/【Python3爬虫】快就完事了--使用Celery加速你的爬虫0.png" alt="" /></p>
+<p>　　当然了，直接看源码还不够，最好还是自己动下手。所以先创建一个test.py，其中代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> Celery
+</span><span style="color: #008080;"> 2</span> 
+<span style="color: #008080;"> 3</span> 
+<span style="color: #008080;"> 4</span> app = Celery(<span style="color: #800000;">"</span><span style="color: #800000;">test</span><span style="color: #800000;">"</span>, broker=<span style="color: #800000;">"</span><span style="color: #800000;">redis://127.0.0.1:6379</span><span style="color: #800000;">"</span>, backend=<span style="color: #800000;">"</span><span style="color: #800000;">redis://127.0.0.1:6379</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> <span style="color: #000000;">@app.task
+</span><span style="color: #008080;"> 8</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> add(x, y):
+</span><span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">return</span> x +<span style="color: #000000;"> y
+</span><span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span> 
+<span style="color: #008080;">12</span> <span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+</span><span style="color: #008080;">13</span>     app.start()</pre>
+</div>
+<p>　　然后运行Celery服务器，再在test.py所在目录下创建一个test_run.py用于测试，其中代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> group
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">from</span> .test <span style="color: #0000ff;">import</span><span style="color: #000000;"> add
+</span><span style="color: #008080;"> 3</span> 
+<span style="color: #008080;"> 4</span> 
+<span style="color: #008080;"> 5</span> lazy_group = group(add.s(2, 2), add.s(4, 4<span style="color: #000000;">))
+</span><span style="color: #008080;"> 6</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(type(lazy_group))
+</span><span style="color: #008080;"> 7</span> result =<span style="color: #000000;"> lazy_group()
+</span><span style="color: #008080;"> 8</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(result)
+</span><span style="color: #008080;"> 9</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(type(result))
+</span><span style="color: #008080;">10</span> <span style="color: #0000ff;">print</span>(result.get())</pre>
+</div>
+<p>　　在Pycharm中运行test_run.py，得到的结果如下：</p>
+<blockquote>
+<p>&lt;class 'celery.canvas.group'&gt;</p>
+<p>fe54f453-eb9c-4b24-87e3-a26fab75967f</p>
+<p>&lt;class 'celery.result.GroupResult'&gt;</p>
+<p>[4, 8]</p>
+</blockquote>
+<p>&nbsp;　　通过查看源码可以知道，是可以往group中传入一个由任务组成的可迭代对象的，所以这就进行一下测试，对上面的代码进行一点修改：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> group
+</span><span style="color: #008080;">2</span> <span style="color: #0000ff;">from</span> CelerySpider.test <span style="color: #0000ff;">import</span><span style="color: #000000;"> add
+</span><span style="color: #008080;">3</span> 
+<span style="color: #008080;">4</span> 
+<span style="color: #008080;">5</span> lazy_group = group(add.s(x, y) <span style="color: #0000ff;">for</span> x, y <span style="color: #0000ff;">in</span> zip([1, 3, 5, 7, 9], [2, 4, 6, 8, 10<span style="color: #000000;">]))
+</span><span style="color: #008080;">6</span> result =<span style="color: #000000;"> lazy_group()
+</span><span style="color: #008080;">7</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(result)
+</span><span style="color: #008080;">8</span> <span style="color: #0000ff;">print</span>(result.get())</pre>
+</div>
+<p>　　运行之后得到了我们想要的结果：</p>
+<blockquote>
+<p>f03387f1-af00-400b-b58a-37901563251d</p>
+<p>[3, 7, 11, 15, 19]</p>
+</blockquote>
+<h3>2.celer.result.collect()</h3>
+<p>　　在Celery中有一个类result，这个类包含了任务运行的结果和状态等，而在这个类中就有一个collect()方法，使用该方法能在结果返回时收集结果。和之前一样的步骤，先看看源码：</p>
+<p>　　<img src="./images/【Python3爬虫】快就完事了--使用Celery加速你的爬虫1.png" alt="" /></p>
+<p>　　这里看源码也是看得一头雾水，不如动手写代码试试看。创建一个app.py，其中代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> Celery, group, result
+</span><span style="color: #008080;"> 2</span> 
+<span style="color: #008080;"> 3</span> 
+<span style="color: #008080;"> 4</span> app = Celery(<span style="color: #800000;">"</span><span style="color: #800000;">test</span><span style="color: #800000;">"</span>, broker=<span style="color: #800000;">"</span><span style="color: #800000;">redis://127.0.0.1:6379</span><span style="color: #800000;">"</span>, backend=<span style="color: #800000;">"</span><span style="color: #800000;">redis://127.0.0.1:6379</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> @app.task(trail=<span style="color: #000000;">True)
+</span><span style="color: #008080;"> 8</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> A(how_many):
+</span><span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">return</span> group(B.s(i) <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(how_many))()
+</span><span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span> 
+<span style="color: #008080;">12</span> @app.task(trail=<span style="color: #000000;">True)
+</span><span style="color: #008080;">13</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> B(i):
+</span><span style="color: #008080;">14</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> pow2.delay(i)
+</span><span style="color: #008080;">15</span> 
+<span style="color: #008080;">16</span> 
+<span style="color: #008080;">17</span> @app.task(trail=<span style="color: #000000;">True)
+</span><span style="color: #008080;">18</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> pow2(i):
+</span><span style="color: #008080;">19</span>     <span style="color: #0000ff;">return</span> i ** 2
+<span style="color: #008080;">20</span> 
+<span style="color: #008080;">21</span> 
+<span style="color: #008080;">22</span> <span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+</span><span style="color: #008080;">23</span>     app.start()</pre>
+</div>
+<p>　　可以看到在设置任务的时候都加了参数trail=True，这是为了存储子任务列表运行后的结果，虽然是默认设置，但这里明确启用。在运行Celery服务器之中，进入app.py同级目录，输入python，然后执行如下代码：</p>
+<blockquote>
+<p>&gt;&gt;&gt; from app import A<br />&gt;&gt;&gt; res = A.delay(10)<br />&gt;&gt;&gt; [i[1] for i in res.collect() if isinstance(i[1], int)]<br />[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</blockquote>
+<p>&nbsp;</p>
+<h2>三、具体步骤</h2>
+<h3>1.项目结构</h3>
+<p>　　这个爬虫项目的基本文件如下：</p>
+<p>　　<img src="./images/【Python3爬虫】快就完事了--使用Celery加速你的爬虫2.png" alt="" /></p>
+<p>　　其中app.py用于创建Celery实例，celeryconfig.py是Celery需要使用的配置文件，tasks.py里面的则是具体的任务，crawl.py是爬虫脚本，在打开Celery服务器之后，运行此文件即可。</p>
+<h3>2.主要代码</h3>
+<p>　　首先是app.py，代码如下，其中config_from_object()方法用于配置Celery，传入的参数是一个可被导入的模块：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> Celery
+</span><span style="color: #008080;"> 2</span> 
+<span style="color: #008080;"> 3</span> 
+<span style="color: #008080;"> 4</span> app = Celery(<span style="color: #800000;">"</span><span style="color: #800000;">spiders</span><span style="color: #800000;">"</span>, include=[<span style="color: #800000;">"</span><span style="color: #800000;">CelerySpider.tasks</span><span style="color: #800000;">"</span><span style="color: #000000;">])
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 导入配置文件</span>
+<span style="color: #008080;"> 6</span> app.config_from_object(<span style="color: #800000;">"</span><span style="color: #800000;">CelerySpider.celeryconfig</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 7</span> 
+<span style="color: #008080;"> 8</span> 
+<span style="color: #008080;"> 9</span> <span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+</span><span style="color: #008080;">10</span>     app.start()</pre>
+</div>
+<p>&nbsp;　　下面是tasks.py中的代码，其中包含了发送请求和解析网页的代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">from</span> lxml <span style="color: #0000ff;">import</span><span style="color: #000000;"> etree
+</span><span style="color: #008080;"> 3</span> <span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> group
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">from</span> CelerySpider.app <span style="color: #0000ff;">import</span><span style="color: #000000;"> app
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> headers =<span style="color: #000000;"> {
+</span><span style="color: #008080;"> 8</span>     <span style="color: #800000;">"</span><span style="color: #800000;">Cookie</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">__cfduid=d5d815918f19b7370d14f80fc93f1f27e1566719058; UM_distinctid=16cc7bba92f7b6-0aac860ea9b9a7-7373e61-144000-16cc7bba930727; CNZZDATA1256911977=1379501843-1566718872-https%253A%252F%252Fwww.baidu.com%252F%7C1566718872; XSRF-TOKEN=eyJpdiI6InJvNVdZM0krZ1wvXC9BQjg3YUk5aGM1Zz09IiwidmFsdWUiOiI5WkI4QU42a0VTQUxKU2ZZelVxK1dFdVFydlVxb3g0NVpicEdkSGtyN0Uya3VkXC9pUkhTd2plVUtUTE5FNWR1aCIsIm1hYyI6Ijg4NjViZTQzNGRhZDcxNTdhMDZlMWM5MzI4NmVkOGZhNmRlNTBlYWM0MzUyODIyOWQ4ZmFhOTUxYjBjMTRmNDMifQ%3D%3D; doutula_session=eyJpdiI6IjFoK25pTG50azEwOXlZbmpWZGtacnc9PSIsInZhbHVlIjoiVGY2MU5Ob2pocnJsNVBLZUNMTWw5OVpjT0J6REJmOGVpSkZwNFlUZVwvd0tsMnZsaiszWEpTbEdyZFZ6cW9UR1QiLCJtYWMiOiIxZGQzNTJlNzBmYWE0MmQzMzQ0YzUzYmYwYmMyOWY3YzkxZjJlZTllNDdiZTlkODA2YmQ3YWRjNGRmZDgzYzNmIn0%3D</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+</span><span style="color: #008080;"> 9</span>     <span style="color: #800000;">"</span><span style="color: #800000;">Referer</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">https://www.doutula.com/article/list/?page=1</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+</span><span style="color: #008080;">10</span>     <span style="color: #800000;">"</span><span style="color: #800000;">UserAgent</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36</span><span style="color: #800000;">"</span>
+<span style="color: #008080;">11</span> <span style="color: #000000;">}
+</span><span style="color: #008080;">12</span> 
+<span style="color: #008080;">13</span> 
+<span style="color: #008080;">14</span> @app.task(trail=<span style="color: #000000;">True)
+</span><span style="color: #008080;">15</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> main(urls):
+</span><span style="color: #008080;">16</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 主函数</span>
+<span style="color: #008080;">17</span>     <span style="color: #0000ff;">return</span> group(call.s(url) <span style="color: #0000ff;">for</span> url <span style="color: #0000ff;">in</span><span style="color: #000000;"> urls)()
+</span><span style="color: #008080;">18</span> 
+<span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span> @app.task(trail=<span style="color: #000000;">True)
+</span><span style="color: #008080;">21</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> call(url):
+</span><span style="color: #008080;">22</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 发送请求</span>
+<span style="color: #008080;">23</span>     <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;">24</span>         res = requests.get(url, headers=<span style="color: #000000;">headers)
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">        parse.delay(res.text)
+</span><span style="color: #008080;">26</span>     <span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+</span><span style="color: #008080;">27</span>         <span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+</span><span style="color: #008080;">28</span> 
+<span style="color: #008080;">29</span> 
+<span style="color: #008080;">30</span> @app.task(trail=<span style="color: #000000;">True)
+</span><span style="color: #008080;">31</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> parse(html):
+</span><span style="color: #008080;">32</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 解析网页    </span>
+<span style="color: #008080;">33</span>     et =<span style="color: #000000;"> etree.HTML(html)
+</span><span style="color: #008080;">34</span>     href_list = et.xpath(<span style="color: #800000;">'</span><span style="color: #800000;">//*[@id="home"]/div/div[2]/a/@href</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">35</span>     result =<span style="color: #000000;"> []
+</span><span style="color: #008080;">36</span>     <span style="color: #0000ff;">for</span> href <span style="color: #0000ff;">in</span><span style="color: #000000;"> href_list:
+</span><span style="color: #008080;">37</span>         href_res = requests.get(href, headers=<span style="color: #000000;">headers)
+</span><span style="color: #008080;">38</span>         href_et =<span style="color: #000000;"> etree.HTML(href_res.text)
+</span><span style="color: #008080;">39</span>         src_list = href_et.xpath(<span style="color: #800000;">'</span><span style="color: #800000;">//*[@class="artile_des"]/table/tbody/tr/td/a/img/@src</span><span style="color: #800000;">'</span><span style="color: #000000;">) 
+</span><span style="color: #008080;">40</span> <span style="color: #000000;">        result.extend(src_list)
+</span><span style="color: #008080;">41</span>     <span style="color: #0000ff;">return</span> result</pre>
+</div>
+<p>　　最后是crawl.py中的代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">from</span> CelerySpider.tasks <span style="color: #0000ff;">import</span><span style="color: #000000;"> main
+</span><span style="color: #008080;"> 3</span> 
+<span style="color: #008080;"> 4</span> 
+<span style="color: #008080;"> 5</span> start_time =<span style="color: #000000;"> time.time()
+</span><span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> 
+<span style="color: #008080;"> 8</span> url_list = [<span style="color: #800000;">"</span><span style="color: #800000;">https://www.doutula.com/article/list/?page={}</span><span style="color: #800000;">"</span>.format(i) <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1, 31<span style="color: #000000;">)]
+</span><span style="color: #008080;"> 9</span> res =<span style="color: #000000;"> main.delay(url_list)
+</span><span style="color: #008080;">10</span> all_src =<span style="color: #000000;"> []
+</span><span style="color: #008080;">11</span> <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> res.collect():
+</span><span style="color: #008080;">12</span>     <span style="color: #0000ff;">if</span> isinstance(i[1], list) <span style="color: #0000ff;">and</span> isinstance(i[1<span style="color: #000000;">][0], str):
+</span><span style="color: #008080;">13</span>         all_src.extend(i[1<span style="color: #000000;">])
+</span><span style="color: #008080;">14</span> 
+<span style="color: #008080;">15</span> <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Src count: </span><span style="color: #800000;">"</span><span style="color: #000000;">, len(all_src))
+</span><span style="color: #008080;">16</span> 
+<span style="color: #008080;">17</span> 
+<span style="color: #008080;">18</span> end_time =<span style="color: #000000;"> time.time()
+</span><span style="color: #008080;">19</span> <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Cost time: </span><span style="color: #800000;">"</span>, end_time - start_time)</pre>
+</div>
+<p>&nbsp;　　此次爬取的网站是一个<a href="https://www.doutula.com/article/list/?page=1" target="_blank">表情包网站</a>，url_list就表示要爬取的url，这里我选择爬取30页来测试。all_src用于存储表情包图片的资源链接，通过collect()方法提取出要爬取的链接，然后将这些表情包下载下来，最后打印出下载的图片数量和整个程序所耗费的时间。</p>
+<p>&nbsp;</p>
+<h2>&nbsp;四、运行结果</h2>
+<p>　　当运行Celery服务后，再运行crawl.py文件，会看到如下信息打印出来：</p>
+<p>　　<img src="./images/【Python3爬虫】快就完事了--使用Celery加速你的爬虫3.png" alt="" /></p>
+<p>　　当整个爬虫运行完毕后，会打印出所耗费的时间：</p>
+<p>　　<img src="./images/【Python3爬虫】快就完事了--使用Celery加速你的爬虫4.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>　　<span style="font-size: 14pt;">完整代码已上传到<a href="https://github.com/TM0831/Spiders/tree/master/CelerySpider" target="_blank">GitHub</a>！</span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

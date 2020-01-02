@@ -1,0 +1,105 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修vue2.5 + element UI el-table 导出Excel' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>vue2.5 + element UI el-table 导出Excel</center></div><div class='banquan'>原文出处:本文由博客园博主95.8℃提供。<br/>
+原文连接:https://www.cnblogs.com/maggieq8324/p/12051429.html</div><br>
+    <h4 id="安装依赖">安装依赖</h4>
+<pre><code><code>npm install --save xlsx file-saver</code></pre>
+<h4 id="新建excelhelper.js">新建excelHelper.js</h4>
+<ul>
+<li><code>\src\utils\</code>目录下新建<code>excelHelper.js</code>文件</li>
+</ul>
+<pre><code><code>import Vue from &#39;vue&#39;
+import FileSaver from &quot;file-saver&quot;;
+import XLSX from &quot;xlsx&quot;;
+
+export default {
+    /**
+     * @param tableId 要导出的表格ID
+     * @param fileName 文件导出名称
+     * @param fileType 文件类型
+     * @param rawFlag - true 导出的内容只做解析，不进行格式转换
+     * @returns {*}
+     */
+    exportExcel(tableId,fileName,fileType,rawFlag) {
+        let fix = document.querySelector(&#39;.el-table__fixed&#39;);
+        let wb;
+        /* 判断要导出的节点中是否有fixed的表格，如果有，转换excel时先将该dom移除，然后append回去 */
+        if(fix){ 
+            wb = XLSX.utils.table_to_book(document.querySelector(&quot;#&quot;+tableId).removeChild(fix),{raw:rawFlag});
+            document.querySelector(&quot;#&quot;+tableId).appendChild(fix);
+        }else{
+            wb = XLSX.utils.table_to_book(document.querySelector(&quot;#&quot;+tableId),{raw:rawFlag});
+        }
+        /* 获取二进制字符串作为输出 */
+        let wbout = XLSX.write(wb, {
+            bookType: &quot;xlsx&quot;,
+            bookSST: true,
+            type: &quot;array&quot;
+        });
+        try {
+            FileSaver.saveAs(
+                //Blob 对象表示一个不可变、原始数据的类文件对象。
+                //Blob 表示的不一定是JavaScript原生格式的数据。
+                //File 接口基于Blob，继承了 blob 的功能并将其扩展使其支持用户系统上的文件。
+                //返回一个新创建的 Blob 对象，其内容由参数中给定的数组串联组成。
+                new Blob([wbout], { type: &quot;application/octet-stream&quot; }),
+                //设置导出文件名称
+                fileName + fileType
+            );
+        } catch (e) {
+            if (typeof console !== &quot;undefined&quot;) console.log(e, wbout);
+        }
+        return wbout;
+    }
+}</code></pre>
+<h4 id="调用">调用</h4>
+<ul>
+<li>在需要使用导出的页面中引用<code>excelHelper.js</code></li>
+</ul>
+<pre><code><code>import excelHelper from &quot;@/utils/excelHelper&quot;;</code></pre>
+<ul>
+<li>按钮调用</li>
+</ul>
+<pre><code><code>excelHelper.exportExcel(&quot;table&quot;,&quot;fileName&quot;,&quot;.xls&quot;,true);</code></pre>
+<ul>
+<li>其中，<code>table</code>是为表格绑定的id，<code>fileName</code>是导出的文件名称，<code>.xls</code>是导出的文件类型，<code>true</code>指明导出的内容只做解析不进行格式转换<br />
+<br></li>
+</ul>
+<h4 id="填坑指南">填坑指南</h4>
+<h6 id="el-table数据导出excel数据重复两遍">el-table数据导出Excel数据重复两遍</h6>
+<ul>
+<li>原因：el-table的fixed属性来让某一列固定，但elementui的实现方式是：创建了两个tabledom，通过一个隐藏一个显示来实现交互效果，当导出整个el-table 就会将两个div内的table都导出，导致数据重复</li>
+<li>解决方式：</li>
+</ul>
+<pre><code><code>  let fix = document.querySelector(&#39;.el-table__fixed&#39;);
+  let wb;
+  //判断要导出的节点中是否有fixed的表格，如果有，转换excel时先将该dom移除，然后append回去
+  if(fix){ 
+    wb = XLSX.utils.table_to_book(document.querySelector(&#39;#table&#39;).removeChild(fix));
+    document.querySelector(&#39;#table&#39;).appendChild(fix);
+  }else{
+    wb = XLSX.utils.table_to_book(document.querySelector(&#39;#table&#39;));
+  }</code></pre>
+<p>推荐博客：<a href="https://blog.csdn.net/qq_40614207/article/details/94003793" class="uri">https://blog.csdn.net/qq_40614207/article/details/94003793</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

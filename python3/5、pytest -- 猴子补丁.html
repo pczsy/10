@@ -1,0 +1,270 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修5、pytest -- 猴子补丁' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>5、pytest -- 猴子补丁</center></div><div class='banquan'>原文出处:本文由博客园博主luizyao提供。<br/>
+原文连接:https://www.cnblogs.com/luizyao/p/11698702.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#修改函数功能或者类属性">1. 修改函数功能或者类属性</a></li>
+        <li><a href="#修改环境变量">2. 修改环境变量</a></li>
+        <li><a href="#修改字典">3. 修改字典</a></li>
+        </ul>
+    </div>
+</div>
+<p>有时候，测试用例需要调用某些依赖于全局配置的功能，或者这些功能本身又调用了某些不容易测试的代码（例如：网络接入）。<code>fixture monkeypatch</code>可以帮助你安全的<strong>设置/删除</strong>一个属性、字典项或者环境变量，甚至改变导入模块时的<code>sys.path</code>路径。</p>
+<p><code>monkeypatch</code>提供了以下方法：</p>
+<pre><code><code>monkeypatch.setattr(obj, name, value, raising=True)
+monkeypatch.delattr(obj, name, raising=True)
+monkeypatch.setitem(mapping, name, value)
+monkeypatch.delitem(obj, name, raising=True)
+monkeypatch.setenv(name, value, prepend=False)
+monkeypatch.delenv(name, raising=True)
+monkeypatch.syspath_prepend(path)
+monkeypatch.chdir(path)</code></pre>
+<p>所有的修改将在测试用例或者<code>fixture</code>执行完成后撤销。<code>raising</code>参数表明：当<strong>设置/删除</strong>操作的目标不存在时，是否上报<code>KeyError</code>和<code>AttributeError</code>异常。</p>
+<h2 id="修改函数功能或者类属性">1. 修改函数功能或者类属性</h2>
+<p>使用<code>monkeypatch.setattr()</code>可以将函数或者属性修改为你希望的行为，使用<code>monkeypatch.delattr()</code>可以删除测试用例使用的函数或者属性；</p>
+<p>参考以下三个例子：</p>
+<ul>
+<li><p>在这个例子中，使用<code>monkeypatch.setattr()</code>修改<code>Path.home</code>方法，在测试运行期间，它一直返回的是固定的<code>Path(&quot;/abc&quot;)</code>，这样就移除了它在不同平台上的依赖；测试运行完成后，对<code>Path.home</code>的修改会被撤销；</p>
+<pre><code><code># src/chapter-5/test_module.py
+
+from pathlib import Path
+
+
+def getssh():
+    return Path.home() / &quot;.ssh&quot;
+
+
+def test_getssh(monkeypatch):
+    def mockreturn():
+        return Path(&quot;/abc&quot;)
+
+    # 替换 Path.home
+    # 需要在真正的调用之前执行
+    monkeypatch.setattr(Path, &quot;home&quot;, mockreturn)
+
+    # 将会使用 mockreturn 代替 Path.home
+    x = getssh()
+    assert x == Path(&quot;/abc/.ssh&quot;)</code></pre></li>
+<li><p>在这个例子中，使用<code>monkeypatch.setattr()</code>结合类，模拟函数的返回对象；</p>
+<p>假设我们有一个简单的功能，访问一个<code>url</code>返回网页内容：</p>
+<pre><code><code># src/chapter-5/app.py
+
+from urllib import request
+
+
+def get(url):
+    r = request.urlopen(url)
+    return r.read().decode(&#39;utf-8&#39;)</code></pre>
+<p>我们现在要去模拟<code>r</code>，它需要一个<code>.read()</code>方法返回的是<code>bytes</code>的数据类型；我们可以在测试模块中定义一个类来代替<code>r</code>：</p>
+<pre><code><code># src/chapter-5/test_app.py
+
+from urllib import request
+
+from app import get
+
+
+# 自定义的类模拟 urlopen 的返回值
+class MockResponse:
+
+    # 永远返回一个固定的 bytes 类型的数据
+    @staticmethod
+    def read():
+        return b&#39;luizyao.com&#39;
+
+
+def test_get(monkeypatch):
+    def mock_urlopen(*args, **kwargs):
+        return MockResponse()
+
+    # 使用 request.mock_urlopen 代替 request.urlopen
+    monkeypatch.setattr(request, &#39;urlopen&#39;, mock_urlopen)
+
+    data = get(&#39;https://luizyao.com&#39;)
+    assert data == &#39;luizyao.com&#39;</code></pre>
+<blockquote>
+<p>你可以继续为实际的场景构建更具有复杂度的<code>MockResponse</code>；例如，你可以包含一个总是返回<code>True</code>的<code>ok</code>属性，或者根据输入的字符串为<code>read()</code>返回不同的值；</p>
+</blockquote>
+<p>我们也可以通过<code>fixture</code>跨用例共享：</p>
+<pre><code><code># src/chapter-5/test_app.py
+
+import pytest
+
+
+# monkeypatch 是 function 级别作用域的，所以 mock_response 也只能是 function 级别，
+# 否则会报 ScopeMismatch 
+@pytest.fixture
+def mock_response(monkeypatch):
+    def mock_urlopen(*args, **kwargs):
+        return MockResponse()
+
+    # 使用 request.mock_urlopen 代替 request.urlopen
+    monkeypatch.setattr(request, &#39;urlopen&#39;, mock_urlopen)
+
+
+# 使用 mock_response 代替原先的 monkeypatch
+def test_get_fixture1(mock_response):
+    data = get(&#39;https://luizyao.com&#39;)
+    assert data == &#39;luizyao.com&#39;
+
+
+# 使用 mock_response 代替原先的 monkeypatch
+def test_get_fixture2(mock_response):
+    data = get(&#39;https://bing.com&#39;)
+    assert data == &#39;luizyao.com&#39;</code></pre>
+<blockquote>
+<p>注意：</p>
+<ul>
+<li>测试用例使用的<code>fixture</code>由原先的<code>mock_response</code>替换为<code>monkeypatch</code>；</li>
+<li>因为<code>monkeypatch</code>是<code>function</code>级别作用域的，所以<code>mock_response</code>也只能是<code>function</code>级别，否则会报<code>ScopeMismatch: You tried to access the 'function' scoped fixture 'monkeypatch' with a 'module' scoped request object</code>错误；</li>
+<li>如果你想让<code>mock_response</code>应用于所有的测试用例，可以考虑将它移到<code>conftest.py</code>里面，并标记<code>autouse=True</code>；</li>
+</ul>
+</blockquote></li>
+<li><p>在这个例子中，使用<code>monkeypatch.delattr()</code>删除<code>urllib.request.urlopen()</code>方法；</p>
+<pre><code><code># src/chapter-5/test_app.py
+
+@pytest.fixture
+def no_request(monkeypatch):
+    monkeypatch.delattr(&#39;urllib.request.urlopen&#39;)
+
+
+def test_delattr(no_request):
+    data = get(&#39;https://bing.com&#39;)
+    assert data == &#39;luizyao.com&#39;</code></pre>
+<p>执行：</p>
+<pre class="bash"><code>λ pipenv run pytest --tb=native --assert=plain --capture=no src/chapter-5/test_app.
+py::test_delattr
+=============================== test session starts ================================ 
+platform win32 -- Python 3.7.3, pytest-5.1.3, py-1.8.0, pluggy-0.13.0
+rootdir: D:\Personal Files\Projects\pytest-chinese-doc
+collected 1 item
+
+src\chapter-5\test_app.py F
+
+===================================== FAILURES ===================================== 
+___________________________________ test_delattr ___________________________________ 
+Traceback (most recent call last):
+  File &quot;D:\Personal Files\Projects\pytest-chinese-doc\src\chapter-5\test_app.py&quot;, line 78, in test_delattr
+    data = get(&#39;https://bing.com&#39;)
+  File &quot;D:\Personal Files\Projects\pytest-chinese-doc\src\chapter-5\app.py&quot;, line 26, in get
+    r = request.urlopen(url)
+AttributeError: module &#39;urllib.request&#39; has no attribute &#39;urlopen&#39;
+================================ 1 failed in 0.04s =================================</code></pre>
+<blockquote>
+<p>注意：</p>
+<ul>
+<li><p>避免删除内置库中的方法，如果一定要这么做，最好加上<code>--tb=native --assert=plain --capture=no</code>；</p></li>
+<li><p>修改<code>pytest</code>使用到的库，可能会污染<code>pytest</code>本身，建议使用<code>MonkeyPatch.context()</code>，它返回一个<code>MonkeyPatch</code>对象，结合<code>with</code>限制这些修改只发生在包裹的代码中。</p>
+<pre><code><code>def test_stdlib(monkeypatch):
+with monkeypatch.context() as m:
+    m.setattr(functools, &quot;partial&quot;, 3)
+    assert functools.partial == 3</code></pre></li>
+</ul>
+</blockquote></li>
+</ul>
+<h2 id="修改环境变量">2. 修改环境变量</h2>
+<p>使用<code>monkeypatch</code>的<code>setenv()</code>和<code>delenv()</code>方法，可以在测试中安全的设置/删除环境变量；</p>
+<pre><code><code># src/chapter-5/test_env.py
+
+import os
+
+import pytest
+
+
+def get_os_user():
+    username = os.getenv(&#39;USER&#39;)
+
+    if username is None:
+        raise IOError(&#39;&quot;USER&quot; environment variable is not set.&#39;)
+
+    return username
+
+
+def test_user(monkeypatch):
+    monkeypatch.setenv(&#39;USER&#39;, &#39;luizyao&#39;)
+    assert get_os_user() == &#39;luizyao&#39;
+
+
+def test_raise_exception(monkeypatch):
+    monkeypatch.delenv(&#39;USER&#39;, raising=False)
+    pytest.raises(IOError, get_os_user)</code></pre>
+<p><code>monkeypatch.delenv()</code>的<code>raising</code>要设置为<code>False</code>，否则可能会报<code>KeyError</code>；</p>
+<p>你也可以使用<code>fixture</code>，实现跨用例共享：</p>
+<pre><code><code>import pytest
+
+
+@pytest.fixture
+def mock_env_user(monkeypatch):
+    monkeypatch.setenv(&quot;USER&quot;, &quot;TestingUser&quot;)
+
+
+@pytest.fixture
+def mock_env_missing(monkeypatch):
+    monkeypatch.delenv(&quot;USER&quot;, raising=False)
+
+
+# notice the tests reference the fixtures for mocks
+def test_upper_to_lower(mock_env_user):
+    assert get_os_user_lower() == &quot;testinguser&quot;
+
+
+def test_raise_exception(mock_env_missing):
+    with pytest.raises(OSError):
+        _ = get_os_user_lower()</code></pre>
+<h2 id="修改字典">3. 修改字典</h2>
+<p>使用<code>monkeypatch.setitem()</code>方法可以在测试期间安全的修改字典中特定的值；</p>
+<pre><code><code>DEFAULT_CONFIG = {&quot;user&quot;: &quot;user1&quot;, &quot;database&quot;: &quot;db1&quot;}
+
+
+def create_connection_string(config=None):
+    config = config or DEFAULT_CONFIG
+    return f&quot;User Id={config[&#39;user&#39;]}; Location={config[&#39;database&#39;]};&quot;</code></pre>
+<p>我们可以修改数据库的用户或者使用其它的数据库：</p>
+<pre><code><code>import app
+
+
+def test_connection(monkeypatch):
+    monkeypatch.setitem(app.DEFAULT_CONFIG, &quot;user&quot;, &quot;test_user&quot;)
+    monkeypatch.setitem(app.DEFAULT_CONFIG, &quot;database&quot;, &quot;test_db&quot;)
+
+    expected = &quot;User Id=test_user; Location=test_db;&quot;
+
+    result = app.create_connection_string()
+    assert result == expected</code></pre>
+<p>可以使用<code>monkeypatch.delitem</code>删除指定的项：</p>
+<pre><code><code>import pytest
+
+import app
+
+
+def test_missing_user(monkeypatch):
+    monkeypatch.delitem(app.DEFAULT_CONFIG, &quot;user&quot;, raising=False)
+
+    with pytest.raises(KeyError):
+        _ = app.create_connection_string()</code></pre>
+<blockquote>
+<p>GitHub仓库地址：<a href="https://github.com/luizyao/pytest-chinese-doc" class="uri">https://github.com/luizyao/pytest-chinese-doc</a></p>
+</blockquote>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

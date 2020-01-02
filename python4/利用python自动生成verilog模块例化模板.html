@@ -1,0 +1,82 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修利用python自动生成verilog模块例化模板' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>利用python自动生成verilog模块例化模板</center></div><div class='banquan'>原文出处:本文由博客园博主没落骑士提供。<br/>
+原文连接:https://www.cnblogs.com/moluoqishi/p/11332152.html</div><br>
+    <p><strong><span style="font-size: 18pt;">一、前言</span></strong></p>
+<p>　　<span style="font-size: 16px;">初入职场，一直忙着熟悉工作，就没什么时间更新博客。今天受&ldquo;利奇马&rdquo;的影响，只好宅在家中，写写技术文章。芯片设计规模日益庞大，编写脚本成了芯片开发人员必要的软技能。模块端口动不动就几十上百个，手动编写代码伤不起。实现verilog模块例化模板的自动生成也算是我自砸饭碗的第一步了O(&cap;_&cap;)O！</span></p>
+<p><strong><span style="font-size: 18pt;">二、代码设计</span></strong></p>
+<p>　　<span style="font-size: 16px;">要自动生成模块例化模板总共分三步：1 打开设计文件，读取内容 2 正则匹配 3 打开指定上层文件，写入例化模板。涉及到的知识点主要有文件读写和正则匹配。该脚本分别用两个表达式匹配模块名称和端口列表，之后把两者按照verilog模块例化的代码规则写入到指定文件。具体细节上代码之后再说：</span></p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('061c4949-3642-4f68-a37f-5c2f0f2e56a1')"><img id="code_img_closed_061c4949-3642-4f68-a37f-5c2f0f2e56a1" class="code_img_closed" src="./images/利用python自动生成verilog模块例化模板0.png" alt="" /><img id="code_img_opened_061c4949-3642-4f68-a37f-5c2f0f2e56a1" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('061c4949-3642-4f68-a37f-5c2f0f2e56a1',event)" src="./images/利用python自动生成verilog模块例化模板1.png" alt="" />
+<div id="cnblogs_code_open_061c4949-3642-4f68-a37f-5c2f0f2e56a1" class="cnblogs_code_hide">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/python</span>
+<span style="color: #008080;"> 2</span> 
+<span style="color: #008080;"> 3</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> re
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span> <span style="color: #008000;">#</span><span style="color: #008000;">regex compile</span>
+<span style="color: #008080;"> 7</span> regex_module = re.compile(<span style="color: #800000;">'</span><span style="color: #800000;">(module)(\s+)(\w+)</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 8</span> 
+<span style="color: #008080;"> 9</span> regex_ports = re.compile(<span style="color: #800000;">'''</span>
+<span style="color: #008080;">10</span> <span style="color: #800000;">(input|output)        #0
+</span><span style="color: #008080;">11</span> <span style="color: #800000;">(\s+)                 #1
+</span><span style="color: #008080;">12</span> <span style="color: #800000;">(wire|reg\s+)?        #2
+</span><span style="color: #008080;">13</span> <span style="color: #800000;">(\[\w+\-1\:0\]\s+)?   #3
+</span><span style="color: #008080;">14</span> <span style="color: #800000;">(\w+)                 #4
+</span><span style="color: #008080;">15</span> <span style="color: #800000;">'''</span><span style="color: #000000;">,re.VERBOSE)       
+</span><span style="color: #008080;">16</span> 
+<span style="color: #008080;">17</span> directory =<span style="color: #000000;"> os.getcwd()
+</span><span style="color: #008080;">18</span> <span style="color: #008000;">#</span><span style="color: #008000;">open the design file</span>
+<span style="color: #008080;">19</span> file_design = input(<span style="color: #800000;">'</span><span style="color: #800000;">Please enter the file name:</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">20</span> with open(directory+<span style="color: #800000;">'</span><span style="color: #800000;">/</span><span style="color: #800000;">'</span>+file_design,<span style="color: #800000;">'</span><span style="color: #800000;">r</span><span style="color: #800000;">'</span><span style="color: #000000;">) as file_obj:
+</span><span style="color: #008080;">21</span>   comment =<span style="color: #000000;"> file_obj.read()
+</span><span style="color: #008080;">22</span> 
+<span style="color: #008080;">23</span> <span style="color: #008000;">#</span><span style="color: #008000;">regex match module name</span>
+<span style="color: #008080;">24</span> module_obj =<span style="color: #000000;"> regex_module.search(comment)
+</span><span style="color: #008080;">25</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(module_obj.group())
+</span><span style="color: #008080;">26</span> <span style="color: #008000;">#</span><span style="color: #008000;">regex match ports name</span>
+<span style="color: #008080;">27</span> groups_ports =<span style="color: #000000;"> regex_ports.findall(comment)
+</span><span style="color: #008080;">28</span> <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\nnumber of ports:</span><span style="color: #800000;">'</span><span style="color: #000000;">,len(groups_ports))
+</span><span style="color: #008080;">29</span> 
+<span style="color: #008080;">30</span> <span style="color: #008000;">#</span><span style="color: #008000;">write the instantiation templete to an assigned file</span>
+<span style="color: #008080;">31</span> file_tb = input(<span style="color: #800000;">'</span><span style="color: #800000;">Please enter the top file name:</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">32</span> with open(directory+<span style="color: #800000;">'</span><span style="color: #800000;">/</span><span style="color: #800000;">'</span>+file_tb,<span style="color: #800000;">'</span><span style="color: #800000;">a</span><span style="color: #800000;">'</span><span style="color: #000000;">) as file_obj2:
+</span><span style="color: #008080;">33</span>   <span style="color: #0000ff;">if</span> module_obj <span style="color: #0000ff;">is</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> None:
+</span><span style="color: #008080;">34</span>     file_obj2.write(module_obj.group(3)+<span style="color: #800000;">'</span><span style="color: #800000;"> uut\n(\n</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">35</span> 
+<span style="color: #008080;">36</span>     num =<span style="color: #000000;"> len(groups_ports)   
+</span><span style="color: #008080;">37</span>     <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(num):
+</span><span style="color: #008080;">38</span>       <span style="color: #0000ff;">if</span> i == num-1<span style="color: #000000;">:
+</span><span style="color: #008080;">39</span>         file_obj2.write(<span style="color: #800000;">'</span><span style="color: #800000;">.</span><span style="color: #800000;">'</span>+groups_ports[i][4]+<span style="color: #800000;">'</span><span style="color: #800000;">  ()\n</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">40</span>       <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">41</span>         file_obj2.write(<span style="color: #800000;">'</span><span style="color: #800000;">.</span><span style="color: #800000;">'</span>+groups_ports[i][4]+<span style="color: #800000;">'</span><span style="color: #800000;">  (),\n</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">42</span>     file_obj2.write(<span style="color: #800000;">'</span><span style="color: #800000;">);\n</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<span class="cnblogs_code_collapse">python_inst.py</span></div>
+<p>　　<span style="font-size: 16px;">python的文件读写非常简洁，使用with open打开可以确保在合适的时候自动关闭文件，防止数据受损丢失。为了保证代码通用性，使用os.getcwd获取当前脚本所在路径，这样改动路径时不需要再次修改代码即可照常运行。至于正则匹配在之前的博文：python中正则表达式与模式匹配 - 没落骑士 - 博客&nbsp;https://www.cnblogs.com/moluoqishi/p/10825221.html 中已经描述的比较详尽了，这里不再赘述。有一点需要注意，search和findall返回的数据结构不同，依次是匹配对象和匹配内容列表。</span></p>
+<p><span style="font-size: 18pt;"><strong>三、运行结果</strong></span></p>
+<p><span style="font-size: 18pt;"><strong>　</strong><span style="font-size: 16px;">最后我们来看下运行结果。命令行：</span></span></p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/利用python自动生成verilog模块例化模板2.png" alt="" width="460" height="164" /></p>
+<p>　　<span style="font-size: 16px;">设计源文件及写入文件：</span></p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/利用python自动生成verilog模块例化模板3.png" alt="" width="348" height="255" /><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/利用python自动生成verilog模块例化模板4.png" alt="" width="534" height="239" /></p>
+<p>　　<span style="font-size: 16px;">脚本正确生成设计模块的例化模板，后续再进一步优化。</span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

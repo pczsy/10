@@ -1,0 +1,493 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Spring Cloud Zuul 精进' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Spring Cloud Zuul 精进</center></div><div class='banquan'>原文出处:本文由博客园博主rickiyang提供。<br/>
+原文连接:https://www.cnblogs.com/rickiyang/p/12080755.html</div><br>
+    <p>接着上一篇继续讲Zuul，上一篇搭建了Zuul的环境简单说明了怎么使用，本篇查缺补漏将一些常用的配置贴出来。文末我们会一起分析一下Zuul的源码，升华一下本篇的格调！</p>
+<p><strong>忽略所有微服务或某些微服务</strong></p>
+<p>默认情况下，只要引入了zuul后，就会自动一个默认的路由配置，但有些时候我们可能不想要默认的路由配置规则，想自己进行定义，忽略所有微服务：(后面写 * )：</p>
+<pre><code><code>zuul:  
+  ignored-services: &quot;*&quot;  </code></pre>
+<p><strong>忽略某些微服务：(直接写微服务的名字=&gt;可以理解为spring.application.name的值，多个以都好分隔)</strong></p>
+<pre><code><code>zuul:  
+  ignored-services: product-provider,product-consumer-8201  </code></pre>
+<p><strong>忽略所有为服务，只路由指定的微服务</strong></p>
+<pre><code><code>zuul:
+  # 排除所有的服务,只由指定的服务进行路由
+  ignored-services: &quot;*&quot;
+  routes:
+    eureka-client:
+      path: /client1/**
+      serviceId: eureka-client</code></pre>
+<p><strong>通过path和url访问到具体的某台机器上</strong></p>
+<p>有时候我们测试的时候需要访问到具体的某台机器上，而不希望负载均衡到别的机器上或者需要访问到第三方的某台机器上：</p>
+<pre><code><code>zuul:  
+  routes:  
+    product-provider:  
+      path: /product/**  
+      url: http://localhost:8202/  </code></pre>
+<p><strong>注意：</strong></p>
+<ol>
+<li>product-provider 这个值可以随便写，即使是一个不存在的值；</li>
+<li>这种方式访问不会作为 HystrixCommand 来进行访问；</li>
+<li>url 里面也不可以写多个url</li>
+</ol>
+<p><strong>敏感头的传递（比如Cookie等）全局设置和某个微服务设置</strong></p>
+<p>有些时候我们微服务上游可能想传递一些请求头到下游的服务，比如Token、Cookie等值，默认情况下，zuul 不会将 Cookie,Set-Cookie,Authorization <strong>这三个头传递到下游服务，如果需要传递，就需要忽略这些敏感头。</strong></p>
+<pre><code><code>zuul:
+  #所有服务路径前统一加上前缀
+  prefix: /api
+  # 排除某些路由, 支持正则表达式
+  ignored-patterns:
+    - /**/modify/pwd
+  # 排除服务
+  ignored-services: user-center
+  routes:
+    eureka-client:
+      path: /client1/**
+      serviceId: eureka-client
+      sensitiveHeaders:  #当前这个路由的header为空
+  sensitiveHeaders: Cookie，Set-cookie #全局路由都带这些header</code></pre>
+<h4 id="zuul-源码浅析">Zuul 源码浅析</h4>
+<p>开启Zuul很简单，在启动类上添加Zuul 开启注解：</p>
+<pre class="java"><code>@EnableZuulProxy</code></pre>
+<pre class="java"><code>/**
+ * Sets up a Zuul server endpoint and installs some reverse proxy filters in it, so it can
+ * forward requests to backend servers. The backends can be registered manually through
+ * configuration or via DiscoveryClient.
+ *
+ * @see EnableZuulServer for how to get a Zuul server without any proxying
+ *
+ * @author Spencer Gibb
+ * @author Dave Syer
+ * @author Biju Kunjummen
+ */
+@EnableCircuitBreaker
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Import(ZuulProxyMarkerConfiguration.class)
+public @interface EnableZuulProxy {
+}</code></pre>
+<p>上面的注释上有一句话：EnableZuulServer 是不使用代理功能来获取Zuul server。开启Zuul 网关有两种方式：</p>
+<ul>
+<li>@EnableZuulServer ： 普通网关,只支持基本的route与filter；</li>
+<li>@EnableZuulProxy ：配合上服务发现与熔断开关，是 EnableZuulServer 的增强版,具有反向代理功能。</li>
+</ul>
+<p>简单来说，@EnableZuulProxy可理解为@EnableZuulServer的增强版，当Zuul与Eureka、Ribbon等组件配合使用时，我们使用@EnableZuulProxy。</p>
+<p>接着看 EnableZuulProxy，在类头引用了<code>ZuulProxyMarkerConfiguration</code>，ZuulProxyAutoConfiguration 的作用是开启 <code>ZuulProxyAutoConfiguration</code>的标记。</p>
+<p>ZuulProxyAutoConfiguration 继承了 ZuulServerAutoConfiguration，是 ZuulServerAutoConfiguration 的超集。该类注入了DiscoveryClient、RibbonCommandFactoryConfiguration用作负载均衡相关的。注入了一些列的filters，比如PreDecorationFilter、RibbonRoutingFilter、SimpleHostRoutingFilter。</p>
+<p>ZuulServerAutoConfiguration更为重要：</p>
+<pre class="java"><code>@Configuration
+@EnableConfigurationProperties({ ZuulProperties.class })
+@ConditionalOnClass({ZuulServlet.class, ZuulServletFilter.class})
+@ConditionalOnBean(ZuulServerMarkerConfiguration.Marker.class)
+// Make sure to get the ServerProperties from the same place as a normal web app would
+// FIXME @Import(ServerPropertiesAutoConfiguration.class)
+public class ZuulServerAutoConfiguration {
+
+    @Autowired
+    protected ZuulProperties zuulProperties;
+
+    @Autowired
+    protected ServerProperties server;
+
+    @Autowired(required = false)
+    private ErrorController errorController;
+
+    private Map&lt;String, CorsConfiguration&gt; corsConfigurations;
+
+    @Autowired(required = false)
+    private List&lt;WebMvcConfigurer&gt; configurers = emptyList();
+
+    @Bean
+    public HasFeatures zuulFeature() {
+        return HasFeatures.namedFeature(&quot;Zuul (Simple)&quot;, ZuulServerAutoConfiguration.class);
+    }
+
+    @Bean
+    @Primary
+    public CompositeRouteLocator primaryRouteLocator(
+            Collection&lt;RouteLocator&gt; routeLocators) {
+        return new CompositeRouteLocator(routeLocators);
+    }
+
+ /**
+  * 路由定位器
+  *
+  */
+    @Bean
+    @ConditionalOnMissingBean(SimpleRouteLocator.class)
+    public SimpleRouteLocator simpleRouteLocator() {
+        return new SimpleRouteLocator(this.server.getServlet().getContextPath(),
+                this.zuulProperties);
+    }
+
+  /**
+  * Zuul创建的一个Controller，用于将请求交由ZuulServlet处理
+  *
+  */
+    @Bean
+    public ZuulController zuulController() {
+        return new ZuulController();
+    }
+
+  /**
+  * 会添加到SpringMvc的HandlerMapping链中，
+  *只有选择了ZuulHandlerMapping的请求才能出发到Zuul的后续流程
+  *
+  */
+    @Bean
+    public ZuulHandlerMapping zuulHandlerMapping(RouteLocator routes) {
+        ZuulHandlerMapping mapping = new ZuulHandlerMapping(routes, zuulController());
+        mapping.setErrorController(this.errorController);
+        mapping.setCorsConfigurations(getCorsConfigurations());
+        return mapping;
+    }
+
+/**
+  * ZuulServlet是整个流程的核心
+  *
+  *
+  */
+    @Bean
+    @ConditionalOnMissingBean(name = &quot;zuulServlet&quot;)
+    @ConditionalOnProperty(name = &quot;zuul.use-filter&quot;, havingValue = &quot;false&quot;, matchIfMissing = true)
+    public ServletRegistrationBean zuulServlet() {
+        ServletRegistrationBean&lt;ZuulServlet&gt; servlet = new ServletRegistrationBean&lt;&gt;(new ZuulServlet(),
+                this.zuulProperties.getServletPattern());
+        // The whole point of exposing this servlet is to provide a route that doesn&#39;t
+        // buffer requests.
+        servlet.addInitParameter(&quot;buffer-requests&quot;, &quot;false&quot;);
+        return servlet;
+    }
+
+    
+    ......
+    ......
+    ......
+    
+}</code></pre>
+<p>在 ZuulServerAutoConfiguration 中定义了几个核心对象：</p>
+<ul>
+<li>ZuulController：所有 路由的默认Controller；</li>
+<li>ZuulHandlerMapping：Zuul 路由Mapping映射器；</li>
+<li>ZuulServlet：继承自HttpServlet，过滤逻辑从这里始，到这里终。</li>
+</ul>
+<p>ZuulServlet是整个流程的核心，大致的请求过程如下：</p>
+<p>当Zuulservlet收到请求后， 会创建一个ZuulRunner对象，该对象中初始化了RequestContext：存储请求的ServletRequest 和 ServletResponse对象，并被当前请求链上的所有Zuulfilter共享；</p>
+<p>ZuulRunner中还有一个 FilterProcessor，FilterProcessor作为执行所有的Zuulfilter的管理器；</p>
+<p>FilterProcessor从filterloader 中获取zuulfilter，而zuulfilter是被filterFileManager所加载，并支持groovy热加载，采用了轮询的方式热加载；</p>
+<p>有了这些filter之后，zuulservelet首先执行的Pre类型的过滤器，再执行route类型的过滤器， 最后执行的是post 类型的过滤器，如果在执行这些过滤器有错误的时候则会执行error类型的过滤器；</p>
+<p>执行完这些过滤器，最终将请求的结果返回给客户端。</p>
+<p>RequestContext就是会一直跟着整个请求周期的上下文对象，filters之间有什么信息需要传递就set一些值进去就行了。</p>
+<p><img src="./images/Spring Cloud Zuul 精进0.png" /></p>
+<p>ZuulServlet 掌控所有url的流转，我们先看它做了什么工作：</p>
+<pre class="java"><code>public class ZuulServlet extends HttpServlet {
+
+    private static final long serialVersionUID = -3374242278843351500L;
+    private ZuulRunner zuulRunner;
+
+
+    @Override
+    public void init(ServletConfig config) throws ServletException {
+        super.init(config);
+
+        String bufferReqsStr = config.getInitParameter(&quot;buffer-requests&quot;);
+        boolean bufferReqs = bufferReqsStr != null &amp;&amp; bufferReqsStr.equals(&quot;true&quot;) ? true : false;
+
+        zuulRunner = new ZuulRunner(bufferReqs);
+    }
+
+    @Override
+    public void service(javax.servlet.ServletRequest servletRequest, javax.servlet.ServletResponse servletResponse) throws ServletException, IOException {
+        try {
+            init((HttpServletRequest) servletRequest, (HttpServletResponse) servletResponse);
+
+            // Marks this request as having passed through the &quot;Zuul engine&quot;, as opposed to servlets
+            // explicitly bound in web.xml, for which requests will not have the same data attached
+            RequestContext context = RequestContext.getCurrentContext();
+            context.setZuulEngineRan();
+
+            try {
+                preRoute();
+            } catch (ZuulException e) {
+                error(e);
+                postRoute();
+                return;
+            }
+            try {
+                route();
+            } catch (ZuulException e) {
+                error(e);
+                postRoute();
+                return;
+            }
+            try {
+                postRoute();
+            } catch (ZuulException e) {
+                error(e);
+                return;
+            }
+
+        } catch (Throwable e) {
+            error(new ZuulException(e, 500, &quot;UNHANDLED_EXCEPTION_&quot; + e.getClass().getName()));
+        } finally {
+            RequestContext.getCurrentContext().unset();
+        }
+    }
+
+    /**
+     * executes &quot;post&quot; ZuulFilters
+     *
+     * @throws ZuulException
+     */
+    void postRoute() throws ZuulException {
+        zuulRunner.postRoute();
+    }
+
+    /**
+     * executes &quot;route&quot; filters
+     *
+     * @throws ZuulException
+     */
+    void route() throws ZuulException {
+        zuulRunner.route();
+    }
+
+    /**
+     * executes &quot;pre&quot; filters
+     *
+     * @throws ZuulException
+     */
+    void preRoute() throws ZuulException {
+        zuulRunner.preRoute();
+    }
+
+    /**
+     * initializes request
+     *
+     * @param servletRequest
+     * @param servletResponse
+     */
+    void init(HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+        zuulRunner.init(servletRequest, servletResponse);
+    }
+
+    /**
+     * sets error context info and executes &quot;error&quot; filters
+     *
+     * @param e
+     */
+    void error(ZuulException e) {
+        RequestContext.getCurrentContext().setThrowable(e);
+        zuulRunner.error();
+    }
+
+    @RunWith(MockitoJUnitRunner.class)
+    public static class UnitTest {
+
+        @Mock
+        HttpServletRequest servletRequest;
+        @Mock
+        HttpServletResponseWrapper servletResponse;
+        @Mock
+        FilterProcessor processor;
+        @Mock
+        PrintWriter writer;
+
+        @Before
+        public void before() {
+            MockitoAnnotations.initMocks(this);
+        }
+
+        @Test
+        public void testProcessZuulFilter() {
+
+            ZuulServlet zuulServlet = new ZuulServlet();
+            zuulServlet = spy(zuulServlet);
+            RequestContext context = spy(RequestContext.getCurrentContext());
+
+
+            try {
+                FilterProcessor.setProcessor(processor);
+                RequestContext.testSetCurrentContext(context);
+                when(servletResponse.getWriter()).thenReturn(writer);
+
+                zuulServlet.init(servletRequest, servletResponse);
+                verify(zuulServlet, times(1)).init(servletRequest, servletResponse);
+                assertTrue(RequestContext.getCurrentContext().getRequest() instanceof HttpServletRequestWrapper);
+                assertTrue(RequestContext.getCurrentContext().getResponse() instanceof HttpServletResponseWrapper);
+
+                zuulServlet.preRoute();
+                verify(processor, times(1)).preRoute();
+
+                zuulServlet.postRoute();
+                verify(processor, times(1)).postRoute();
+//                verify(context, times(1)).unset();
+
+                zuulServlet.route();
+                verify(processor, times(1)).route();
+                RequestContext.testSetCurrentContext(null);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
+        }
+    }
+
+}</code></pre>
+<p>ZuulServlet 继承了HttpServlet，主要的作用就是对HTTP请求进行拦截做对应的处理。直接看实现方法 service()中的实现：</p>
+<pre class="java"><code>@Override
+public void service(javax.servlet.ServletRequest servletRequest, javax.servlet.ServletResponse servletResponse) throws ServletException, IOException {
+  try {
+    init((HttpServletRequest) servletRequest, (HttpServletResponse) servletResponse);
+
+    //这里从RequestContext中取出当前线程中封装好的对象然后在该对象上打上zuul处理的标记
+    RequestContext context = RequestContext.getCurrentContext();
+    context.setZuulEngineRan();
+
+    try {
+      preRoute();
+    } catch (ZuulException e) {
+      error(e);
+      postRoute();
+      return;
+    }
+    try {
+      route();
+    } catch (ZuulException e) {
+      error(e);
+      postRoute();
+      return;
+    }
+    try {
+      postRoute();
+    } catch (ZuulException e) {
+      error(e);
+      return;
+    }
+
+  } catch (Throwable e) {
+    error(new ZuulException(e, 500, &quot;UNHANDLED_EXCEPTION_&quot; + e.getClass().getName()));
+  } finally {
+    RequestContext.getCurrentContext().unset();
+  }
+}
+
+</code></pre>
+<p>第一句init方法：</p>
+<pre class="java"><code>public void init(HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+
+  RequestContext ctx = RequestContext.getCurrentContext();
+  if (bufferRequests) {
+    ctx.setRequest(new HttpServletRequestWrapper(servletRequest));
+  } else {
+    ctx.setRequest(servletRequest);
+  }
+
+  ctx.setResponse(new HttpServletResponseWrapper(servletResponse));
+}</code></pre>
+<p>在这里调用了一个RequestContext类将HttpServletRequest保存进去，而 RequestContext 类本身也比较特殊：</p>
+<pre class="java"><code>public class RequestContext extends ConcurrentHashMap&lt;String, Object&gt; {
+
+  rotected static final ThreadLocal&lt;? extends RequestContext&gt; threadLocal = new ThreadLocal&lt;RequestContext&gt;() {
+    @Override
+    protected RequestContext initialValue() {
+      try {
+        return contextClass.newInstance();
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
+  };
+  
+  public static RequestContext getCurrentContext() {
+    if (testContext != null) return testContext;
+
+    RequestContext context = threadLocal.get();
+    return context;
+  }
+  
+}</code></pre>
+<p>它本身就是一个Map，需要注意的是，该对象的使用方式并不是直接new 一个新对象，而是调用getCurrentContext()方法，该方法中返回的是 threadLocal 封装的反射生成new RequestContext的方式来创建对象。确保每个创建的 RequestContext 只在当前线程内有效，即在当前线程内，getCurrentContext()方法取出的是同一个 RequestContext对象。</p>
+<p>继续回到service()方法，拿到了封装好了的RequestContext方法之后，下面进入四个route中，上节已经讲过这4个route都属于Filter的生命周期，在这里完成请求的过滤，转发，后置逻辑处理。route完成之后，最后的finally方法中调用了<code>RequestContext.getCurrentContext().unset()</code>方法，既然使用了threadLocal，必然使用完要清除，不然很可能就内存泄漏。</p>
+<p>小憩一会：</p>
+<p>分析到 ZuulServlet，不知你是否发现Zuul的核心。对于Zuul实现网关的功能其实就是围绕着HttpServlet拿到ServletRequest，对请求做过滤操作，拿到ServletResponse 对返回结果做后置处理操作。HttpServlet是单实例多线程的处理模型，如果存在某一个请求比较耗时，那么该线程就会一直阻塞直到处理完成返回成功才结束。假若这样的请求很多，对Zuul所在的服务器压力还是不小。</p>
+<h4 id="zuul如何处理一个请求">Zuul如何处理一个请求</h4>
+<p>上面已经分析得出Zuul是基于Servlet这一套逻辑来做的，往下跟就变得简单。SpringMVC是如何处理请求的呢？大家应该都比较熟悉，浏览器发出一个请求到达服务端，首先到达DispatcherServlet，Servlet容器将请求交给HandlerMapping，找到对应的Controller访问路径和处理方法对应关系，接着交由HandlerAdapter路由到真实的处理逻辑中去进行处理。</p>
+<p>上面我贴出来 ZuulServerAutoConfiguration#ZuulHandlerMapping，定义了ZuulHandlerMapping bean对象。</p>
+<pre class="java"><code>public class ZuulHandlerMapping extends AbstractUrlHandlerMapping {
+
+}</code></pre>
+<p>ZuulHandlerMapping 自身继承了AbstractUrlHandlerMapping，即通过url来查找对应的处理器。判断的核心逻辑在 lookupHandler方法中：</p>
+<pre class="java"><code>@Override
+protected Object lookupHandler(String urlPath, HttpServletRequest request) throws Exception {
+  if (this.errorController != null &amp;&amp; urlPath.equals(this.errorController.getErrorPath())) {
+    return null;
+  }
+  //判断urlPath是否被忽略，如果忽略则返回null
+  if (isIgnoredPath(urlPath, this.routeLocator.getIgnoredPaths())) return null;
+  RequestContext ctx = RequestContext.getCurrentContext();
+  if (ctx.containsKey(&quot;forward.to&quot;)) {
+    return null;
+  }
+  if (this.dirty) {
+    synchronized (this) {
+      if (this.dirty) {
+        //如果没有加载过路由或者路由有刷新，则加载路由
+        registerHandlers();
+        this.dirty = false;
+      }
+    }
+  }
+  return super.lookupHandler(urlPath, request);
+}
+
+
+private void registerHandlers() {
+  Collection&lt;Route&gt; routes = this.routeLocator.getRoutes();
+  if (routes.isEmpty()) {
+    this.logger.warn(&quot;No routes found from RouteLocator&quot;);
+  }
+  else {
+    for (Route route : routes) {
+      //调用父类，注册处理器，这里所有路径的处理器都是ZuulController
+      registerHandler(route.getFullPath(), this.zuul);
+    }
+  }
+}</code></pre>
+<p>整体逻辑就是在路由加载的时候需要为每个路由指定处理器，因为Zuul不负责逻辑处理，所以它也没有对应的Controller可以使用，那怎么办呢，注册处理器的时候，使用的是<code>ZuulController</code>，是<code>Controller</code>的子类，对应的适配器是<code>SimpleControllerHandlerAdapter</code>，也就说每一个路由规则公共处理器都是<code>ZuulController</code>，这个处理器最终会调用<code>ZuulServlet</code>经过zuul定义的和自定义的拦截器。</p>
+<p>上面还有一句：</p>
+<pre class="java"><code>Collection&lt;Route&gt; routes = this.routeLocator.getRoutes();</code></pre>
+<p>RouteLocator的作用是路由定位器，先看它有哪些实现类：</p>
+<ul>
+<li>SimpleRouteLocator：主要加载配置文件的路由规则；</li>
+<li>DiscoveryClientRouteLocator：服务发现的路由定位器，去注册中心如Eureka，Consul等拿到服务名称，以这样的方式<code>/服务名称/**</code>映射成路由规则；</li>
+<li>CompositeRouteLocator：复合路由定位器，主要集成所有的路由定位器（如配置文件路由定位器，服务发现定位器，自定义路由定位器等）来路由定位；</li>
+<li>RefreshableRouteLocator：路由刷新，只有实现了此接口的路由定位器才能被刷新。</li>
+</ul>
+<p>从实现类的功能看路由定位器的作用就是区分当前从哪里加载路由进行注册。上面这几个实现类都实现了Ordered类，加载的顺序依照<code>getOrder()</code>数值大小来定。</p>
+<p>至此我们已经把Zuul最核心的路由部分撸了一遍，从Spring MVC 加载Servlet 的过程入手，到自定义 ZuulServlet 进行处理，进而使用Zuul中定义的各种Filter来做逻辑过滤。原理其实很简单，重要的是思想。作为一个网关，它是很重要的服务，这种实现方式大家觉得是否优雅，是否还有别的实现方式呢？如果是你你会如何实现网关，这些问题大家可以慢慢思考。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,245 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换</center></div><div class='banquan'>原文出处:本文由博客园博主她微笑的脸提供。<br/>
+原文连接:https://www.cnblogs.com/linhuiy/p/12029652.html</div><br>
+    <h2 id="什么是api网关"><font color=#6495cd>1.什么是API网关</font></h2>
+<p>API网关是微服务架构中的唯一入口，它提供一个单独且统一的API入口用于访问内部一个或多个API。它可以具有身份验证，监控，负载均衡，缓存，请求分片与管理，静态响应处理等。API网关方式的核心要点是，所有的客户端和消费端都通过统一的网关接入微服务，在网关层处理所有的非业务功能。通常，网关也是提供REST/HTTP的访问API。服务端通过API-GW注册和管理服务。</p>
+<h2 id="ocelot介绍"><font color=#6495cd>Ocelot介绍</font></h2>
+<p>Ocelot是用.net Core实现的一款开源的网关,Ocelot其实就是一组按照顺序排列的.net core中间件。它接受到请求之后用request builder构建一个HttpRequestMessage对象并发送到下游服务，当下游请求返回到Ocelot管道时再由一个中间件将HttpRequestMessage映射到HttpResponse上返回客户端。</p>
+<p><a href="hhttps://github.com/ThreeMammals/Ocelot">开源地址点击这里</a></p>
+<h2 id="使用ocelot傻瓜式转发"><font color=#6495cd>使用Ocelot傻瓜式转发</font></h2>
+<p>新建三个项目webApi项目，分别命名为ApiGateway，Api_A，Api_B</p>
+<p><img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换0.png" alt="ZFGUV6N4@P[]DTRP`0CI5T8.png" /><br />
+　　<br />
+设置Api_A端口为5001,Api_B端口为5002，ApiGateway为5000</p>
+<p>为ApiGateway项目安装Ocelot，在Nuget中搜索Ocelot或者直接使用<code>Install-Package Ocelot</code>进行安装。最新版本为13.8.x支持core3.0。</p>
+<p>在ApiGateway新建一个<code>configuration.json</code>配置文件。</p>
+<pre><code><code>{
+  &quot;ReRoutes&quot;: [
+    {
+      //上游Api请求格式
+      &quot;UpstreamPathTemplate&quot;: &quot;/Api_A/{controller}/{action}&quot;,
+      //网关转发到下游格式
+      &quot;DownstreamPathTemplate&quot;: &quot;/api/{controller}/{action}&quot;,
+      //上下游支持请求方法
+      &quot;UpstreamHttpMethod&quot;: [ &quot;GET&quot;, &quot;POST&quot;, &quot;DELETE&quot;, &quot;PUT&quot; ],
+      &quot;DownstreamScheme&quot;: &quot;http&quot;,
+      //下游服务配置
+      &quot;DownstreamHostAndPorts&quot;: [
+        {
+          //下游地址
+          &quot;Host&quot;: &quot;localhost&quot;,
+          //下游端口号
+          &quot;Port&quot;: 5001
+        }
+      ]
+    },
+    {
+      &quot;UpstreamPathTemplate&quot;: &quot;/Api_B/{controller}/{action}&quot;,
+      &quot;DownstreamPathTemplate&quot;: &quot;/api/{controller}/{action}&quot;,
+      &quot;UpstreamHttpMethod&quot;: [ &quot;GET&quot;, &quot;POST&quot;, &quot;DELETE&quot;, &quot;PUT&quot; ],
+      &quot;DownstreamScheme&quot;: &quot;http&quot;,
+      &quot;DownstreamHostAndPorts&quot;: [
+        {
+          &quot;Host&quot;: &quot;localhost&quot;,
+          &quot;Port&quot;: 5002
+        }
+      ]
+    }
+  ]
+}</code></pre>
+<p>在<code>Startup.cs</code> 的<code>ConfigureServices</code>和<code>Configure</code>中配置Ocelot</p>
+<pre class="csharp"><code>public void ConfigureServices(IServiceCollection services)
+{
+    services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+    services.AddOcelot(new ConfigurationBuilder()
+      .AddJsonFile(&quot;configuration.json&quot;)
+      .Build());
+}
+public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+{
+    app.UseOcelot();
+    if (env.IsDevelopment())
+    {
+        app.UseDeveloperExceptionPage();
+    }
+    app.UseMvc();
+}</code></pre>
+<p>分别为Api_A,和Api_B分别添加一个print接口。</p>
+<pre class="csharp"><code>[HttpGet(&quot;print&quot;)]
+public string Print()
+{
+    return &quot;Api_A&quot;;
+}</code></pre>
+<pre class="csharp"><code>[HttpGet(&quot;print&quot;)]
+public string Print()
+{
+    return &quot;Api_B&quot;;
+}</code></pre>
+<h2 id="测试网关"><font color=#6495cd>测试网关</font></h2>
+<p>启动三个项目,使用postman来调用网关</p>
+<p>访问Api_A服务<br />
+<img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换1.png" alt="20191128111219.png" /></p>
+<p>访问Api_B服务</p>
+<p><img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换2.png" alt="20191128111321.png" /></p>
+<p>可以看到网关通过接受到的请求的Url后通过我们的配置自动转发到了我们想要访问的服务。</p>
+<h2 id="网关的负载均衡"><font color=#6495cd>网关的负载均衡</font></h2>
+<p>当下游拥有多个节点的时候，我们可以用DownstreamHostAndPorts来配置</p>
+<pre><code><code>{
+    &quot;UpstreamPathTemplate&quot;: &quot;/Api_A/{controller}/{action}&quot;,
+    &quot;DownstreamPathTemplate&quot;: &quot;/api/{controller}/{action}&quot;,
+    &quot;DownstreamScheme&quot;: &quot;https&quot;,
+    &quot;LoadBalancer&quot;: &quot;LeastConnection&quot;,
+    &quot;UpstreamHttpMethod&quot;: [ &quot;GET&quot;, &quot;POST&quot;, &quot;DELETE&quot;, &quot;PUT&quot; ],
+    &quot;DownstreamHostAndPorts&quot;: [
+            {
+                &quot;Host&quot;: &quot;127.0.0.1&quot;,
+                &quot;Port&quot;: 5001,
+            },
+            {
+                &quot;Host&quot;: &quot;127.00.1&quot;,
+                &quot;Port&quot;: 5002,
+            }
+        ],
+}</code></pre>
+<h4 id="loadbalancer是来决定负载的算法">LoadBalancer是来决定负载的算法</h4>
+<ul>
+<li>LeastConnection:将请求发往最空闲的那个服务器</li>
+<li>RoundRobin:轮流转发</li>
+<li>NoLoadBalance:总是发往第一个请求或者是服务发现</li>
+</ul>
+<h2 id="限流"><font color=#6495cd>限流</font></h2>
+<p>限流可以防止上下游服务器因为过载而崩溃，可以使用RateLimitOptions来配置限流</p>
+<pre><code><code>{
+    &quot;RateLimitOptions&quot;: {
+        &quot;ClientWhitelist&quot;: [“127.0.0.1”],
+        &quot;EnableRateLimiting&quot;: true,
+        &quot;Period&quot;: &quot;5s&quot;,
+        &quot;PeriodTimespan&quot;: 1,
+        &quot;Limit&quot;: 10
+    }
+}</code></pre>
+<ul>
+<li>ClientWihteList:白名单，不受限流控制。</li>
+<li>EnableRateLimiting:使用启用限流。</li>
+<li>Period:限流控制的时间段 1s, 5m, 1h, 1d。</li>
+<li>PeroidTimeSpan:超过限流限制的次数后,需要等待重置的时间（单位是秒）。</li>
+<li>Limit:在限流控制时间段内最大访问数。<br />
+对于除了请求头中ClientId=127.0.0.1的意外所有求情启用限流，5秒该api最多10次,如果达到10次需要从第10次请求闭合后等待一秒进行下一次访问。</li>
+</ul>
+<p>超过限流后会返回429状态码，并在在返回头（Response Header）的Retry-After属性中返回等待重置时间。<br />
+<img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换3.png" alt="20191209113242.png" /><br />
+<img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换4.png" alt="20191209113333.png" /><br />
+限流的默认提示,code码,和限制标志都是可以自己配置的</p>
+<pre><code><code> { 
+  &quot;GlobalConfiguration&quot;: {
+    &quot;BaseUrl&quot;:&quot;www.baidu.com&quot;,
+    &quot;RateLimitOptions&quot;: {
+      &quot;DisableRateLimitHeaders&quot;: false,
+      &quot;QuotaExceededMessage&quot;: &quot;接口限流!&quot;,
+      &quot;HttpStatusCode&quot;: 200,
+      &quot;ClientIdHeader&quot;: &quot;ClientId&quot;
+    }
+  }</code></pre>
+<p><img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换5.png" alt="20191209114201.png" /></p>
+<ul>
+<li>DisableRateLimitHeaders:是否显示X-Rate-Limit和Retry-After头</li>
+<li>QuotaExceededMessage:提示信息</li>
+<li>HttpStatusCode:状态码</li>
+<li>ClientIdHeader:用来设别客户请求头,默认为ClientId。</li>
+<li>BaseUrl 网关暴露的的地址。</li>
+</ul>
+<h3 id="熔断"><strong>熔断</strong></h3>
+<p>熔断是在下游服务故障或者请求无响应的时候停止将请求转发到下游服务。</p>
+<pre><code><code> { 
+    &quot;QoSOptions&quot;: {
+    &quot;ExceptionsAllowedBeforeBreaking&quot;: 3,
+    &quot;DurationOfBreak&quot;: 20,
+    &quot;TimeoutValue&quot;: 5000
+    }
+}</code></pre>
+<ul>
+<li>ExceptionsAllowedBeforeBreaking:允许多少个异常请求。</li>
+<li>DurationOfBreak:熔断的时间(秒)。</li>
+<li>TimeoutValue:下游请求的处理时间超过多少则将请求设置为超时。</li>
+</ul>
+<h2 id="缓存"><font color=#6495cd>缓存</font></h2>
+<p>Ocelot可以对下游请求结果进行缓存,主要是依赖于CacheManager来实现的。</p>
+<pre><code><code>{
+    &quot;FileCacheOptions&quot;: {
+        &quot;TtlSeconds&quot;: 60,
+        &quot;Region&quot;: &quot;key&quot;
+    }
+}</code></pre>
+<ul>
+<li>TtlSeconds:缓存时间(秒)。</li>
+<li>Region:缓存分区名<br />
+我们可以调用Ocelot的API来移除某个区下面的缓存 。</li>
+</ul>
+<h2 id="请求头的转化"><font color=#6495cd>请求头的转化</font></h2>
+<p>Ocelot允许在请求下游服务之前和之后转换Header.目前Ocelot只支持查找和替换.</p>
+<p>如果们需要转发给下游的Header重添加一个key/value</p>
+<pre><code><code>{
+    &quot;UpstreamHeaderTransform&quot;: {
+        &quot;demo&quot;: &quot;xxxxxxx&quot;
+    }
+}</code></pre>
+<p>如果们需要在返回给客户端的的Header中添加一个key/value</p>
+<pre><code><code>{
+    &quot;DownstreamHeaderTransform&quot;: {
+        &quot;demo&quot;: &quot;xxxxxxx&quot;
+    }
+}</code></pre>
+<p>如果我们需要替换Heaher中某些值</p>
+<pre><code><code>{
+    //请求
+    &quot;UpstreamHeaderTransform&quot;: {
+        &quot;demo&quot;: &quot;a,b&quot;
+    },
+    //响应
+    &quot;DownstreamHeaderTransform&quot;:
+    {
+        &quot;demo&quot;: &quot;a,b&quot;
+    }
+}</code></pre>
+<p>语法是{find},{replace}, 利用b取代a</p>
+<p>在Header转换中可以使用占位符</p>
+<ul>
+<li>{BaseUrl} - 这个是Ocelot暴露在外的url. 例如http://localhost:5000/.</li>
+<li>{DownstreamBaseUrl} - 这个是下游服务的基本url 例如http://localhost:5001/. 目前这个只在DownstreamHeaderTransform中起作用.</li>
+<li>{TraceId} - 这个是Butterfly的跟踪id.目前这个也只在DownstreamHeaderTransform中起作用</li>
+</ul>
+<p>如果您想将location头返回给客户端，可能需要将location更改为Ocelot的地址而不是下游服务地址。 Ocelot可以使用以下配置实现。</p>
+<pre><code><code>{
+    &quot;DownstreamHeaderTransform&quot;: {
+    &quot;Location&quot;: &quot;{DownstreamBaseUrl},{BaseUrl}&quot;
+    },
+}</code></pre>
+<p>给Header中添加下游地址<br />
+<img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换6.png" alt="20191209162057.png" /></p>
+<p>响应的Header中已经替换成BaseUrl了<br />
+<img src="./images/.Net Core使用Ocelot网关(一) -负载,限流,熔断,Header转换7.png" alt="20191209162154.png" /></p>
+<h2 id="总结"><font color=#6495cd>总结</font></h2>
+<p>简单的实现了通过网关来访问api接口。ocelot功能远不止这些,之后会实现与IdentityServer的认证鉴权。服务发现。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

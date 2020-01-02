@@ -1,0 +1,211 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修.NET解所有相机RAW格式照片' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>.NET解所有相机RAW格式照片</center></div><div class='banquan'>原文出处:本文由博客园博主.NET骚操作提供。<br/>
+原文连接:https://www.cnblogs.com/sdflysha/p/20191226-read-camera-raw-using-dotnet-2.html</div><br>
+    <h1 id="再聊.net解相机raw格式照片">再聊.NET解相机RAW格式照片</h1>
+<p>上次我发了一篇文章《用.NET解索尼相机ARW格式照片》，提到通过安装<code>Sony Raw File Decoder</code>的方式，然后调用<code>Windows Imaging Components</code>来解析<code>RAW</code>格式文件。后来我经过进一步研究、探索，发现还有更简单的办法。</p>
+<p>新的方法实在是太简单、好用了，相比之下，我前一篇文章简直就是在“挖坑”。</p>
+<h1 id="其实啥都不装什么相机都支持">其实啥都不装，什么相机都支持！</h1>
+<p>其实<code>Windows 10</code>自带了一个<code>RAW</code>格式解码器，也集成在<code>Windows Imaging Components</code>中，通过<code>SharpDX.Direct2D1</code>的几行代码，可以将这个解码器的信息调出来：</p>
+<pre><code><code>// 安装NuGet包：SharpDX.Direct2D1
+using var wic = new ImagingFactory2();
+using var decoder = new BitmapDecoder(wic, file, DecodeOptions.CacheOnDemand);
+string json = JsonSerializer.Serialize(decoder.DecoderInfo, new JsonSerializerOptions { WriteIndented = true });
+Console.WriteLine(json);</code></pre>
+<p>运行结果如下（为突出重点，有少量删减）：</p>
+<pre class="json"><code>{
+  &quot;PixelFormats&quot;: [
+    &quot;6fddc324-4e03-4bfe-b185-3d77768dc90d&quot;
+  ],
+  &quot;ColorManagementVersion&quot;: &quot;1.0.0.0\u0000&quot;,
+  &quot;MimeTypes&quot;: &quot;image/3FR,image/ARI,image/ARW,image/BAY,image/CAP,image/CR2,image/CR3,image/CRW,image/DCS,image/DCR,image/DRF,image/EIP,image/ERF,image/FFF,image/IIQ,image/K25,image/KDC,image/MEF,image/MOS,image/MRW,image/NEF,image/NRW,image/ORF,image/ORI,image/PEF,image/PTX,image/PXN,image/RAF,image/RAW,image/RW2,image/RWL,image/SR2,image/SRF,image/SRW,image/X3F,image/DNG\u0000&quot;,
+  &quot;FileExtensions&quot;: &quot;.3FR,.ARI,.ARW,.BAY,.CAP,.CR2,.CR3,.CRW,.DCS,.DCR,.DRF,.EIP,.ERF,.FFF,.IIQ,.K25,.KDC,.MEF,.MOS,.MRW,.NEF,.NRW,.ORF,.ORI,.PEF,.PTX,.PXN,.RAF,.RAW,.RW2,.RWL,.SR2,.SRF,.SRW,.X3F,.DNG\u0000&quot;,
+  &quot;ContainerFormat&quot;: &quot;fe99ce60-f19c-433c-a3ae-00acefa9ca21&quot;,
+  &quot;IsAnimationSupported&quot;: false,
+  &quot;IsChromakeySupported&quot;: false,
+  &quot;IsLosslessSupported&quot;: true,
+  &quot;IsMultiframeSupported&quot;: false,
+  &quot;Author&quot;: &quot;Microsoft Corporation\u0000&quot;,
+  &quot;Version&quot;: &quot;10.0.18362.1\u0000&quot;,
+  &quot;SpecVersion&quot;: &quot;1.0.0.0\u0000&quot;,
+  &quot;FriendlyName&quot;: &quot;Microsoft Raw Image Decoder\u0000&quot;,
+  &quot;ComponentType&quot;: 1,
+  &quot;CLSID&quot;: &quot;41945702-8302-44a6-9445-ac98e8afa086&quot;,
+  &quot;SigningStatus&quot;: 1,
+  &quot;VendorGUID&quot;: &quot;f0e749ca-edef-4589-a73a-ee0e626a2a2b&quot;,
+}</code></pre>
+<p>可见，什么都不用装，就已经支持了高达<code>36</code>种<code>RAW</code>格式文件，索尼的<code>.ARW</code>、佳能的<code>.CR2</code>和<code>.CR3</code>和尼康的<code>.NEF</code>都在列——就可能就是为什么<code>Windows 10</code>可以直接打开相机的<code>RAW</code>格式文件。</p>
+<p>使用上次文章中的同样代码，即可将<code>.ARW</code>格式文件转换为<code>jpeg</code>：</p>
+<pre><code><code>// 依赖于WPF，不用装NuGet包
+var decoder = BitmapDecoder.Create(new Uri(@&quot;DSC05458.ARW&quot;), BitmapCreateOptions.None, BitmapCacheOption.Default);
+var transformedBitmap = new TransformedBitmap(decoder.Frames[0], Transform.Identity);
+var jpg = new JpegBitmapEncoder();
+jpg.Frames.Add(BitmapFrame.Create(transformedBitmap));
+using var stream = new MemoryStream();
+jpg.Save(stream);</code></pre>
+<p>上次还挖了个坑说如果是我，一般会选择用<code>SharpDX</code>而不是<code>WPF</code>，但我又没说<code>SharpDX</code>的代码该怎么写，这里面我将<code>SharpDX</code>的代码贴出来（运行效果完全一样）：</p>
+<pre><code><code>// 安装NuGet包：SharpDX.Direct2D1
+using var wic = new ImagingFactory2();
+using FormatConverter converter = LoadImage(wic, @&quot;DSC00115.ARW&quot;);
+Util.Image(SaveToJpeg(wic, converter)).Dump();
+
+static byte[] SaveToJpeg(ImagingFactory2 wic, BitmapSource source)
+{
+    using var ms = new MemoryStream();
+    using (var encoder = new JpegBitmapEncoder(wic, ms))
+    {
+        using (var frame = new BitmapFrameEncode(encoder))
+        {
+            frame.Options.ImageQuality = 0.7f;
+            frame.Initialize();
+            frame.WriteSource(source);
+            frame.Commit();
+        }
+        encoder.Commit();
+    }
+    return ms.ToArray();
+}
+
+static FormatConverter LoadImage(ImagingFactory2 wic, string file)
+{
+    using var decoder = new BitmapDecoder(wic, file, DecodeOptions.CacheOnDemand);
+    decoder.Dump();
+    var converter = new FormatConverter(wic);
+    converter.Initialize(decoder.GetFrame(0), PixelFormat.Format32bppPBGRA);
+    return converter;
+}</code></pre>
+<p>代码中我加入了缩放，运行上次的<code>.ARW</code>文件后，可以得出一样的<code>jpeg</code>图片。</p>
+<h1 id="跨平台没问题">跨平台？没问题！</h1>
+<p>故名思义<code>Windows Imaging Componnets</code>，显然只有<code>Windows</code>上才能运行。想跨平台读取相机<code>RAW</code>格式文件就必须另找一个库——<code>Magick.NET</code>，其使用也非常简单，甚至比<code>WIC</code>更简单，只要两行代码！：</p>
+<pre><code><code>// 安装NuGet包：Magick.NET-Q8-AnyCPU
+using var image = new MagickImage(@&quot;DSC00115.ARW&quot;);
+byte[] bytes = image.ToByteArray(MagickFormat.Jpeg);</code></pre>
+<p>除了读取保存，<code>Magick.NET</code>还能缩放图片、转换<code>pdf</code>、加水印、读取<code>Exif</code>数据、无损压缩、绘图等功能，具体功能可以参见：<a href="https://github.com/dlemstra/Magick.NET/blob/master/docs/Readme.md" class="uri">https://github.com/dlemstra/Magick.NET/blob/master/docs/Readme.md</a>。</p>
+<p>另外，<code>Magick.NET</code>还支持超过<code>200</code>种图片格式，其中甚至还包括<code>Photoshop</code>的<code>psd</code>文件。可以在这个链接中查看是否支持你所需要的格式：<a href="https://imagemagick.org/index.php" class="uri">https://imagemagick.org/index.php</a></p>
+<p>……更别它还可以<strong>跨平台</strong>。</p>
+<p>有一点需要注意，它的<code>NuGet</code>包有许多个，初一看可能会一惊：<br />
+<img src="./images/.NET解所有相机RAW格式照片0.png" /></p>
+<p>这里可以说一下，首先它有<code>Q8</code>、<code>Q16</code>和<code>Q16-HDRI</code>三种版本：</p>
+<ul>
+<li><code>Q8</code>表示一个像素使用<code>8</code>位颜色深度，它占用内存最小；</li>
+<li><code>Q16</code>表示一个像素使用<code>16</code>位颜色深度，比<code>Q8</code>多一倍；</li>
+<li><code>Q16-HDRI</code>则使用<code>32</code>位浮点型来表示颜色，比<code>Q16</code>再多一倍；</li>
+</ul>
+<p>正常使用建议<code>Q8</code>即可，有微单/单反修图需求的，可以考虑<code>Q16</code>/<code>Q16-HDRI</code>。</p>
+<p>另外它还有<code>x86</code>、<code>x64</code>和<code>AnyCPU</code>三个平台版本，一般选<code>AnyCPU</code>，但注意<code>Magick.NET</code>是基于本地代码，因此它需要下载多个平台，因此<code>AnyCPU</code>大小(<code>45.34MB</code>)比<code>x64</code>（<code>20.85MB</code>）大一倍。</p>
+<h2 id="缺点">缺点？</h2>
+<p>有这么多优点，还要什么自行车？……其实它也是有缺点的，有个明显的缺点，就是性能慢。我测试了上次那张<code>ARW</code>格式文件，性能分析如下（平均需要<code>3.7</code>秒）：</p>
+<table>
+<thead>
+<tr class="header">
+<th>次数</th>
+<th>分配内存</th>
+<th>内存提高</th>
+<th>耗时</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>43,918,792</td>
+<td>1,080</td>
+<td>3739</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>43,884,944</td>
+<td>160</td>
+<td>3748</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>43,966,000</td>
+<td>664</td>
+<td>3878</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>44,015,928</td>
+<td>80</td>
+<td>3778</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>43,902,784</td>
+<td>416</td>
+<td>3747</td>
+</tr>
+</tbody>
+</table>
+<p>换成<code>WIC</code>，性能数据如下，耗时只要<code>705毫秒</code>，明显快得多：</p>
+<table>
+<thead>
+<tr class="header">
+<th>次数</th>
+<th>分配内存</th>
+<th>内存提高</th>
+<th>耗时</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>11,939,072</td>
+<td>1,488</td>
+<td>713</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>11,939,768</td>
+<td>10,256</td>
+<td>709</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>12,013,872</td>
+<td>4,608</td>
+<td>705</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>11,931,664</td>
+<td>96</td>
+<td>705</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>11,919,384</td>
+<td>-25,968</td>
+<td>704</td>
+</tr>
+</tbody>
+</table>
+<h1 id="总结">总结</h1>
+<p>如果你用<code>Windows 10</code>，则什么都不用装，就能体验到极致性能的<code>RAW</code>解析工具，因为系统自带了<code>Microsoft Raw Image Decoder</code>。</p>
+<p>如果你想跨平台（但不特别在意性能），则可以使用开源的<code>Magick.NET</code>，它提供最便利的<code>API</code>和最省心的功能、格式支持，特别强大。但话又说回来，<code>RAW</code>这种东西<strong>一般</strong>都是骚操作才需要，谁在意跨平台呢？</p>
+<p>我也特意试了一下收费的<code>Aspose.Imaging</code>，但解析<code>RAW</code>格式文件不是它的长项，直接不支持。</p>
+<p>本想研究一下<code>libraw</code>，但它只提供了<code>C API</code>——也不是不能用。正准备用<code>P/Invoke</code>时刚正面就有了本文中的发现。</p>
+<p>喜欢的朋友 请关注我的微信公众号：【DotNet骚操作】</p>
+<p><img src="./images/.NET解所有相机RAW格式照片1.png" alt="DotNet骚操作" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

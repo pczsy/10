@@ -1,0 +1,571 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修基于 HTML5 WebGL 构建智能数字化城市 3D 全景' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>基于 HTML5 WebGL 构建智能数字化城市 3D 全景</center></div><div class='banquan'>原文出处:本文由博客园博主xhload3d提供。<br/>
+原文连接:https://www.cnblogs.com/xhload3d/p/12068027.html</div><br>
+    <p><strong>前言</strong></p>
+<p>自 2011 年我国城镇化率首次突破 50% 以来，《新型城镇化发展规划》将智慧城市列为我国城市发展的三大目标之一，并提出到 2020 年，建成一批特色鲜明的智慧城市。截至现今，全国 95% 的副省级以上城市、76% 的地级以上城市，总计约 500 多个城市提出或在建智慧城市。</p>
+<p>基于这样的背景，本系统采用 Hightopo 的&nbsp;&nbsp;<a href="http://www.hightopo.com/" target="_blank">HT for Web</a>&nbsp; 产品来构造轻量化的 智慧城市 3D 可视化场景，通过三个角度的转换，更清晰让我们感知到 5G 时代下数字化智能城市的魅力</p>
+<p>预览地址：<a href="https://hightopo.com/demo/power-city/" target="_blank">HT 智慧城市</a></p>
+<p>整体预览图</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景0.png" alt="" /></p>
+<p>第一个视角下，城市以市中心为圆心缓缓浮现，市中心就如同整座城的大脑</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景1.png" alt="" /></p>
+<p>第二个视角下，在楼房间穿过，细致的感受这城市的面貌</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景2.png" alt="" /></p>
+<p>&nbsp;第三个视角下，鸟瞰整座城，体会智慧城市带来的不可思议的欣喜</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景3.png" alt="" /></p>
+<p>&nbsp;是不是觉得有些神奇，我们接下来就是对项目的具体分析，手把手教你如何搭建一个自己心中的梦想城市</p>
+<p><strong>场景搭建</strong></p>
+<p>该系统中的大部分模型都是通过 3dMax 建模生成的，该建模工具可以导出 obj 与 mtl 文件，在 HT 中可以通过解析 obj 与 mtl 文件来生成 3D 场景中的所有复杂模型，（当然如果是某些简单的模型可以直接使用 HT 来绘制，这样会比 obj 模型更轻量化，所以大部分简单的模型都是采用&nbsp;HT for Web&nbsp;产品轻量化&nbsp;HTML5/WebGL&nbsp;建模的方案）我们先看下项目结构，源码都在 src 文件夹中</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景4.png" alt="" width="148" height="248" /></p>
+<p>&nbsp;storage 保存的便是 3D 场景文件。&nbsp;index.js 是 src 下的入口文件，创建了一个 由 main.js 中导出的 Main 类，Main 类创建了一个 3D 画布，用于绘制我们的 3D 场景，如下</p>
+<div class="cnblogs_code">
+<pre><code> 1 import event from '../util/NotifierManager';
+ 2 import Index3d from './3d/Index3d';
+ 3 import { INDEX, EVENT_SWITCH_VIEW } from '../util/constant';
+ 4 
+ 5 export default class Main {
+ 6     constructor() {
+ 7         let g3d = this.g3d = new ht.graph.Graph3dView(),
+ 8 
+ 9         //将3d图纸添加到dom对象中
+10         g3d.addToDOM();
+11 
+12         this.event = event;
+13         //创建一个Index3d类，作为场景初始化
+14         this.index3d = new Index3d(g3d);
+15         //调用switch方法派发EVENT_SWITCH_VIEW事件，并传入事件类型 INDEX
+16         this.switch(INDEX);
+17     }
+18     switch(key = INDEX) {
+19         event.fire(EVENT_SWITCH_VIEW, key);
+20     }
+21     // 
+22 }</pre>
+</div>
+<p>我们用&nbsp;&nbsp;new ht.graph.Graph3dView()&nbsp; 的方式创建了一个 3D 画布，画布的顶层是 canvas 。并创建了一个 index3d 对象，看到后面我们就能知道其实这一步就如同我们把场景&ldquo;画&rdquo;上去。在 main 对象中我们还引用了&nbsp;util 下的 NotifierManager 文件，这个文件中的 event 对象为穿插在整个项目中事件总线，使用了 HT 自带的事件派发器，可以很方便的手动的订阅事件和派发事件，感兴趣可以进一步了解&nbsp;&nbsp;<a title="HT 入门手册" href="http://www.hightopo.com/guide/guide/core/beginners/ht-beginners-guide.html" target="_blank">HT 入门手册</a>&nbsp;，下面便是文件内容</p>
+<div class="cnblogs_code">
+<pre><code> 1 class NotifierManager {
+ 2     constructor() {
+ 3         this._eventMap ={};
+ 4     }
+ 5 
+ 6     add(key, func, score, first = false) {
+ 7         let notify = this._eventMap[key];
+ 8         if (!notify) notify = this._eventMap[key] = new ht.Notifier();
+ 9 
+10         notify.add(func, score, first);
+11     }
+12 
+13     remove(key, func, score) {
+14         const notify = this._eventMap[key];
+15         if (!notify) return;
+16 
+17         notify.remove(func, score);
+18     }
+19 
+20     fire(key, e) {
+21         const notify = this._eventMap[key];
+22         if (!notify) return;
+23 
+24         notify.fire(e);
+25     }
+26 }
+27 
+28 const event = new NotifierManager();
+29 export default event;</pre>
+</div>
+<p>notify.fire() 和 notify.add() 分别是派发和订阅事件，类似于设计模式中的订阅者模式，我们很清楚的能看到，NotifierManager 类就是对 HT 原有的派发器做了一个简单地封装 ，并在创建 main 对象的时候，调用event.fire() 自动派发了&nbsp;EVENT_SWITCH_VIEW 这一事件并且传入了事件类型 Index&nbsp;。</p>
+<p>画布我们有了，接下来我们就应在画布上&ldquo;画&rdquo;上我们的 3D 场景了。上面我们也说过了这一步由 new Index3d() 实现的， 那么它是如何实现 &ldquo;画&rdquo; 这一步骤的呢？</p>
+<p>我们看看较为重要的两个文件 ui 文件夹下的 Index3d 文件和 View 文件，两个文件分别导出了 Index3d 和 View 两个类, Inde3d 类继承于 View 类,我们先来看一下 View 类的实现&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code> 1 import event from "../util/NotifierManager";
+ 2 import util from '../util/util';
+ 3 import { EVENT_SWITCH_VIEW } from "../util/constant";
+ 4 
+ 5 export default class View {
+ 6     constructor(view) {
+ 7         this.url = '';
+ 8         this.key = '';
+ 9         this.active = false;
+10         this.view = view;
+11         this.dm = view.dm();
+12 
+13         event.add(EVENT_SWITCH_VIEW, (key) =&gt; {
+14             this.handleSwitch(key);
+15         });
+16     }
+17     handleSwitch(key) {
+18         if (key === this.key) {
+19             if (!this.active) {
+20                 this.active = true;
+21                 this.onUp();
+22             }
+23             this.dm.clear();
+24             util.deserialize(this.view, this.url, this.onPostDeserialize.bind(this));
+25         }
+26         // 目前是这个场景，执行 tearDown
+27         else if (this.active) {
+28             this.onDown();
+29             this.active = false;
+30         }
+31     }
+32     /**
+33      * 加载这个场景前调用
+34      */
+35     onUp() {
+36     }
+37     /**
+38      * 离开这个场景时会调用
+39      */
+40     onDown() {
+41     }
+42     /**
+43      * 加载完场景处理
+44      */
+45     onPostDeserialize() {
+46         console.log(this)
+47     }
+48    
+49 }</pre>
+</div>
+<p>其它内容我们就不做过多阐述了，主要说一下我们加载场景使用的 deserialize 方法，我们打开 util 下的 util 文件找到这个方法</p>
+<div class="cnblogs_code">
+<pre><code> 1 deserialize: (function() {
+ 2　　let cacheMap = {};
+ 3　　/**
+ 4 　　* 加载 json 并反序列化
+ 5　　 * 
+ 6　　*/
+ 7　　return function(view, url, cb, notUseCache) {
+ 8　　let json, cache = !notUseCache;
+ 9　　if (!notUseCache) {
+10 　　　　json = cacheMap[url];
+11　　}
+12　　else {
+13　　　　cache = false;
+14　　}
+15　　// 不使用缓存，重新加载
+16　　view.deserialize(json || url, (json, dm, view, list) =&gt; {
+17　　　　cacheMap[url] = json;
+18　　　　cb &amp;&amp; cb(json, dm, view, list, cache);19　　}
+20})()</pre>
+</div>
+<p>其中的 view 就是传入的我们之前创建的 g3d 画布，它上面有个 deserialize 方法，用来反序列化我们的 json 格式的场景文件。可能这个时候大家会发问了，明明之前提到场景文件的是 obj 和 mtl 文件，怎么现在又成了 json 了。不要急，要明白这些我们得先了解一下 HT 的其它基础知识</p>
+<p>大家肯定对一些其它框架的设计模式有所了解，像早期 JAVA/Spring 的 mvc ，vue 的 mvvm 等，而 HT 的整体框架类似于 mvp 或 mvvm 模式，采用了统一的 DataModel 数据模型和 SelectionModel 选择模型来驱动所有的 HT 视图组件。HT 官方更愿意把这个模式称之为 ovm 即 Object Vue Mapping。基于这样的设计，用户只需掌握统一的数据接口，就能熟练地使用 HT 了，并不会因为增加了视图组件带来额外的学习成本，这也是为什么 HT 容易上手的原因。</p>
+<p>说完这个我们在来谈谈上面 3D 场景文件格式的问题，HT 给我们提供了 ht.JSONSerialize 对象让我们可以对 DataModel 进行 json 格式的序列化和反序列化，而上面的 3D 场景 json 文件就是对我们 3D 模型序列化之后的文件，调用 g3d.deserialize 方法将反序列化的对象加进 DataModel 中，那么我们的画布就会根据传入的 DataModel 绘制出我们的场景了。</p>
+<p>那么接下来我们只要重写 Inded3d 类上的&nbsp;onPostDeserialize 方法，即绘制完场景之后的回调。就能对我们主场景进行基本操作了。</p>
+<p><strong>视角转换动画</strong></p>
+<p>首先，我们先完成的是三个视角转换的动画</p>
+<p>我们直接写在 util 文件当中 ，给它添加一个方法 moveEveAction。方法传入了三个参数，首先是我们的画布 g3d，第二个参数就是我们的视角对象，它记录了每一步转换的初始视角和结束视角。第三个参数是为了衔接每一步视角转换，让其有一个过渡的动画而传入的一个函数 cover</p>
+<div class="cnblogs_code">
+<pre><code> 1 moveEyeAction: function(g3d,moveEyeConfig,cover){
+ 2　　if (!moveEyeConfig) return;
+ 3　　　　let moveEye = function(obj,time,eas = 'liner'){
+ 4　　　　　　return new Promise((res,rej) =&gt; {
+ 5                 g3d.setEye(obj.initEye);
+ 6                 g3d.setCenter(obj.initCenter);
+ 7                 g3d.moveCamera(obj.moveEye,obj.moveCenter, {
+ 8                     duration:time,
+ 9                     easing: function(t){    
+10                         if(t &lt; 0.5){
+11                             cover(t,'up');
+12                         }
+13                         if (eas === 'ease-in'){
+14                             return t * t;
+15                         }
+16                         else if (eas === 'liner'){
+17                             return t 
+18                         }
+19                         else {
+20                             return t
+21                         }  
+22                     },
+23                     finishFunc: ()=&gt;{
+24                         cover(1,'down');
+25                         res(time);
+26                     }
+27                 });
+28             })
+29         }
+30         
+31　　moveEye(moveEyeConfig[0],moveEyeConfig[0].time,moveEyeConfig[0].eas)
+32　　　　.then((res)=&gt;{
+33             console.log(1)
+34             return moveEye(moveEyeConfig[1],moveEyeConfig[1].time,moveEyeConfig[1].eas)
+35　　　　})
+36　　　　.then((res)=&gt;{
+37             moveEye(moveEyeConfig[2],moveEyeConfig[2].time,moveEyeConfig[2].eas)
+38　　　　)}<br />39})</pre>
+</div>
+<p>我们在函数中创建了一个方法 moveEye，它创建并返回了一个 promise ，方便我们做回调，防止出现回调地狱的情况。然后我们只要提前先配置好每一步的视角，传入函数中，函数便会依次调用 g3d 上的 moveCamera 方法，在每一步动画结束的时候，调用 cover 函数作为过渡。</p>
+<p>我们再来看一下 cover 函数的实现，在 3D 场景初始化时便会调用下方的 create2dCover 方法创建 cover，其实就是在最外层盖上了一层 div ，每一步动画结束的时候，根据传入的参数决定是否变暗完成过渡&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code> 1create2dCover(){
+ 2　　let div = document.createElement("div");
+ 3　　div.style.position = 'absolute';
+ 4　　div.style.background = 'black';
+ 5　　div.style.opacity = 0;
+ 6　　div.style.top = '0';
+ 7　　div.style.right = '0';
+ 8　　div.style.bottom = '0';
+ 9　　div.style.left = '0';
+10　　div.style.pointerEvents = 'none';
+11　　document.body.appendChild(div);
+12　　let dire = 'up';
+13　　let cover = function(t,direction,num){
+14　　　　if (direction === 'up' &amp;&amp; dire === 'down'){
+15　　　　　　div.style.opacity = 1- t * 4;
+16　　　　　　if (t &gt; 0.5) dire = 'up';
+17 　　　　}
+18　　　　if (direction === 'down' &amp;&amp; dire === 'up'){
+19　　　　　　if (t === 1) {
+20　　　　　　　　div.style.opacity = t;
+21　　　　　　　　dire = 'down'; 
+22　　　　　　}
+23　　　　}
+24　　}
+25　　return cover;
+26}</pre>
+</div>
+<p>我们再来看一下动画效果</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景5.png" alt="" width="230" height="128" />&nbsp;<img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景6.png" alt="" width="228" height="129" />&nbsp;<img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景7.png" alt="" width="227" height="128" /></p>
+<p><strong>第一个视角下的建筑浮现动画</strong></p>
+<p>我们先看下 Index3d 类的实现，再加载完场景的时候，我们便会调用上面我们说过的视角转换函数 moveEyeAction , 和我们接下来要讲的城市浮现函数 upCityDemo。</p>
+<div class="cnblogs_code">
+<pre><code> 1 onPostDeserialize(json, dm, view) {
+ 2　　const g3d = this.view;
+ 3　　g3d.setFar(100000);
+ 4　　const nodeUpArr1 = [], nodeUpArr2 = [], nodeUpArr3 = []；
+ 5　　//视角配置参数
+ 6　　const moveEyeConfig = [{
+ 7　　　　initEye:[-700,390,-974],
+ 8　　　　initCenter:[-1596,25,-518],
+ 9　　　　moveEye:[-2572, 390, -974],
+10　　　　moveCenter:[-1596,25,-518],
+11　　　　time: 9000,
+12　　　　eas: 'ease-in'
+13　　　　},{
+14　　　　initEye:[1500,71,900],
+15　　　　initCenter:[-1823,25,-636],
+16　　　　moveCenter:[-1823,25,-636],
+17　　　　moveEye:[-1678, 18, -558],
+18　　　　time:8000
+19　　　　},{
+20　　　　initEye:[2491,600,-1026],
+21　　　　initCenter:[0,0,0],
+22　　　　moveEye:[-3105, 500, -1577],
+23　　　　moveCenter:[-1034, -12, -41],
+24　　　　time:8000
+25　　　　}]
+26　　//创建一个蒙板div并返回cover函数
+27　　let cover = this.create2dCover();
+28　　//浮现城市的属性初始化
+29　　dm.each(fnode =&gt; {
+30　　//第一批楼房-市中心    
+31　　if (fnode.getDisplayName() === "up1"){
+32　　　　fnode.a('startE',fnode.getElevation());
+33　　　　fnode.setElevation(-200);
+34　　　　nodeUpArr1.push(fnode);
+35 　　}
+36　　//第二批城市-市中心附近建筑
+37　　if (fnode.getDisplayName() === "up2"){
+38　　　　fnode.a('startE',fnode.getElevation())
+39　　　　fnode.setElevation(-100);
+40　　　　nodeUpArr2.push(fnode);
+41　　}
+42　　//第三批城市-外围建筑
+43　　if (fnode.getDisplayName() === "up3"){
+44　　　　fnode.a('startE',fnode.getElevation())
+45　　　　fnode.setElevation(-100);
+46　　　　nodeUpArr3.push(fnode);
+47　　}
+48 
+49　　if(fnode.getDisplayName() === '飞光组'){
+50　　　　fnode.eachChild(node =&gt; {
+51　　　　　　node.s('shape3d.opacity',0);
+52　　　　})
+53　　}
+54})
+55 
+56　　//视角开始变换
+57　　util.moveEyeAction(g3d,moveEyeConfig,cover)
+58　　//城市浮现
+59　　let upCityDemo = function(nodeArr,time,T = 0.6){
+60　　　　return new Promise((res,rej)=&gt;{
+61　　　　ht.Default.startAnim({
+62　　　　　　duration:time,
+63　　　　　　　　action: (v,t) =&gt; {
+64　　　　　　　　　　nodeArr.forEach((node)=&gt;{
+65　　　　　　　　　　　　if(t &gt; T) res('已完成');
+66　　　　　　　　　　　　let org = node.getElevation();
+67　　　　　　　　　　　　let tar = node.a('startE');
+68　　　　　　　　　　　　node.setElevation(org + (tar - org) * v)
+69　　　　　　　　　　})
+70 　　　　　　　　}
+71　　　　　　})
+72　　　　})
+73　　}
+74         
+75　　upCityDemo(nodeUpArr1,11000,0.4).then((res)=&gt;{
+76 　　　　// console.log(res)
+77　　　　return upCityDemo(nodeUpArr2,2000,0.4)
+78　　}).then((res)=&gt;{
+79　　　　return upCityDemo(nodeUpArr3,2000);
+80　　}).then((res)=&gt;{
+81　　　　//城市出现，开始动画
+82　　　　//this.startAnimation(g3d,dm);
+83　　})
+84}</pre>
+</div>
+<p>首先我们将城市分别分为三批放入不同的数组中，然后类似的，创建了 upcityDemo 并返回了一个 promise，我们只需要调用并传入每批城市节点，它们便会依次执行建筑上升。还有一点要提的是这里动画用的是 HT 提供的动画函数&nbsp;&nbsp;ht.Default.startAnim 。这里我们简单介绍一下，HT 提供了 Frame-Based 和 Time-Based 两种动画方式，根据是否设置了 frames 和 interval 属性来决定是哪种方式。 第一种方式用户通过指定 frames 动画帧数， 以及 interval 动画帧间隔参数控制动画效果。 第二种 Time-Based 用户只需要指定 duration 的动画周期的毫秒数即可，HT 将在指定的时间周期内完成动画， 值得一提的是不同于&nbsp; &nbsp;Frame-Based 方式有明确固定的帧数即 action 函数被调用的次数，Time-Based 方式的帧数或 action 函数被调用次数取决于系统环境 （类似于 setinterval 和 requestAnimate 的区别）</p>
+<p>我们先看下动画效果，第一步视角下的动画转换我们就算完成了</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景8.png" alt="" width="268" height="135" /></p>
+<p><strong>贯穿全部视角下的动画</strong></p>
+<p>我们所有的动画和上面一样通过&nbsp;ht.Default.startAnim 函数实现，我们只需要将不同的动画函数放入 action 中，并通过控制它们不同的步数就能实现不一样的速度效果。</p>
+<p>我们共有五个动画效果，旋转动画可以归为一类</p>
+<p><strong>&middot;&nbsp;</strong>建筑下的水波扩散动画</p>
+<p><strong>&middot;&nbsp;</strong>风车，建筑底下光圈旋转动画</p>
+<p><strong>&middot;&nbsp;</strong>道路偏移动画</p>
+<p><strong>&middot;&nbsp;</strong>市中心上方光线流动动画</p>
+<p><strong>&middot;&nbsp;</strong>建筑上面的数字飞光动画</p>
+<div class="cnblogs_code">
+<pre><code> 1 ht.Default.startAnim({
+ 2             frames: Infinity,
+ 3             interval: 20,
+ 4             action: () =&gt; {
+ 5                 //扩散水波动画
+ 6                 waveScale(scaleList,dltScale,maxScale,minScale);
+ 7                 //风车旋转，建筑底下光圈旋转
+ 8                 rotationAction(roationFC,dltRoattion);
+ 9                 rotationAction(roationD,dltRoattionD);
+10                 rotationAction(roationD2,-dltRoattionD2);
+11                 //道路偏移
+12                 uvFlow(roadSmall,dltRoadSmall);
+13                 uvFlow(roadMedium,dltRoadMedium);
+14                 uvFlow(roadBig,dltRoadBig);
+15                 //光亮建筑下的数字飞光
+16                 numberArr.forEach((node,index)=&gt;{
+17                     blockFloat(node,numFloadDis);
+18                 })
+19                 //市中心上方亮线的流动
+20                 float.eachChild(node =&gt; {
+21                     let offset = node.s('shape3d.uv.offset') || [0, 0];
+22                     node.s('shape3d.uv.offset', [offset[0] + 0.05, offset[1]]);
+23                 })  
+24             }
+25         });</pre>
+</div>
+<p>我们先讲前面四种较为简单动画的实现，像市中心上方亮线的流动动画逻辑简单，我们就直接写在了 action 函数中，每一步控制 x 方向上的贴图偏移即可</p>
+<p>其它动画我们都封装为了对应的函数，如下</p>
+<div class="cnblogs_code">
+<pre><code> 1 //道路偏移动画
+ 2 //定义三种道路的步进
+ 3 const dltRoadSmall = 0.007, dltRoadMedium = 0.009, dltRoadBig = 0.01;
+ 4 //获取三种道路节点
+ 5 let roadSmall = dm.getDataByTag('roadSmall');
+ 6 let roadMedium = dm.getDataByTag('roadMedium');
+ 7 let roadBig = dm.getDataByTag('roadBig');
+ 8 let float = dm.getDataByTag('float');
+ 9 //定义偏移动画函数
+10 let uvFlow = function(obj,dlt){
+11     let offset = obj.s('all.uv.offset') || [0, 0];
+12     obj.s('all.uv.offset', [offset[0] + dlt, offset[1]]);
+13 }
+14 
+15 //水波缩放动画
+16 //定义扩大范围和每步扩大速度
+17 const maxScale = 1.5, dltScale = 0.06;
+18 //获取缩放节点
+19 let scaleList = dm.getDataByTag('scale');
+20 //定义缩放函数
+21 let waveScale = function(obj, dlt, max, min){
+22     obj.eachChild(node =&gt; {
+23         // 扩散半径增加
+24         if (!node.a('max')) node.a('max', node.getScaleX() + max);
+25         if (!node.s('shape3d.opacity')) node.s('shape3d.opacity',1);
+26         let s = node.getScaleX() + dlt;
+27         let y = node.getScale3d()[1]
+28         let opa = node.s('shape3d.opacity') - 0.02;
+29         // 扩散半径大于最大值的时候，重置为最小值，透明度设为1
+30         if (s &gt;= node.a('max')){
+31             opa = 1;
+32             s = 0;
+33         } 
+34         // 设置x,y,z方向的缩放值
+35         node.s('shape3d.opacity',opa)
+36         node.setScale3d(s, y, s);
+37         });
+38 }
+39 //旋转图元
+40 //定义三种不同旋转图元数组和旋转速度
+41 const roationFC = [], roationD = [], roationD2 = [], dltRoattionD = Math.PI / 90, dltRoattionD2 = Math.PI / 60, dltRoattion = Math.PI / 30;
+42 //获取所有旋转图元并分别放入数组中
+43 let roationFCDatas = dm.getDataByTag('roationFC');
+44 let roationdDatas = dm.getDataByTag('di');
+45 roationFCDatas.eachChild(node =&gt;{
+46     node.eachChild(node =&gt; {
+47         if (node.getDisplayName() === '风机叶片'){
+48             roationFC.push(node);
+49         }
+50     })  
+51 });
+52 roationdDatas.eachChild(node =&gt; {
+53     if (node.getDisplayName() === '底'){
+54         roationD.push(node)
+55     }
+56     if (node.getDisplayName() === '底2'){
+57         roationD2.push(node)
+58     }
+59 });
+60 //定义旋转函数
+61 let rotationAction = function(obj,dlt){
+62     obj.forEach(node =&gt; {     
+63         if (node.getDisplayName() === '风机叶片'){
+64             //获得当前旋转角度
+65             let rotationZ = node.getRotation3d()[2];
+66             //每步增加dlt
+67             node.setRotation3d([0,0,rotationZ + dlt]);
+68         }
+69         if (node.getDisplayName() === '底' || node.getDisplayName() === '底2'){
+70             //获得当前旋转角度
+71             let rotationY = node.getRotation3d()[1];
+72             //每步增加dlt   
+73             node.setRotation3d([0,rotationY + dlt,0]);
+74         }
+75     })
+76 }</pre>
+</div>
+<p>写完之后我们再看一下动画效果</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景9.png" alt="" width="288" height="156" /></p>
+<p>最后就是我们的稍微繁琐一点的数字飞光动画了。每座城市上方都有不同的六条飞光，我们需要每次都是随机出现两条，并且每条的速度都是不一样的。和之前的动画一样的，我们先获取所有的飞光节点并分类好，如下</p>
+<div class="cnblogs_code">
+<pre><code> 1 //数字浮动
+ 2 let numberArr, numFloadDis = 15, numFloatDlt = 0.07;
+ 3 numberArr = new Array(28);
+ 4 for (let i = 0;i &lt; 28; i++){
+ 5     numberArr[i] = new Array(6)
+ 6 }
+ 7 //产生两个随机数，并以数组形式返回
+ 8 let randerdom2 = function(){ 
+ 9     let num1 = Math.floor(Math.random() * 3);
+10     let num2 = Math.floor((Math.random() * 3 + 3));
+11     return [num1,num2];
+12 }
+13 //将所有的浮动数字按城市分组添加进数组
+14 let i = 0,j=0;
+15 dm.each(node =&gt; {
+16     if (node.getDisplayName() === '飞光组'){
+17         node.eachChild(node =&gt; {
+18             node.s('shape3d.opacity',0);
+19             node.setElevation(0);
+20             numberArr[i][j++] = node;
+21         })
+22         j=0;
+23         i++;
+24     }
+25 });
+26 //属性初始化
+27 let initArrAtr = function(){
+28     for (let i = 0; i &lt; numberArr.length; i++){
+29         for (let j = 0; j &lt; numberArr[i].length; j++){
+30             //每条数字的随机数度
+31             numberArr[i][j].a('randomSpeed', (numFloatDlt * 100 + Math.floor(Math.random() * 5))/100);
+32             //控制每条数字是否停止上升
+33             numberArr[i][j].a('stop',false);
+34             //每栋楼上的已升起的飞光数量
+35             numberArr[i].comNum = 0;
+36             //每栋楼层当前的两条飞光
+37             numberArr[i].one = randerdom2()[0];
+38             numberArr[i].two = randerdom2()[1];
+39         }
+40     }
+41 }
+42 initArrAtr();
+43 //重置单楼属性
+44 let czArr = function(singleRoom){
+45         //每栋楼上的已升起的数量
+46         singleRoom.comNum = 0;
+47         //重新随机设置每栋楼层出现的两条飞光
+48         singleRoom.one = randerdom2()[0];
+49         singleRoom.two = randerdom2()[1];
+50         //设置飞光的随机速度
+51         singleRoom.forEach((node, index)=&gt;{
+52             node.a('stop',false);
+53             node.a('randomSpeed', (numFloatDlt * 100 + Math.floor(Math.random() * 5))/100);
+54         })
+55 }</pre>
+</div>
+<p>当初始属性都设置完成后就该定义我们的动画函数了</p>
+<div class="cnblogs_code">
+<pre><code> 1 let blockFloat = function(obj, dis){
+ 2     //获取当前建筑
+ 3     let allNumArr = obj;
+ 4     //获取当前建筑出现的两条飞光
+ 5     let floatArr = [allNumArr[allNumArr.one],allNumArr[allNumArr.two]];
+ 6     let lth = floatArr.length;
+ 7     //遍历并控制这两条飞光及动画
+ 8     for (let j = 0; j &lt; lth; j++){
+ 9         let node = floatArr[j];
+10         //如果当前飞光已停则停止此条飞光下一步动画
+11         if (node.a('stop')) continue;
+12         //获得当前飞光初始高度如果没有则手动设置当前为初始高度
+13         let startE = node.a('startE');
+14         if (startE == null) node.a('startE', startE = node.getElevation());
+15         // 获得当前飞光速度和透明度值
+16         let dlt = node.a('randomSpeed');
+17         let float = node.a('float') || 0;
+18         let opa = node.s('shape3d.opacity') || 0,
+19             opaDlt = 0.01;
+20         
+21         node.setElevation(startE + dis * float);
+22         //上升的高度到达一定值设置透明度为1
+23         if (float &gt; 8){
+24             node.s('shape3d.opacity',1)
+25             opaDlt = -0.02
+26         }
+27         //上升的高度到达最高则让当前建筑飞光到达数量加一，并停止进一步上升
+28         if (float &gt; 12){
+29             allNumArr.comNum ++;
+30             node.a('stop',true);
+31             node.a('float', 0);
+32             node.setElevation(startE);
+33             node.s('shape3d.opacity',0);
+34             //当前建筑飞光到达数量到达两条，重置建筑上所有飞光属性
+35             if (allNumArr.comNum === 2){
+36                 czArr(allNumArr);
+37             }
+38             continue;
+39         }
+40         float += dlt;
+41         opa += opaDlt;
+42         node.s('shape3d.opacity',opa)
+43         node.a('float', float);
+44     }
+45 }</pre>
+</div>
+<p>我们看下效果</p>
+<p><img src="./images/基于 HTML5 WebGL 构建智能数字化城市 3D 全景10.png" alt="" width="274" height="147" /></p>
+<p>到这，我们所有的动画就已经写完了。还等什么呢，一起来创建一个属于你自己心中理想的智能化城市吧</p>
+<p>（ps: 不仅如此，HT官网中 还包含了数百个工业互联网 2D 3D 可视化应用案例，点击这里体验把玩：<a href="http://www.hightopo.com/demos/index.html" target="_blank">http://www.hightopo.com/demos/index.html</a>)</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

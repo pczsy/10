@@ -1,0 +1,403 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python day 20 线程池与协程,多进程TCP服务器' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python day 20 线程池与协程,多进程TCP服务器</center></div><div class='banquan'>原文出处:本文由博客园博主bluestarpin提供。<br/>
+原文连接:https://www.cnblogs.com/lanxing0422/p/pythonday20.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#python-day-20-线程池与协程">python day 20: 线程池与协程</a><ul>
+        <li><a href="#线程">2. 线程</a></li>
+        <li><a href="#进程">3. 进程</a></li>
+        <li><a href="#协程gevent模块又叫微线程">4. 协程：gevent模块，又叫微线程</a></li>
+        <li><a href="#扩展">5. 扩展</a></li>
+        <li><a href="#自定义线程池">6. 自定义线程池</a></li>
+        <li><a href="#实现多进程tcp服务器">7. 实现多进程TCP服务器</a></li>
+        <li><a href="#实现多线程tcp服务器">8. 实现多线程TCP服务器</a></li>
+        <li><a href="#协程greenlet和gevent">9. 协程greenlet和gevent</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="python-day-20-线程池与协程">python day 20: 线程池与协程</h1>
+<p>2019/11/1</p>
+<p>资料来自老男孩教育</p>
+<h2 id="线程">2. 线程</h2>
+<p>线程适用于IO密集流操作，线程是最小的执行单元<br />
+线程之间数据是共享的，共用一块内存<br />
+import threading :导入线程模块<br />
+t = threading.Thread(target=func,args=())<br />
+t.start()<br />
+t.join([timeout]),此处join是wait的意思，即主线程等待子线程结束，最多等2秒<br />
+主进程是否等待子线程<br />
+t.setDaemon(True/False)<br />
+线程锁：使用RLOCK<br />
+mutex = threading.RLock()创建锁<br />
+mutex.acquire()获得锁<br />
+mutex.release()释放锁<br />
+Event事件<br />
+event_obj = threading.Event()创建事件对象<br />
+event_obj.wait()等待状态，flag为False则阻塞所有的线程<br />
+event_obj.clear()将flag设置为False<br />
+event_obj.set()将flal设置为True</p>
+<h2 id="进程">3. 进程</h2>
+<p>创建进程<br />
+import multiprocessing<br />
+if <strong>name</strong>==&quot;<strong>main</strong>&quot;:<br />
+p = multiprocessing.Process(target=func,args=(),)<br />
+p.deamon = True/False（主进程是否等待子进程结束）<br />
+p.start()<br />
+p.join([timeout])主进程等待子进程结束，最多等待多少秒<br />
+进程之间数据不共享，每个进程使用独立内存<br />
+进程间数据共享的实现方式Manage或Array<br />
+Array<br />
+数组必须一开始就定义好数组的长度<br />
+数组的元素必须是统一的数据类型<br />
+Manage()<br />
+manage = Manage()<br />
+manage.dict()无长度限制，比Array方便，进程间数据通信使用manage.dict是最优选择。<br />
+进程池Pool<br />
+pool = multiprocessing.Pool(5)，创建一个最多支持5个进程的进程池。<br />
+pool.apply(func,(1,))申请一个进程执行某个函数。每个任务是排队执行。每个进程有join执行。<br />
+pool.apply_async(func=Foo,args=(1,),callback=Bar)，申请一个进程去执行Foo方法，将Foo方法的返回值作为实参赋值给Bar函数。每个任务是并发执行。更多是使用apply_async。每个进程没有join执行. 进程的deamon=True。<br />
+pool.close()关闭进程池，不再接收新请求。或pool.terminate()<br />
+pool.join()，进程池中进程执行完毕后主进程再关闭。</p>
+<h2 id="协程gevent模块又叫微线程">4. 协程：gevent模块，又叫微线程</h2>
+<p>必须安装greenlet模块与gevent模块<br />
+gevent代表高性能，当发IO请求时，尤其是网络IO请求时，使用协程<br />
+gevent.sleep(0)<br />
+gevent.joinall()</p>
+<pre><code><code>from gevent import monkey; monkey.patch_all()
+import requests
+import gevent
+
+def f(url):
+    print(&quot;url: %s&quot;%url)
+    ret = requests.get(url)
+    data = ret.text
+    print(url,len(data))
+
+gevent.joinall([
+    gevent.spawn(f,&quot;https://juejin.im/post/5aa7314e6fb9a028d936d2a4&quot;),
+    gevent.spawn(f,&quot;https://www.cnblogs.com/lanxing0422/p/pythonday19.html&quot;),
+    gevent.spawn(f,&quot;http://www.baidu.com&quot;),
+])
+
+
+
+# # 用于IO密集流
+# def foo():
+#     print(&quot;foo&quot;)
+#     # 执行gevent的sleep方法
+#     gevent.sleep(0)
+#     print(&quot;foo again&quot;)
+#
+# def bar():
+#     print(&quot;bar&quot;)
+#     gevent.sleep(0)
+#     print(&quot;bar again&quot;)
+#
+# gevent.joinall([
+#     gevent.spawn(foo),
+#     gevent.spawn(bar),
+# ])</code></pre>
+<h2 id="扩展">5. 扩展</h2>
+<p>生产者消费者模型<br />
+队列：Queue<br />
+队列的特性：先进先出<br />
+q = queue.Queue(max)<br />
+q.put()<br />
+q.get()<br />
+q.get_nowait<br />
+q.put_nowait()<br />
+rabbit_m_queue开源的，特别牛逼的</p>
+<h2 id="自定义线程池">6. 自定义线程池</h2>
+<p>python内部没有提供，需要自定义。<br />
+实际使用中，更多是基于线程池来使用，而不是创建一个单独的线程。<br />
+非常重要，以后会经常使用。</p>
+<pre><code><code>import threading
+import queue
+import time
+import contextlib
+
+Stopevent = object()
+
+
+class ThreadPool(object):
+    &#39;&#39;&#39;
+    进程池
+    &#39;&#39;&#39;
+
+    def __init__(self, max_num):
+        self.max_num = max_num
+        self.q = queue.Queue()
+        self.terminate_flag = False
+        # 真实创建的线程列表
+        self.generate_list = []
+        # 空闲中的线程列表
+        self.free_list = []
+
+    def generate_thread(self):
+        &#39;&#39;&#39;
+        创建一个线程执行任务
+        :return:
+        &#39;&#39;&#39;
+        t = threading.Thread(target=self.call)
+        t.start()
+
+    def run(self, func, args, callback=None):
+        &#39;&#39;&#39;
+        线程池执行一个任务
+        :param func: 任务函数名
+        :param args: 任务函数所需参数元组
+        :param callback: 任务执行失败或成功后执行的回调函数
+        :return: 如果线程池已经终止，则返回True否则None
+        &#39;&#39;&#39;
+
+        if len(self.free_list) == 0 and len(self.generate_list) &lt; self.max_num:
+            self.generate_thread()
+        tuple_obj = (func, args, callback)
+        self.q.put(tuple_obj)
+
+    def call(self):
+        &#39;&#39;&#39;
+        循环获取任务并执行
+        :return:
+        &#39;&#39;&#39;
+        # 获取当前线程并添加到列表中
+        current_thread = threading.currentThread()
+        self.generate_list.append(current_thread)
+
+        # 从队列中取任务
+        event = self.q.get()
+        # 当该任务的类型不是Stopevent时，死循环
+        while event != Stopevent:
+            func, args, callback = event
+            status = True
+            try:
+                ret = func(*args)
+            except Exception as e:
+                status = False
+                ret = e
+
+            # 当回调函数不为空时，就执行回调函数
+            if callback:
+                try:
+                    callback(status, ret)
+                except Exception as e:
+                    pass
+
+
+            # self.free_list.append(current_thread)
+            # event = self.q.get()
+            # self.free_list.remove(current_thread)
+            with self.work_state(self.free_list,current_thread):
+                if not self.terminate_flag:
+                    event = self.q.get()
+                else:
+                    event = Stopevent
+
+        else:
+            self.generate_list.remove(current_thread)
+
+    def close(self):
+        num = len(self.generate_list)
+        while num:
+            self.q.put(Stopevent)
+            num -= 1
+
+    def terminate(self):
+        self.terminate_flag = True
+        # 终止线程，不清空队列
+        # max = len(self.generate_list)
+        # while max:
+        #     self.q.put(Stopevent)
+        #     max -= 1
+        # self.q.empty()
+        # 终止线程且清空队列
+        while self.generate_list:
+            self.q.put(Stopevent)
+        self.q.empty()
+
+
+    @contextlib.contextmanager
+    def work_state(self,state_list,work_thread):
+        &#39;&#39;&#39;用于记录线程池中正在等待的线程数&#39;&#39;&#39;
+        state_list.append(work_thread)
+        try:
+            yield
+        finally:
+            state_list.remove(work_thread)
+
+def foo(i):
+    time.sleep(0.1)
+    print(&quot;当前i是&gt;&gt;&gt;&quot;,i)
+    return i + 100
+
+
+def call_back(status, ret):
+    print(&quot;ret:&gt;&gt;&gt;&quot;, ret)
+
+
+pool = ThreadPool(10)
+
+for i in range(50):
+    &#39;&#39;&#39;
+    将任务放进队列中：
+        创建线程： 
+            只有空闲线程列表为空且创建的线程数量小于最大线程数时才会创建线程。
+        从队列中取到任务，线程执行任务
+    &#39;&#39;&#39;
+    pool.run(func=foo, args=(i,), callback=call_back)
+pool.close()
+print(&quot;gene_list&quot;,len(pool.generate_list))</code></pre>
+<h2 id="实现多进程tcp服务器">7. 实现多进程TCP服务器</h2>
+<p><code>serSocket.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)</code><br />
+重新设置套接字选项，重复使用绑定的信息<br />
+当有一个有相同本地地址和端口的socket1处于TIME_WAIT状态时，而你启动的程序的socket2要占用该地址和端口，你的程序就要用到SO_REUSEADDR选项。</p>
+<pre><code><code>from socket import *
+from multiprocessing import *
+# 处理客户端的请求并为其服务
+def dealwithClient(newSocket):
+    while True:
+        recvData = newSocket.recv(1024)
+        if len(recvData)==0:
+            break
+        else:
+            print(recvData)
+    newSocket.close()
+
+
+def main():
+    serSock = socket(AF_INET,SOCK_STREAM)
+    # 设置套接字选项，使其可以重复使用绑定的信息
+    serSock.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+    bindAddr= (&#39;&#39;,9091)
+    serSock.bind(bindAddr)
+    serSock.listen(5)
+
+    try:
+        while True:
+            newSocket,clientAddr = serSock.accept()
+            p1 = Process(target= dealwithClient,args=(newSocket,))
+            p1.start()
+            # 因为已经向⼦进程中copy了⼀份（引⽤） ，
+            # 并且⽗进程中这个套接字也没有用处了
+            # 所以关闭
+            newSocket.close()
+    finally:
+        serSock.close()
+
+if __name__==&#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="实现多线程tcp服务器">8. 实现多线程TCP服务器</h2>
+<pre><code><code>from socket import *
+from threading import *
+# 处理客户端的请求并为其服务
+def dealwithClient(newSocket):
+    while True:
+        recvData = newSocket.recv(1024)
+        if len(recvData)==0:
+            break
+        else:
+            print(recvData)
+    newSocket.close()
+
+
+def main():
+    serSock = socket(AF_INET,SOCK_STREAM)
+    # 设置套接字选项，使其可以重复使用绑定的信息
+    serSock.setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
+    bindAddr= (&#39;&#39;,9091)
+    serSock.bind(bindAddr)
+    serSock.listen(5)
+
+    try:
+        while True:
+            newSocket,clientAddr = serSock.accept()
+            p1 = Thread(target= dealwithClient,args=(newSocket,))
+            p1.start()
+            # 因为线程中共享这个套接字， 如果关闭了会导致这个套接字不可⽤，
+            # 但是此时在线程中这个套接字可能还在收数据， 因此不能关闭
+            # newSocket.close()
+    finally:
+        serSock.close()
+
+if __name__==&#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="协程greenlet和gevent">9. 协程greenlet和gevent</h2>
+<p>⽐线程更⼩的执⾏单元（微线程）<br />
+⼀个线程作为⼀个容器⾥⾯可以放置多个协程</p>
+<p>只切换函数调用即可实现多任务，可以减少CPU的切换<br />
+协程⾃⼰主动让出CPU</p>
+<p>使用生成器，只切换函数调用即可完成多任务切换</p>
+<pre><code><code>import time
+def A():
+    while True:
+        print(“----A---”)
+            yield  
+        time.sleep(0.5)
+def B(c):
+    while True:
+        print(“----B---”)
+        c.next()
+        time.sleep(0.5)
+if __name__==‘__main__’:
+    a = A() # 如果一个函数中有yield，返回值就是一个生成器
+    B(a)</code></pre>
+<pre><code><code># python中的greenlet模块对协程进行了封装（底层相当于yield）
+# 安装模块： pip3 install greenlet
+from greenlet import greenlet
+import time
+def t1():
+    while True:
+        print(&quot;........A........&quot;)
+        gr2.switch()
+        time.sleep(1)
+def t2():
+    while True:
+        print(&quot;........b........&quot;)
+        gr1.switch()#调到上次执行的地方继续执行
+        time.sleep(1)
+gr1 = greenlet(t1)#创建一个greenlet对象
+gr2 = greenlet(t2)
+gr1.switch()#此时会执行1函数</code></pre>
+<p>python还有⼀个⽐greenlet更强⼤的并且能够⾃动切换任务的模块 gevent.<br />
+原理是当⼀个greenlet遇到IO(指的是input output 输⼊输出)操作时， ⽐如访问⽹络， 就⾃动切换到其他的greenlet， 等到IO操作完成， 再在适当的时候切换回来继续执⾏.<br />
+io密集型和cpu密集型：一些进程绝大多数时间在计算上，称为计算密集型（CPU密集型），此时用多进程.<br />
+有一些进程则在input 和output上花费了大多时间，称为I/O密集型。比如搜索引擎大多时间是在等待（耗时操作），相应这种就属于I/O密集型。此时用多线程.</p>
+<pre><code><code>import gevent
+def A():
+    while True:
+        print(&quot;.........A.........&quot;)
+        gevent.sleep(1)#用来模拟一个耗时操作
+        #gevent中：当一个协程遇到耗时操作会自动交出控制权给其他协程
+def B():
+    while True:
+        print(&quot;.........B.........&quot;)
+        gevent.sleep(1)#每当遇到耗时操作，会自用转到其他协程
+g1 = gevent.spawn(A) # 创建一个gevent对象（创建了一个协程），此时就已经开始执行A
+g2 = gevent.spawn(B)
+g1.join()  #等待协程执行结束
+g2.join()  #会等待协程运行结束后再退出</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

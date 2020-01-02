@@ -1,0 +1,196 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python_MySQL数据库的写入与读取' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python_MySQL数据库的写入与读取</center></div><div class='banquan'>原文出处:本文由博客园博主wangxiaobei2019提供。<br/>
+原文连接:https://www.cnblogs.com/wangxiaobei2019/p/11576898.html</div><br>
+    <h2>【需求】1. 在数据库中创建表，且能按时间自动创建新表 2. 数据写入数据库 3. 从数据库读取数据</h2>
+<h3>1. 创建表，并自动更新</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> Creat_Table(InitMySQL,tabel_name):
+</span><span style="color: #008080;"> 2</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 创建游标</span>
+<span style="color: #008080;"> 3</span>     cursor =<span style="color: #000000;"> InitMySQL.cursor()
+</span><span style="color: #008080;"> 4</span>     sql = <span style="color: #800000;">"</span><span style="color: #800000;">create table if not exists </span><span style="color: #800000;">"</span> +  tabel_name  + <span style="color: #800000;">"</span><span style="color: #800000;">(dTime   datetime not null comment '时间',</span><span style="color: #800000;">"</span><span style="color: #000000;"> \
+</span><span style="color: #008080;"> 5</span>                                                 <span style="color: #800000;">"</span><span style="color: #800000;">dElectric_uA  int not null comment '电流',</span><span style="color: #800000;">"</span><span style="color: #000000;"> \
+</span><span style="color: #008080;"> 6</span>                                                 <span style="color: #800000;">"</span><span style="color: #800000;">dDistance   int not null comment '距离',</span><span style="color: #800000;">"</span><span style="color: #000000;"> \
+</span><span style="color: #008080;"> 7</span>                                                 <span style="color: #800000;">"</span><span style="color: #800000;">dWarning    int not null comment '报警')</span><span style="color: #800000;">"</span>
+<span style="color: #008080;"> 8</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 打印sql</span>
+<span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">print</span><span style="color: #000000;">(sql)
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">    cursor.execute(sql)
+</span><span style="color: #008080;">11</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 关闭游标</span>
+<span style="color: #008080;">12</span>     cursor.close()</pre>
+</div>
+<p>需要输入数据库的连接对象和表名称，sql根据表名称判断数据库中是否存在该表，如果存在则不会创建，不存在则创建新表</p>
+<p>tabel_name 可以根据时间创建</p>
+<h3>2. 向数据库中写入数据</h3>
+<p>根据创建的数据库中表的类型进行数据填充</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> Write_to_MySQL(InitMySQL,tabel_name, CurrentTime, Electric_uA, Distance, WaringStatus):
+</span><span style="color: #008080;"> 2</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 创建游标</span>
+<span style="color: #008080;"> 3</span>     cursor =<span style="color: #000000;"> InitMySQL.cursor()
+</span><span style="color: #008080;"> 4</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> #创建sql</span>
+<span style="color: #008080;"> 5</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> w_table_name = 'warning' + day_time</span>
+<span style="color: #008080;"> 6</span>     sql = <span style="color: #800000;">'</span><span style="color: #800000;">insert into </span><span style="color: #800000;">'</span>+ tabel_name+ <span style="color: #800000;">'</span><span style="color: #800000;"> values (%s, %s, %s, %s)</span><span style="color: #800000;">'</span>
+<span style="color: #008080;"> 7</span>     <span style="color: #0000ff;">print</span><span style="color: #000000;">(sql)
+</span><span style="color: #008080;"> 8</span>     result =<span style="color: #000000;"> cursor.execute(sql,(CurrentTime, Electric_uA, Distance, WaringStatus))
+</span><span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">if</span> result == 1<span style="color: #000000;">:
+</span><span style="color: #008080;">10</span>         <span style="color: #0000ff;">pass</span>
+<span style="color: #008080;">11</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> print('添加成功!')</span>
+<span style="color: #008080;">12</span>     <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">13</span>         <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">添加数据失败！</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">14</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 4. 操作成功提交事务</span>
+<span style="color: #008080;">15</span> <span style="color: #000000;">    InitMySQL.commit()
+</span><span style="color: #008080;">16</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 关闭游标</span>
+<span style="color: #008080;">17</span>     cursor.close()</pre>
+</div>
+<h3>整体表的创建与数据输入</h3>
+<div class="cnblogs_code" onclick="cnblogs_code_show('f596598e-ce56-423d-8fdc-bd47d36c6531')"><img id="code_img_closed_f596598e-ce56-423d-8fdc-bd47d36c6531" class="code_img_closed" src="./images/Python_MySQL数据库的写入与读取0.png" alt="" /><img id="code_img_opened_f596598e-ce56-423d-8fdc-bd47d36c6531" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('f596598e-ce56-423d-8fdc-bd47d36c6531',event)" src="./images/Python_MySQL数据库的写入与读取1.png" alt="" />
+<div id="cnblogs_code_open_f596598e-ce56-423d-8fdc-bd47d36c6531" class="cnblogs_code_hide">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> datetime
+</span><span style="color: #008080;"> 3</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> pymysql
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span> <span style="color: #008000;">#</span><span style="color: #008000;"> JSON 文件初始化</span>
+<span style="color: #008080;"> 7</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> InitJSON():
+</span><span style="color: #008080;"> 8</span>     <span style="color: #0000ff;">global</span><span style="color: #000000;"> filejson
+</span><span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;">10</span>         with open(<span style="color: #800000;">'</span><span style="color: #800000;">TIE_LDY_20190923_1502.json</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">r</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+</span><span style="color: #008080;">11</span>             filejson =<span style="color: #000000;"> json.load(f)
+</span><span style="color: #008080;">12</span>     <span style="color: #0000ff;">except</span><span style="color: #000000;"> FileNotFoundError:
+</span><span style="color: #008080;">13</span>         <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">无法打开指定的文件!</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">14</span>     <span style="color: #0000ff;">except</span><span style="color: #000000;"> LookupError:
+</span><span style="color: #008080;">15</span>         <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">指定了未知的编码!</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">16</span>     <span style="color: #0000ff;">except</span><span style="color: #000000;"> UnicodeDecodeError:
+</span><span style="color: #008080;">17</span>         <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">读取文件时解码错误!</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">18</span> 
+<span style="color: #008080;">19</span> <span style="color: #008000;">#</span><span style="color: #008000;">  数据库参数初始化</span>
+<span style="color: #008080;">20</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> MysqlInit():
+</span><span style="color: #008080;">21</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> global LiuCaoSQL</span>
+<span style="color: #008080;">22</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 1. 创建数据库连接对象</span>
+<span style="color: #008080;">23</span>     InitMySQL = pymysql.connect(host=filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">host</span><span style="color: #800000;">'</span>], port=filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">port</span><span style="color: #800000;">'</span><span style="color: #000000;">],
+</span><span style="color: #008080;">24</span>                           database=filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">database</span><span style="color: #800000;">'</span>], charset=filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">charset</span><span style="color: #800000;">'</span><span style="color: #000000;">],
+</span><span style="color: #008080;">25</span>                           user=filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">user</span><span style="color: #800000;">'</span>], password=filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">password</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+</span><span style="color: #008080;">26</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> InitMySQL
+</span><span style="color: #008080;">27</span> 
+<span style="color: #008080;">28</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> Creat_Table(InitMySQL,tabel_name):
+</span><span style="color: #008080;">29</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 创建游标</span>
+<span style="color: #008080;">30</span>     cursor =<span style="color: #000000;"> InitMySQL.cursor()
+</span><span style="color: #008080;">31</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> # 获取当前时间 年-月-日</span>
+<span style="color: #008080;">32</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> day_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")</span>
+<span style="color: #008080;">33</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> # 拼接table名称</span>
+<span style="color: #008080;">34</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> tabel_name = 'warning' + day_time</span>
+<span style="color: #008080;">35</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 创建sql语句  创建列表的表头 注意表的类型create table if not exists tablename</span>
+<span style="color: #008080;">36</span>     sql = <span style="color: #800000;">"</span><span style="color: #800000;">create table if not exists </span><span style="color: #800000;">"</span> +  tabel_name  + <span style="color: #800000;">"</span><span style="color: #800000;">(dTime   datetime not null comment '时间',</span><span style="color: #800000;">"</span><span style="color: #000000;"> \
+</span><span style="color: #008080;">37</span>                                                 <span style="color: #800000;">"</span><span style="color: #800000;">dElectric_uA  int not null comment '电流',</span><span style="color: #800000;">"</span><span style="color: #000000;"> \
+</span><span style="color: #008080;">38</span>                                                 <span style="color: #800000;">"</span><span style="color: #800000;">dDistance   int not null comment '距离',</span><span style="color: #800000;">"</span><span style="color: #000000;"> \
+</span><span style="color: #008080;">39</span>                                                 <span style="color: #800000;">"</span><span style="color: #800000;">dWarning    int not null comment '报警')</span><span style="color: #800000;">"</span>
+<span style="color: #008080;">40</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 打印sql</span>
+<span style="color: #008080;">41</span>     <span style="color: #0000ff;">print</span><span style="color: #000000;">(sql)
+</span><span style="color: #008080;">42</span> <span style="color: #000000;">    cursor.execute(sql)
+</span><span style="color: #008080;">43</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 关闭游标</span>
+<span style="color: #008080;">44</span> <span style="color: #000000;">    cursor.close()
+</span><span style="color: #008080;">45</span> 
+<span style="color: #008080;">46</span> 
+<span style="color: #008080;">47</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 向数据库写入内容</span>
+<span style="color: #008080;">48</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> Write_to_MySQL(InitMySQL,tabel_name, CurrentTime, Electric_uA, Distance, WaringStatus):
+</span><span style="color: #008080;">49</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 创建游标</span>
+<span style="color: #008080;">50</span>     cursor =<span style="color: #000000;"> InitMySQL.cursor()
+</span><span style="color: #008080;">51</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 获取当前时间 年-月-日</span>
+<span style="color: #008080;">52</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> day_time = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")</span>
+<span style="color: #008080;">53</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> #创建sql</span>
+<span style="color: #008080;">54</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> w_table_name = 'warning' + day_time</span>
+<span style="color: #008080;">55</span>     sql = <span style="color: #800000;">'</span><span style="color: #800000;">insert into </span><span style="color: #800000;">'</span>+ tabel_name+ <span style="color: #800000;">'</span><span style="color: #800000;"> values (%s, %s, %s, %s)</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">56</span>     <span style="color: #0000ff;">print</span><span style="color: #000000;">(sql)
+</span><span style="color: #008080;">57</span>     result =<span style="color: #000000;"> cursor.execute(sql,(CurrentTime, Electric_uA, Distance, WaringStatus))
+</span><span style="color: #008080;">58</span>     <span style="color: #0000ff;">if</span> result == 1<span style="color: #000000;">:
+</span><span style="color: #008080;">59</span>         <span style="color: #0000ff;">pass</span>
+<span style="color: #008080;">60</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> print('添加成功!')</span>
+<span style="color: #008080;">61</span>     <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">62</span>         <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">添加数据失败！</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">63</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 4. 操作成功提交事务</span>
+<span style="color: #008080;">64</span> <span style="color: #000000;">    InitMySQL.commit()
+</span><span style="color: #008080;">65</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 关闭游标</span>
+<span style="color: #008080;">66</span> <span style="color: #000000;">    cursor.close()
+</span><span style="color: #008080;">67</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> main():
+</span><span style="color: #008080;">68</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 初始化JSON 和数据库</span>
+<span style="color: #008080;">69</span> <span style="color: #000000;">    InitJSON()
+</span><span style="color: #008080;">70</span>     InitMySQL =<span style="color: #000000;"> MysqlInit()
+</span><span style="color: #008080;">71</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 测试数据库创建 表</span>
+<span style="color: #008080;">72</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> Creat_Table(InitMySQL)</span>
+<span style="color: #008080;">73</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 测试写入数据</span>
+<span style="color: #008080;">74</span>     Electric_uA = 1000
+<span style="color: #008080;">75</span>     Distance = 1000
+<span style="color: #008080;">76</span>     WaringStatus =<span style="color: #000000;"> 0
+</span><span style="color: #008080;">77</span>     i=<span style="color: #000000;"> 0
+</span><span style="color: #008080;">78</span>     <span style="color: #0000ff;">while</span>(i &lt; 10000<span style="color: #000000;">):
+</span><span style="color: #008080;">79</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 获取当前时间 年-月-日</span>
+<span style="color: #008080;">80</span>         day_time = datetime.datetime.now().strftime(<span style="color: #800000;">"</span><span style="color: #800000;">%Y_%m_%d_%H_%M</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">81</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 拼接table名称</span>
+<span style="color: #008080;">82</span>         tabel_name = <span style="color: #800000;">'</span><span style="color: #800000;">warning</span><span style="color: #800000;">'</span> +<span style="color: #000000;"> day_time
+</span><span style="color: #008080;">83</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 测试数据库创建 表</span>
+<span style="color: #008080;">84</span> <span style="color: #000000;">        Creat_Table(InitMySQL,tabel_name)
+</span><span style="color: #008080;">85</span>         i += 1
+<span style="color: #008080;">86</span>         CurrentTime = datetime.datetime.now().strftime(<span style="color: #800000;">"</span><span style="color: #800000;">%Y_%m_%d %H:%M:%S</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">87</span>         Electric_uA -= 1
+<span style="color: #008080;">88</span>         Distance += 1
+<span style="color: #008080;">89</span> <span style="color: #000000;">        Write_to_MySQL(InitMySQL, tabel_name, CurrentTime, Electric_uA, Distance, WaringStatus)
+</span><span style="color: #008080;">90</span>         time.sleep(0.01)</pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<p>测试的数据库结果：</p>
+<p><img src="./images/Python_MySQL数据库的写入与读取2.png" alt="" /></p>
+<p>&nbsp;</p>
+<h3>&nbsp;3. 从数据库读取数据</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 2</span> <span style="color: #800000;">   【函数功能】 读取数据库中最新的几分钟数据
+</span><span style="color: #008080;"> 3</span> <span style="color: #800000;">   【输入】     需要查询的table名称（也可以从JSON中读取）
+</span><span style="color: #008080;"> 4</span> <span style="color: #800000;">   【输出】     查找的数据列表
+</span><span style="color: #008080;"> 5</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 6</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> Read_from_Mysql(InitMySQL, sql_tabel_name):
+</span><span style="color: #008080;"> 7</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 从JSON中读取sql需要的参数</span>
+<span style="color: #008080;"> 8</span>     set_time = filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">set_delaytime_min</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+</span><span style="color: #008080;"> 9</span>     now_time = datetime.datetime.now().strftime(<span style="color: #800000;">"</span><span style="color: #800000;">%Y-%m-%d %H:%M:%S</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">10</span>     last_time = (datetime.datetime.now() - datetime.timedelta(minutes = set_time)).strftime(<span style="color: #800000;">"</span><span style="color: #800000;">%Y-%m-%d %H:%M:%S</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">11</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> sql_tabel_name = filejson['MysqlInit']['sql_tabel_name']</span>
+<span style="color: #008080;">12</span>     sql_distance_header = filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">distance_header</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+</span><span style="color: #008080;">13</span>     sql_time_header = filejson[<span style="color: #800000;">'</span><span style="color: #800000;">MysqlInit</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">time_header</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+</span><span style="color: #008080;">14</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 创建游标</span>
+<span style="color: #008080;">15</span>     cursor =<span style="color: #000000;"> InitMySQL.cursor()
+</span><span style="color: #008080;">16</span>     sql = <span style="color: #800000;">"</span><span style="color: #800000;">SELECT </span><span style="color: #800000;">"</span> + sql_distance_header + <span style="color: #800000;">"</span><span style="color: #800000;"> FROM </span><span style="color: #800000;">"</span> + sql_tabel_name + <span style="color: #800000;">"</span><span style="color: #800000;"> WHERE </span><span style="color: #800000;">"</span> +<span style="color: #000000;"> sql_time_header \
+</span><span style="color: #008080;">17</span>           + <span style="color: #800000;">"</span><span style="color: #800000;">&lt;'</span><span style="color: #800000;">" </span>+ now_time + <span style="color: #800000;">"</span><span style="color: #800000;">'</span><span style="color: #800000;">"</span> + <span style="color: #800000;">"</span><span style="color: #800000;"> and </span><span style="color: #800000;">"</span> +  sql_time_header + <span style="color: #800000;">"</span><span style="color: #800000;">&gt;'</span><span style="color: #800000;">" </span>+last_time + <span style="color: #800000;">"</span><span style="color: #800000;">'</span><span style="color: #800000;">"</span>
+<span style="color: #008080;">18</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> print(sql)</span>
+<span style="color: #008080;">19</span> <span style="color: #000000;">    cursor.execute(sql)
+</span><span style="color: #008080;">20</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 获取该字段下的数据</span>
+<span style="color: #008080;">21</span>     result =<span style="color: #000000;"> cursor.fetchall()
+</span><span style="color: #008080;">22</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 关闭游标</span>
+<span style="color: #008080;">23</span> <span style="color: #000000;">    cursor.close()
+</span><span style="color: #008080;">24</span>     <span style="color: #008000;">#</span><span style="color: #008000;"> 将数据转换成列表</span>
+<span style="color: #008080;">25</span>     new_distance=<span style="color: #000000;"> []
+</span><span style="color: #008080;">26</span>     <span style="color: #0000ff;">for</span> dis <span style="color: #0000ff;">in</span><span style="color: #000000;"> result:
+</span><span style="color: #008080;">27</span> <span style="color: #000000;">        new_distance.append(dis[0])
+</span><span style="color: #008080;">28</span>     <span style="color: #0000ff;">return</span> new_distance</pre>
+</div>
+<h3>【重点】sql的字符串拼接中可以加入变量 时间需要用单引号引起来</h3>
+<h3>&nbsp;</h3>
+<p>&nbsp;园中有博主写的关于数据库，非常详细 可以参考 https://www.cnblogs.com/hackerer/p/11588717.html</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

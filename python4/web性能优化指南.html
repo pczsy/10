@@ -1,0 +1,353 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修web性能优化指南' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>web性能优化指南</center></div><div class='banquan'>原文出处:本文由博客园博主小周sri的码农提供。<br/>
+原文连接:https://www.cnblogs.com/zhoulifeng/p/12060250.html</div><br>
+    <p>前端性能优化，是每个前端必备的技能，优化自己的代码，使自己的网址可以更加快速的访问打开，减少用户等待，今天就会从几个方面说起前端性能优化的方案，</p>
+<p>看下面的一张图，经常会被面试官问，从输入URL到页面加载完成，发生了什么？</p>
+<p>&nbsp;</p>
+<p><img src="./images/web性能优化指南0.png" alt="" /></p>
+<p>&nbsp;</p>
+<div>1.用户输入www.baidu.com<br clear="none" />2.浏览器通过DNS。吧url解析ip<br clear="none" />3.和ip地址建立TCP连接，发送HTTP请求<br clear="none" />4.服务器接收请求，查库，读文件等，拼接好 返回的HTTP响应<br clear="none" />5.浏览器收到首屏html,开始渲染，<br clear="none" />6.解析html位dom<br clear="none" />7.解析css为css-tree<br clear="none" />8.dom+css生成render-tree绘图<br clear="none" />9.加载script的js文件<br clear="none" />10.执行js文件</div>
+<div>&nbsp;</div>
+<div><span style="font-size: 14pt;"><strong>DNS缓存</strong></span></div>
+<div><span style="font-size: 14pt;"><strong><strong>　</strong></strong><span style="font-size: 14px;">DNS是&ldquo;域名系统&rdquo;的缩写，它的工作是将域名和主机名转化为服务器主机的 IP 地址；</span></span></div>
+<div><span style="font-size: 14pt;"><span style="font-size: 14px;">　&nbsp;DNS查找流程：浏览器缓存 &mdash; 本地hosts文件 &mdash; 本地DNS解析器缓存 &mdash; 本地DNS服务器 &mdash; 本地DNS服务器设置（是否设置转发器）&mdash; 根DNS服务器</span></span></div>
+<div>
+<p><strong>　浏览器缓存之客户端缓存</strong></p>
+<p><strong>　　　　</strong>无需请求的memory cache，disk cache；</p>
+<p>　　　　需要发请求验证的Etag、Last-Modified304；</p>
+<p>　　　　H5新增的 localStorage、sessionStorage；</p>
+<p>　　合理利用以上缓存，可以很大程度上提高前端性能。</p>
+
+
+
+</div>
+<div>　<strong>网站存在缓存怎么解决？</strong></div>
+<div>　　1.文件加哈希</div>
+<div>&nbsp; &nbsp; &nbsp;　　1.上线之后，要求用户强刷新，这种问题，用文件名加指纹方式解决</div>
+<div>&nbsp; &nbsp; &nbsp;　　2. a.hash.js&nbsp; hash是整个a.js文件的md5值，文件内容不变，hash不变，缓存生效</div>
+<div>　　2.缓存文件怎么解决</div>
+<div>　　　1.加时间戳 &lt;script src="/a.js?_t=xx"&gt;<br clear="none" />　　　2.加版本号 &lt;script src="/a.js?_v=1.6"&gt; 比如jq,vue公用库，内容没有改变 重新加载<br clear="none" />　　　3.加指纹 但是不产生新文件 &lt;script src="/a.js?h=abcd12sa"&gt; 不能清除Cdn缓存，但是生成新文件，会有问题（html,js那个先上）<br clear="none" />　　　4.最终，诞生最优的产生文件&lt;script src="/a.abcd12sa.js"&gt;先上js，在上html webpack build 打包</div>
+<div>&nbsp;</div>
+<div><span style="font-size: 14pt;"><strong>优化策略</strong></span></div>
+<div><span style="font-size: 14pt;"><strong>　</strong><span style="font-size: 14px;">1.长连接</span></span></div>
+<div><span style="font-size: 14pt;"><span style="font-size: 14px;">　 2.减少文件体积</span></span><span style="font-size: 14pt;"><span style="font-size: 14px;">　　　</span></span></div>
+<div>
+<div>　　　1.js打包压缩&nbsp;</div>
+<div>　　　　　　1.无效字符的删除、剔除注释、代码语义的缩减与优化、代码保护</div>
+<div>　　　　　　2.使用在线网站压缩、使用 html-minifier 对html 中的 js 进行压缩、使用uglifyjs2 对 js 进行压缩</div>
+<div>&nbsp; &nbsp; 　　2.图片压缩</div>
+<div>　　　　　　1.把网站上用到的一些图片整合到一张单独的图片中</div>
+<div>&nbsp; &nbsp; 　　3.css压缩</div>
+<div>　　　　　1.无效代码删除、css语义合并</div>
+<div>　　　　　 2.使用在线网站压缩、使用 html-minifier 对html 中的 css 进行压缩、使用clean-css 对 css 进行压缩</div>
+<div>　　　4.html 压缩</div>
+<div>　　　　　1.压缩在文本文件中有意义但是在HTML中不显示的字符，包括空格、制表符、换行符、注释等</div>
+<div>　　　　　 2.使用在线网站压缩、nodejs提供了html-minifier 工具、后端模板引擎渲染压缩</div>
+<div>　　　5.开启 gzip</div>
+<div>
+<div>　　　6.文件合并</div>
+<div>
+<p>　　　　1.如果不合并 === &gt; 文件与文件之间有插入的上行请求，增加了N - 1 个网络延迟；受丢包问题影响更严重；经过代理服务器时可能会被断开</p>
+<p>　　　　2.如果合并 === &gt; 首屏渲染时间变长； 文件缓存大面积失效</p>
+<p>　　　　3.公共库合并、不同页面的合并</p>
+<p>　　　　4.使用在线网站进行文件合并、使用 nodejs 实现文件合并</p>
+
+
+</div>
+
+
+</div>
+<div>
+<div>　3.减少文件请求次数</div>
+<div>&nbsp; &nbsp; 　　1.雪碧图</div>
+<div>&nbsp; &nbsp; 　　2.js,css打包</div>
+<div>&nbsp; &nbsp; 　　3.缓存控制</div>
+<div>&nbsp; &nbsp; 　　4.懒加载</div>
+<div>
+<div>　4.减少用户和服务器的距离</div>
+<div>　　(地理位置)</div>
+<div>&nbsp; &nbsp; 　&nbsp; 1.cdn&nbsp; js可以推到cdn缓存上</div>
+<div>
+<div>　5.本地存储</div>
+<div>　6.图片大小计算</div>
+<div>　　对于一张 100&nbsp;<em>100 像素的图片来说，图像上有 10000 个像素点，如果每个像素的值是 RGBA 存储的话，那么也就是说每个像素有 4 个通道，每个通道 1 个字节（8 位 = 1个字节），所以该图片大小大概为 39KB（10000</em>&nbsp; * 4 / 1024）。但是在实际项目中，一张图片可能并不需要使用那么多颜色去显示，我们可以通过减少每个像素的调色板来相应缩小图片的大小。
+<div>&nbsp;</div>
+</div>
+<div><span style="font-size: 14pt;"><strong>&nbsp;浏览器缓存机制</strong></span></div>
+<div><span style="font-size: 14px;">　　通过网络获取内容及速度缓存慢有开销巨大，较大相应需要在客户端与服务器之间进行多次往返通信，这回延迟浏览器获得处理内容的时间，还会增加访问者流量的费用，因此，缓存重复利用之前获取的资源能力成为性能优化的一个关键方面<br /></span></div>
+<div>
+<div>　　广义的缓存，可以分为四个，大家对httpcache比较熟悉</div>
+<div>&nbsp; &nbsp; 　　1.Http Cache</div>
+<div>&nbsp; &nbsp; 　　2.Service Worker Cache</div>
+<div>&nbsp; &nbsp; 　　3.Memory Cache</div>
+<div>&nbsp; &nbsp; 　　4.Push Cache</div>
+<div><br />
+<div>　　Http Cache</div>
+<div>　　　浏览器大佬：需要获取main.js，看下强缓存里有没有</div>
+<div>&nbsp; &nbsp; 　　1.Expires和Cache-Control两个header来控制强缓存</div>
+<div>
+<p>　　　2.expires: Mon, 16 Mar 2020 09:50:27 GMT</p>
+<p>　　　3.last-modified: Thu, 15 Feb 2018 14:17:52 GMT</p>
+<p>　　Memory Cache</p>
+<p>　　　　内存缓存，短命，比如常用数据js里，浏览器也有自己的策略，base64图片，体积小的静态资源</p>
+<p>　　Service Worker Cache</p>
+<p>　　　　是一种独立于主干线程之外的javascript线程，它脱离于浏览器窗体，算是幕后工作，可以实现离线缓存，网络代理等</p>
+<p><span style="font-size: 14pt;"><strong>图片优化</strong></span></p>
+<div>　　图片通常是最占用流量的，pc端加载平均图片大小是600k，简直比js打包后的文件还大，所以针对图片的优化，不同场景，使用不同文化的类型</div>
+<div>　　<strong>1. jpg</strong>　　　</div>
+<div>
+<div>　　　　1.有压缩</div>
+<div>&nbsp; &nbsp; 　　　2.体积小，不支持透明</div>
+<div>&nbsp; &nbsp; 　　&nbsp; &nbsp;3.用于背景图，轮播图</div>
+
+
+
+</div>
+<p>　　<strong>2.png</strong></p>
+<div>&nbsp;　　　1.无压缩，质量高，支持透明</div>
+<div>&nbsp; &nbsp; 　　 2.色彩线条更丰富，小图，比如logo，商品icon</div>
+<div>　　<strong>3.svg</strong></div>
+<div>
+<div>&nbsp;　　　1.文本，体积小，矢量图</div>
+<div>&nbsp; &nbsp; 　　 2.渲染成本，学习成本</div>
+<div>　　<strong>4.图片打成雪碧图，减少http请求次数</strong></div>
+<div>&nbsp;</div>
+<div><span style="font-size: 14pt;"><strong><strong>gzip</strong></strong></span></div>
+<div><span style="font-size: 14px;">　　Http压缩就是以缩小体积为目的，对HTTP内容进行重新编码的过程</span></div>
+<div>
+<div>　　Gzip压缩背后的原理，是在一个文本文件中找出一些重复出现的字符串，临时替换他们，从而、使整个文件变小，根据这个原理，文件找那个代码重复率越高，那么压缩的效率越高，使用Gzip收益就越大，反之亦然基本来说Gzip都是服务器干的活，比如nginx</div>
+<div>&nbsp;</div>
+<div><span style="font-size: 14pt;"><strong>本地存储</strong></span></div>
+<div><span style="font-size: 14pt;"><strong>　</strong><span style="font-size: 14px;">　常见本地存储格式有&nbsp;cookie&nbsp; localstroage sessionStroage&nbsp; indexDB</span></span></div>
+<div>
+<div>　　 1.cookie</div>
+<div>&nbsp; &nbsp;　　　最早，体积先定。性能浪费，所有请求都带上所有的当前域名的。</div>
+<div>
+<p>　　　　因为 http 请求无状态，所以需要 cookie 去<strong>维持客户端状态</strong></p>
+<p>　　　　cookie 生成方式：http response header 中的 set-cookie； js 中可以通过document.cookie读写cookie</p>
+<p>　　　　使用：用于浏览器端和服务器端的交互；客户端自身数据的存储</p>
+<p>　　　　过期时间：expire</p>
+<p>　　　　存储限制：作为浏览器存储，大小4kb左右；需要设置过期时间 expire</p>
+<p>　　　　cookie 存储能力被 localstorage 代替</p>
+<p>　　　　httponly 不允许 js 读写</p>
+<p>　　　　cookie 中在相关域名下面 --- cdn的流量损耗 。 解决：cdn 的域名和主站的域名要分开</p>
+
+
+</div>
+<div>
+<div>　　2.Web Storage</div>
+<div>&nbsp; &nbsp; 　　1.存储量大，不自动发个服务器，js控制</div>
+<div>　　　2.localstroage</div>
+<div>　　　　　HTML5 设计出来专门用于浏览器存储的</div>
+<div>　　　　&nbsp; &nbsp;大小为 5M 左右</div>
+<div>　　　　　仅在客户端使用，不和服务端进行通信</div>
+<div>　　　　　接口封装较好</div>
+<div>　　　　　浏览器本地缓存方案</div>
+<div>　　　3.sessionStroage</div>
+<div>　　　　会话级别的浏览器存储</div>
+<div>　　　　大小为 5M 左右</div>
+<div>　　　　仅在客户端使用，不和服务端进行通信</div>
+<div>　　　　接口封装较好</div>
+<div>　　　　对于标表单信息的维护</div>
+<div>
+<div>　　3.indexDB</div>
+<div>&nbsp; &nbsp; 　　运行在浏览器上的非关系型数据库</div>
+<div>
+<div>　　4.pwa</div>
+<div>　　　基于缓存技术的应用模型</div>
+<div>　　&nbsp; &nbsp;可靠：在没有网络的环境中也能提供基本的页面访问</div>
+<div>　　&nbsp; 快速：针对网页渲染及网络数据访问有较好的优化</div>
+<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;融入：应用可以被增加到手机桌面，并且和普通应用一样有全屏、推送等特性</div>
+
+
+
+</div>
+<h1 id="item-5"><span style="font-size: 14pt;"><strong>重绘与回流</strong></span></h1>
+<div>　　<strong>回流</strong>：当我们对DOM修改引发了DOM几何尺寸的变化(比如修改元素的宽，高度或者隐藏元素等)时，浏览器需要重新计算元素的几何属性,(其他元素的几何属性和位置也会因此受到影响)，然后再将计算的结果绘制出来，这个过程就是回流（也加重排）</div>
+<div>&nbsp;</div>
+<div>　　<strong>重绘</strong>：当我们对DOM的修改导致了样式的变化，却并未影响几何属性，(比如修改了颜色和背景色)时，浏览器不需要重新计算元素的几何属性，直接为该元素绘制新的样式，(跳过了上图所示的回流环节)。这个过程叫做重绘</div>
+<div>&nbsp;</div>
+<div>　　由此我们可以看出，重绘不一定导致回流，回流一定导致重绘</div>
+<div>&nbsp;</div>
+<div>　　回流是影响最大的</div>
+<div>&nbsp; &nbsp; 　　1.窗体，字体大小</div>
+<div>&nbsp; &nbsp; 　　2.增加样式表</div>
+<div>&nbsp; &nbsp; 　　3.内容变化</div>
+<div>&nbsp; &nbsp; 　　4.class属性</div>
+<div>&nbsp; &nbsp; 　　5.offserWidth和offsetHeight</div>
+<div>&nbsp; &nbsp; 　　6.fixed</div>
+
+
+
+</div>
+
+
+
+</div>
+
+
+
+</div>
+<div><span style="font-size: 14pt;"><strong>节流和防抖</strong></span></div>
+<div><span style="font-size: 14pt;"><strong><strong>　　<span style="font-size: 14px;">节流</span></strong></strong></span></div>
+<div><span style="font-size: 14pt;"><span style="font-size: 14pt;"><strong><strong><span style="font-size: 14px;">　　　　</span></strong></strong><span style="font-size: 14px;">预定一个函数只有在大于等于执行周期时才执行，周期内调用不执行</span></span></span>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> 函数节流  每隔多少时间执行一次</span>
+        <span style="color: #0000ff;">const</span> throttle = (func ,wait = <span style="color: #800080;">100</span>) =&gt;<span style="color: #000000;">{
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> 无论调用多少次，函数都是100毫秒执行一次</span>
+            let lastTime =<span style="color: #800080;">0</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">return</span>(...args) =&gt;<span style="color: #000000;">{
+                let now </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Date().getTime()
+                </span><span style="color: #0000ff;">if</span>(now - lastTime &gt;<span style="color: #000000;">wait) {
+                    func.apply(</span><span style="color: #0000ff;">this</span><span style="color: #000000;">.args)
+                    lastTime </span>=<span style="color: #000000;"> now
+                }
+            }
+        }
+
+        let i </span>=<span style="color: #800080;">1</span><span style="color: #000000;">;
+        window.addEventListener(</span><span style="color: #800000;">'</span><span style="color: #800000;">scroll</span><span style="color: #800000;">'</span>,throttle(()=&gt;<span style="color: #000000;">{
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> 使用做图片懒加载</span>
+<span style="color: #000000;">            console.log(i)
+            i</span>+=<span style="color: #800080;">1</span><span style="color: #000000;">
+        },</span><span style="color: #800080;">350</span>)) </pre>
+</div>
+<p>　　</p>
+</div>
+<div><strong>　　防抖</strong></div>
+<div><strong>　　　　</strong>在函数需要频繁触发时，只有当有足够空闲的时间时，才执行一次</div>
+<div>
+<div class="cnblogs_Highlighter">
+<pre class="brush:csharp;gutter:true;">/* 
+            校验用户是不是重复，用户输入完，向后端发送请求
+            如果用户每次输入，都发生请求，造成请求过多
+            用户停止输入字符串350毫秒，在发出
+        */
+
+        const debounce = (func,wait = 350) =&gt;{
+            let timer =0;
+            return (...args)=&gt;{
+                if(timer) {
+                    clearInterval(timer)
+                }
+                timer = setTimeout(() =&gt; {
+                    func.apply(this,args)
+                }, wait);
+            }
+        }
+
+        let i =1;
+        window.addEventListener('scroll',debounce(()=&gt;{
+            // 验证
+            console.log(i)
+            i+=1
+        },350))
+</pre>
+</div>
+<p><span style="font-size: 14pt;"><strong>　　lazy-load</strong></span></p>
+<p><span style="font-size: 14pt;"><strong>　　</strong><span style="font-size: 14px;">对于一些图片多，页面长的网页来说，如果每次打开页面加载全部的网页内容，页面加载速度势必会受到影响，如果每次打开网页只将网页可视区域的内容加载给用户 ，将大大提高网页浏览速度，同时也减轻服务器负载，我们可以使用lazyload.js来实现对图片的延迟加载，当网页图片进入到浏览器可视区域时，才会去请求服务器加载图片。</span></span></p>
+<p><span style="font-size: 14pt;"><span style="font-size: 14px;">　　</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> 获取所有的图片</span>
+        <span style="color: #0000ff;">const</span> img = document.getElementsByTagName(<span style="color: #800000;">'</span><span style="color: #800000;">img</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 获取可视区域的高度</span>
+        <span style="color: #0000ff;">const</span> viewHeight = window.innerHeight ||<span style="color: #000000;"> document.documentElement.clientHeight;
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> num用于计算当前显示到那一张图片，避免每次都是从第一张开始检查是否漏出</span>
+        let num =<span style="color: #800080;">0</span><span style="color: #000000;">;
+        function lazyload() {
+            </span><span style="color: #0000ff;">for</span>(let i=num;i&lt;img.length;i++<span style="color: #000000;">) {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> 用可是区域高度减去元素顶部距离可视区域顶部的高度</span>
+                let distance = viewHeight -<span style="color: #000000;"> img[i].getBoundingClientRect().top
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> 如果可视区域高度大于等于元素顶部距离可视区域顶部的高度，说明元素露出</span>
+                <span style="color: #0000ff;">if</span>(distance &gt;=<span style="color: #800080;">0</span><span style="color: #000000;">) {
+                    </span><span style="color: #008000;">//</span><span style="color: #008000;"> 给元素写入真实的src，展示图片</span>
+                    img[i].src = img[i].getAttribute(<span style="color: #800000;">'</span><span style="color: #800000;">data-src</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                    </span><span style="color: #008000;">//</span><span style="color: #008000;"> 前i张图片已经加载完毕，，下次从第i+1张开始检查是否露出</span>
+                    num = i+<span style="color: #800080;">1</span><span style="color: #000000;">
+                }
+            }
+        }
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 监听scroll</span>
+        window.addEventListener(<span style="color: #800000;">'</span><span style="color: #800000;">scroll</span><span style="color: #800000;">'</span>,lazyload,<span style="color: #0000ff;">false</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 14pt;"><strong>performance.getEntriesByType('navigation')&nbsp; 性能检测</strong></span></p>
+<p><span style="font-size: 14pt;"><strong>　　</strong><span style="font-size: 14px;">通过在浏览器控制台输入这个命令，就可以检测到网页加载数据，检测网页加载性能</span></span></p>
+<p><span style="font-size: 14pt;"><strong>　　<img src="./images/web性能优化指南1.png" alt="" /></strong></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<div>　　列入：</div>
+<div>&nbsp; &nbsp; 　　DNS查询耗时 通过使用domainLookupEnd -&nbsp;domainLookupStart&nbsp; 就等于dns查询的时间</div>
+<div>&nbsp; &nbsp;　　 TCP链接耗时&nbsp; 通过&nbsp;connectEnd -&nbsp;connectStart</div>
+<div>&nbsp; &nbsp; 　　HTTP请求耗时 通过&nbsp;responseEnd -&nbsp;responseStart&nbsp;</div>
+<div>&nbsp; &nbsp;　　 解析dom树耗时&nbsp; 通过&nbsp;domComplete -&nbsp;&nbsp;domInteractive</div>
+<div>&nbsp; &nbsp; 　　白屏时间 通过&nbsp;responseStart&nbsp; - navigationStart</div>
+<div>&nbsp; &nbsp; 　　DOMready时间 通过&nbsp;domContentLoadedEventEnd -&nbsp;navigationStart</div>
+<div>&nbsp; &nbsp; 　　onload时间 通过&nbsp;loadEventEnd -&nbsp;&nbsp;navigationStart 也即是onload回调函数执行的时间</div>
+<div>&nbsp;</div>
+<div><span style="color: #ff0000;"><span style="color: #ff0000;"><span style="font-size: 14pt;"><strong><span style="color: #000000;"><a class="postTitle2" href="https://www.cnblogs.com/zengfp/p/9888048.html"><span style="color: #000000;">Lighthouse</span></a>插件</span></strong></span><a id="cb_post_title_url" class="postTitle2" href="https://www.cnblogs.com/zengfp/p/9888048.html"></a></span></span></div>
+<div><span style="color: #ff0000; font-size: 14px;"><span style="color: #ff0000;"><span style="color: #000000;">Lighthouse分析web应用程序和web页面，收集关于开发人员最佳实践的现代性能指标和见解，让开发人员根据生成的评估页面，来进行网站优化和完善，提高用户体验。</span></span></span></div>
+<div><span style="color: #ff0000; font-size: 14px;"><span style="color: #ff0000;"><span style="color: #000000;">　　1.可以在谷歌商店安装一个<span style="color: #ff0000; font-size: 18px;">Lighthouse<span style="color: #000000; font-size: 14px;">一个插件就可以了，下面我是检测github网站的数据</span><span style="color: #000000; font-size: 14px;"><br /></span></span></span></span></span></div>
+<div><span style="color: #ff0000; font-size: 14px;"><span style="color: #ff0000; font-size: 14px;"><span style="color: #ff0000;"><span style="color: #000000;"><img src="./images/web性能优化指南2.png" alt="" /></span></span></span></span></div>
+<div>　　2.使用node全局安装</div>
+<div>
+<div class="cnblogs_code">
+<pre><code>npm install -g lighthouse</pre>
+</div>
+<p>　　安装完之后运行，也是找的github网址，运行成功之后，会弹出一个生成的html页面。</p>
+<p><img src="./images/web性能优化指南3.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;生成一个html文件，找到然后直接打开就行</p>
+<p><img src="./images/web性能优化指南4.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;<img src="./images/web性能优化指南5.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 14pt;"><strong>&nbsp;浏览器渲染</strong></span></p>
+<p><span style="font-size: 14pt;"><strong>　　<img src="./images/web性能优化指南6.png" alt="" /></strong></span></p>
+<div>　　1.在这一步浏览器执行了所有的加载解析逻辑，在解析HTML的过程中发出了页面渲染所需要的各种外部资源请求</div>
+<div>　　2.浏览器将识别并加载所有的css样式信息与dom树合并，最终胜出页面render树,(:after :brfore这样的伪元素在这个环节被构建到DOM树中)</div>
+<div>　　3.页面中所有元素相对位置信息，大小等信息均在这一步得到计算</div>
+<div>　　4.在这一步浏览器会根据我们的DOM代码结果，把每一个页面图层转换为像素，并对所有的媒体文件进行解码</div>
+<div>　　5.最后一步浏览器会合并各个图层，讲数据有CPU输给GPU最终绘制在屏幕上，(复杂的视图会给这个阶段GPU计算带来一些压力，在实际中是为了优化动画性能，我们有时候会手动区分各个视图)</div>
+<div>&nbsp;</div>
+<div>　　渲染过程说白了，首先是基于HTML构建一个DOM树，这颗DOM树与css解析器解析除的CSSOM相结合，就有了布局渲染树，最后浏览器以布局渲染树为蓝本，去计算布局并绘制图像，我们页面初次渲染就大功告成了。</div>
+<div>&nbsp;　　</div>
+<div>　　之后每当一个新元素加入到这个DOM树中，浏览器便会通过css引擎查遍css样式表，找到符合该元素的样式应用到这个元素上，然后在重新去绘制他</div>
+<div>&nbsp;</div>
+<div><span style="font-size: 14pt;"><strong>服务端渲染 等等.....</strong></span></div>
+<div><span style="font-size: 14px;">以上就是所总结的常见的前端性能优化，如有不足，希望大佬多多指点指点</span></div>
+<div>&nbsp;</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

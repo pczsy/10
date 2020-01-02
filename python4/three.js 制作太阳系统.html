@@ -1,0 +1,290 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修three.js 制作太阳系统' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>three.js 制作太阳系统</center></div><div class='banquan'>原文出处:本文由博客园博主Vadim提供。<br/>
+原文连接:https://www.cnblogs.com/vadim-web/p/12077466.html</div><br>
+    <p>最近学了three.js，想拿来练练手，喜欢宇宙，于是亲手撸代码来完成这个，为了更真实，于是查了一些相关资料。<br />1. 距离太阳由近及远分别是【水星，金星，地球，火星，木星，土星，天王星，海王星】<br />2. 他们分别到太阳的距离为5791, 10820, 14960, 22794, 77833, 142940, 287099, 450400（单位万千米）<br />3. 他们的半径分别为2440, 6052, 6371, 3397, 71492, 60268, 25559, 24766（千米）<br />4. 他们的公转周期分别为88, 225, 365, 687, 4329, 10767, 30769, 60152（天）<br />5. 他们的自转周期分别为58，243，1， 1， 0.41, 0.42， 0.64, 0.65，<br />好了除了八大行星都已经调查好了，接下来八大行星都将按照真实比例绘制，（由于周期相差过大，遂正比于1/2次方)</p>
+<p><img src="./images/three.js 制作太阳系统0.png" alt="" /></p>
+<h3>1.绘制八大行星</h3>
+<p>绘制行星很容易，直接看代码</p>
+<div class="cnblogs_code">
+<pre><code>shuixing = renderMesh("shuixing", 0<span style="color: #000000;">);
+jinxing </span>= renderMesh("jinxing", 1<span style="color: #000000;">);
+diqiu </span>= renderMesh("diqiu", 2<span style="color: #000000;">);
+huoxing </span>= renderMesh("huoxing", 3<span style="color: #000000;">);
+muxing </span>= renderMesh("muxing", 4<span style="color: #000000;">);
+tuxing </span>= renderMesh("tuxing", 5<span style="color: #000000;">);
+tianwangxing </span>= renderMesh("tianwangxing", 6<span style="color: #000000;">);
+haiwangxing </span>= renderMesh("haiwangxing", 7<span style="color: #000000;">);
+scene.add(shuixing);
+scene.add(jinxing);
+scene.add(diqiu);
+scene.add(huoxing);
+scene.add(muxing);
+scene.add(tuxing);
+scene.add(tianwangxing);
+scene.add(haiwangxing);
+</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> renderMesh(name, num) {
+    let texture </span>= <span style="color: #0000ff;">new</span> THREE.TextureLoader().load("http://www.bettersmile.cn:90/three_code/assets/textures/planets/"+name+".jpg"<span style="color: #000000;">);
+    let geometry </span>= <span style="color: #0000ff;">new</span> THREE.SphereGeometry(radiuses[num] * RADIUS, 50, 50<span style="color: #000000;">);
+    let material </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.MeshBasicMaterial({map: texture});
+    let mesh </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Mesh(geometry, material);
+    mesh.position.x </span>= distances[num] * DISTANCE + SUNRADIUS *<span style="color: #000000;"> RADIUS;
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> mesh;
+}</span></pre>
+</div>
+<p>在绘制的同时，我们还固定了他们的位置哦，</p>
+<p><span style="font-size: 1.17em;">2.绘制小行星带</span></p>
+<p>八大行星都绘制好了，怎么能少了小行星带呢？由于小行星带都是不规则的石头，这里我们使用上一节的ConvexGeometry()渲染。</p>
+<div class="cnblogs_code">
+<pre><code>let asteroidTexture = <span style="color: #0000ff;">new</span> THREE.TextureLoader().load("http://www.bettersmile.cn:90/three_code/assets/textures/planets/asteroid.jpg"<span style="color: #000000;">);
+asteriods </span>=<span style="color: #000000;"> renderAsteriod(asteroidTexture);
+scene.add(asteriods);
+</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> renderAsteriod(texture) {
+    let asteroid </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Geometry();
+    let asteroidMate </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.MeshBasicMaterial();
+    </span><span style="color: #0000ff;">for</span>(<span style="color: #0000ff;">var</span> i=0; i&lt;20000; i++<span style="color: #000000;">) {
+        let points </span>=<span style="color: #000000;"> [];
+        let rad </span>= Math.pow(Math.random(), 3) *<span style="color: #000000;"> ASTERIODRADIUS;
+        </span><span style="color: #0000ff;">for</span>(<span style="color: #0000ff;">var</span> j=0; j&lt;30; j++<span style="color: #000000;">) {
+            points.push(</span><span style="color: #0000ff;">new</span> THREE.Vector3(Math.random() * RADIUS * rad, Math.random() * RADIUS * rad, Math.random() * RADIUS *<span style="color: #000000;"> rad))
+        }
+        </span><span style="color: #0000ff;">var</span> asteroidGeom = <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.ConvexGeometry(points);
+
+        </span><span style="color: #0000ff;">var</span> asterMesh = <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Mesh(asteroidGeom, asteroidMate);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">2.17-3.64 * 14960  = 32450 - 54450</span>
+        let dis = (Math.random() * 22000 + 32450) * DISTANCE + SUNRADIUS *<span style="color: #000000;"> RADIUS;
+        let angle </span>= Math.random() * Math.PI * 2<span style="color: #000000;">;
+        asterMesh.position.x </span>= dis *<span style="color: #000000;"> Math.sin(angle);
+        asterMesh.position.y </span>= Math.random() * ASTERIODRADIUS * RADIUS * 4 - ASTERIODRADIUS * RADIUS * 2<span style="color: #000000;">;
+        asterMesh.position.z </span>= dis *<span style="color: #000000;"> Math.cos(angle);
+
+        asterMesh.updateMatrix();
+        asteroid.merge(asterMesh.geometry, asterMesh.matrix);
+    }
+    let mesh </span>= <span style="color: #0000ff;">new</span> THREE.Mesh(asteroid, <span style="color: #0000ff;">new</span> THREE.MeshLambertMaterial({map: texture, emissive: 0x484137<span style="color: #000000;">}));
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> mesh;
+}</span></pre>
+</div>
+<p>我们渲染了20000个小行星，这里小行星带距离太阳2.17~3.64个天文单位，一天文单位为14960万千米。</p>
+<h3>3.加下来我们绘制太阳，月球，土星环</h3>
+<p>绘制太阳，月球和土星环（土星环P了好久），相对容易，太阳设置在原点，月球围绕地球，土星环围绕土星，</p>
+<div class="cnblogs_code">
+<pre><code>let taiyangTexture = <span style="color: #0000ff;">new</span> THREE.TextureLoader().load("http://www.bettersmile.cn:90/three_code/assets/textures/planets/sun.jpg"<span style="color: #000000;">);
+let yueqiuTexture </span>= <span style="color: #0000ff;">new</span> THREE.TextureLoader().load("http://www.bettersmile.cn:90/three_code/assets/textures/planets/yueqiu.jpg"<span style="color: #000000;">);
+let tuxinghuanTexture </span>= <span style="color: #0000ff;">new</span> THREE.TextureLoader().load("http://www.bettersmile.cn:90/three_code/assets/textures/planets/tuxinghuan.png"<span style="color: #000000;">);
+let taiyangGeom </span>= <span style="color: #0000ff;">new</span> THREE.SphereGeometry(SUNRADIUS * RADIUS, 50, 50<span style="color: #000000;">);
+let taiyangMate </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.MeshBasicMaterial({map: taiyangTexture});
+let yueqiuGeom </span>= <span style="color: #0000ff;">new</span> THREE.SphereGeometry(MOONRADIUS * RADIUS, 50, 50<span style="color: #000000;">);
+let yueqiuMate </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.MeshBasicMaterial({map: yueqiuTexture});
+tuxinghuan </span>=<span style="color: #000000;"> renderTuxinghuan(tuxinghuanTexture);
+tuxinghuan.position.copy(tuxing.position);
+scene.add(tuxinghuan);
+taiyang </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Mesh(taiyangGeom, taiyangMate);
+yueqiu </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Mesh(yueqiuGeom, yueqiuMate);
+yueqiu.position.set((distances[</span>2] * DISTANCE + SUNRADIUS * RADIUS) + MOONDISTANCE * DISTANCE, 0, 0<span style="color: #000000;">);
+scene.add(taiyang);
+scene.add(yueqiu);
+</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> renderTuxinghuan(texture) {
+    let geom </span>= <span style="color: #0000ff;">new</span> THREE.RingGeometry(16, 24, 50, 10, 0, Math.PI * 2<span style="color: #000000;">);
+    let mate </span>= <span style="color: #0000ff;">new</span> THREE.MeshLambertMaterial({emissive: 0xaa8766, transparent:<span style="color: #0000ff;">false</span>, opacity: 0.8<span style="color: #000000;">, map: texture, side: THREE.DoubleSide});
+    let ring </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Mesh(geom, mate);
+    ring.rotation.x </span>= - Math.PI / 2<span style="color: #000000;">;
+    ring.rotation.y </span>= - Math.PI / 12<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> ring;
+}
+</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> initCanvas() {
+    let canvas </span>= document.createElement('canvas'<span style="color: #000000;">);
+    canvas.width </span>= 16<span style="color: #000000;">;
+    canvas.height </span>= 16<span style="color: #000000;">;
+    let context </span>= canvas.getContext('2d'<span style="color: #000000;">);
+    let gradient </span>= context.createRadialGradient(canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2<span style="color: #000000;">);
+    gradient.addColorStop(</span>0, 'rgba(244,164,33,1)'<span style="color: #000000;">);
+    gradient.addColorStop(</span>0.2, 'rgba(244,164,33,1)'<span style="color: #000000;">);
+    gradient.addColorStop(</span>0.4, 'rgba(244,164,33,.6)'<span style="color: #000000;">);
+    gradient.addColorStop(</span>1, 'rgba(0,0,0,0)'<span style="color: #000000;">);
+    context.fillStyle </span>=<span style="color: #000000;"> gradient;
+    context.fillRect(</span>0, 0<span style="color: #000000;">, canvas.width, canvas.height);
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> canvas;
+}
+
+</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> initSunshine() {
+    let centerBallLite </span>= <span style="color: #0000ff;">new</span> THREE.Sprite(<span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.SpriteMaterial({
+        map: </span><span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.CanvasTexture(initCanvas()),
+        blending: THREE.AdditiveBlending
+    }));
+    centerBallLite.scale.x </span>= centerBallLite.scale.y = centerBallLite.scale.z = 250000 *<span style="color: #000000;"> RADIUS;
+    scene.add(centerBallLite);
+}</span></pre>
+</div>
+<p>这里我们的土星环使用了RingGeometry（）几何体，太阳的光晕使用CanvasTexture（）</p>
+<h3>4.让星球动起来</h3>
+<p>让所有星星动起来，使用自转和公转，这里需要一点三角函数的功底，</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">function</span><span style="color: #000000;"> allStarsSelfRotate() {
+    taiyang.rotation.y </span>= 1 / Math.sqrt(25) * step1 *<span style="color: #000000;"> SELECYCLE;
+    yueqiu.rotation.y </span>= 1 / Math.sqrt(30) * step1 *<span style="color: #000000;"> SELECYCLE;
+    shuixing.rotation.y </span>= 1 / Math.sqrt(58.65) * step1 *<span style="color: #000000;"> SELECYCLE;
+    jinxing.rotation.y </span>= - 1 / Math.sqrt(243) * step1 *<span style="color: #000000;"> SELECYCLE;
+    diqiu.rotation.y </span>= step1 *<span style="color: #000000;"> SELECYCLE;
+    huoxing.rotation.y </span>= step1 *<span style="color: #000000;"> SELECYCLE;
+    muxing.rotation.y </span>= 1 / Math.sqrt(0.41) * step1 *<span style="color: #000000;"> SELECYCLE;
+    tuxing.rotation.y </span>= 1 / Math.sqrt(0.42) * step1 *<span style="color: #000000;"> SELECYCLE;
+    tianwangxing.rotation.z </span>= 1 / Math.sqrt(0.64) * step1 *<span style="color: #000000;"> SELECYCLE;
+    haiwangxing.rotation.y </span>= 1 / Math.sqrt(0.65) * step1 *<span style="color: #000000;"> SELECYCLE;
+    asteriods.rotation.y </span>= 1 / 50 * step1 *<span style="color: #000000;"> PUBLICCYCLE;
+    step1 </span>++<span style="color: #000000;">;
+}
+
+</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> allStarsPublicRotate() {
+    shuixing.position.set(rotating(</span>0).x,0,rotating(0<span style="color: #000000;">).z);
+    jinxing.position.set(rotating(</span>1).x,0,rotating(1<span style="color: #000000;">).z);
+    diqiu.position.set(rotating(</span>2).x,0,rotating(2<span style="color: #000000;">).z);
+    huoxing.position.set(rotating(</span>3).x,0,rotating(3<span style="color: #000000;">).z);
+    muxing.position.set(rotating(</span>4).x,0,rotating(4<span style="color: #000000;">).z);
+    tuxing.position.set(rotating(</span>5).x,0,rotating(5<span style="color: #000000;">).z);
+    tianwangxing.position.set(rotating(</span>6).x,0,rotating(6<span style="color: #000000;">).z);
+    haiwangxing.position.set(rotating(</span>7).x,0,rotating(7<span style="color: #000000;">).z);
+    tuxinghuan.position.copy(tuxing.position);
+    yueqiu.position.set(
+        (distances[</span>2] * DISTANCE + SUNRADIUS * RADIUS) * Math.cos(step2 / Math.sqrt(durations[2]) * PUBLICCYCLE) +<span style="color: #000000;">
+        (MOONDISTANCE </span>* DISTANCE) * Math.sin(step2 / Math.sqrt(10) *<span style="color: #000000;"> PUBLICCYCLE),
+        </span>0<span style="color: #000000;">,
+        </span>- (distances[2] * DISTANCE + SUNRADIUS * RADIUS) * Math.sin(step2 / Math.sqrt(durations[2]) * PUBLICCYCLE) +<span style="color: #000000;">
+        (MOONDISTANCE </span>* DISTANCE) * Math.cos(step2 / Math.sqrt(10) *<span style="color: #000000;"> PUBLICCYCLE)
+    );
+    step2 </span>++<span style="color: #000000;">;
+}
+</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> rotating(num) {
+    let x </span>= (distances[num] * DISTANCE + SUNRADIUS * RADIUS) * Math.cos(step2 / Math.sqrt(durations[num]) *<span style="color: #000000;"> PUBLICCYCLE);
+    let z </span>= - (distances[num] * DISTANCE + SUNRADIUS * RADIUS) * Math.sin(step2 / Math.sqrt(durations[num]) *<span style="color: #000000;"> PUBLICCYCLE);
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> {x, z};
+}</span></pre>
+</div>
+<p>全是简单的三角函数，呵呵</p>
+<h3>5.加上星空</h3>
+<p>星空我们直接使用PointsMaterial（），我们随机3000个点（点太多会很乱）。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">function</span><span style="color: #000000;"> initSprites() {
+    let geom </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Geometry();
+    let mate </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.PointsMaterial({
+        size: </span>0.2<span style="color: #000000;">,
+        vertexColors: </span><span style="color: #0000ff;">true</span><span style="color: #000000;">,
+        color: </span>0xffffff<span style="color: #000000;">,
+        transparent: </span><span style="color: #0000ff;">true</span><span style="color: #000000;">,
+        opacity: </span>0.6<span style="color: #000000;">
+    })
+    </span><span style="color: #0000ff;">for</span>(<span style="color: #0000ff;">var</span> i=0; i&lt;3000; i++<span style="color: #000000;">) {
+        let x </span>= Math.random() * 10000 - 5000<span style="color: #000000;">;
+        let y </span>= Math.random() * 10000 - 5000<span style="color: #000000;">;
+        let z </span>= Math.random() * 10000 - 5000<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">if</span>(x*x+y*y+z*z &gt; 250000<span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">var</span> vector = <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Vector3(x,y,z);
+            geom.vertices.push(vector);
+            geom.colors.push(</span><span style="color: #0000ff;">new</span> THREE.Color(0xffffff<span style="color: #000000;">));
+        }
+    }
+    cloud </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Points(geom, mate);
+    scene.add(cloud);
+}</span></pre>
+</div>
+<p>x*x+y*y+z*z &gt; 250000，为了让他们处在很远的地方，我们过滤掉离中心小于500的星星，所以剩下的应该不多。</p>
+<h3>6.加上tween动画和飞行相机</h3>
+<p>动画我们是先给每个星球一个镜头（毕竟球球平等，但是给了地球最好的贴图），然后俯瞰整个太阳系</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">function</span><span style="color: #000000;"> initTween() {
+    let pos </span>= {x: 41, y: 17, z: -35, lx: 0, ly: 0, lz: 0<span style="color: #000000;">};
+    let tween1 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 40.36, y: 0.29, z: 2.642, lx: 40.54, ly: 0, lz: 0}, 20 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween1.easing(TWEEN.Easing.Linear.None);
+    let tween2 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 67.41, y: 0.43, z: -4, lx: 65.7, ly: 0, lz: 0}, 22 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween2.easing(TWEEN.Easing.Linear.None);
+    let tween3 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 84.6, y: 0.91, z: -3.42, lx: 86.4, ly: 0, lz: 0}, 24 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween3.easing(TWEEN.Easing.Linear.None);
+    let tween4 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 127.66, y: 0.26, z: -1.47, lx: 125.56, ly: 0, lz: 0}, 27 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween4.easing(TWEEN.Easing.Linear.None);
+    let tween5 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 177.78, y: 1.64, z: -61.37, lx: 200.84, ly: 0, lz: 0}, 30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween5.easing(TWEEN.Easing.Linear.None);
+    let tween6 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 359.81, y: 11.44, z: -26.28, lx: 400.76, ly: 0, lz: 0}, 35 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween6.easing(TWEEN.Easing.Linear.None);
+    let tween7 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 703.65, y: 34.43, z: -73.74, lx: 726.29, ly: 0, lz: 0}, 40 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween7.easing(TWEEN.Easing.Linear.None);
+    let tween8 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 1441.76, y: 2.69, z: -26.5, lx: 1447.09, ly: 0, lz: 0}, 50 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween8.easing(TWEEN.Easing.Linear.None);
+    let tween9 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: 2262.5, y: 4.43, z: 17.22, lx: 2263.59, ly: 0, lz: 0}, 65 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween9.easing(TWEEN.Easing.Linear.None);
+    let tween10 </span>= <span style="color: #0000ff;">new</span> TWEEN.Tween(pos).to({x: -374, y: 452, z: -3.4, lx: 400.76, ly: 0, lz: 0}, 85 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween10.easing(TWEEN.Easing.Linear.None);
+
+    tween1.chain(tween2);
+    tween2.chain(tween3);
+    tween3.chain(tween4);
+    tween4.chain(tween5);
+    tween5.chain(tween6);
+    tween6.chain(tween7);
+    tween7.chain(tween8);
+    tween8.chain(tween9);
+    tween9.chain(tween10);
+
+    </span><span style="color: #0000ff;">var</span> onUpdate = <span style="color: #0000ff;">function</span><span style="color: #000000;"> () {
+        </span><span style="color: #0000ff;">var</span> px = <span style="color: #0000ff;">this</span><span style="color: #000000;">.x;
+        </span><span style="color: #0000ff;">var</span> py = <span style="color: #0000ff;">this</span><span style="color: #000000;">.y;
+        </span><span style="color: #0000ff;">var</span> pz = <span style="color: #0000ff;">this</span><span style="color: #000000;">.z;
+        </span><span style="color: #0000ff;">var</span> lx = <span style="color: #0000ff;">this</span><span style="color: #000000;">.lx;
+        </span><span style="color: #0000ff;">var</span> ly = <span style="color: #0000ff;">this</span><span style="color: #000000;">.ly;
+        </span><span style="color: #0000ff;">var</span> lz = <span style="color: #0000ff;">this</span><span style="color: #000000;">.lz;
+
+        camera.position.set(px, py, pz);
+        camera.lookAt(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> THREE.Vector3(lx, ly, lz))
+    };
+
+    tween1.onUpdate(onUpdate);
+    tween2.onUpdate(onUpdate);
+    tween3.onUpdate(onUpdate);
+    tween4.onUpdate(onUpdate);
+    tween5.onUpdate(onUpdate);
+    tween6.onUpdate(onUpdate);
+    tween7.onUpdate(onUpdate);
+    tween8.onUpdate(onUpdate);
+    tween9.onUpdate(onUpdate);
+    tween10.onUpdate(onUpdate);
+    tween1.delay(</span>70 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween2.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween3.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween4.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween5.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween6.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween7.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween8.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween9.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween10.delay(</span>30 *<span style="color: #000000;"> ANIMATIONTIME);
+    tween1.start();
+    tween10.onComplete(</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> () {
+        off </span>= <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+    })
+}</span></pre>
+</div>
+<p>代码很长不过很好理解...<br />这样我们就完成了一个简单的太阳系。</p>
+<p>&nbsp;</p>
+<p>想看demo的请移步至<a title="http://www.bettersmile.cn" href="http://www.bettersmile.cn" target="_blank"> 郭志强的博客</a></p>
+<p>转载请注明原文地址&nbsp;<a title="https://www.cnblogs.com/vadim-web/p/12077466.html" href="https://www.cnblogs.com/vadim-web/p/12077466.html" target="_blank">https://www.cnblogs.com/vadim-web/p/12077466.html</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

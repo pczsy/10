@@ -1,0 +1,315 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修基于Graylog的容器日志监控' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>基于Graylog的容器日志监控</center></div><div class='banquan'>原文出处:本文由博客园博主CodingDiary提供。<br/>
+原文连接:https://www.cnblogs.com/coding-diary/p/12093294.html</div><br>
+    <div class="markdown-here-wrapper" data-md-url="https://i-beta.cnblogs.com/posts/edit">
+<h3 id="docker-" style="margin: 1.3em 0px 1em; padding: 0px; font-weight: bold; font-size: 1.3em;">Docker日志</h3>
+<p style="margin: 0px 0px 1.2em !important;">当一个容器启动的时候，它其实是docker deamon的一个子进程，docker daemon可以拿到容器里面进程的标准输出，然后通过自身的LogDriver模块来处理，LogDriver支持的方式很多，默认写到本地文件，也可以发送到syslog等。&nbsp;</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控0.png" alt="img" /></p>
+<p style="margin: 0px 0px 1.2em !important;">Docker会默认收集应用程序的标准输出到一个json.log文件中，以一行一条JSON存储数据，文件的格式如下：</p>
+<pre><code><code>{"log":"root@74205cdc7b53dd:/#ls\r\n","stream":"stdout","time":"xxx.155834526Z"}
+{"log":"root@74205cdc7b53dd:/#ls\r\n","stream":"stdout","time":"xxx.255834528Z"}
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">Docker的这种日志存储方式可以在容器启动时通过指定log-driver进行配置，支持的log driver如下：</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控1.png" alt="img" /></p>
+<h3 id="graylog-" style="margin: 1.3em 0px 1em; padding: 0px; font-weight: bold; font-size: 1.3em;">Graylog日志管理</h3>
+<p style="margin: 0px 0px 1.2em !important;">Graylog是一个开源的完整的日志管理工具，功能和ELK类似。Docker原生支持graylog协议，Graylog官方也提供了对Docker的支持，二者可以无缝衔接。Graylog官方提供了Dockerfile可以在Docker上部署日志系统，同时也提供了docker-compose.yml文件来快速部署整个graylog栈。<br />详细内容可以通过<a href="http://docs.graylog.org/en/3.1/pages/installation/docker.html">http://docs.graylog.org/en/3.1/pages/installation/docker.html</a> 来查看。</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控2.png" alt="img" /></p>
+<h3 id="graylog-" style="margin: 1.3em 0px 1em; padding: 0px; font-weight: bold; font-size: 1.3em;">Graylog部署</h3>
+<p style="margin: 0px 0px 1.2em !important;">1.在当前用户目录下创建graylog目录作为部署的工作目录：</p>
+<pre><code><code>$ mkdir graylog
+$ cd graylog
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">2.初始化目录和配置文件</p>
+<pre><code><code>$ mkdir -p ./graylog/config
+$ cd ./graylog/config
+$ wget https://raw.githubusercontent.com/Graylog2/graylog-docker/3.1/config/graylog.conf
+$ wget https://raw.githubusercontent.com/Graylog2/graylog-docker/3.1/config/log4j2.xml
+
+#另外由于Graylog以ID 1100 定义了用户和用户组，
+#导致Graylog在启动的时候可能会报config目录权限不足的错误，可以通过以下命令来解决
+chown -R 1100:1100 ./graylog/config
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">3.修改配置文件， 上一步获得的graylog.conf文件是官方提供的默认配置，用户可以根据需要进行配置，比如配置中时区默认为UTC时区，可以将其改为中国时区</p>
+<pre><code><code>root_timezone = Asia/Shanghai
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">4.准备docker-compose.yml文件</p>
+<pre><code><code>version: '3'
+services:
+  # MongoDB: https://hub.docker.com/_/mongo/
+  mongo:
+    image: mongo:3
+    networks:
+      - graylog
+    volumes:
+      - mongo_data:/data/db
+  # Elasticsearch: https://www.elastic.co/guide/en/elasticsearch/reference/6.x/docker.html
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.0
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    environment:
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    networks:
+      - graylog
+  # Graylog: https://hub.docker.com/r/graylog/graylog/
+  graylog:
+    image: graylog/graylog:3.1
+    volumes:
+      - graylog_journal:/usr/share/graylog/data/journal
+      - ./graylog/config:/usr/share/graylog/data/config
+    environment:
+      # CHANGE ME (must be at least 16 characters)!
+      - GRAYLOG_PASSWORD_SECRET=somepasswordpepper
+      # Password: admin
+      - GRAYLOG_ROOT_PASSWORD_SHA2=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      - GRAYLOG_HTTP_EXTERNAL_URI=http://192.168.0.103:9000/
+    networks:
+      - graylog
+    depends_on:
+      - mongo
+      - elasticsearch
+    ports:
+      # Graylog web interface and REST API
+      - 9000:9000
+      # Syslog TCP
+      - 1514:1514
+      # Syslog UDP
+      - 1514:1514/udp
+      # GELF TCP
+      - 12201:12201
+      # GELF UDP
+      - 12201:12201/udp
+networks:
+  graylog:
+    driver: bridge
+# Volumes for persisting data, see https://docs.docker.com/engine/admin/volumes/volumes/
+volumes:
+  mongo_data:
+    driver: local
+  es_data:
+    driver: local
+  graylog_journal:
+    driver: local
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">5.运行 &ldquo;docker-compose up&rdquo;启动服务， 服务正常启动后就可以通过<a href="http://ip:9000">http://ip:9000</a> 进行访问graylog的Web界面，默认用户admin/admin。</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控3.png" alt="img" /></p>
+<h3 id="graylog-" style="margin: 1.3em 0px 1em; padding: 0px; font-weight: bold; font-size: 1.3em;">Graylog配置日志收集</h3>
+<p style="margin: 0px 0px 1.2em !important;">Graylog的日志收集通过定义input来完成，在Graylog的Web管理页面的System tab下可以选择定义input来对日志进行收集</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控4.png" alt="img" /></p>
+<p style="margin: 0px 0px 1.2em !important;">进入input页面后选择input的类型，比如定义GELF UDP的input:</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控5.png" alt="img" /></p>
+<p style="margin: 0px 0px 1.2em !important;">选择完成后点击 &ldquo;Lanch new input&rdquo;，就会进入详细的input配置，配置完成后保存就可以了</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控6.png" alt="img" /></p>
+<p style="margin: 0px 0px 1.2em !important;">保存后一切正常的话，input就会进入RUNNING状态，这时就可以往这个input里面发送数据了，点击&ldquo;Stop input&rdquo;，input就会停止，数据的接收也会停止，&ldquo;Stop input&rdquo;会变成&ldquo;Start input&rdquo;，需要接受数据的时点击启动就可以了。</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控7.png" alt="img" /></p>
+<h3 id="-docker-graylog" style="margin: 1.3em 0px 1em; padding: 0px; font-weight: bold; font-size: 1.3em;">配置Docker容器发送数据到Graylog</h3>
+<p style="margin: 0px 0px 1.2em !important;">配置Docker容器发送数据到Graylog时可以在运行docker run命令启动容器的时候加上如下参数：</p>
+<pre><code><code>docker run --log-driver=gelf \
+--log-opt gelf-address=udp://graylog服务器地址:12201 \
+--log-opt tag=&lt;当前容器服务标签，用来供graylog查询的时候进行分类&gt; \
+&lt;IMAGE&gt; &lt;COMMAND&gt;
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">具体示例：</p>
+<pre><code><code>docker run -d \
+--log-driver=gelf \
+--log-opt gelf-address=udp://localhost:12201 \
+--log-opt tag="{{.ImageName}}/{{.Name}}/{{.ID}}" \
+busybox sh -c 'while true; do echo "Graylog test message"; sleep 10; done;'
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">如果容器通过docker-compose命令启动可以在docker-compose.yml文件中加入以下配置：</p>
+<pre><code><code>logging:
+  driver:"gelf"
+  options:
+    gelf-address:"udp://graylog服务器地址:12201"
+    tag:"容器服务标签"
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">具体示例：</p>
+<pre><code><code>version: '2'
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    logging:
+      driver: "gelf"
+      options:
+        gelf-address: "udp://localhost:12201"
+        tag: nginx-service
+</code></pre>
+<p style="margin: 0px 0px 1.2em !important;">日志发送配置好之后就可以在的Search tab下搜索产看日志信息</p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控8.png" alt="img" /></p>
+<p style="margin: 0px 0px 1.2em !important;"><img src="./images/基于Graylog的容器日志监控9.png" alt="" /></p>
+<div style="height: 0; width: 0; max-height: 0; max-width: 0; overflow: hidden; font-size: 0em; padding: 0; margin: 0;" title="MDH:PHByZT4jIyMgRG9ja2Vy5pel5b+XPGJyPjxicj7lvZPkuIDkuKrlrrnlmajlkK/liqjnmoTml7bl
+gJnvvIzlroPlhbblrp7mmK9kb2NrZXIgZGVhbW9u55qE5LiA5Liq5a2Q6L+b56iL77yMZG9ja2Vy
+IGRhZW1vbuWPr+S7peaLv+WIsOWuueWZqOmHjOmdoui/m+eoi+eahOagh+WHhui+k+WHuu+8jOeE
+tuWQjumAmui/h+iHqui6q+eahExvZ0RyaXZlcuaooeWdl+adpeWkhOeQhu+8jExvZ0RyaXZlcuaU
+r+aMgeeahOaWueW8j+W+iOWkmu+8jOm7mOiupOWGmeWIsOacrOWcsOaWh+S7tu+8jOS5n+WPr+S7
+peWPkemAgeWIsHN5c2xvZ+etieOAgjxicj48YnI+IVtpbWddKGh0dHBzOi8vZ2l0ZWUuY29tL21v
+LXNlLWRlLWZlbmcvbm90ZXMvcmF3L21hc3Rlci8lRTUlQUUlQjklRTUlOTklQTglRTUlOEMlOTYl
+RTQlQjglOTMlRTklQTIlOTgvaW1hZ2VzLzEuMy4yJTIwZG9ja2VyJTIwbG9nJTIwZHJpdmVyLlBO
+Ryk8YnI+PGJyPkRvY2tlcuS8mum7mOiupOaUtumbhuW6lOeUqOeoi+W6j+eahOagh+WHhui+k+WH
+uuWIsOS4gOS4qmpzb24ubG9n5paH5Lu25Lit77yM5Lul5LiA6KGM5LiA5p2hSlNPTuWtmOWCqOaV
+sOaNru+8jOaWh+S7tueahOagvOW8j+WmguS4i++8mjxicj48YnI+YGBgPGJyPnsibG9nIjoicm9v
+dEA3NDIwNWNkYzdiNTNkZDovI2xzXHJcbiIsInN0cmVhbSI6InN0ZG91dCIsInRpbWUiOiJ4eHgu
+MTU1ODM0NTI2WiJ9PGJyPnsibG9nIjoicm9vdEA3NDIwNWNkYzdiNTNkZDovI2xzXHJcbiIsInN0
+cmVhbSI6InN0ZG91dCIsInRpbWUiOiJ4eHguMjU1ODM0NTI4WiJ9PGJyPmBgYDxicj48YnI+RG9j
+a2Vy55qE6L+Z56eN5pel5b+X5a2Y5YKo5pa55byP5Y+v5Lul5Zyo5a655Zmo5ZCv5Yqo5pe26YCa
+6L+H5oyH5a6abG9nLWRyaXZlcui/m+ihjOmFjee9ru+8jOaUr+aMgeeahGxvZyBkcml2ZXLlpoLk
+uIvvvJo8YnI+PGJyPiFbaW1nXShodHRwczovL2dpdGVlLmNvbS9tby1zZS1kZS1mZW5nL25vdGVz
+L3Jhdy9tYXN0ZXIvJUU1JUFFJUI5JUU1JTk5JUE4JUU1JThDJTk2JUU0JUI4JTkzJUU5JUEyJTk4
+L2ltYWdlcy8xLjMuMiUyMGxvZyUyMGRyaXZlcnMuUE5HKTxicj48YnI+IyMjIEdyYXlsb2fml6Xl
+v5fnrqHnkIY8YnI+PGJyPkdyYXlsb2fmmK/kuIDkuKrlvIDmupDnmoTlrozmlbTnmoTml6Xlv5fn
+rqHnkIblt6XlhbfvvIzlip/og73lkoxFTEvnsbvkvLzjgIJEb2NrZXLljp/nlJ/mlK/mjIFncmF5
+bG9n5Y2P6K6u77yMR3JheWxvZ+WumOaWueS5n+aPkOS+m+S6huWvuURvY2tlcueahOaUr+aMge+8
+jOS6jOiAheWPr+S7peaXoOe8neihlOaOpeOAgkdyYXlsb2flrpjmlrnmj5DkvpvkuoZEb2NrZXJm
+aWxl5Y+v5Lul5ZyoRG9ja2Vy5LiK6YOo572y5pel5b+X57O757uf77yM5ZCM5pe25Lmf5o+Q5L6b
+5LqGZG9ja2VyLWNvbXBvc2UueW1s5paH5Lu25p2l5b+r6YCf6YOo572y5pW05LiqZ3JheWxvZ+ag
+iOOAgjxicj7or6bnu4blhoXlrrnlj6/ku6XpgJrov4dodHRwOi8vZG9jcy5ncmF5bG9nLm9yZy9l
+bi8zLjEvcGFnZXMvaW5zdGFsbGF0aW9uL2RvY2tlci5odG1sIOadpeafpeeci+OAgjxicj48YnI+
+IVtpbWddKGh0dHBzOi8vZ2l0ZWUuY29tL21vLXNlLWRlLWZlbmcvbm90ZXMvcmF3L21hc3Rlci8l
+RTUlQUUlQjklRTUlOTklQTglRTUlOEMlOTYlRTQlQjglOTMlRTklQTIlOTgvaW1hZ2VzLzEuMy4y
+JTIwZ3JheWxvZy5QTkcpPGJyPjxicj4jIyMgR3JheWxvZ+mDqOe9sjxicj48YnI+MS7lnKjlvZPl
+iY3nlKjmiLfnm67lvZXkuIvliJvlu7pncmF5bG9n55uu5b2V5L2c5Li66YOo572y55qE5bel5L2c
+55uu5b2V77yaPGJyPmBgYDxicj4kIG1rZGlyIGdyYXlsb2c8YnI+JCBjZCBncmF5bG9nPGJyPmBg
+YDxicj4yLuWIneWni+WMluebruW9leWSjOmFjee9ruaWh+S7tjxicj5gYGA8YnI+JCBta2RpciAt
+cCAuL2dyYXlsb2cvY29uZmlnPGJyPiQgY2QgLi9ncmF5bG9nL2NvbmZpZzxicj4kIHdnZXQgaHR0
+cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL0dyYXlsb2cyL2dyYXlsb2ctZG9ja2VyLzMu
+MS9jb25maWcvZ3JheWxvZy5jb25mPGJyPiQgd2dldCBodHRwczovL3Jhdy5naXRodWJ1c2VyY29u
+dGVudC5jb20vR3JheWxvZzIvZ3JheWxvZy1kb2NrZXIvMy4xL2NvbmZpZy9sb2c0ajIueG1sPGJy
+Pjxicj4j5Y+m5aSW55Sx5LqOR3JheWxvZ+S7pUlEIDExMDAg5a6a5LmJ5LqG55So5oi35ZKM55So
+5oi357uE77yMPGJyPiPlr7zoh7RHcmF5bG9n5Zyo5ZCv5Yqo55qE5pe25YCZ5Y+v6IO95Lya5oql
+Y29uZmln55uu5b2V5p2D6ZmQ5LiN6Laz55qE6ZSZ6K+v77yM5Y+v5Lul6YCa6L+H5Lul5LiL5ZG9
+5Luk5p2l6Kej5YazPGJyPmNob3duIC1SIDExMDA6MTEwMCAuL2dyYXlsb2cvY29uZmlnPGJyPmBg
+YDxicj4zLuS/ruaUuemFjee9ruaWh+S7tu+8jCDkuIrkuIDmraXojrflvpfnmoRncmF5bG9nLmNv
+bmbmlofku7bmmK/lrpjmlrnmj5DkvpvnmoTpu5jorqTphY3nva7vvIznlKjmiLflj6/ku6XmoLnm
+ja7pnIDopoHov5vooYzphY3nva7vvIzmr5TlpoLphY3nva7kuK3ml7bljLrpu5jorqTkuLpVVEPm
+l7bljLrvvIzlj6/ku6XlsIblhbbmlLnkuLrkuK3lm73ml7bljLo8YnI+YGBgPGJyPnJvb3RfdGlt
+ZXpvbmUgPSBBc2lhL1NoYW5naGFpPGJyPmBgYDxicj40LuWHhuWkh2RvY2tlci1jb21wb3NlLnlt
+bOaWh+S7tjxicj5gYGA8YnI+dmVyc2lvbjogJzMnPGJyPnNlcnZpY2VzOjxicj4gICMgTW9uZ29E
+QjogaHR0cHM6Ly9odWIuZG9ja2VyLmNvbS9fL21vbmdvLzxicj4gIG1vbmdvOjxicj4gICAgaW1h
+Z2U6IG1vbmdvOjM8YnI+ICAgIG5ldHdvcmtzOjxicj4gICAgICAtIGdyYXlsb2c8YnI+ICAgIHZv
+bHVtZXM6PGJyPiAgICAgIC0gbW9uZ29fZGF0YTovZGF0YS9kYjxicj4gICMgRWxhc3RpY3NlYXJj
+aDogaHR0cHM6Ly93d3cuZWxhc3RpYy5jby9ndWlkZS9lbi9lbGFzdGljc2VhcmNoL3JlZmVyZW5j
+ZS82LngvZG9ja2VyLmh0bWw8YnI+ICBlbGFzdGljc2VhcmNoOjxicj4gICAgaW1hZ2U6IGRvY2tl
+ci5lbGFzdGljLmNvL2VsYXN0aWNzZWFyY2gvZWxhc3RpY3NlYXJjaDo3LjUuMDxicj4gICAgdm9s
+dW1lczo8YnI+ICAgICAgLSBlc19kYXRhOi91c3Ivc2hhcmUvZWxhc3RpY3NlYXJjaC9kYXRhPGJy
+PiAgICBlbnZpcm9ubWVudDo8YnI+ICAgICAgLSBodHRwLmhvc3Q9MC4wLjAuMDxicj4gICAgICAt
+IHRyYW5zcG9ydC5ob3N0PWxvY2FsaG9zdDxicj4gICAgICAtIG5ldHdvcmsuaG9zdD0wLjAuMC4w
+PGJyPiAgICAgIC0gIkVTX0pBVkFfT1BUUz0tWG1zNTEybSAtWG14NTEybSI8YnI+ICAgIHVsaW1p
+dHM6PGJyPiAgICAgIG1lbWxvY2s6PGJyPiAgICAgICAgc29mdDogLTE8YnI+ICAgICAgICBoYXJk
+OiAtMTxicj4gICAgZGVwbG95Ojxicj4gICAgICByZXNvdXJjZXM6PGJyPiAgICAgICAgbGltaXRz
+Ojxicj4gICAgICAgICAgbWVtb3J5OiAxZzxicj4gICAgbmV0d29ya3M6PGJyPiAgICAgIC0gZ3Jh
+eWxvZzxicj4gICMgR3JheWxvZzogaHR0cHM6Ly9odWIuZG9ja2VyLmNvbS9yL2dyYXlsb2cvZ3Jh
+eWxvZy88YnI+ICBncmF5bG9nOjxicj4gICAgaW1hZ2U6IGdyYXlsb2cvZ3JheWxvZzozLjE8YnI+
+ICAgIHZvbHVtZXM6PGJyPiAgICAgIC0gZ3JheWxvZ19qb3VybmFsOi91c3Ivc2hhcmUvZ3JheWxv
+Zy9kYXRhL2pvdXJuYWw8YnI+ICAgICAgLSAuL2dyYXlsb2cvY29uZmlnOi91c3Ivc2hhcmUvZ3Jh
+eWxvZy9kYXRhL2NvbmZpZzxicj4gICAgZW52aXJvbm1lbnQ6PGJyPiAgICAgICMgQ0hBTkdFIE1F
+IChtdXN0IGJlIGF0IGxlYXN0IDE2IGNoYXJhY3RlcnMpITxicj4gICAgICAtIEdSQVlMT0dfUEFT
+U1dPUkRfU0VDUkVUPXNvbWVwYXNzd29yZHBlcHBlcjxicj4gICAgICAjIFBhc3N3b3JkOiBhZG1p
+bjxicj4gICAgICAtIEdSQVlMT0dfUk9PVF9QQVNTV09SRF9TSEEyPThjNjk3NmU1YjU0MTA0MTVi
+ZGU5MDhiZDRkZWUxNWRmYjE2N2E5Yzg3M2ZjNGJiOGE4MWY2ZjJhYjQ0OGE5MTg8YnI+ICAgICAg
+LSBHUkFZTE9HX0hUVFBfRVhURVJOQUxfVVJJPWh0dHA6Ly8xOTIuMTY4LjAuMTAzOjkwMDAvPGJy
+PiAgICBuZXR3b3Jrczo8YnI+ICAgICAgLSBncmF5bG9nPGJyPiAgICBkZXBlbmRzX29uOjxicj4g
+ICAgICAtIG1vbmdvPGJyPiAgICAgIC0gZWxhc3RpY3NlYXJjaDxicj4gICAgcG9ydHM6PGJyPiAg
+ICAgICMgR3JheWxvZyB3ZWIgaW50ZXJmYWNlIGFuZCBSRVNUIEFQSTxicj4gICAgICAtIDkwMDA6
+OTAwMDxicj4gICAgICAjIFN5c2xvZyBUQ1A8YnI+ICAgICAgLSAxNTE0OjE1MTQ8YnI+ICAgICAg
+IyBTeXNsb2cgVURQPGJyPiAgICAgIC0gMTUxNDoxNTE0L3VkcDxicj4gICAgICAjIEdFTEYgVENQ
+PGJyPiAgICAgIC0gMTIyMDE6MTIyMDE8YnI+ICAgICAgIyBHRUxGIFVEUDxicj4gICAgICAtIDEy
+MjAxOjEyMjAxL3VkcDxicj5uZXR3b3Jrczo8YnI+ICBncmF5bG9nOjxicj4gICAgZHJpdmVyOiBi
+cmlkZ2U8YnI+IyBWb2x1bWVzIGZvciBwZXJzaXN0aW5nIGRhdGEsIHNlZSBodHRwczovL2RvY3Mu
+ZG9ja2VyLmNvbS9lbmdpbmUvYWRtaW4vdm9sdW1lcy92b2x1bWVzLzxicj52b2x1bWVzOjxicj4g
+IG1vbmdvX2RhdGE6PGJyPiAgICBkcml2ZXI6IGxvY2FsPGJyPiAgZXNfZGF0YTo8YnI+ICAgIGRy
+aXZlcjogbG9jYWw8YnI+ICBncmF5bG9nX2pvdXJuYWw6PGJyPiAgICBkcml2ZXI6IGxvY2FsPGJy
+PmBgYDxicj41Lui/kOihjCAiZG9ja2VyLWNvbXBvc2UgdXAi5ZCv5Yqo5pyN5Yqh77yMIOacjeWK
+oeato+W4uOWQr+WKqOWQjuWwseWPr+S7pemAmui/h2h0dHA6Ly9pcDo5MDAwIOi/m+ihjOiuv+mX
+rmdyYXlsb2fnmoRXZWLnlYzpnaLvvIzpu5jorqTnlKjmiLdhZG1pbi9hZG1pbuOAgjxicj48YnI+
+IVtpbWddKGh0dHBzOi8vZ2l0ZWUuY29tL21vLXNlLWRlLWZlbmcvbm90ZXMvcmF3L21hc3Rlci8l
+RTUlQUUlQjklRTUlOTklQTglRTUlOEMlOTYlRTQlQjglOTMlRTklQTIlOTgvaW1hZ2VzLzEuMy4y
+JTIwZ3JheWxvZyVFOSVBMSVCNSVFOSU5RCVBMi5QTkcpPGJyPjxicj4jIyMgR3JheWxvZ+mFjee9
+ruaXpeW/l+aUtumbhjxicj48YnI+R3JheWxvZ+eahOaXpeW/l+aUtumbhumAmui/h+WumuS5iWlu
+cHV05p2l5a6M5oiQ77yM5ZyoR3JheWxvZ+eahFdlYueuoeeQhumhtemdoueahFN5c3RlbSB0YWLk
+uIvlj6/ku6XpgInmi6nlrprkuYlpbnB1dOadpeWvueaXpeW/l+i/m+ihjOaUtumbhjxicj48YnI+
+IVtpbWddKGh0dHBzOi8vZ2l0ZWUuY29tL21vLXNlLWRlLWZlbmcvbm90ZXMvcmF3L21hc3Rlci8l
+RTUlQUUlQjklRTUlOTklQTglRTUlOEMlOTYlRTQlQjglOTMlRTklQTIlOTgvaW1hZ2VzLzEuMy4y
+JTIwJUU5JTgwJTg5JUU2JThCJUE5aW5wdXQuUE5HKTxicj48YnI+6L+b5YWlaW5wdXTpobXpnaLl
+kI7pgInmi6lpbnB1dOeahOexu+Wei++8jOavlOWmguWumuS5iUdFTEYgVURQ55qEaW5wdXQ6PGJy
+Pjxicj4hW2ltZ10oaHR0cHM6Ly9naXRlZS5jb20vbW8tc2UtZGUtZmVuZy9ub3Rlcy9yYXcvbWFz
+dGVyLyVFNSVBRSVCOSVFNSU5OSVBOCVFNSU4QyU5NiVFNCVCOCU5MyVFOSVBMiU5OC9pbWFnZXMv
+MS4zLjIlMjAlRTklODAlODklRTYlOEIlQTlHRUxGLlBORyk8YnI+PGJyPumAieaLqeWujOaIkOWQ
+jueCueWHuyDigJxMYW5jaCBuZXcgaW5wdXTigJ3vvIzlsLHkvJrov5vlhaXor6bnu4bnmoRpbnB1
+dOmFjee9ru+8jOmFjee9ruWujOaIkOWQjuS/neWtmOWwseWPr+S7peS6hjxicj48YnI+IVtpbWdd
+KGh0dHBzOi8vZ2l0ZWUuY29tL21vLXNlLWRlLWZlbmcvbm90ZXMvcmF3L21hc3Rlci8lRTUlQUUl
+QjklRTUlOTklQTglRTUlOEMlOTYlRTQlQjglOTMlRTklQTIlOTgvaW1hZ2VzLzEuMy4yJTIwJUU5
+JTg1JThEJUU3JUJEJUFFaW5wdXQuUE5HKTxicj48YnI+5L+d5a2Y5ZCO5LiA5YiH5q2j5bi455qE
+6K+d77yMaW5wdXTlsLHkvJrov5vlhaVSVU5OSU5H54q25oCB77yM6L+Z5pe25bCx5Y+v5Lul5b6A
+6L+Z5LiqaW5wdXTph4zpnaLlj5HpgIHmlbDmja7kuobvvIzngrnlh7vigJxTdG9wIGlucHV04oCd
+77yMaW5wdXTlsLHkvJrlgZzmraLvvIzmlbDmja7nmoTmjqXmlLbkuZ/kvJrlgZzmraLvvIzigJxT
+dG9wIGlucHV04oCd5Lya5Y+Y5oiQ4oCcU3RhcnQgaW5wdXTigJ3vvIzpnIDopoHmjqXlj5fmlbDm
+ja7nmoTml7bngrnlh7vlkK/liqjlsLHlj6/ku6XkuobjgII8YnI+PGJyPiFbaW1nXShodHRwczov
+L2dpdGVlLmNvbS9tby1zZS1kZS1mZW5nL25vdGVzL3Jhdy9tYXN0ZXIvJUU1JUFFJUI5JUU1JTk5
+JUE4JUU1JThDJTk2JUU0JUI4JTkzJUU5JUEyJTk4L2ltYWdlcy8xLjMuMiUyMGlucHV0JUU4JUJG
+JTkwJUU4JUExJThDLlBORyk8YnI+PGJyPiMjIyDphY3nva5Eb2NrZXLlrrnlmajlj5HpgIHmlbDm
+ja7liLBHcmF5bG9nPGJyPjxicj7phY3nva5Eb2NrZXLlrrnlmajlj5HpgIHmlbDmja7liLBHcmF5
+bG9n5pe25Y+v5Lul5Zyo6L+Q6KGMZG9ja2VyIHJ1buWRveS7pOWQr+WKqOWuueWZqOeahOaXtuWA
+meWKoOS4iuWmguS4i+WPguaVsO+8mjxicj48YnI+YGBgPGJyPmRvY2tlciBydW4gLS1sb2ctZHJp
+dmVyPWdlbGYgXDxicj4tLWxvZy1vcHQgZ2VsZi1hZGRyZXNzPXVkcDovL2dyYXlsb2fmnI3liqHl
+majlnLDlnYA6MTIyMDEgXDxicj4tLWxvZy1vcHQgdGFnPSZsdDvlvZPliY3lrrnlmajmnI3liqHm
+oIfnrb7vvIznlKjmnaXkvptncmF5bG9n5p+l6K+i55qE5pe25YCZ6L+b6KGM5YiG57G7Jmd0OyBc
+PGJyPiZsdDtJTUFHRSZndDsgJmx0O0NPTU1BTkQmZ3Q7PGJyPmBgYDxicj48YnI+5YW35L2T56S6
+5L6L77yaPGJyPjxicj5gYGA8YnI+ZG9ja2VyIHJ1biAtZCBcPGJyPi0tbG9nLWRyaXZlcj1nZWxm
+IFw8YnI+LS1sb2ctb3B0IGdlbGYtYWRkcmVzcz11ZHA6Ly9sb2NhbGhvc3Q6MTIyMDEgXDxicj4t
+LWxvZy1vcHQgdGFnPSJ7ey5JbWFnZU5hbWV9fS97ey5OYW1lfX0ve3suSUR9fSIgXDxicj5idXN5
+Ym94IHNoIC1jICd3aGlsZSB0cnVlOyBkbyBlY2hvICJHcmF5bG9nIHRlc3QgbWVzc2FnZSI7IHNs
+ZWVwIDEwOyBkb25lOyc8YnI+YGBgPGJyPjxicj7lpoLmnpzlrrnlmajpgJrov4dkb2NrZXItY29t
+cG9zZeWRveS7pOWQr+WKqOWPr+S7peWcqGRvY2tlci1jb21wb3NlLnltbOaWh+S7tuS4reWKoOWF
+peS7peS4i+mFjee9ru+8mjxicj48YnI+YGBgPGJyPmxvZ2dpbmc6PGJyPiAgZHJpdmVyOiJnZWxm
+Ijxicj4gIG9wdGlvbnM6PGJyPiAgICBnZWxmLWFkZHJlc3M6InVkcDovL2dyYXlsb2fmnI3liqHl
+majlnLDlnYA6MTIyMDEiPGJyPiAgICB0YWc6IuWuueWZqOacjeWKoeagh+etviI8YnI+YGBgPGJy
+Pjxicj7lhbfkvZPnpLrkvovvvJo8YnI+PGJyPmBgYDxicj52ZXJzaW9uOiAnMic8YnI+c2Vydmlj
+ZXM6PGJyPiAgbmdpbng6PGJyPiAgICBpbWFnZTogbmdpbng6bGF0ZXN0PGJyPiAgICBwb3J0czo8
+YnI+ICAgICAgLSAiODA6ODAiPGJyPiAgICBsb2dnaW5nOjxicj4gICAgICBkcml2ZXI6ICJnZWxm
+Ijxicj4gICAgICBvcHRpb25zOjxicj4gICAgICAgIGdlbGYtYWRkcmVzczogInVkcDovL2xvY2Fs
+aG9zdDoxMjIwMSI8YnI+ICAgICAgICB0YWc6IG5naW54LXNlcnZpY2U8YnI+YGBgPGJyPjxicj7m
+l6Xlv5flj5HpgIHphY3nva7lpb3kuYvlkI7lsLHlj6/ku6XlnKjnmoRTZWFyY2ggdGFi5LiL5pCc
+57Si5Lqn55yL5pel5b+X5L+h5oGvPGJyPjxicj4hW2ltZ10oaHR0cHM6Ly9naXRlZS5jb20vbW8t
+c2UtZGUtZmVuZy9ub3Rlcy9yYXcvbWFzdGVyLyVFNSVBRSVCOSVFNSU5OSVBOCVFNSU4QyU5NiVF
+NCVCOCU5MyVFOSVBMiU5OC9pbWFnZXMvMS4zLjIlMjBncmF5bG9nJUU2JTk3JUE1JUU1JUJGJTk3
+JUU2JTk4JUJFJUU3JUE0JUJBLlBORyk8YnI+PGJyPjwvcHJlPjxwPjxpbWcgc3JjPSJodHRwczov
+L2ltZzIwMTguY25ibG9ncy5jb20vY29tbW9uLzE3MzU4NDEvMjAxOTEyLzE3MzU4NDEtMjAxOTEy
+MjQyMDAxMzk0NzEtMjExOTM2MTQxNS5wbmciIGFsdD0iIiBkYXRhLW1jZS1zcmM9Imh0dHBzOi8v
+aW1nMjAxOC5jbmJsb2dzLmNvbS9jb21tb24vMTczNTg0MS8yMDE5MTIvMTczNTg0MS0yMDE5MTIy
+NDIwMDEzOTQ3MS0yMTE5MzYxNDE1LnBuZyI+PC9wPjxwcmU+PGJyPjwvcHJlPg==">​</div>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

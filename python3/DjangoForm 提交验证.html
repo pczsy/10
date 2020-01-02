@@ -1,0 +1,218 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DjangoForm 提交验证' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DjangoForm 提交验证</center></div><div class='banquan'>原文出处:本文由博客园博主klvchen提供。<br/>
+原文连接:https://www.cnblogs.com/klvchen/p/11202419.html</div><br>
+    <h1 id="用户提交数据的验证">用户提交数据的验证</h1>
+<pre><code><code>1.创建模版                     -- class LoginForm(forms.Form):....
+2.将请求交给模版，创建一个对象    -- obj = LoginForm(request.POST)
+3.进行验证                     -- obj.is_valid()
+4.获取正确的信息                -- obj.clean()
+5.获取错误的信息                -- obj.errors</code></pre>
+<h1 id="form-验证">Form 验证</h1>
+<h3 id="创建一个项目-django_form-和一个应用-app01">创建一个项目 django_form 和一个应用 app01</h3>
+<p><img src="./images/DjangoForm 提交验证0.png" /></p>
+<p>创建一个 static 文件夹，放入 jquery.min.js</p>
+<p>修改 settings.py 文件</p>
+<pre><code><code>注释下面语句
+    #&#39;django.middleware.csrf.CsrfViewMiddleware&#39;,
+
+在文件最后添加
+STATICFILES_DIRS=[
+    os.path.join(BASE_DIR, &quot;static&quot;),
+]
+</code></pre>
+<p>在 urls.py 内容如下</p>
+<pre><code><code>from django.contrib import admin
+from django.urls import path
+from app01 import views
+
+urlpatterns = [
+    path(&#39;admin/&#39;, admin.site.urls),
+    path(&#39;login.html&#39;, views.login),
+]</code></pre>
+<p>在 views.py 中修改</p>
+<pre><code><code>
+class LoginForm(forms.Form):
+    # 定义元素，需要跟前端提交的名字一致，error_messages 自定义错误信息
+    user = forms.CharField(min_length=6, error_messages={&quot;required&quot;: &#39;用户名不能为空&#39;, &#39;min_length&#39;: &#39;用户长度不能小于6&#39;})
+    email = forms.EmailField(error_messages={&quot;required&quot;: &#39;邮箱不能为空&#39;, &#39;invalid&#39;: &#39;邮箱格式错误&#39;})
+
+
+def login(request):
+    if request.method == &#39;GET&#39;:
+        # 自动生成 input 标签
+        obj = LoginForm()
+        return render(request, &#39;login.html&#39;, {&#39;oo&#39;: obj})
+    elif request.method == &#39;POST&#39;:
+        # 获取 post 提交过来的所有值
+        obj = LoginForm(request.POST)
+        # 判断值是否正确
+        if obj.is_valid():
+            # 获取正确的值
+            value_dict = obj.clean()
+            print(value_dict)
+        else:
+            # 如果错误，错误信息通过 obj 返回前端
+            pass
+
+        return render(request, &#39;login.html&#39;, {&#39;oo&#39;: obj})
+</code></pre>
+<p>在 templates 文件夹下添加 login.html 文件</p>
+<pre><code><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;Form提交数据&lt;/h1&gt;
+    &lt;form method=&quot;post&quot; action=&quot;/login.html&quot;&gt;
+        &lt;p&gt;
+            {{ oo.user }}
+            &lt;!-- 通过 oo.errors.user.0 获取错误信息 --&gt;
+            &lt;span&gt;{{ oo.errors.user.0 }}&lt;/span&gt;
+        &lt;/p&gt;
+        &lt;p&gt;
+             {{ oo.email }}
+            &lt;span&gt;{{ oo.errors.email.0 }}&lt;/span&gt;
+        &lt;/p&gt;
+        &lt;p&gt;
+            &lt;input type=&quot;text&quot; name=&quot;pwd&quot; placeholder=&quot;密码&quot;&gt;
+        &lt;/p&gt;
+        &lt;input type=&quot;submit&quot; value=&quot;提交&quot;&gt;
+        &lt;input id=&quot;ajax_submit&quot; type=&quot;button&quot; value=&quot;Ajax提交&quot;&gt;
+    &lt;/form&gt;
+    &lt;script src=&quot;/static/jquery.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script&gt;
+        $(function () {
+            $(&#39;#ajax_submit&#39;).click(function () {
+                $.ajax({
+                    url: &quot;/login.html&quot;,
+                    data: {user:&#39;root&#39;, email: &#39;root@live.com&#39;, pwd: &#39;123456&#39;},
+                    type: &#39;POST&#39;,
+                    success:function (arg) {
+                        console.log(arg)
+                    }
+                })
+            })
+        })
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p>当输入的邮箱不正确时，在高级浏览器下后显示如下结果<br />
+<img src="./images/DjangoForm 提交验证1.png" /></p>
+<h1 id="ajax-验证">Ajax 验证</h1>
+<p>在 urls.py 上修改</p>
+<pre><code><code>    path(&#39;login_ajax.html&#39;, views.login_ajax),</code></pre>
+<p>在 views.py 上修改</p>
+<pre><code><code>def login_ajax(request):
+    if request.method == &#39;GET&#39;:
+        return render(request, &#39;login_ajax.html&#39;)
+    elif request.method == &#39;POST&#39;:
+        ret = {&#39;status&#39;: True, &#39;error&#39;: None, &#39;data&#39;: None}
+        obj = LoginForm(request.POST)
+        if obj.is_valid():
+            print(obj.clean())
+        else:
+            ret[&#39;status&#39;] = False
+            ret[&#39;error&#39;] = obj.errors.as_data()  # {&#39;email&#39;: [ValidationError([&#39;邮箱格式错误&#39;])], &#39;user&#39;: [ValidationError([&#39;用户长度不能小于6&#39;])]}
+
+        return HttpResponse(json.dumps(ret, cls=JsonCustomEncoder))
+# 邮箱格式和用户名长度都不正常时，返回给浏览器的是：{&quot;error&quot;: {&quot;email&quot;: [{&quot;message&quot;: &quot;\u90ae\u7bb1\u683c\u5f0f\u9519\u8bef&quot;, &quot;code&quot;: &quot;invalid&quot;}], &quot;user&quot;: [{&quot;message&quot;: &quot;\u7528\u6237\u957f\u5ea6\u4e0d\u80fd\u5c0f\u4e8e6&quot;, &quot;code&quot;: &quot;min_length&quot;}]}, &quot;data&quot;: null, &quot;status&quot;: false}
+
+
+
+# 定义编码类JsonCustomEncoder并重写实例的default函数，对特殊类型进行处理，其余类型继续使用父类的解析。
+from django.core.validators import ValidationError
+class JsonCustomEncoder(json.JSONEncoder):
+    def default(self, field):
+        # 使用 isinstance() 函数来判断 field 是否是 ValidationError 类型
+        if isinstance(field, ValidationError):
+            # field 为 [&#39;邮箱格式错误&#39;] 和 [&#39;用户长度不能小于6&#39;]
+            # field.code 为 min_length 和 invalid
+            # field.message 为 邮箱格式错误 和 用户长度不能小于6
+            return {&#39;code&#39;: field.code, &#39;message&#39;: field.message}
+        else:
+            return json.JSONEncoder.default(self, field)</code></pre>
+<p>添加 login_ajax.html 文件</p>
+<pre><code><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+    &lt;style&gt;
+        .error-msg{
+            color: red;
+            font-size: 12px;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;Ajax提交数据&lt;/h1&gt;
+    &lt;form id=&quot;f1&quot; &gt;
+        &lt;p&gt;
+            &lt;input id=&quot;u&quot; type=&quot;text&quot; name=&quot;user&quot; placeholder=&quot;用户名&quot;&gt;
+        &lt;/p&gt;
+        &lt;p&gt;
+            &lt;input id=&quot;e&quot; type=&quot;text&quot; name=&quot;email&quot; placeholder=&quot;邮箱&quot;&gt;
+        &lt;/p&gt;
+        &lt;p&gt;
+            &lt;input id=&quot;p&quot; type=&quot;text&quot; name=&quot;pwd&quot; placeholder=&quot;密码&quot;&gt;
+        &lt;/p&gt;
+        &lt;input id=&quot;ajax_submit&quot; type=&quot;button&quot; value=&quot;Ajax提交&quot;&gt;
+    &lt;/form&gt;
+    &lt;script src=&quot;/static/jquery.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script&gt;
+        $(function () {
+            $(&#39;#ajax_submit&#39;).click(function () {
+                $.ajax({
+                    url: &quot;/login_ajax.html&quot;,
+                    data: $(&#39;#f1&#39;).serialize(),   //将表单数据表单序列化（key1=value1&amp;key2=value2…）后提交
+                    type: &#39;POST&#39;,
+                    success:function (arg) {
+                        $(&#39;.error-msg&#39;).remove();
+                        var v1 = JSON.parse(arg);
+                        console.log(v1);
+                        if(!v1.status){
+                            var error_obj = v1.error;
+                            $.each(error_obj, function (k,v) {
+                                // k: user 或 email
+                                // v: [{}{}{},]
+                                var tag = document.createElement(&#39;span&#39;);
+                                tag.className = &#39;error-msg&#39;;
+                                tag.innerHTML = v[0].message;
+                                $(&quot;input[name=&#39;&quot;+ k +&quot;&#39;]&quot;).after(tag);
+                            })
+                        }else {
+                            location.href = &quot;/index.html&quot;
+                        }
+                    }
+                })
+            })
+        })
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p><img src="./images/DjangoForm 提交验证2.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

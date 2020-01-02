@@ -1,0 +1,94 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修pt-online-schema-change工具使用教程（在线修改大表结构）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>pt-online-schema-change工具使用教程（在线修改大表结构）</center></div><div class='banquan'>原文出处:本文由博客园博主liucx提供。<br/>
+原文连接:https://www.cnblogs.com/liucx/p/12077652.html</div><br>
+    <h2 class="title-article">&nbsp;</h2>
+<h2 class="title-article"><strong>percona-toolkit中pt-online-schema-change工具安装和使用</strong></h2>
+<h2 class="title-article"><span style="font-size: 18px;"><strong>pt-online-schema-change介绍</strong></span></h2>
+<p>使用场景：在线修改大表结构</p>
+<p><br />在数据库的维护中，总会涉及到生产环境上修改表结构的情况，修改一些小表影响很小，而修改大表时，往往影响业务的正常运转，如表数据量超过500W，1000W，甚至过亿时</p>
+<p><br />在线修改大表的可能影响<br />（1）在线修改大表的表结构执行时间往往不可预估，一般时间较长<br />（2）由于修改表结构是表级锁，因此在修改表结构时，影响表写入操作<br />（3）如果长时间的修改表结构，中途修改失败，由于修改表结构是一个事务，因此失败后会还原表结构，在这个过程中表都是锁着不可写入<br />（4）修改大表结构容易导致数据库CPU、IO等性能消耗，使MySQL服务器性能降低<br />（5）在线修改大表结构容易导致主从延时，从而影响业务读取</p>
+<p>工具介绍<br />pt-online-schema-change是Percona公司开发的一个工具，在percona-toolkit包里面可以找到这个功能，它可以在线修改表结构</p>
+<p>原理:</p>
+<p><span style="color: #ff0000;"><strong>&nbsp;在使用之前需确定表table里必须带有主键或者唯一索引！！</strong></span></p>
+<p>（1）首先它会新建一张一模一样的表，表名一般是_new后缀<br />（2）然后在这个新表执行更改字段操作<br />（3）然后在原表上加三个触发器，DELETE/UPDATE/INSERT，将原表中要执行的语句也在新表中执行<br />（4）最后将原表的数据拷贝到新表中，然后替换掉原表</p>
+<p><br />这个过程中有两个问题需要注意：<br />1. 触发器<br />因为整个过程是在线的，为了将改表过程中对原始表的更新同时更新到新表上，会创建相应的触发器，每当发生针对原始表的增删改操作，就会触发对新表的相应的操作。所以原始表上不能有其他触发器，即如果原始表上存有触发器，OSC会罢工的。</p>
+<p>2. 外键<br />外键使改表操作变得更加复杂，如果原始表上有外键的话，自动rename原始表和新表的操作就不能顺利进行，必须要在数据拷贝完成后将外键更新到新表上，该工具有两种方法来支持这个操作，具体使用参数（--alter-foreign-keys-method）实现。</p>
+<p>--alter-foreign-keys-method<br />外键改表前后必须持续的链接正确的表，当该工具rename原始表并用新表来取代原始表时，外键必须正确更新到新表上，并且原始表中的外键不再生效</p>
+<p>外键会使该工具的操作变得复杂并引入额外风险。当有外键引用该表时，重命名原表和新表的原子操作将无法正常运行。在表结构修改完成后，该工具必须修改外键以指向新表。该工具支持两种方式实现该操作，具体可参考--alter-foreign-keys-method文档。外键也会造成一些副作用。最终的表将会有与原表相同的外键和索引(除非你在ALTER语句进行分别指定)，但对象的名称可能会被略微修改以避免MySQL和InnoDB中的对象名称冲突。</p>
+<p>出于安全考虑，该工具并不会真的修改表，除非你指定--execute选项，而该选项默认并未启用。该工具支持各种各样的其它措施以防止非预期的负载或其它问题，包括自动检测从节点，连接到它们，并使用如下安全检查：<br />（1）在大多情况下，除非表中有PRIMARY KEY或UNIQUE INDEX，该工具才会进行操作。详见--alter选项。<br />（2）如果检测到有replication filter，该工具会拒绝操作。详见--[no]check-replication-filters选项。<br />（3）该工具会停止数据拷贝操作，如果它观察到主从延迟大于--max-lag选项的值，默认为1s。<br />（4）该工具会停止或放弃操作，如果它检测到对服务器造成太多负载。见--max-load和--critical-load选项。<br />（5）该工具会设置innodb_lock_wait_timeout=1和(对于MySQL 5.5及更新的版本)lock_wait_timeout=60，因此它会更容易成为锁竞争的受害者，并更少破坏其它事务。这些值可以通过指定--set-vars来修改。<br />（6）该工具会拒绝修改表，如果外键约束有引用它，除非你指定了--alter-foreign-keys-method。</p>
+<p><br />好处:</p>
+<p>降低主从延时的风险</p>
+<p>可以限速、限资源，避免操作时MySQL负载过高</p>
+<p>建议:</p>
+<p>在业务低峰期做，将影响降到最低</p>
+<h2 class="title-article"><strong>percona-toolkit</strong><strong><span style="font-size: 18px;">安装</span></strong></h2>
+<p><em id="__mceDel">1.去官网下载对应的版本，官网下载地址:<span style="font-size: 12px;">https://www.percona.com/downloads/percona-toolkit/LATEST/</span></em></p>
+<div class="cnblogs_code">
+<pre><code>wget https:<span style="color: #008000;">//</span><span style="color: #008000;">www.percona.com/downloads/percona-toolkit/3.1/binary/redhat/7/x86_64/percona-toolkit-3.1-1.el7.x86_64.rpm</span></pre>
+</div>
+<p>2.安装依赖</p>
+<div class="cnblogs_code">
+<pre><code>yum -y install perl-DBI perl-DBD-MySQL perl-Digest-MD5 perl-IO-Socket-SSL perl-TermReadKey</pre>
+</div>
+<p>3.安装</p>
+<div class="cnblogs_code">
+<pre><code>rpm -ivh percona-toolkit-<span style="color: #800080;">3.1</span>-<span style="color: #800080;">1</span>.el7.x86_64.rpm</pre>
+</div>
+<p>或者直接使用yum安装<br />使用yum会自动安装依赖包，比较简单</p>
+<div class="cnblogs_code">
+<pre><code>yum install -y percona-toolkit-<span style="color: #800080;">3.0</span>.<span style="color: #800080;">12</span>-<span style="color: #800080;">1</span>.el6.x86_64.rpm</pre>
+</div>
+<p>验证</p>
+<div class="cnblogs_code">
+<pre><code>pt-online-schema-change --help</pre>
+</div>
+<p><img src="./images/pt-online-schema-change工具使用教程（在线修改大表结构）0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;"><strong>pt-online-schema-change使用</strong></span></p>
+<p>修改表结构而不阻塞读写操作<br />./bin/pt-online-schema-change --help 可以查看参数的使用</p>
+<div class="cnblogs_code">
+<pre><code>DNS选项常用的有：<br />--user=<span style="color: #000000;"> 连接mysql的用户名
+</span>--password=<span style="color: #000000;"> 连接mysql的密码
+</span>--host=<span style="color: #000000;"> 连接mysql的地址
+P</span>=<span style="color: #800080;">3306</span><span style="color: #000000;"> 连接mysql的端口号
+D</span>=<span style="color: #000000;"> 连接mysql的库名
+t</span>=<span style="color: #000000;"> 连接mysql的表名
+</span>--<span style="color: #000000;">alter 修改表结构的语句
+</span>--<span style="color: #000000;">execute 执行修改表结构
+</span>--charset=<span style="color: #000000;">utf8 使用utf8编码，避免中文乱码
+</span>--no-version-check 不检查和更新percona toolkit版本，也不检查mysql版本等。</pre>
+</div>
+<p>案例：</p>
+<p>添加表字段SQL语句为：<em id="__mceDel">ALTER TABLE test.liu_test ADD COLUMN liu int(10) DEFAULT NULL;</em></p>
+<div class="cnblogs_code">
+<pre><code>pt-online-schema-change   --user=root --password=xxx  --host=<span style="color: #800080;">172.16</span>.xx.xx  P=<span style="color: #800080;">3306</span>,D=test,t=liu_test  --charset=utf8 --no-version-check --execute --alter <span style="color: #800000;">"</span><span style="color: #800000;">ADD COLUMN  liu int(10) DEFAULT NULL</span><span style="color: #800000;">"</span></pre>
+</div>
+<p><img src="./images/pt-online-schema-change工具使用教程（在线修改大表结构）1.png" alt="" /></p>
+<p><strong><span style="color: #ff0000;">&nbsp;&nbsp;在使用之前需确定表table里必须带有主键或者唯一索引！！</span></strong></p>
+<p><img src="./images/pt-online-schema-change工具使用教程（在线修改大表结构）2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>参考官网：https://www.percona.com/doc/percona-toolkit/LATEST/pt-online-schema-change.html</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

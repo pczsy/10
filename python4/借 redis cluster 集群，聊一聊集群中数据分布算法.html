@@ -1,0 +1,69 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修借 redis cluster 集群，聊一聊集群中数据分布算法' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>借 redis cluster 集群，聊一聊集群中数据分布算法</center></div><div class='banquan'>原文出处:本文由博客园博主平头哥的技术博文提供。<br/>
+原文连接:https://www.cnblogs.com/jamaler/p/12033420.html</div><br>
+    <p>Redis Cluster 集群中涉及到了数据分布问题，因为 redis cluster 是多 master 的结构，每个 master 都是可以提供存储服务的，这就会涉及到数据分布的问题，在新的 redis 版本中采用的是虚拟槽分区技术来解决数据分布的问题，关于什么是虚拟槽分区技术我们后面会详细的介绍。在集群中除了虚拟槽分区技术之外，还有几种数据分布的算法，比如哈希算法，一致性哈希算法，这篇文章我们就来一起聊一聊这几种数据分布算法。</p>
+<p>因为是集群，所以我们需要一个大前提，在这篇文章中假设 redis cluster 集群中有三台 master，我们需要存储的数据集为：<code>[{id:1,&quot;name&quot;:&quot;1&quot;},{id:2,name:&quot;2&quot;},{id:3,name:&quot;3&quot;},{id:4,name:&quot;4&quot;},{id:5:&quot;name&quot;:&quot;5&quot;},{id:6,&quot;name&quot;:&quot;6&quot;}]</code>，在这个大前提下，我们来聊一聊集群中的数据分布算法。</p>
+<h1 id="哈希算法">哈希算法</h1>
+<p>哈希算法在分布式架构中应用广泛，不仅仅是数据存储，还有负载均衡等应用上有用的比较多，哈希算法的思想非常简单，也许你知道 HashMap 的哈希函数，哈希算法跟 HashMap 一样，也是通过一个哈希函数得到某一个数字，然后根据数字找到相应的服务器。哈希算法的哈希函数比较简单，一般是根据某个key的值或者key 的哈希值与当前可用的 master节点数取模，根据取模的值获取具体的服务器。哈希算法服务结构模型图如下图所示：</p>
+<p><img src="./images/借 redis cluster 集群，聊一聊集群中数据分布算法0.png" alt="哈希算法结构模型图" /></p>
+<p>用我们前面假设的数据，利用哈希算法来实验一把，加深我们对哈希算法在分布式中的应用的理。我们假设哈希算法中的哈希函数为“id % master 节点数”，结果为 0 的数据存放到 server1 服务器上，结果为 1 的数据存放到 server2 服务器上，结果为 2 的数据存放到 server3 服务器上。</p>
+<p>所以经过哈希算法之后，id=3、id=6 的数据与 master 节点数取模为 0 （3%3=0,6%3=0），所以这两个数据会存放到 server1 服务器 ，以此类推，id=1、id=4 的数据将存放到 server2 服务器中，id=2、id=5 的数据将存放到 server3 上，这时候服务器存储数据如下图所示：</p>
+<p><img src="./images/借 redis cluster 集群，聊一聊集群中数据分布算法1.png" alt="服务器存储数据" /></p>
+<p>这就是哈希算法在分布式中的作用，<strong>比较简单，可以看出只要你哈希函数设计的好，数据在各个服务器上是比较均匀分布的</strong>，但是哈希算法有一个致命的缺点：<strong>扩展性特别的差</strong>，比如我们的集群中，服务器server3 宕机了，这时候集群中可用的机器只有两台了，这样哈希函数就变成了<code>id % 2</code>了，这就会导致一个问题，所有的数据需要重新计算，找到新的存储节点，每次有服务器宕机或者添加机器时，都需要进行大量的数据迁移，这会使得系统的可用性、稳定性变差。</p>
+<h1 id="一致性哈希算法">一致性哈希算法</h1>
+<p>一致性哈希算法可以说是哈希算法的升级版，解决了哈希算法扩展性差的问题，一致性哈希算法跟哈希算法不一样，一致性哈希算法会将服务器和数据都通过哈希函数映射到一个首尾相连的哈希环上，存储节点映射可以根据 ip 地址来进行哈希取值，<strong>数据映射到哈希环上后按照顺时针的方向查找存储节点，即从数据映射在环上的位置开始，顺时针方向找到的第一个存储节点，那么他就存储在这个节点上</strong>。</p>
+<p>我们使用一致性哈希算法来存储我们的数据，我画了一张图来模拟一致性哈希算法可能出现的结果：</p>
+<p><img src="./images/借 redis cluster 集群，聊一聊集群中数据分布算法2.png" alt="一致性算法模拟存储图" /></p>
+<p>我们先来解读一下这张图，按照一致性哈希算法的规则，数据沿着顺时针的方向查找数据，那么 id=4 的数据存放在 server1 服务器，id=2 的数据存放在服务器 server2 上，id=3、id=1、id=5、id=6 的数据都存放在服务器 server3 上，如果你比较敏感的话，也许你就会发现一致性哈希算法的不足之处， 从图中可以看出，我们六条数据分布不均匀，并不是每台服务器存储 2 条数据，而且差距好像还有点大，这里我们就要来说一说一致性哈希算法的缺点：<strong>一致性哈希算法会会造成数据分布不均匀的问题或者叫做数据倾斜问题</strong>，就像我们图中那样，数据分布不均匀可能会造成某一个节点的负载过大，从而宕机。造成数据分布不均匀有以下两种情况：</p>
+<ul>
+<li><strong>第一</strong>：哈希函数的原因，经过哈希函数之后服务器在哈希环上的分布不均匀，服务器之间的间距不相等，这样就会导致数据不均匀。</li>
+<li><strong>第二</strong>：某服务器宕机了，后继节点就需要承受原本属于宕机机器的数据，这样也会造成数据不均匀。</li>
+</ul>
+<p>前面我们提到过<strong>一致性哈希算法解决了哈希算法中扩展性差的问题</strong>，这个怎么理解呢？我们来看看，<strong>在一致性哈希算法中当有存储节点加入或者退出时，只会影响应该该节点的后继节点</strong>，举个例子说明一下，例如我们要在服务器server3 和服务 server2 之间加入了一个服务器存储节点 server4，只会对服务器server3 造成影响，原本存储到服务器server3 上的数据有一部分会落入到服务器 server4 上，对服务器 server1 和 server2 并没有任何影响，这样就不会进行大量的数据迁移，扩展性就变强了。</p>
+<h3 id="带有限负载的一致性哈希算法">带有限负载的一致性哈希算法</h3>
+<p>因为一致性哈希算法的数据分布不均匀的问题，Google 在 2017 年提出了带有限负载的一致性哈希算法来解决这个问题，带有限负载的一致性哈希算法思想比较简单，<strong>给每个存储节点设置了一个存储上限值来控制存储节点添加或移除造成的数据不均匀，当数据按照一致性哈希算法找到相应的存储节点时，要先判断该存储节点是否达到了存储上限；如果已经达到了上限，则需要继续寻找该存储节点顺时针方向之后的节点进行存储。</strong></p>
+<p>我们利用带有限负载的一致性哈希算法来改进上面的数据存储，我们限定每台服务器节点存储的数据上限为 2 ，数据插入的顺序就按照 ID 大小的顺序，同样我也画了一张模拟图：</p>
+<p><img src="./images/借 redis cluster 集群，聊一聊集群中数据分布算法3.png" alt="带有限负载的一致性哈希算法" /></p>
+<p>一起来分析一下这张图，因为我们的添加顺序是按照 id 大小的顺序，所以前四个数据都没有问题，这时候的服务器都没有超过最高负载数量，id=5 的数据落在了服务器server2 和服务器server3 之间，本应该是存储在服务器server3 上，但是由于此时的服务器server3 上已经存储了 id=1、id=3 的数据达到了最高限定，因此 id=5 的数据会沿着顺时针的方向继续往下寻找服务器，下一个服务器就是server1，此时的服务器server1 就存储了 id=4 的数据并没有达到上限，所以 id=5 的数据就会存储在服务器server1，id=6 的数据同样的道理。这样就利用带有限负载的一致性哈希算法解决了一致性哈希算法中数据分布不均匀的问题。</p>
+<h3 id="带虚拟节点的一致性哈希算法">带虚拟节点的一致性哈希算法</h3>
+<p>带有限负载的一致性哈希算法也有一个问题，那就是每台服务器的性能配置可能存在不一样，如果规定数量过小的话，对于配置高的服务器来说有点浪费，这是因为服务器之间可能存在差异，叫做服务器之间的异构性，为了解决服务器之间的异构性问题，引入了一种叫做<strong>带虚拟节点的一致性哈希算法</strong>，带虚拟节点的一致性哈希算法核心思想是：<strong>根据每个节点的性能为每个节点划分不同数量的虚拟节点，并将这些虚拟节点映射到哈希环中，然后再按照一致性哈希算法进行数据映射和存储</strong>。</p>
+<p>为了演示带虚拟节点的一致性哈希算法，我们先做一个假设<strong>服务器server3是配置最差的，所以我们以服务器server3 为基准，服务器server2 是服务器server3 的两倍，服务器server1 是服务器server3 的三倍</strong>，有了这个前提之后，我们就可以来建立虚拟节点，我们假设服务器server3 的虚拟节点为服务器server3_1，服务器server2 就有两个虚拟节点服务器server2_1、服务器server2_2，服务器server1 有三个虚拟节点 服务器server1_1、服务器server1_2、服务器server1_3。我还是跟前面一样画了一张模拟图：</p>
+<p><img src="./images/借 redis cluster 集群，聊一聊集群中数据分布算法4.png" /></p>
+<p>落到虚拟节点上的数据都会存到对应的物理服务器上，所以通过带虚拟节点的一致性哈希算法后，数据存储结果为：数据id=2、id=3、id=5 的数据都会存储到服务器server1 上，id=1 的数据将会存储到服务器server2 上，数据 id=4、id=6 都会存放到服务器server3上。</p>
+<p>虚拟节点可以让配置好的服务器存储更多的数据，这样就解决了系统异构性的问题，同时由于大量的虚拟节点的存在<br />
+在数据迁移时数据会落到不同的物理机上，这样就减小了数据迁移时某台服务器的分担压力，能够保证系统的稳定性。</p>
+<h1 id="虚拟槽分区">虚拟槽分区</h1>
+<p>虚拟槽分区是 redis cluster 中默认的数据分布技术，虚拟槽分区巧妙地使用了哈希空间，使用分散度良好的哈希函数把所有数据映射到一个固定范围的整数集合中，这个整数定义为槽（slot），而且这个槽的个数一般远远的大于节点数。</p>
+<p>在 redis cluster 中有16384（0~16383）个槽，会将这些槽平均分配到每个 master 上，在存储数据时利用 CRC16 算法，具体的计算公式为：slot=CRC16（key）/16384 来计算 key 属于哪个槽。在我们的集群环境中，一个 key 的存储或者查找过程，可能如下图所示：</p>
+<p><img src="./images/借 redis cluster 集群，聊一聊集群中数据分布算法5.png" /></p>
+<p>虚拟槽分区解耦了数据与节点的关系，通过引入槽，让槽成为集群内数据管理和迁移的基本单位，简化了节点扩容和收缩难度，你只需要关注数据在哪个槽，并不需要关心数据在哪个节点上。所以虚拟槽分区可以说比较好的兼容了数据均匀分布和扩展性的问题。</p>
+<p>以上就是我要分享关于集群中数据分布的技术，希望本文的内容对大家的学习或者工作能带来一定的帮助，感谢大家的支持</p>
+<h3 id="最后">最后</h3>
+<blockquote>
+<p>目前互联网上很多大佬都有数据分布相关文章，如有雷同，请多多包涵了。原创不易，码字不易，还希望大家多多支持。若文中有所错误之处，还望提出，谢谢。</p>
+</blockquote>
+<p>欢迎扫码关注微信公众号：「平头哥的技术博文」，和平头哥一起学习，一起进步。</p>
+<p><img src="./images/借 redis cluster 集群，聊一聊集群中数据分布算法6.png" alt="平头哥的技术博文" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

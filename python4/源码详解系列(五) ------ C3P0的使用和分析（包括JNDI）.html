@@ -1,0 +1,979 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修源码详解系列(五) ------ C3P0的使用和分析（包括JNDI）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>源码详解系列(五) ------ C3P0的使用和分析（包括JNDI）</center></div><div class='banquan'>原文出处:本文由博客园博主子月生提供。<br/>
+原文连接:https://www.cnblogs.com/ZhangZiSheng001/p/12080533.html</div><br>
+    <h1 id="简介">简介</h1>
+<p><code>c3p0</code>是用于创建和管理连接，利用“池”的方式复用连接减少资源开销，和其他数据源一样，也具有连接数控制、连接可靠性测试、连接泄露控制、缓存语句等功能。目前，<code>hibernate</code>自带的连接池就是<code>c3p0</code>。</p>
+<p>本文将包含以下内容(因为篇幅较长，可根据需要选择阅读)：</p>
+<ol>
+<li><code>c3p0</code>的使用方法（入门案例、<code>JDNI</code>使用）</li>
+<li><code>c3p0</code>的配置参数详解</li>
+<li><code>c3p0</code>主要源码分析</li>
+</ol>
+<h1 id="使用例子-入门">使用例子-入门</h1>
+<h2 id="需求">需求</h2>
+<p>使用<code>C3P0</code>连接池获取连接对象，对用户数据进行简单的增删改查（<code>sql</code>脚本项目中已提供）。</p>
+<h2 id="工程环境">工程环境</h2>
+<p><code>JDK</code>：1.8.0_201</p>
+<p><code>maven</code>：3.6.1</p>
+<p><code>IDE</code>：eclipse 4.12</p>
+<p><code>mysql-connector-java</code>：8.0.15</p>
+<p><code>mysql</code>：5.7 .28</p>
+<p><code>C3P0</code>：0.9.5.3</p>
+<h2 id="主要步骤">主要步骤</h2>
+<ol>
+<li><p>编写<code>c3p0.properties</code>，设置数据库连接参数和连接池基本参数等</p></li>
+<li><p><code>new</code>一个<code>ComboPooledDataSource</code>对象，它会自动加载<code>c3p0.properties</code></p></li>
+<li><p>通过<code>ComboPooledDataSource</code>对象获得<code>Connection</code>对象</p></li>
+<li><p>使用<code>Connection</code>对象对用户表进行增删改查</p></li>
+</ol>
+<h2 id="创建项目">创建项目</h2>
+<p>项目类型Maven Project，打包方式war（其实jar也可以，之所以使用war是为了测试<code>JNDI</code>）。</p>
+<h2 id="引入依赖">引入依赖</h2>
+<p>这里引入日志包，主要为了看看连接池的创建过程，不引入不会有影响的。</p>
+<pre><code><code>        &lt;dependency&gt;
+            &lt;groupId&gt;junit&lt;/groupId&gt;
+            &lt;artifactId&gt;junit&lt;/artifactId&gt;
+            &lt;version&gt;4.12&lt;/version&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;!-- c3p0 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.mchange&lt;/groupId&gt;
+            &lt;artifactId&gt;c3p0&lt;/artifactId&gt;
+            &lt;version&gt;0.9.5.3&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- mysql驱动 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;mysql&lt;/groupId&gt;
+            &lt;artifactId&gt;mysql-connector-java&lt;/artifactId&gt;
+            &lt;version&gt;8.0.15&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- log --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;log4j&lt;/groupId&gt;
+            &lt;artifactId&gt;log4j&lt;/artifactId&gt;
+            &lt;version&gt;1.2.17&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;commons-logging&lt;/groupId&gt;
+            &lt;artifactId&gt;commons-logging&lt;/artifactId&gt;
+            &lt;version&gt;1.2&lt;/version&gt;
+        &lt;/dependency&gt;</code></pre>
+<h2 id="编写c3p0.properties">编写c3p0.properties</h2>
+<p><code>c3p0</code>支持使用<code>.xml</code>、<code>.properties</code>等文件来配置参数。本文用的是<code>c3p0.properties</code>作为配置文件，相比<code>.xml</code>文件我觉得会直观一些。</p>
+<p>配置文件路径在<code>resources</code>目录下，因为是入门例子，这里仅给出数据库连接参数和连接池基本参数，后面源码会对所有配置参数进行详细说明。另外，数据库<code>sql</code>脚本也在该目录下。</p>
+<p>注意：文件名必须是<code>c3p0.properties</code>，否则不会自动加载（如果是<code>.xml</code>，文件名为<code>c3p0-config.xml</code>）。</p>
+<pre class="properties"><code># c3p0只是会将该驱动实例注册到DriverManager，不能保证最终用的是该实例，除非设置了forceUseNamedDriverClass
+c3p0.driverClass=com.mysql.cj.jdbc.Driver
+c3p0.forceUseNamedDriverClass=true
+c3p0.jdbcUrl=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true
+# 获取连接时使用的默认用户名
+c3p0.user=root
+# 获取连接时使用的默认用户密码
+c3p0.password=root
+
+####### Basic Pool Configuration ########
+# 当没有空闲连接可用时，批量创建连接的个数
+# 默认3
+c3p0.acquireIncrement=3
+# 初始化连接个数
+# 默认3
+c3p0.initialPoolSize=3
+# 最大连接个数
+# 默认15
+c3p0.maxPoolSize=15
+# 最小连接个数
+# 默认3
+c3p0.minPoolSize=3  </code></pre>
+<h2 id="获取连接池和获取连接">获取连接池和获取连接</h2>
+<p>项目中编写了<code>JDBCUtil</code>来初始化连接池、获取连接、管理事务和释放资源等，具体参见项目源码。</p>
+<p>路径：<code>cn.zzs.c3p0</code></p>
+<pre class="java"><code>        // 配置文件名为c3p0.properties，会自动加载。
+        DataSource dataSource = new ComboPooledDataSource();
+        // 获取连接
+        Connection conn = dataSource.getConnection();</code></pre>
+<p>除了使用<code>ComboPooledDataSource</code>，<code>c3p0</code>还提供了静态工厂类<code>DataSources</code>，这个类可以创建未池化的数据源对象，也可以将未池化的数据源池化，当然，这种方式也会去自动加载配置文件。</p>
+<pre class="java"><code>        // 获取未池化数据源对象
+        DataSource ds_unpooled = DataSources.unpooledDataSource();
+        // 将未池化数据源对象进行池化
+        DataSource ds_pooled = DataSources.pooledDataSource(ds_unpooled);
+        // 获取连接
+        Connection connection = ds_pooled.getConnection();</code></pre>
+<h2 id="编写测试类">编写测试类</h2>
+<p>这里以保存用户为例，路径在test目录下的<code>cn.zzs.c3p0</code>。</p>
+<pre class="java"><code>    @Test
+    public void save() {
+        // 创建sql
+        String sql = &quot;insert into demo_user values(null,?,?,?,?,?)&quot;;
+        Connection connection = null;
+        PreparedStatement statement = null;
+        try {
+            // 获得连接
+            connection = JDBCUtil.getConnection();
+            // 开启事务设置非自动提交
+            JDBCUtil.startTrasaction();
+            // 获得Statement对象
+            statement = connection.prepareStatement(sql);
+            // 设置参数
+            statement.setString(1, &quot;zzf003&quot;);
+            statement.setInt(2, 18);
+            statement.setDate(3, new Date(System.currentTimeMillis()));
+            statement.setDate(4, new Date(System.currentTimeMillis()));
+            statement.setBoolean(5, false);
+            // 执行
+            statement.executeUpdate();
+            // 提交事务
+            JDBCUtil.commit();
+        } catch(Exception e) {
+            JDBCUtil.rollback();
+            log.error(&quot;保存用户失败&quot;, e);
+        } finally {
+            // 释放资源
+            JDBCUtil.release(connection, statement, null);
+        }
+    }</code></pre>
+<h1 id="使用例子-通过jndi获取数据源">使用例子-通过JNDI获取数据源</h1>
+<h2 id="需求-1">需求</h2>
+<p>本文测试使用<code>JNDI</code>获取<code>ComboPooledDataSource</code>和<code>JndiRefConnectionPoolDataSource</code>对象，选择使用<code>tomcat 9.0.21</code>作容器。</p>
+<p>如果之前没有接触过<code>JNDI</code>，并不会影响下面例子的理解，其实可以理解为像<code>spring</code>的<code>bean</code>配置和获取。</p>
+<h2 id="引入依赖-1">引入依赖</h2>
+<p>本文在入门例子的基础上增加以下依赖，因为是<code>web</code>项目，所以打包方式为<code>war</code>：</p>
+<pre><code><code>        &lt;dependency&gt;
+            &lt;groupId&gt;javax.servlet&lt;/groupId&gt;
+            &lt;artifactId&gt;jstl&lt;/artifactId&gt;
+            &lt;version&gt;1.2&lt;/version&gt;
+            &lt;scope&gt;provided&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;javax.servlet&lt;/groupId&gt;
+            &lt;artifactId&gt;javax.servlet-api&lt;/artifactId&gt;
+            &lt;version&gt;3.1.0&lt;/version&gt;
+            &lt;scope&gt;provided&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;javax.servlet.jsp&lt;/groupId&gt;
+            &lt;artifactId&gt;javax.servlet.jsp-api&lt;/artifactId&gt;
+            &lt;version&gt;2.2.1&lt;/version&gt;
+            &lt;scope&gt;provided&lt;/scope&gt;
+        &lt;/dependency&gt;</code></pre>
+<h2 id="编写context.xml">编写context.xml</h2>
+<p>在<code>webapp</code>文件下创建目录<code>META-INF</code>，并创建<code>context.xml</code>文件。这里面的每个<code>resource</code>节点都是我们配置的对象，类似于<code>spring</code>的<code>bean</code>节点。其中<code>jdbc/pooledDS</code>可以看成是这个<code>bean</code>的<code>id</code>。</p>
+<p>注意，这里获取的数据源对象是单例的，如果希望多例，可以设置<code>singleton=&quot;false&quot;</code>。</p>
+<pre><code><code>&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;Context&gt;
+    &lt;Resource auth=&quot;Container&quot;
+              description=&quot;DB Connection&quot;
+              driverClass=&quot;com.mysql.cj.jdbc.Driver&quot;
+              maxPoolSize=&quot;4&quot;
+              minPoolSize=&quot;2&quot;
+              acquireIncrement=&quot;1&quot;
+              name=&quot;jdbc/pooledDS&quot;
+              user=&quot;root&quot;
+              password=&quot;root&quot;
+              factory=&quot;org.apache.naming.factory.BeanFactory&quot;
+              type=&quot;com.mchange.v2.c3p0.ComboPooledDataSource&quot;
+              jdbcUrl=&quot;jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;amp;characterEncoding=utf8&amp;amp;serverTimezone=GMT%2B8&amp;amp;useSSL=true&quot; /&gt;
+&lt;/Context&gt;</code></pre>
+<h2 id="编写web.xml">编写web.xml</h2>
+<p>在<code>web-app</code>节点下配置资源引用，每个<code>resource-env-ref</code>指向了我们配置好的对象。</p>
+<pre><code><code>    &lt;resource-ref&gt;
+        &lt;res-ref-name&gt;jdbc/pooledDS&lt;/res-ref-name&gt;
+        &lt;res-type&gt;javax.sql.DataSource&lt;/res-type&gt;
+        &lt;res-auth&gt;Container&lt;/res-auth&gt;
+    &lt;/resource-ref&gt;</code></pre>
+<h2 id="编写jsp">编写jsp</h2>
+<p>因为需要在<code>web</code>环境中使用，如果直接建类写个<code>main</code>方法测试，会一直报错的，目前没找到好的办法。这里就简单地使用<code>jsp</code>来测试吧。</p>
+<p><code>c3p0</code>提供了<code>JndiRefConnectionPoolDataSource</code>来支持<code>JNDI</code>（方式一），当然，我们也可以采用常规方式获取<code>JNDI</code>的数据源（方式二）。因为我设置的数据源时单例的，所以，两种方式获得的是同一个数据源对象，只是方式一会将该对象再次包装。</p>
+<pre class="jsp"><code>&lt;body&gt;
+    &lt;%
+    String jndiName = &quot;java:comp/env/jdbc/pooledDS&quot;;
+    // 方式一
+    JndiRefConnectionPoolDataSource jndiDs = new JndiRefConnectionPoolDataSource();
+    jndiDs.setJndiName(jndiName);
+    System.err.println(&quot;方式一获得的数据源identityToken：&quot; + jndiDs.getIdentityToken());
+    Connection con2 = jndiDs.getPooledConnection().getConnection();
+    // do something
+    System.err.println(&quot;方式一获得的连接：&quot; + con2);
+    
+    // 方式二
+    InitialContext ic = new InitialContext();
+    // 获取JNDI上的ComboPooledDataSource
+    DataSource ds = (DataSource) ic.lookup(jndiName);
+    System.err.println(&quot;方式二获得的数据源identityToken：&quot; + ((ComboPooledDataSource)ds).getIdentityToken());
+    Connection con = ds.getConnection();
+    // do something
+    System.err.println(&quot;方式二获得的连接：&quot; + con);
+    
+    // 释放资源
+    if (ds instanceof PooledDataSource){
+      PooledDataSource pds = (PooledDataSource) ds;
+      // 先看看当前连接池的状态
+      System.err.println(&quot;num_connections: &quot;      + pds.getNumConnectionsDefaultUser());
+      System.err.println(&quot;num_busy_connections: &quot; + pds.getNumBusyConnectionsDefaultUser());
+      System.err.println(&quot;num_idle_connections: &quot; + pds.getNumIdleConnectionsDefaultUser());
+      pds.close();
+    }else{
+      System.err.println(&quot;Not a c3p0 PooledDataSource!&quot;);
+    }
+    %&gt;
+&lt;/body&gt;</code></pre>
+<h2 id="测试结果">测试结果</h2>
+<p>打包项目在<code>tomcat9</code>上运行，访问 http://localhost:8080/C3P0-demo/testJNDI.jsp ，控制台打印如下内容：</p>
+<pre><code><code>方式一获得的数据源identityToken：1hge1hra7cdbnef1fooh9k|3c1e541
+方式一获得的连接：com.mchange.v2.c3p0.impl.NewProxyConnection@2baa7911
+方式二获得的数据源identityToken：1hge1hra7cdbnef1fooh9k|9c60446
+方式二获得的连接：com.mchange.v2.c3p0.impl.NewProxyConnection@e712a7c
+num_connections: 3
+num_busy_connections: 2
+num_idle_connections: 1</code></pre>
+<p>此时正在使用的连接对象有2个，即两种方式各持有1个，即印证了两种方式获得的是同一数据源。</p>
+<h1 id="配置文件详解">配置文件详解</h1>
+<p>这部分内容是参考官网的，对应当前所用的<code>0.9.5.3</code>版本(<a href="https://www.mchange.com/projects/c3p0/#contents">官网地址</a>)。</p>
+<h2 id="数据库连接参数">数据库连接参数</h2>
+<p>注意，这里在<code>url</code>后面拼接了多个参数用于避免乱码、时区报错问题。 补充下，如果不想加入时区的参数，可以在<code>mysql</code>命令窗口执行如下命令：<code>set global time_zone='+8:00'</code>。</p>
+<p>还有，如果是<code>xml</code>文件，记得将<code>&amp;</code>改成<code>&amp;amp;</code>。</p>
+<pre class="properties"><code># c3p0只是会将该驱动实例注册到DriverManager，不能保证最终用的是该实例，除非设置了forceUseNamedDriverClass
+c3p0.driverClass=com.mysql.cj.jdbc.Driver
+c3p0.forceUseNamedDriverClass=true
+
+c3p0.jdbcUrl=jdbc:mysql://localhost:3306/github_demo?useUnicode=true&amp;characterEncoding=utf8&amp;serverTimezone=GMT%2B8&amp;useSSL=true
+
+# 获取连接时使用的默认用户名
+c3p0.user=root
+# 获取连接时使用的默认用户密码
+c3p0.password=root</code></pre>
+<h2 id="连接池数据基本参数">连接池数据基本参数</h2>
+<p>这几个参数都比较常用，具体设置多少需根据项目调整。</p>
+<pre class="properties"><code>####### Basic Pool Configuration ########
+# 当没有空闲连接可用时，批量创建连接的个数
+# 默认3
+c3p0.acquireIncrement=3
+
+# 初始化连接个数
+# 默认3
+c3p0.initialPoolSize=3
+
+# 最大连接个数
+# 默认15
+c3p0.maxPoolSize=15
+
+# 最小连接个数
+# 默认3
+c3p0.minPoolSize=3</code></pre>
+<h2 id="连接存活参数">连接存活参数</h2>
+<p>为了避免连接泄露无法回收的问题，建议设置<code>maxConnectionAge</code>和<code>unreturnedConnectionTimeout</code>。</p>
+<pre class="properties"><code># 最大空闲时间。超过将被释放
+# 默认0，即不限制。单位秒
+c3p0.maxIdleTime=0
+
+# 最大存活时间。超过将被释放
+# 默认0，即不限制。单位秒
+c3p0.maxConnectionAge=1800
+
+# 过量连接最大空闲时间。
+# 默认0，即不限制。单位秒
+c3p0.maxIdleTimeExcessConnections=0
+
+# 检出连接未归还的最大时间。
+# 默认0。即不限制。单位秒
+c3p0.unreturnedConnectionTimeout=0</code></pre>
+<h2 id="连接检查参数">连接检查参数</h2>
+<p>针对连接失效和连接泄露的问题，建议开启空闲连接测试（异步），而不建议开启检出测试（从性能考虑）。另外，通过设置<code>preferredTestQuery</code>或<code>automaticTestTable</code>可以加快测试速度。</p>
+<pre class="properties"><code># c3p0创建的用于测试连接的空表的表名。如果设置了，preferredTestQuery将失效。
+# 默认null
+#c3p0.automaticTestTable=test_table
+
+# 自定义测试连接的sql。如果没有设置，c3p0会去调用isValid方法进行校验（c3p0版本0.9.5及以上）
+# null
+c3p0.preferredTestQuery=select 1 from dual
+
+# ConnectionTester实现类，用于定义如何测试连接
+# com.mchange.v2.c3p0.impl.DefaultConnectionTester
+c3p0.connectionTesterClassName=com.mchange.v2.c3p0.impl.DefaultConnectionTester
+
+# 空闲连接测试周期
+# 默认0，即不检验。单位秒
+c3p0.idleConnectionTestPeriod=300
+
+# 连接检入时测试（异步）。
+# 默认false
+c3p0.testConnectionOnCheckin=false
+
+# 连接检出时测试。
+# 默认false。建议不要设置为true。
+c3p0.testConnectionOnCheckout=false</code></pre>
+<h2 id="缓存语句">缓存语句</h2>
+<p><code>PSCache</code>对支持游标的数据库性能提升巨大，比如说oracle。在<code>mysql</code>下建议关闭。</p>
+<pre class="properties"><code># 所有连接PreparedStatement的最大总数量。是JDBC定义的标准参数，c3p0建议使用自带的maxStatementsPerConnection
+# 默认0。即不限制
+c3p0.maxStatements=0
+
+# 单个连接PreparedStatement的最大数量。
+# 默认0。即不限制
+c3p0.maxStatementsPerConnection=0
+
+# 延后清理PreparedStatement的线程数。可设置为1。
+# 默认0。即不限制
+c3p0.statementCacheNumDeferredCloseThreads=0</code></pre>
+<h2 id="失败重试参数">失败重试参数</h2>
+<p>根据项目实际情况设置。</p>
+<pre class="properties"><code># 失败重试时间。
+# 默认30。如果非正数，则将一直阻塞地去获取连接。单位毫秒。
+c3p0.acquireRetryAttempts=30
+
+# 失败重试周期。
+# 默认1000。单位毫秒
+c3p0.acquireRetryDelay=1000
+
+# 当获取连接失败，是否标志数据源已损坏，不再重试。
+# 默认false。
+c3p0.breakAfterAcquireFailure=false</code></pre>
+<h2 id="事务相关参数">事务相关参数</h2>
+<p>建议保留默认就行。</p>
+<pre class="properties"><code># 连接检入时是否自动提交事务。
+# 默认false。但c3p0会自动回滚
+c3p0.autoCommitOnClose=false
+
+# 连接检入时是否强制c3p0不去提交或回滚事务，以及修改autoCommit
+# 默认false。强烈建议不要设置为true。
+c3p0.forceIgnoreUnresolvedTransactions=false</code></pre>
+<h2 id="其他">其他</h2>
+<pre class="properties"><code># 连接检出时是否记录堆栈信息。用于在unreturnedConnectionTimeout超时时打印。
+# 默认false。
+c3p0.debugUnreturnedConnectionStackTraces=false
+
+# 在获取、检出、检入和销毁时，对连接对象进行操作的类。
+# 默认null。通过继承com.mchange.v2.c3p0.AbstractConnectionCustomizer来定义。
+#c3p0.connectionCustomizerClassName
+
+# 池耗尽时，获取连接最大等待时间。
+# 默认0。即无限阻塞。单位毫秒
+c3p0.checkoutTimeout=0
+
+# JNDI数据源的加载URL
+# 默认null
+#c3p0.factoryClassLocation
+
+# 是否同步方式检入连接
+# 默认false
+c3p0.forceSynchronousCheckins=false
+
+# c3p0的helper线程最大任务时间
+# 默认0。即不限制。单位秒
+c3p0.maxAdministrativeTaskTime=0
+
+# c3p0的helper线程数量
+# 默认3
+c3p0.numHelperThreads=3
+
+# 类加载器来源
+# 默认caller
+#c3p0.contextClassLoaderSource
+
+# 是否使用c3p0的AccessControlContext
+c3p0.privilegeSpawnedThreads=false</code></pre>
+<h1 id="源码分析">源码分析</h1>
+<p><code>c3p0</code>的源码真的非常难啃，没有注释也就算了，代码的格式也是非常奇葩。正因为这个原因，我刚开始接触<code>c3p0</code>时，就没敢深究它的源码。现在硬着头皮再次来翻看它的源码，还是花了我不少时间。</p>
+<p>因为<code>c3p0</code>的部分方法调用过程比较复杂，所以，这次源码分析重点关注<strong>类与类的关系和一些重要功能的实现</strong>，不像以往还可以一步步地探索。</p>
+<p>另外，<code>c3p0</code>大量使用了<strong>监听器和多线程</strong>，因为是<code>JDK</code>自带的功能，所以本文不会深究其原理。感兴趣的同学，可以补充学习下，毕竟实际项目中也会使用到的。</p>
+<h2 id="创建数据源对象">创建数据源对象</h2>
+<p>我们使用<code>c3p0</code>时，一般会以<code>ComboPooledDataSource</code>这个类为入口，那么就从这个类展开吧。首先，看下<code>ComboPooledDataSource</code>的<code>UML</code>图。</p>
+<p><img src="./images/源码详解系列(五) ------ C3P0的使用和分析（包括JNDI）0.png" alt="ComboPooledDataSource的UML图" /></p>
+<p>下面重点说下几个类的作用：</p>
+<table>
+<thead>
+<tr class="header">
+<th>类名</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>DataSource</code></td>
+<td>用于创建原生的<code>Connection</code></td>
+</tr>
+<tr class="even">
+<td><code>ConnectionPoolDataSource</code></td>
+<td>用于创建<code>PooledConnection</code></td>
+</tr>
+<tr class="odd">
+<td><code>PooledDataSource</code></td>
+<td>用于支持对<code>c3p0</code>连接池中连接数量和状态等的监控</td>
+</tr>
+<tr class="even">
+<td><code>IdentityTokenized</code></td>
+<td>用于支持注册功能。每个<code>DataSource</code>实例都有一个<code>identityToken</code>，用于在<code>C3P0Registry</code>中注册</td>
+</tr>
+<tr class="odd">
+<td><code>PoolBackedDataSourceBase</code></td>
+<td>实现了<code>IdentityTokenized</code>接口，还持有<code>PropertyChangeSupport</code>和<code>VetoableChangeSupport</code>对象，并提供了添加和移除监听器的方法</td>
+</tr>
+<tr class="even">
+<td><code>AbstractPoolBackedDataSource</code></td>
+<td>实现了<code>PooledDataSource</code>和<code>DataSource</code></td>
+</tr>
+<tr class="odd">
+<td><code>AbstractComboPooledDataSource</code></td>
+<td>提供了数据源参数配置的<code>setter/getter</code>方法</td>
+</tr>
+<tr class="even">
+<td><code>DriverManagerDataSource</code></td>
+<td><code>DataSource</code>实现类，用于创建原生的<code>Connection</code></td>
+</tr>
+<tr class="odd">
+<td><code>WrapperConnectionPoolDataSource</code></td>
+<td><code>ConnectionPoolDataSource</code>实现类，用于创建<code>PooledConnection</code></td>
+</tr>
+<tr class="even">
+<td><code>C3P0PooledConnectionPoolManager</code></td>
+<td>连接池管理器，非常重要。用于创建连接池，并持有连接池的Map（根据账号密码匹配连接池）。</td>
+</tr>
+</tbody>
+</table>
+<p>当我们<code>new</code>一个<code>ComboPooledDataSource</code>对象时，主要做了几件事：</p>
+<ol>
+<li>获得<code>this</code>的<code>identityToken</code>，并注册到<code>C3P0Registry</code></li>
+<li>添加监听配置参数改变的<code>Listenner</code></li>
+<li>创建<code>DriverManagerDataSource</code>和<code>WrapperConnectionPoolDataSource</code>对象</li>
+</ol>
+<p>当然，在此之前有某个静态代码块加载类配置文件，具体加载过程后续有空再做补充。</p>
+<h3 id="获得this的identitytoken并注册到c3p0registry">获得this的identityToken，并注册到C3P0Registry</h3>
+<p>在<code>c3p0</code>里，每个数据源都有一个唯一的身份标志<code>identityToken</code>，用于在<code>C3P0Registry</code>中注册。下面看看具体<code>identityToken</code>的获取，调用的是<code>C3P0ImplUtils</code>的<code>allocateIdentityToken</code>方法。</p>
+<p><code>System.identityHashCode(o)</code>是本地方法，即使我们不重写<code>hashCode</code>，同一个对象获得的<code>hashCode</code>唯一且不变，甚至程序重启也是一样。这个方法还是挺神奇的，感兴趣的同学可以研究下具体原理。</p>
+<pre class="java"><code>    public static String allocateIdentityToken(Object o) {
+        if(o == null)
+            return null;
+        else {
+            // 获取对象的identityHashCode，并转为16进制
+            String shortIdToken = Integer.toString(System.identityHashCode(o), 16);
+            String out;
+            long count;
+            StringBuffer sb = new StringBuffer(128);
+            sb.append(VMID_PFX);
+            // 判断是否拼接当前对象被查看过的次数
+            if(ID_TOKEN_COUNTER != null &amp;&amp; ((count = ID_TOKEN_COUNTER.encounter(shortIdToken)) &gt; 0)) {
+                sb.append(shortIdToken);
+                sb.append(&#39;#&#39;);
+                sb.append(count);
+            } else
+                sb.append(shortIdToken);
+            out = sb.toString().intern();
+            return out;
+        }
+    }</code></pre>
+<p>接下来，再来看下注册过程，调用的是<code>C3P0Registry</code>的<code>incorporate</code>方法。</p>
+<pre class="java"><code>    // 存放identityToken=PooledDataSource的键值对
+    private static Map tokensToTokenized = new DoubleWeakHashMap();
+    // 存放未关闭的PooledDataSource
+    private static HashSet unclosedPooledDataSources = new HashSet();
+    private static void incorporate(IdentityTokenized idt) {
+        tokensToTokenized.put(idt.getIdentityToken(), idt);
+        if(idt instanceof PooledDataSource) {
+            unclosedPooledDataSources.add(idt);
+            mc.attemptManagePooledDataSource((PooledDataSource)idt);
+        }
+    }</code></pre>
+<p>注册的过程还是比较简单易懂，但是有个比较奇怪的地方，一般这种所谓的注册，都会提供某个方法，让我们可以在程序的任何位置通过唯一标识去查找数据源对象。然而，即使我们知道了某个数据源的<code>identityToken</code>，还是获取不到对应的数据源，因为<code>C3P0Registry</code>并没有提供相关的方法给我们。</p>
+<p>后来发现，我们不能也不应该通过<code>identityToken</code>来查找数据源，而是应该通过<code>dataSourceName</code>来查找才对，这不，<code>C3P0Registry</code>就提供了这样的方法。所以，如果我们想在程序的任何位置都能获取到数据源对象，应该再创建数据源时就设置好它的<code>dataSourceName</code>。</p>
+<pre class="java"><code>    public synchronized static PooledDataSource pooledDataSourceByName(String dataSourceName) {
+        for(Iterator ii = unclosedPooledDataSources.iterator(); ii.hasNext();) {
+            PooledDataSource pds = (PooledDataSource)ii.next();
+            if(pds.getDataSourceName().equals(dataSourceName))
+                return pds;
+        }
+        return null;
+    }</code></pre>
+<h3 id="添加监听配置参数改变的listenner">添加监听配置参数改变的Listenner</h3>
+<p>接下来是到监听器的内容了。监听器的支持是<code>jdk</code>自带的，主要涉及到<code>PropertyChangeSupport</code>和<code>VetoableChangeSupport</code>两个类，至于具体的实现机理不在本文讨论范围内，感兴趣的同学可以补充学习下。</p>
+<p>创建<code>ComboPooledDataSource</code>时，总共添加了三个监听器。</p>
+<table>
+<thead>
+<tr class="header">
+<th>监听器</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>PropertyChangeListener</code>1</td>
+<td>当<code>connectionPoolDataSource</code>, <code>numHelperThreads</code>, <code>identityToken</code>改变后，重置<code>C3P0PooledConnectionPoolManager</code></td>
+</tr>
+<tr class="even">
+<td><code>VetoableChangeListener</code></td>
+<td>当<code>connectionPoolDataSource</code>改变前，校验新设置的对象是否是<code>WrapperConnectionPoolDataSource</code>对象，以及该对象中的<code>DataSource</code>是否<code>DriverManagerDataSource</code>对象，如果不是，会抛出异常</td>
+</tr>
+<tr class="odd">
+<td><code>PropertyChangeListener</code>2</td>
+<td>当<code>connectionPoolDataSource</code>改变后，修改this持有的<code>DriverManagerDataSource</code>和<code>WrapperConnectionPoolDataSource</code>对象</td>
+</tr>
+</tbody>
+</table>
+<p>我们可以看到，在<code>PoolBackedDataSourceBase对</code>象中，持有了<code>PropertyChangeSupport</code>和<code>VetoableChangeSupport</code>对象，用于支持监听器的功能。</p>
+<pre class="java"><code>public class PoolBackedDataSourceBase extends IdentityTokenResolvable implements Referenceable, Serializable
+{
+    protected PropertyChangeSupport pcs = new PropertyChangeSupport( this );
+    protected VetoableChangeSupport vcs = new VetoableChangeSupport( this );
+}</code></pre>
+<p>通过以上过程，<code>c3p0</code>可以在参数改变前进行校验，在参数改变后重置某些对象。</p>
+<h3 id="创建drivermanagerdatasource">创建DriverManagerDataSource</h3>
+<p><code>ComboPooledDataSource</code>在实例化父类<code>AbstractComboPooledDataSource</code>时会去创建<code>DriverManagerDataSource</code>和<code>WrapperConnectionPoolDataSource</code>对象，这两个对象都是用于创建连接对象，后者依赖前者。</p>
+<pre class="java"><code>    public AbstractComboPooledDataSource(boolean autoregister) {
+        super(autoregister);
+        // 创建DriverManagerDataSource和WrapperConnectionPoolDataSource对象
+        dmds = new DriverManagerDataSource();
+        wcpds = new WrapperConnectionPoolDataSource();
+        // 将DriverManagerDataSource设置给WrapperConnectionPoolDataSource
+        wcpds.setNestedDataSource(dmds);
+        
+        // 初始化属性connectionPoolDataSource
+        this.setConnectionPoolDataSource(wcpds);
+        // 注册监听器
+        setUpPropertyEvents();
+    }</code></pre>
+<p>前面已经讲过，<code>DriverManagerDataSource</code>可以用来获取原生的连接对象，所以它的功能有点类似于<code>JDBC</code>的<code>DriverManager</code>。</p>
+<p><img src="./images/源码详解系列(五) ------ C3P0的使用和分析（包括JNDI）1.png" alt="DriverManagerDataSource的UML图" /></p>
+<p>创建<code>DriverManagerDataSource</code>实例主要做了三件事，如下：</p>
+<pre class="java"><code>    public DriverManagerDataSource(boolean autoregister) {
+        // 1. 获得this的identityToken，并注册到C3P0Registry  
+        super(autoregister);
+        // 2. 添加监听配置参数改变的Listenner(当driverClass属性更改时触发事件) 
+        setUpPropertyListeners();
+        // 3. 读取配置文件，初始化默认的user和password
+        String user = C3P0Config.initializeStringPropertyVar(&quot;user&quot;, null);
+        String password = C3P0Config.initializeStringPropertyVar(&quot;password&quot;, null);
+        if(user != null)
+            this.setUser(user);
+        if(password != null)
+            this.setPassword(password);
+    }</code></pre>
+<h3 id="创建wrapperconnectionpooldatasource">创建WrapperConnectionPoolDataSource</h3>
+<p>下面再看看<code>WrapperConnectionPoolDataSource</code>，它可以用来获取<code>PooledConnection</code>。</p>
+<p><img src="./images/源码详解系列(五) ------ C3P0的使用和分析（包括JNDI）2.png" alt="WrapperConnectionPoolDataSource的UML图" /></p>
+<p>创建<code>WrapperConnectionPoolDataSource</code>，主要做了以下三件件事：</p>
+<pre class="java"><code>    public WrapperConnectionPoolDataSource(boolean autoregister) {
+        // 1. 获得this的identityToken，并注册到C3P0Registry
+        super(autoregister);
+        // 2. 添加监听配置参数改变的Listenner(当connectionTesterClassName属性更改时实例化ConnectionTester，当userOverridesAsString更改时重新解析字符串) 
+        setUpPropertyListeners();
+        // 3. 解析userOverridesAsString
+        this.userOverrides = C3P0ImplUtils.parseUserOverridesAsString(this.getUserOverridesAsString());
+    }</code></pre>
+<p>以上基本将<code>ComboPooledDataSource</code>的内容讲完，下面介绍连接池的创建。</p>
+<h2 id="创建连接池对象">创建连接池对象</h2>
+<p>当我们创建完数据源时，连接池并没有创建，也就是说只有我们调用<code>getConnection</code>时才会触发创建连接池。因为<code>AbstractPoolBackedDataSource</code>实现了<code>DataSource</code>，所以我们可以在这个类看到<code>getConnection</code>的具体实现，如下。</p>
+<pre class="java"><code>    public Connection getConnection() throws SQLException{
+        PooledConnection pc = getPoolManager().getPool().checkoutPooledConnection();
+        return pc.getConnection();
+    }</code></pre>
+<p>这个方法中<code>getPoolManager()</code>得到的就是我们前面提到过的<code>C3P0PooledConnectionPoolManager</code>，而<code>getPool()</code>得到的是<code>C3P0PooledConnectionPool</code>。</p>
+<p>我们先来看看这两个类(注意，图中的类展示的只是部分的属性和方法)：</p>
+<p><img src="./images/源码详解系列(五) ------ C3P0的使用和分析（包括JNDI）3.png" alt="C3P0PooledConnectionPoolManager和C3P0PooledConnectionPool的UML图" /></p>
+<p>下面介绍下这几个类：</p>
+<table>
+<thead>
+<tr class="header">
+<th>类名</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>C3P0PooledConnectionPoolManager</code></td>
+<td>连接池管理器。主要用于获取/创建连接池，它持有<code>DbAuth</code>-<code>C3P0PooledConnectionPool</code>键值对的<code>Map</code></td>
+</tr>
+<tr class="even">
+<td><code>C3P0PooledConnectionPool</code></td>
+<td>连接池。主要用于检入和检出连接对象，实际调用的是其持有的<code>BasicResourcePool</code>对象</td>
+</tr>
+<tr class="odd">
+<td><code>BasicResourcePool</code></td>
+<td>资源池。主要用于检入和检出连接对象</td>
+</tr>
+<tr class="even">
+<td><code>PooledConnectionResourcePoolManager</code></td>
+<td>资源管理器。主要用于创建新的连接对象，以及检入、检出或空闲时进行连接测试</td>
+</tr>
+</tbody>
+</table>
+<p>创建连接池的过程可以概括为四个步骤：</p>
+<ol>
+<li><p>创建<code>C3P0PooledConnectionPoolManager</code>对象，开启另一个线程来初始化<code>timer</code>、<code>taskRunner</code>、<code>deferredStatementDestroyer</code>、<code>rpfact</code>和<code>authsToPools</code>等属性</p></li>
+<li><p>创建默认账号密码对应的<code>C3P0PooledConnectionPool</code>对象，并创建<code>PooledConnectionResourcePoolManager</code>对象</p></li>
+<li><p>创建<code>BasicResourcePool</code>对象，创建<code>initialPoolSize</code>对应的初始连接，开启检查连接是否过期、以及检查空闲连接有效性的定时任务</p></li>
+</ol>
+<p>这里主要分析下第四步。</p>
+<h3 id="创建basicresourcepool对象">创建BasicResourcePool对象</h3>
+<p>在这个方法里除了初始化许多属性之外，还会去创建<code>initialPoolSize</code>对应的初始连接，开启检查连接是否过期、以及检查空闲连接有效性的定时任务。</p>
+<pre class="java"><code>    public BasicResourcePool(Manager mgr, int start, int min, int max, int inc, int num_acq_attempts, int acq_attempt_delay, long check_idle_resources_delay, long max_resource_age, long max_idle_time, long excess_max_idle_time, long destroy_unreturned_resc_time, long expiration_enforcement_delay, boolean break_on_acquisition_failure, boolean debug_store_checkout_exceptions, boolean force_synchronous_checkins, AsynchronousRunner taskRunner, RunnableQueue asyncEventQueue,
+            Timer cullAndIdleRefurbishTimer, BasicResourcePoolFactory factory) throws ResourcePoolException {
+        // ·······
+        this.taskRunner = taskRunner;
+        this.asyncEventQueue = asyncEventQueue;
+        this.cullAndIdleRefurbishTimer = cullAndIdleRefurbishTimer;
+        this.factory = factory;
+        // 开启监听器支持
+        if (asyncEventQueue != null)
+            this.rpes = new ResourcePoolEventSupport(this);
+        else
+            this.rpes = null;
+        // 确保初始连接数量，这里会去调用recheckResizePool()方法，后面还会讲到的
+        ensureStartResources();
+        // 如果设置maxIdleTime、maxConnectionAge、maxIdleTimeExcessConnections和unreturnedConnectionTimeout，会开启定时任务检查连接是否过期
+        if(mustEnforceExpiration()) {
+            this.cullTask = new CullTask();
+            cullAndIdleRefurbishTimer.schedule(cullTask, minExpirationTime(), this.expiration_enforcement_delay);
+        }
+        // 如果设置idleConnectionTestPeriod，会开启定时任务检查空闲连接有效性
+        if(check_idle_resources_delay &gt; 0) {
+            this.idleRefurbishTask = new CheckIdleResourcesTask();
+            cullAndIdleRefurbishTimer.schedule(idleRefurbishTask, check_idle_resources_delay, check_idle_resources_delay);
+        }
+        // ·······
+    }</code></pre>
+<p>看过<code>c3p0</code>源码就会发现，<code>c3p0</code>的开发真的非常喜欢监听器和多线程，正是因为这样，才导致它的源码阅读起来会比较吃力。为了方便理解，这里再补充解释下<code>BasicResourcePool</code>的几个属性：</p>
+<table>
+<thead>
+<tr class="header">
+<th>属性</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>BasicResourcePoolFactory</code> <code>factory</code></td>
+<td>资源池工厂。用于创建<code>BasicResourcePool</code></td>
+</tr>
+<tr class="even">
+<td><code>AsynchronousRunner</code> <code>taskRunner</code></td>
+<td>异步线程。用于执行资源池中连接的创建、销毁</td>
+</tr>
+<tr class="odd">
+<td><code>RunnableQueue</code> <code>asyncEventQueue</code></td>
+<td>异步队列。用于存放连接检出时向<code>ResourcePoolEventSupport</code>报告的事件</td>
+</tr>
+<tr class="even">
+<td><code>ResourcePoolEventSupport</code> <code>rpes</code></td>
+<td>用于支持监听器</td>
+</tr>
+<tr class="odd">
+<td><code>Timer</code> <code>cullAndIdleRefurbishTimer</code></td>
+<td>定时任务线程。用于执行检查连接是否过期、以及检查空闲连接有效性的任务</td>
+</tr>
+<tr class="even">
+<td><code>TimerTask</code> <code>cullTask</code></td>
+<td>执行检查连接是否过期的任务</td>
+</tr>
+<tr class="odd">
+<td><code>TimerTask</code> <code>idleRefurbishTask</code></td>
+<td>检查空闲连接有效性的任务</td>
+</tr>
+<tr class="even">
+<td><code>HashSet</code> <code>acquireWaiters</code></td>
+<td>存放等待获取连接的客户端</td>
+</tr>
+<tr class="odd">
+<td><code>HashSet</code> <code>otherWaiters</code></td>
+<td>当客户端试图检出某个连接，而该连接刚好被检查空闲连接有效性的线程占用，此时客户端就会被加入<code>otherWaiters</code></td>
+</tr>
+<tr class="even">
+<td><code>HashMap</code> <code>managed</code></td>
+<td>存放当前池中所有的连接对象</td>
+</tr>
+<tr class="odd">
+<td><code>LinkedList</code> <code>unused</code></td>
+<td>存放当前池中所有的空闲连接对象</td>
+</tr>
+<tr class="even">
+<td><code>HashSet</code> <code>excluded</code></td>
+<td>存放当前池中已失效但还没检出或使用的连接对象</td>
+</tr>
+<tr class="odd">
+<td><code>Set</code> <code>idleCheckResources</code></td>
+<td>存放当前检查空闲连接有效性的线程占用的连接对象</td>
+</tr>
+</tbody>
+</table>
+<p>以上，基本讲完获取连接池的部分，接下来介绍连接的创建。</p>
+<h2 id="创建连接对象">创建连接对象</h2>
+<p>我总结下获取连接的过程，为以下几步：</p>
+<ol>
+<li><p>从<code>BasicResourcePool</code>的空闲连接中获取，如果没有，会尝试去创建新的连接，当然，创建的过程也是异步的</p></li>
+<li><p>开启缓存语句支持</p></li>
+<li><p>判断连接是否正在被空闲资源检测线程使用，如果是，重新获取连接</p></li>
+<li><p>校验连接是否过期</p></li>
+<li><p>检出测试</p></li>
+<li><p>判断连接原来的Statement是不是已经清除完，如果没有，重新获取连接</p></li>
+<li><p>设置监听器后将连接返回给客户端</p></li>
+</ol>
+<p>下面还是从头到尾分析该过程的源码吧。</p>
+<h3 id="c3p0pooledconnectionpool.checkoutpooledconnection">C3P0PooledConnectionPool.checkoutPooledConnection()</h3>
+<p>现在回到<code>AbstractPoolBackedDataSource</code>的<code>getConnection</code>方法，获取连接对象时会去调用<code>C3P0PooledConnectionPool</code>的<code>checkoutPooledConnection()</code>。</p>
+<pre class="java"><code>    // 返回的是NewProxyConnection对象
+    public Connection getConnection() throws SQLException{
+        PooledConnection pc = getPoolManager().getPool().checkoutPooledConnection();
+        return pc.getConnection();
+    }   
+    // 返回的是NewPooledConnection对象
+    public PooledConnection checkoutPooledConnection() throws SQLException {
+        // 从连接池检出连接对象
+        PooledConnection pc = (PooledConnection)this.checkoutAndMarkConnectionInUse();
+        // 添加监听器，当连接close时会触发checkin事件
+        pc.addConnectionEventListener(cl);
+        return pc;
+    }</code></pre>
+<p>之前我一直有个疑问，<code>PooledConnection</code>对象并不持有连接池对象，那么当客户端调用<code>close()</code>时，连接不就不能还给连接池了吗？看到这里总算明白了，<code>c3p0</code>使用的是监听器的方式，当客户端调用<code>close()</code>方法时会触发监听器把连接<code>checkin</code>到连接池中。</p>
+<h3 id="c3p0pooledconnectionpool.checkoutandmarkconnectioninuse">C3P0PooledConnectionPool.checkoutAndMarkConnectionInUse()</h3>
+<p>通过这个方法可以看到，从连接池检出连接的过程不断循环，除非我们设置了<code>checkoutTimeout</code>，超时会抛出异常，又或者检出过程抛出了其他异常。</p>
+<p>另外，因为<code>c3p0</code>在<code>checkin</code>连接时清除<code>Statement</code>采用的是异步方式，所以，当我们尝试再次检出该连接，有可能<code>Statement</code>还没清除完，这个时候我们不得不将连接还回去，再尝试重新获取连接。</p>
+<pre class="java"><code>    private Object checkoutAndMarkConnectionInUse() throws TimeoutException, CannotAcquireResourceException, ResourcePoolException, InterruptedException {
+        Object out = null;
+        boolean success = false;
+        // 注意，这里会自旋直到成功获得连接对象，除非抛出超时等异常
+        while(!success) {
+            try {
+                // 从BasicResourcePool中检出连接对象
+                out = rp.checkoutResource(checkoutTimeout);
+                if(out instanceof AbstractC3P0PooledConnection) {
+                    // 检查该连接下的Statement是不是已经清除完，如果没有，还得重新获取连接
+                    AbstractC3P0PooledConnection acpc = (AbstractC3P0PooledConnection)out;
+                    Connection physicalConnection = acpc.getPhysicalConnection();
+                    success = tryMarkPhysicalConnectionInUse(physicalConnection);
+                } else
+                    success = true; // we don&#39;t pool statements from non-c3p0 PooledConnections
+            } finally {
+                try {
+                    // 如果检出了连接对象，但出现异常或者连接下的Statement还没清除完，那么就需要重新检入连接
+                    if(!success &amp;&amp; out != null)
+                        rp.checkinResource(out);
+                } catch(Exception e) {
+                    logger.log(MLevel.WARNING, &quot;Failed to check in a Connection that was unusable due to pending Statement closes.&quot;, e);
+                }
+            }
+        }
+        return out;
+    }</code></pre>
+<h3 id="basicresourcepool.checkoutresourcelong">BasicResourcePool.checkoutResource(long)</h3>
+<p>下面这个方法会采用递归方式不断尝试检出连接，只有设置了<code>checkoutTimeout</code>，或者抛出其他异常，才能从该方法中出来。</p>
+<p>如果我们设置了<code>testConnectionOnCheckout</code>，则进行连接检出测试，如果不合格，就必须销毁这个连接对象，并尝试重新检出。</p>
+<pre class="java"><code>    public Object checkoutResource(long timeout) throws TimeoutException, ResourcePoolException, InterruptedException {
+        try {
+            Object resc = prelimCheckoutResource(timeout);
+
+            // 如果设置了testConnectionOnCheckout，会进行连接检出测试，会去调用PooledConnectionResourcePoolManager的refurbishResourceOnCheckout方法
+            boolean refurb = attemptRefurbishResourceOnCheckout(resc);
+
+            synchronized(this) {
+                // 连接测试不通过
+                if(!refurb) {
+                    // 清除该连接对象
+                    removeResource(resc);
+                    // 确保连接池最小容量，会去调用recheckResizePool()方法，后面还会讲到的
+                    ensureMinResources();
+                    resc = null;
+                } else {
+                    // 在asyncEventQueue队列中加入当前连接检出时向ResourcePoolEventSupport报告的事件
+                    asyncFireResourceCheckedOut(resc, managed.size(), unused.size(), excluded.size());
+                    PunchCard card = (PunchCard)managed.get(resc);
+                    // 该连接对象被删除了？？
+                    if(card == null) // the resource has been removed!
+                    {
+                        if(Debug.DEBUG &amp;&amp; logger.isLoggable(MLevel.FINER))
+                            logger.finer(&quot;Resource &quot; + resc + &quot; was removed from the pool while it was being checked out &quot; + &quot; or refurbished for checkout. Will try to find a replacement resource.&quot;);
+                        resc = null;
+                    } else {
+                        card.checkout_time = System.currentTimeMillis();
+                    }
+                }
+            }
+            // 如果检出失败，还会继续检出，除非抛出超时等异常
+            if(resc == null)
+                return checkoutResource(timeout);
+            else
+                return resc;
+        } catch(StackOverflowError e) {
+            throw new NoGoodResourcesException(&quot;After checking so many resources we blew the stack, no resources tested acceptable for checkout. &quot; + &quot;See logger com.mchange.v2.resourcepool.BasicResourcePool output at FINER/DEBUG for information on individual failures.&quot;, e);
+        }
+    }</code></pre>
+<h3 id="basicresourcepool.prelimcheckoutresourcelong">BasicResourcePool.prelimCheckoutResource(long)</h3>
+<p>这个方法也是采用递归的方式不断地尝试获取空闲连接，只有设置了<code>checkoutTimeout</code>，或者抛出其他异常，才能从该方法中出来。</p>
+<p>如果我们开启了空闲连接检测，当我们获取到某个空闲连接时，如果它正在进行空闲连接检测，那么我们不得不等待，并尝试重新获取。</p>
+<p>还有，如果我们设置了<code>maxConnectionAge</code>，还必须校验当前获取的连接是不是已经过期，过期的话也得重新获取。</p>
+<pre class="java"><code>    private synchronized Object prelimCheckoutResource(long timeout) throws TimeoutException, ResourcePoolException, InterruptedException {
+        try {
+            // 检验当前连接池是否已经关闭或失效
+            ensureNotBroken();
+            
+            int available = unused.size();
+            // 如果当前没有空闲连接
+            if(available == 0) {
+                int msz = managed.size();
+                // 如果当前连接数量小于maxPoolSize，则可以创建新连接
+                if(msz &lt; max) {
+                    // 计算想要的目标连接数=池中总连接数+等待获取连接的客户端数量+当前客户端
+                    int desired_target = msz + acquireWaiters.size() + 1;
+
+                    if(logger.isLoggable(MLevel.FINER))
+                        logger.log(MLevel.FINER, &quot;acquire test -- pool size: &quot; + msz + &quot;; target_pool_size: &quot; + target_pool_size + &quot;; desired target? &quot; + desired_target);
+                    // 如果想要的目标连接数不小于原目标连接数，才会去尝试创建新连接
+                    if(desired_target &gt;= target_pool_size) {
+                        // inc是我们一开始设置的acquireIncrement
+                        desired_target = Math.max(desired_target, target_pool_size + inc);
+                        // 确保我们的目标数量不大于maxPoolSize，不小于minPoolSize
+                        target_pool_size = Math.max(Math.min(max, desired_target), min);
+                        // 这里就会去调整池中的连接数量
+                        _recheckResizePool();
+                    }
+                } else {
+                    if(logger.isLoggable(MLevel.FINER))
+                        logger.log(MLevel.FINER, &quot;acquire test -- pool is already maxed out. [managed: &quot; + msz + &quot;; max: &quot; + max + &quot;]&quot;);
+                }
+                // 等待可用连接，如果设置checkoutTimeout可能会抛出超时异常
+                awaitAvailable(timeout); // throws timeout exception
+            }
+            // 从空闲连接中获取
+            Object resc = unused.get(0);
+
+            // 如果获取到的连接正在被空闲资源检测线程使用
+            if(idleCheckResources.contains(resc)) {
+                if(Debug.DEBUG &amp;&amp; logger.isLoggable(MLevel.FINER))
+                    logger.log(MLevel.FINER, &quot;Resource we want to check out is in idleCheck! (waiting until idle-check completes.) [&quot; + this + &quot;]&quot;);
+
+                // 需要再次等待后重新获取连接对象
+                Thread t = Thread.currentThread();
+                try {
+                    otherWaiters.add(t);
+                    this.wait(timeout);
+                    ensureNotBroken();
+                } finally {
+                    otherWaiters.remove(t);
+                }
+                return prelimCheckoutResource(timeout);
+            // 如果当前连接过期，需要从池中删除，并尝试重新获取连接
+            } else if(shouldExpire(resc)) {
+                if(Debug.DEBUG &amp;&amp; logger.isLoggable(MLevel.FINER))
+                    logger.log(MLevel.FINER, &quot;Resource we want to check out has expired already. Trying again.&quot;);
+
+                removeResource(resc);
+                ensureMinResources();
+                return prelimCheckoutResource(timeout);
+            // 将连接对象从空闲队列中移出
+            } else {
+                unused.remove(0);
+                return resc;
+            }
+        } catch(ResourceClosedException e) // one of our async threads died
+            // ·······
+        }
+    }</code></pre>
+<h3 id="basicresourcepool._recheckresizepool">BasicResourcePool._recheckResizePool()</h3>
+<p>从上个方法可知，当前没有空闲连接可用，且连接池中的连接还未达到<code>maxPoolSize</code>时，就可以尝试创建新的连接。在这个方法中，会计算需要增加的连接数。</p>
+<pre class="java"><code>    private void _recheckResizePool() {
+        assert Thread.holdsLock(this);
+        
+        if(!broken) {
+            int msz = managed.size();
+
+            int shrink_count;
+            int expand_count;
+            // 从池中清除指定数量的连接
+            if((shrink_count = msz - pending_removes - target_pool_size) &gt; 0)
+                shrinkPool(shrink_count);
+            // 从池中增加指定数量的连接
+            else if((expand_count = target_pool_size - (msz + pending_acquires)) &gt; 0)
+                expandPool(expand_count);
+        }
+    }</code></pre>
+<h3 id="basicresourcepool.expandpoolint">BasicResourcePool.expandPool(int)</h3>
+<p>在这个方法中，会采用异步的方式来创建新的连接对象。<code>c3p0</code>挺奇怪的，动不动就异步？</p>
+<pre class="java"><code>    private void expandPool(int count) {
+        assert Thread.holdsLock(this);
+
+        // 这里是采用异步方式获取连接对象的，具体有两个不同人物类型，我暂时不知道区别
+        if(USE_SCATTERED_ACQUIRE_TASK) {
+            for(int i = 0; i &lt; count; ++i)
+                taskRunner.postRunnable(new ScatteredAcquireTask());
+        } else {
+            for(int i = 0; i &lt; count; ++i)
+                taskRunner.postRunnable(new AcquireTask());
+        }
+    }</code></pre>
+<p><code>ScatteredAcquireTask</code>和<code>AcquireTask</code>都是<code>BasicResourcePool</code>的内部类，在它们的<code>run</code>方法中最终会去调用<code>PooledConnectionResourcePoolManager</code>的<code>acquireResource</code>方法。</p>
+<h3 id="pooledconnectionresourcepoolmanager.acquireresource">PooledConnectionResourcePoolManager.acquireResource()</h3>
+<p>在创建数据源对象时有提到<code>WrapperConnectionPoolDataSource</code>这个类，它可以用来创建<code>PooledConnection</code>。这个方法中就是调用<code>WrapperConnectionPoolDataSource</code>对象来获取<code>PooledConnection</code>对象（实现类<code>NewPooledConnection</code>）。</p>
+<pre class="java"><code>    public Object acquireResource() throws Exception {
+        PooledConnection out;
+        // 一般我们不回去设置connectionCustomizerClassName，所以直接看connectionCustomizer为空的情况
+        if(connectionCustomizer == null) {
+            // 会去调用WrapperConnectionPoolDataSource的getPooledConnection方法
+            out = (auth.equals(C3P0ImplUtils.NULL_AUTH) ? cpds.getPooledConnection() : cpds.getPooledConnection(auth.getUser(), auth.getPassword()));
+        } else {
+            // ·····
+        }
+        
+        // 如果开启了缓存语句
+        if(scache != null) {
+            if(c3p0PooledConnections)
+                ((AbstractC3P0PooledConnection)out).initStatementCache(scache);
+            else {
+                logger.warning(&quot;StatementPooling not &quot; + &quot;implemented for external (non-c3p0) &quot; + &quot;ConnectionPoolDataSources.&quot;);
+            }
+        }
+        // ······
+        return out;
+    }</code></pre>
+<h3 id="wrapperconnectionpooldatasource.getpooledconnectionstring-string-connectioncustomizer-string">WrapperConnectionPoolDataSource.getPooledConnection(String, String, ConnectionCustomizer, String)</h3>
+<p>这个方法会先获取物理连接，然后将物理连接包装成<code>NewPooledConnection</code>。</p>
+<pre class="java"><code>    protected PooledConnection getPooledConnection(String user, String password, ConnectionCustomizer cc, String pdsIdt) throws SQLException {
+        // 这里获得的就是我们前面提到的DriverManagerDataSource
+        DataSource nds = getNestedDataSource();
+        Connection conn = null;
+        // 使用DriverManagerDataSource获得原生的Connection
+        conn = nds.getConnection(user, password);
+        // 一般我们不会去设置usesTraditionalReflectiveProxies，所以只看false的情况
+        if(this.isUsesTraditionalReflectiveProxies(user)) {
+            return new C3P0PooledConnection(conn, 
+                    connectionTester, 
+                    this.isAutoCommitOnClose(user), 
+                    this.isForceIgnoreUnresolvedTransactions(user), 
+                    cc, 
+                    pdsIdt);
+        } else {
+            // NewPooledConnection就是原生连接的一个包装类而已，没什么特别的
+            return new NewPooledConnection(conn, 
+                    connectionTester, 
+                    this.isAutoCommitOnClose(user), 
+                    this.isForceIgnoreUnresolvedTransactions(user), 
+                    this.getPreferredTestQuery(user), 
+                    cc, 
+                    pdsIdt);
+        }
+    }</code></pre>
+<p>以上，基本讲完获取连接对象的过程，<code>c3p0</code>的源码分析也基本完成，后续有空再做补充。</p>
+<h1 id="参考资料">参考资料</h1>
+<p>c3p0 - JDBC3 Connection and Statement Pooling by Steve Waldman</p>
+<blockquote>
+<p>本文为原创文章，转载请附上原文出处链接：https://github.com/ZhangZiSheng001/c3p0-demo</p>
+</blockquote>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

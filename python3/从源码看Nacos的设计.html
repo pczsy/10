@@ -1,0 +1,132 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修从源码看Nacos的设计' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>从源码看Nacos的设计</center></div><div class='banquan'>原文出处:本文由博客园博主啥也不懂的新同学提供。<br/>
+原文连接:https://www.cnblogs.com/newstudent/p/nacos_design.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#客户端与集群的交互">客户端与集群的交互</a></li>
+        <li><a href="#数据同步">数据同步</a><ul>
+        <li><a href="#实例信息同步">实例信息同步</a></li>
+        <li><a href="#服务集群信息">服务集群信息</a></li>
+        </ul></li>
+        <li><a href="#关于priv-raft协议">关于priv-raft协议</a></li>
+        <li><a href="#nacos集群在k8s中的实践">Nacos集群在k8s中的实践</a></li>
+        </ul>
+    </div>
+</div>
+<blockquote>
+<p>几个方面谈一下Nacos的设计（作为注册中心，基于此时的develop分支）<br />
+原创博文，转载请注明来源</p>
+</blockquote>
+<h1 id="客户端与集群的交互">客户端与集群的交互</h1>
+<p>首先需要声明的是Nacos Cluster虽然内部使用了Raft协议但是对于Nacos客户端，Cluster实例是无状态的。客户端配置集群地址有两种方式：<br />
+1.通过配置serverAddr列表，客户端将访问集群时，随机从列表中选择一个实例访问：</p>
+<pre><code><code>NamingService configService = NacosFactory.createNamingService(&quot;10.22.0.137:30253,10.22.0.137:30254,10.22.0.137:30255&quot;);</code></pre>
+<p>当然，一般情况下我们并不会直接配置Nacos实例的IP，可用用域名，以便能动态发现。</p>
+<p>2.通过Properties配置endpoint，定时访问，感知集群变化，并随机从接口返回的列表中选择一个实例访问，客户端会与Endpoint创建LONG PULL。</p>
+<pre><code><code>
+Properties properties = new Properties();
+properties.put(PropertyKeyConst.ENDPOINT,&quot;10.18.90.16&quot;);
+properties.put(PropertyKeyConst.ENDPOINT_PORT,&quot;8850&quot;);
+ 
+NamingService configService = NacosFactory.createNamingService(properties);</code></pre>
+<ul>
+<li><a href="https://nacos.io/zh-cn/blog/address-server.html">endpoint环境隔离最佳实践</a></li>
+</ul>
+<h1 id="数据同步">数据同步</h1>
+<h2 id="实例信息同步">实例信息同步</h2>
+<p>实例信息的由一个叫 Distro （com.alibaba.nacos.naming.consistency.ephemeral.distro.DistroConsistencyServiceImpl）的一致性协议维护，有如下几个特点：</p>
+<ol>
+<li>最终一致性，由实例间通过http同步(com.alibaba.nacos.naming.consistency.ephemeral.distro.TaskDispatcher.TaskScheduler)到除了自己的每个实例节点，且携带自己全量数据<br />
+<img src="./images/从源码看Nacos的设计0.png" /></li>
+<li>数据不持久化，保存在内存（com.alibaba.nacos.naming.consistency.ephemeral.distro.DataStore）</li>
+<li>每个节点通过算法，只接受一部分请求（com.alibaba.nacos.naming.web.DistroFilter），如果不属于实例自己的请求过来则通过算法确定并转发。</li>
+</ol>
+<p>举例解释一下第3点：现有Nacos集群实例A,B,C 共3个。从<strong>客户端与集群的交互</strong>知道，客户端随机从A,B,C中随机选择一个实例访问，客户端NACOS-DEMO选择访问B的注册实例接口，如果NACOS-DEMO的请求应该属于C处理的话，本次请求将会被B实例中的DistroFilter拦截掉，并由B转发到C。理解起来，其实挺绕的，但是为什么这么设计呢？毕竟A,B,C的实例数据都会最终一致的，我随机访问任意一个实例就好了</p>
+<p>我的解释是：<br />
+由于数据是最终一致的，中间会存在同步过程，所以如果存在写了马上查的场景，则很有可能查不到的情况（客户端写和查两次请求落在了两个不同的实例）。但是如果通过算法，一个实例的增删改查都在同一个确定的实例，就不会出现这种情况了。<br />
+<img src="./images/从源码看Nacos的设计1.png" /></p>
+<h2 id="服务集群信息">服务集群信息</h2>
+<ul>
+<li>通过Open API服务创建接口创建,则直接通过raft协议 持久化到集群内所有节点</li>
+<li>如果实例注册时，如果服务集群不存在，则静默创建，前面说了，实例注册时，会通过Distro 协议通过实例数据到集群内其它节点，由于实例信息也附带了服务集群等信息，所以实例上也顺便同步了服务集群等信息。所以，默认情况下，静默创建的服务集群等信息也是没有持久化的。当实例注册时ephemeral字段设置为false，除了上诉的同步方式外，还会调用raft协议，该协议会同步到其它节点并持久化（Raft协议中规定，只有leader才能处理客户端请求，所有当发现自己不是leader时，会转发请求，实现如下图所示）：<br />
+<img src="./images/从源码看Nacos的设计2.png" /><br />
+<img src="./images/从源码看Nacos的设计3.png" /></li>
+</ul>
+<p>ephemeral字段的介绍</p>
+<blockquote>
+<p>（Nacos 在 1.0.0版本 instance级别增加了一个ephemeral字段，该字段表示注册的实例是否是临时实例还是持久化实例。如果是临时实例，则不会在 Nacos 服务端持久化存储，需要通过上报心跳的方式进行包活，如果一段时间内没有上报心跳，则会被 Nacos 服务端摘除。在被摘除后如果又开始上报心跳，则会重新将这个实例注册。持久化实例则会持久化被 Nacos 服务端，此时即使注册实例的客户端进程不在，这个实例也不会从服务端删除，只会将健康状态设为不健康）</p>
+</blockquote>
+<h1 id="关于priv-raft协议">关于priv-raft协议</h1>
+<p>Raft协议第8节部分内容：</p>
+<blockquote>
+<p>Clients of Raft send all of their requests to the leader.<br />
+When a client first starts up, it connects to a randomlychosen<br />
+server. If the client’s first choice is not the leader,<br />
+that server will reject the client’s request and supply information<br />
+about the most recent leader it has heard from<br />
+(AppendEntries requests include the network address of<br />
+the leader). If the leader crashes, client requests will time<br />
+out; clients then try again with randomly-chosen servers<br />
+--------------------------------------------------------------------------<br />
+Raft的客户将所有请求发送给leader。当客户机第一次启动时，<br />
+它连接到随机选择的服务器。如果客户机的首选不是leader，<br />
+服务器将拒绝客户机的请求，并提供它最近听到的leader的信息。<br />
+如果leader崩溃，客户端请求将超时;然后，客户端再次尝试随机选择的服务器</p>
+</blockquote>
+<p>Nacos官网说，自己实现的事一个轻量级的raft协议，原因我认为至少有如下两点：</p>
+<ol>
+<li>客户端是随机选择并访问Nacos实例的</li>
+<li>Nacos实例分为leader和flower，leader负责写入，<strong>leader和flower都可以查询</strong>，标准的raft协议，客户端所有请求会发送给leader保证强一致性，nacos的实现是最终一致性。</li>
+</ol>
+<blockquote>
+<p><a href="https://raft.github.io/raft.pdf">Raft协议论文</a></p>
+</blockquote>
+<h1 id="nacos集群在k8s中的实践">Nacos集群在k8s中的实践</h1>
+<p>Nacos在VM环境下，部署集群就比较简单了，如下图：<br />
+<img src="./images/从源码看Nacos的设计4.png" /><br />
+只需要在部署Nacos 实例时，在conf/Cluster.conf 中把自己和集群内其它实例的地址整合到一起即可，比如上图的架构，Cluster.conf文件可以是这样：</p>
+<pre><code><code>ip1:8848
+
+ip2:8848
+
+ip3:8848</code></pre>
+<p>这样就构成了集群。Nacos实例会轮询Cluster.conf 文件，以保证集群在有新的实例加入时能相互发现以实现实例的扩缩容，具体代码实现在（com.alibaba.nacos.naming.cluster.ServerListManager.ServerListUpdater）。</p>
+<p>所以在k8s环境下Nacos的集群应该怎么玩？毋庸置疑的是，我们不再需要手动去更改Cluster.conf文件来维护集群，必须使用k8s的机制去完成自动扩缩容，那么问题来了，k8s完成扩缩容,，集群自己怎么知道呢？</p>
+<p><strong>其实是peer-finder-plugin 和 上面说的自动轮询Cluster.conf机制来达到的。</strong></p>
+<p>分析：<br />
+通过Helm使用官方的chart包部署的nacos集群，每一个pod有两个容器：</p>
+<ul>
+<li>peer-finder-plugin-install : 是一个initContainers ，这个镜像唯一的作用是安装 peer-finder插件相关的脚本到指定目录（plugins/peer-finder/），结束后就死亡。</li>
+<li>nacos-cluster：nacos本体镜像，镜像启动时，除了启动自身的服务外，还会同时调用peer-finder-plugin-install 安装好的脚本启动peer-finder（<a href="https://github.com/nacos-group/nacos-docker/blob/master/build/Dockerfile">nacos dockerfile</a>）<br />
+<a href="https://github.com/hellwen/peer-finder/blob/master/peer-finder.go">peer-finder</a>这个插件很简单，使用go语言写的一个定时轮询的程序，核心代码：<br />
+<img src="./images/从源码看Nacos的设计5.png" /></li>
+</ul>
+<p>peer-finder轮询（1秒）指定的k8s service ，如果service下面的pod地址列表发生变化，则重新写入Cluster.conf文件。<strong>这里的k8s service就必须是headless类型的了，因为只有解析headless提供的域名，才能获取所有pod的地址列表</strong>。</p>
+<p>pod启动时序图：<br />
+<img src="./images/从源码看Nacos的设计6.png" /></p>
+<p>调用关系图:<br />
+<img src="./images/从源码看Nacos的设计7.png" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

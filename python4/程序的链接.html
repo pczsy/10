@@ -1,0 +1,384 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修程序的链接' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>程序的链接</center></div><div class='banquan'>原文出处:本文由博客园博主小胖西瓜提供。<br/>
+原文连接:https://www.cnblogs.com/shuqin/p/12012906.html</div><br>
+    <h2 id="链接">链接</h2>
+<p><em>学习 CS:APP - 链接 的记录</em></p>
+<p>在实际操作的过程中，测试的数据和书里面的内容有一些出入了，如重定位的方式，现在默认都使用 GOT+PLT 的方式进行重定位，与此带来的是 <code>.rel.data</code> 被干掉，使用 GOT 的方式访问。</p>
+<ul>
+<li><a href="#process">编译过程</a></li>
+<li><a href="#static_link">静态链接</a></li>
+<li><a href="#target_file">目标文件</a></li>
+<li><a href="#elf">可重定位目标文件</a></li>
+<li><a href="#sym_parse">符号解析</a></li>
+<li><a href="#static_lib">链接静态库</a></li>
+<li><a href="#rela">重定位</a></li>
+<li><a href="#exec_file">可执行目标文件</a></li>
+<li><a href="#pic">共享库与位置无关代码</a>
+<ul>
+<li><a href="#pic_data">PIC 数据引用</a></li>
+<li><a href="#pic_func">PIC 函数调用</a></li>
+</ul></li>
+<li><a href="#summary">总结</a></li>
+<li><a href="#ref">参考</a></li>
+</ul>
+<p><strong>readelf</strong> 和 <strong>objdump</strong> 两个工具可以很好的分析生产的目标文件内容。</p>
+<h3 id="编译过程"><span id = "process">编译过程</span></h3>
+<p>cpp -&gt; cc1 -&gt; as -&gt; ld</p>
+<p>gcc 中打开 <code>-v</code> 选项就可以看到调用的步骤，不过在高版本中，cpp 合并至 cc1 中了。</p>
+<h3 id="静态链接"><span id = "static_link">静态链接</span></h3>
+<p>以一组可重定位目标文件和参数作为输入，生成一个完全链接的，可以加载和运行的可执行目标文件作为输出。</p>
+<p>链接器需要完成的任务有两个：</p>
+<ol>
+<li>符号解析，将每个符号 <strong>引用</strong> 与每个符号 <strong>定义</strong> 关联起来。</li>
+<li>重定位，编译器和汇编器生成从地址 0 开始的代码和数据节。链接器通过把每个符号定义与一个内存位置关联起来，然后修改所有对这些符号的引用，使得它们指向这个内存位置。</li>
+</ol>
+<p>这里所说的符号对应于一个 <strong>函数</strong>、一个 <strong>全局变量</strong>、或一个 <strong>静态变量</strong>（在C中以 static 声明），其实就是对应汇编文件中的那些 label。</p>
+<h3 id="目标文件"><span id = "target_file">目标文件</span></h3>
+<p>目标文件的三种形式：</p>
+<ol>
+<li>可重定位目标文件，包含二进制代码和数据，可在编译时与其他可重定位目标文件合并起来，创建一个可执行目标文件。</li>
+<li>可执行目标文件，包含二进制代码和数据，可直接复制到内存中并执行。</li>
+<li>共享目标文件，一种特殊类型的可重定位目标文件，可在加载或者运行时被动态的加载进内存并链接，在 linux 下为 .so 文件。</li>
+</ol>
+<h3 id="可重定位目标文件"><span id = "elf">可重定位目标文件</span></h3>
+<p>linux 上的目标文件格式为 <code>ELF (Executable and Linkable Format)</code>。一个典型的文件格式如下：<br />
+<img src="./images/程序的链接0.png" /></p>
+<p>ELF 头以一个 16 字节的序列开始，序列描述了生成该文件系统字的大小和字节顺序。ELF 头剩下的部分包含帮助连接器语法分析和解释目标文件中的信息，包括</p>
+<ul>
+<li>ELF 头的大小</li>
+<li>目标文件的类型</li>
+<li>机器类型</li>
+<li>节头部表的文件偏移</li>
+<li>节头部表中的大小和数量</li>
+</ul>
+<p>夹在 ELF 头和节头部表之间的都是节，不同节的位置和大小都是节头部表描述的，典型的包含以下的几个节：</p>
+<ul>
+<li><strong>.text</strong>, 已编译的机器代码。</li>
+<li><strong>.rodata</strong>, 只读数据，如 printf 格式化字符串。</li>
+<li><strong>.data</strong>, 已初始化的全局和静态C变量。局部变量在运行时的栈中，不出现在节中。</li>
+<li><strong>.bss</strong>, 未初始化的全局和静态C变量，以及所有被初始化为0的全局和静态变量，目标文件这个节不占实际的空间，它仅为一个占位符。现代编译器用 <strong>.COMMON</strong> 和 <strong>.bss</strong> 来更细化的区分这些变量，将未初始化的全局变量分配至 <strong>.COMMON</strong> 中。</li>
+<li><strong>.symtab</strong>, 一个符号表，存放在程序中定义和应用的函数和 <strong>全局</strong> 变量的信息。</li>
+<li><strong>.rel.text</strong>, 一个 <strong>.text</strong> 节中位置的列表，当链接器把这个目标文件和其他文件相组合时，需要修改这些位置。</li>
+<li><strong>.rel.data</strong>, 被模块引用或者定义的所有全局变量的重定位信息。</li>
+<li><strong>.debug</strong>， 一个调试符号，其条目时程序中定义的局部变量和类型定义，程序中定义和应用的全局变量，以及原始的C源文件，只有使用 <code>-g</code> 选项编译时才会得到这张表。</li>
+<li><strong>.line</strong>, 原始C源代码的行号和 <strong>.text</strong>节中机器指令之间的映射。</li>
+<li><strong>.strtab</strong>, 一个字符串表，其内容包括 <strong>.symtab</strong> 和 <strong>.debug</strong> 中的符号表，以及节头部表中的节名字。</li>
+</ul>
+<h3 id="符号解析"><span id = "sym_parse">符号解析</span></h3>
+<p>每个可重定位目标模块 <span class="math inline">\(m\)</span> 都有一个 <strong>符号表</strong>，包含 <span class="math inline">\(m\)</span> 定义和引用的符号的信息，在链接器的上下文中，有三种不同的符号：</p>
+<ul>
+<li>由模块 <span class="math inline">\(m\)</span> 定义并且能被其他模块引用的 <em>全局符号</em></li>
+<li>由其它模块定义并且被模块 <span class="math inline">\(m\)</span> 引用的 <em>全局符号</em></li>
+<li>只被模块 <span class="math inline">\(m\)</span> 定义引用的 <em>局部符号</em>（static 属性）</li>
+</ul>
+<p>链接器解析符号引用的方法就是将每个引用与它对应的可重定位目标文件的符号表中的一个确定的符号定义关联起来。对于局部符号及静态局部变量解析比较简单：只需要保证每个模块中的每个局部符号只有一个定义。对于全局符号的解析：当编译器遇到一个不是在当前模块定义的符号时，会假设该符号时在其他某个模块中定义的，生成一个链接器符号表条目，并交给链接器处理；如果链接器在任何输入的模块中都找不到该定义就报错并且终止。</p>
+<h4 id="链接器解析多重定义的全局符号">链接器解析多重定义的全局符号</h4>
+<p>在编译时，将每个全局符号做一个区分，函数和已初始化的全局变量是 <strong>强符号</strong>，未初始化的全局变量是 <strong>弱符号</strong>（对应 .COMMON 节的符号）。</p>
+<p>链接器使用以下规则来处理多重定义的符号名：</p>
+<ol>
+<li>不允许由多个同名的强符号。</li>
+<li>如果有一个强符号和多个弱符号同名，那么选择强符号。</li>
+<li>如果有多个弱符号同名，那么从这些若符号中任意选择一个。</li>
+</ol>
+<h3 id="链接静态库"><span id = "static_lib">链接静态库</span></h3>
+<p>Linux 下静态库以一种称为存档（archive）的特殊格式文件保存，其为一系列连接组成的可重定位目标文件的结合，有一个头部来描述灭个成员目标文件的大小和位置。链接器工作时，将目标模块引用的静态库中的模块复制到可执行文件中。静态库有一个很大的特点时每一个程序中都有一个引用的静态库副本。</p>
+<p>在符号解析阶段，链接器按照顺序扫描可重定位目标文件和存档文件。在这次扫描中，链接器维护</p>
+<ol>
+<li>一个可重定位目标文件的集合 <span class="math inline">\(E\)</span>，这个集合中的文件会被合并起来形成可执行文件.</li>
+<li>一个未解析的符号集合 <span class="math inline">\(U\)</span>，引用但是尚未定义的符号.</li>
+<li>一个前面扫描中已经定义的符号集合 <span class="math inline">\(D\)</span>.</li>
+</ol>
+<p>初始化时，三个集合 <span class="math inline">\(E\)</span>、<span class="math inline">\(U\)</span> 和 <span class="math inline">\(D\)</span> 均为空。解析过程如下</p>
+<ul>
+<li>对于每个输入文件 <span class="math inline">\(f\)</span>, 链接器判断 <span class="math inline">\(f\)</span> 是一个目标文件还是存档文件。如果 <span class="math inline">\(f\)</span> 是一个目标文件，那么链接器将 <span class="math inline">\(f\)</span> 添加到 <span class="math inline">\(E\)</span>, 修改 <span class="math inline">\(U\)</span> 和 <span class="math inline">\(D\)</span> 来反映 <span class="math inline">\(f\)</span> 中的符号定义和引用，并继续下一个输入文件的解析。</li>
+<li>如果 <span class="math inline">\(f\)</span> 是一个存档文件，那么链接器尝试匹配 <span class="math inline">\(U\)</span>中未解析的符号和由存档文件成员定义的符号。如果某个存档文件成员 <span class="math inline">\(m\)</span>，定义了一个符号来解析 <span class="math inline">\(U\)</span> 中的一个引用，那么就将 <span class="math inline">\(m\)</span> 添加到 <span class="math inline">\(E\)</span> 中，并且修改 <span class="math inline">\(U\)</span> 和 <span class="math inline">\(D\)</span> 来反映 <span class="math inline">\(m\)</span> 中的符号定义与引用。对存档文件中的所有的成员目标由依次进行这个过程，知道 <span class="math inline">\(U\)</span> 和 <span class="math inline">\(D\)</span> 都不再发生变化。此时任何不包含再 <span class="math inline">\(E\)</span> 中的成员目标文件就简单的丢弃，链接器继续处理下一个输入文件。</li>
+<li>如果链接器扫描完所有的输入文件后，<span class="math inline">\(U\)</span> 是非空的，那么链接器就会输出一个错误并且终止。否则，将合并结合 <span class="math inline">\(E\)</span> 中的目标文件，构建输出的可执行文件。</li>
+</ul>
+<p>因为扫描的过程是按照顺序进行的，所有当出现依赖时，需要手动进行调整，使得引用的定义在声明之前。如果需要满足库依赖需求，可以在输入文件列表中 <strong>重复</strong> 输入库。</p>
+<h3 id="重定位"><span id = "rela">重定位</span></h3>
+<p><strong>重定位</strong> 将每个符号引用和符号定义关联起来，并且为每个符号分配运行时地址。</p>
+<ul>
+<li>重定位节和符号定义。链接器将所有相同类型的数据节合并为同一类型的 <strong>聚合节</strong>，并且将运行时的内存地址赋值给新的聚合节及每个模块定义的符号。</li>
+<li>重定位节中的符号引用。链接器修改代码节和数据节中对每个符号的引用，使得其指向正确的运行地址。</li>
+</ul>
+<p>ELF 中最为基本的重定位类型：</p>
+<ul>
+<li><strong>R_X86_64_32</strong>（该类型在新版的GCC上已经没有看到了）. 重定位一个使用32位绝对地址的引用。</li>
+<li><strong>R_X86_64_PC32</strong>. 重定位一个使用32位PC相对地址的引用。</li>
+<li><strong>R_X86_64_PLT32</strong>. 过程链接表延迟绑定。</li>
+</ul>
+<p>当汇编器遇到对最终位置未定义的目标引用时，就会生成一个 <em>重定位条目</em>，告诉链接器在合并目标文件时如何修改这个引用，重定位的条目 代码段放在 .rel.text 中，已初始化的数据放在 .rel.data 中。</p>
+<blockquote>
+<p>下面的算法是 CS:APP 中的列出的, 在实际的 GCC-8 中测试情况由不同, 这个地方有所改变</p>
+</blockquote>
+<p>ELF重定位条目的结构如下：</p>
+<pre><code><code>typedef struct {
+        long offset;            // 需要被修改的应用的节偏移
+        long type:32;           // 重定位类型
+        long symbol:32;         // 被修改引用指向的符号
+        long addend;            // 重定位使用的调整偏移值
+} Elf64_Rela;</code></pre>
+<p>使用了以下的算法（伪代码）</p>
+<pre><code><code>ADDR(addr) {
+    // 选择的运行时地址
+}
+
+foreach sections s {
+    foreach relocation entry r {
+        refptr = s + r.offset;
+
+        // 相对地址
+        if (r.type == R_X86_64_PC32) {
+            refaddr = ADDR(s) + r.offset; // ref runtime address
+            *refptr = (unsigned)(ADDR(r.symbol) + r.addend - redaddr);
+        }
+
+        // 绝对地址重定位
+        if (r.type == R_X86_64_32)
+            *refptr = (unsigned)(ADDR(r.symbol) + r.addend);
+    }
+}</code></pre>
+<p>这里使用一个示例来说明这个寻址情况，本编译器版本为 <code>GCC-8(WSL)</code>：</p>
+<pre><code><code>
+// main.c
+int sum(int *a, int n);
+int array[2] = {1, 2};
+
+int main() {
+    int val = sum(array, 2);
+    return val;
+}
+
+// sum.c
+int sum(int *a, int n) {
+    int i, s = 0;
+    for (i = 0; i &lt; n; i++)
+        s += a[i];
+    return s;
+}</code></pre>
+<p>不使用优化选项生成 main.o 和 sum.o 可重定位目标文件。<br />
+使用 <code>objdump -dx main.o</code> 选项查看 mian.o 及可执行文件完全链接后反汇编代码：</p>
+<pre><code><code>// objdump -dx main.o
+// main.o
+Disassembly of section .text:
+
+0000000000000000 &lt;main&gt;:
+   0:   48 83 ec 08             sub    $0x8,%rsp
+   4:   be 02 00 00 00          mov    $0x2,%esi
+   9:   48 8d 3d 00 00 00 00    lea    0x0(%rip),%rdi        # 10 &lt;main+0x10&gt;
+                        c: R_X86_64_PC32        array-0x4
+  10:   e8 00 00 00 00          callq  15 &lt;main+0x15&gt;
+                        11: R_X86_64_PLT32      sum-0x4
+  15:   48 83 c4 08             add    $0x8,%rsp
+  19:   c3                      retq
+
+// objdump -dx a.out
+// 部分可执行目标文件的反汇编代码
+Sections:
+Idx Name          Size      VMA               LMA               File off  Algn
+  9 .init         00000017  0000000000001000  0000000000001000  00001000  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 10 .plt          00000010  0000000000001020  0000000000001020  00001020  2**4
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 11 .plt.got      00000008  0000000000001030  0000000000001030  00001030  2**3
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 12 .text         00000181  0000000000001040  0000000000001040  00001040  2**4
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 20 .got          00000028  0000000000003fd8  0000000000003fd8  00002fd8  2**3
+                  CONTENTS, ALLOC, LOAD, DATA
+ 21 .got.plt      00000018  0000000000004000  0000000000004000  00003000  2**3
+                  CONTENTS, ALLOC, LOAD, DATA
+ 22 .data         00000018  0000000000004018  0000000000004018  00003018  2**3
+    ···
+
+SYMBOL TABLE:
+0000000000004018  w      .data  0000000000000000              data_start
+0000000000004028 g     O .data  0000000000000008              array
+0000000000004030 g       .data  0000000000000000              _edata
+
+Disassembly of section .text:
+
+0000000000001040 &lt;_start&gt;:
+    ···
+
+0000000000001125 &lt;main&gt;:
+    1125:       48 83 ec 08             sub    $0x8,%rsp
+    1129:       be 02 00 00 00          mov    $0x2,%esi
+    112e:       48 8d 3d f3 2e 00 00    lea    0x2ef3(%rip),%rdi        # 4028 &lt;array&gt;
+    1135:       e8 05 00 00 00          callq  113f &lt;sum&gt;
+    113a:       48 83 c4 08             add    $0x8,%rsp
+    113e:       c3                      retq
+
+000000000000113f &lt;sum&gt;:
+    ···</code></pre>
+<blockquote>
+<p>汇编器为 sum 和 array 产生了重定义条目，其分别对应的 <code>Elf64_Rela</code> 结构的值</p>
+</blockquote>
+<pre><code><code>// array
+r.offset = 0xc;
+r.type = R_X86_64_PC32;
+r.symbol = array;
+r.addend = -0x4;
+
+// sum
+r.offset = 0x11;
+r.type = R_X86_64_PLT32;
+r.symbol = sum;
+r.addend = -0x4;</code></pre>
+<p>链接器重定位 <code>.data</code> 的地址后, 对 <code>array</code> 的访问的直接产生PC相对引用计算, 增加一个重定位，如下<br />
+$PC \leftarrow PC + $0x2ef3 = 0x113a + 0x2ef3 = 0x4028</p>
+<p>另一种 <code>R_X86_64_PLT32</code> 在<a href="#pic">位置无关代码</a>的地方说明。</p>
+<h3 id="可执行目标文件"><span id = "exec_file">可执行目标文件</span></h3>
+<p>可执行目标文件格式类似于可重定位目标文件的格式。相比较于可重定位目标文件来说，多了 <code>.init</code> 节，包括了程序的入口点，为程序运行时第一行执行的指令地址，节中包含了一个 <code>_start</code> 函数，加载器在执行的时候会调用这个函数.</p>
+<p><img src="./images/程序的链接1.png" /></p>
+<h3 id="动态库与位置无关代码-position-independent-code-pic"><span id = "pic">动态库与位置无关代码 (Position-Independent Code, PIC)</span></h3>
+<p>静态库的有两个的很大的缺点:</p>
+<ol>
+<li>每次程序运行时都会在内存中保留一个静态库的副本</li>
+<li>更新静态库都需要重新链接程序与静态库.</li>
+</ol>
+<p>改变这种情况使得多个进程共享一个程序的副本, 最重要的特点就是 <em>加载到内存的任何位置都无需链接器重新链接</em>(每个进程仍然会有自己的读写数据块). 加载而无需重定位的代码称为 <strong>位置无关代码</strong>,</p>
+<p>位置无关代码的生成:</p>
+<ol>
+<li>在 x86-64 下, 对同一目标模块中符号的引用不需要做特殊的处理, 使用PC相对寻址来编译,由静态链接器重定位即可.</li>
+<li>对共享模块定义的外部过程和对全局变量的引用需要特殊处理, 如下</li>
+</ol>
+<h4 id="pic-数据引用"><span id = "pic_data">PIC 数据引用</span></h4>
+<p>这里使用两个新的例子</p>
+<pre><code><code>// gcc -fpic -shared -Og -o libvector.so addvec.c multvec.c
+// addvec.c
+int addcnt = 0;
+
+void addvec(int *x, int *y, int *z, int n) {
+    addcnt++;
+    for (int i = 0; i &lt; n; i++)
+        z[i] = x[i] + y[i];
+}
+
+// multvec.c
+int multcnt = 0;
+
+void multvec(int *x, int *y, int *z, int n) {
+    multcnt++;
+    for (int i = 0; i &lt; n; i++)
+        z[i] = x[i] * y[i];
+}</code></pre>
+<p>使用 <code>objdump -dx libvector.so</code> 得到部分汇编指令</p>
+<pre><code><code>Sections:
+Idx Name          Size      VMA               LMA               File off  Algn
+ 15 .got          00000030  0000000000003fd0  0000000000003fd0  00002fd0  2**3
+                  CONTENTS, ALLOC, LOAD, DATA
+ 17 .data         00000008  0000000000004018  0000000000004018  00003018  2**3
+                  CONTENTS, ALLOC, LOAD, DATA
+SYMBOL TABLE:
+0000000000003fd0 l    d  .got   0000000000000000 .got
+
+00000000000010f5 &lt;addvec&gt;:
+    10f5:   4c 8b 05 e4 2e 00 00    mov    0x2ee4(%rip),%r8        # 3fe0 &lt;addcnt-0x44&gt;
+
+0000000000001123 &lt;multvec&gt;:
+    1123:   4c 8b 05 ae 2e 00 00    mov    0x2eae(%rip),%r8        # 3fd8 &lt;multcnt-0x50&gt;</code></pre>
+<p>一个目标文件加载进内存时，数据段和代码段的偏移总是保持不变的。因此代码段和数据段中任何变量之间的距离都是一个 <strong>运行时常量</strong>，与代码段和数据段所在内存的绝对位置时无关的。</p>
+<p>编译器利用以上事实在数据段开始的地方生成了一张 <strong>全局偏移量表（Global Offset Table, GOT）</strong>, 在 GOT 中，每个被这个目标模块引用的全局变量都有一个 <strong>8字节</strong> 条目，编译器为GOT中的每个条目都生成了一个重定位记录。</p>
+<p>在 <code>libsum.so</code> 中, <code>addcnt</code> 和 <code>multcnt</code> 的地址分别为 3fe0 和 3fd8，为GOT表中的第三和第二个条目，并且利用数据段和代码段之间运行时不变的距离产生直接PC相对引用，同前一个示例中 <code>array</code>.</p>
+<h4 id="pic-函数调用"><span id = "pic_func">PIC 函数调用</span></h4>
+<p>GCC 使用一种 <em>延迟绑定(lazy binding)</em> 的技术，将过程地址的绑定推迟到第一次调用该过程时，这样也可以避免动态链接器在加载时进行很多不必要的重定位。</p>
+<p>延迟绑定时通过两个数据结构之间的交互来完成的：GOT 和 <strong>过程链接表（Procedure Linkage Table, PLT）</strong>. 如果一个目标模块调用定义在共享库中的任何函数，那么就会产生 <strong>自己的</strong> GOT 和 PLT. GOT 是数据段的一部分，PLT 是代码段的一部分。</p>
+<p>部分反汇编指令如下</p>
+<pre><code><code>// objdump -dx a.out
+Sections:
+Idx Name          Size      VMA               LMA               File off  Algn
+ 10 .init         00000017  0000000000001000  0000000000001000  00001000  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 11 .plt          00000030  0000000000001020  0000000000001020  00001020  2**4
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 12 .plt.got      00000008  0000000000001050  0000000000001050  00001050  2**3
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 13 .text         00000191  0000000000001060  0000000000001060  00001060  2**4
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+ 21 .got          00000028  0000000000003fd8  0000000000003fd8  00002fd8  2**3
+                  CONTENTS, ALLOC, LOAD, DATA
+ 22 .got.plt      00000028  0000000000004000  0000000000004000  00003000  2**3
+                  CONTENTS, ALLOC, LOAD, DATA
+ 23 .data         00000020  0000000000004028  0000000000004028  00003028  2**3
+                  CONTENTS, ALLOC, LOAD, DATA
+
+Disassembly of section .plt:
+
+0000000000001020 &lt;.plt&gt;:
+    1020:   ff 35 e2 2f 00 00       pushq  0x2fe2(%rip)        # 4008 &lt;_GLOBAL_OFFSET_TABLE_+0x8&gt;
+    1026:   ff 25 e4 2f 00 00       jmpq   *0x2fe4(%rip)        # 4010 &lt;_GLOBAL_OFFSET_TABLE_+0x10&gt;
+    102c:   0f 1f 40 00             nopl   0x0(%rax)
+
+0000000000001030 &lt;printf@plt&gt;:
+    1030:   ff 25 e2 2f 00 00       jmpq   *0x2fe2(%rip)        # 4018 &lt;printf@GLIBC_2.2.5&gt;
+    1036:   68 00 00 00 00          pushq  $0x0
+    103b:   e9 e0 ff ff ff          jmpq   1020 &lt;.plt&gt;
+
+0000000000001040 &lt;addvec@plt&gt;:
+    1040:   ff 25 da 2f 00 00       jmpq   *0x2fda(%rip)        # 4020 &lt;addvec&gt;
+    1046:   68 01 00 00 00          pushq  $0x1
+    104b:   e9 d0 ff ff ff          jmpq   1020 &lt;.plt&gt;
+
+0000000000001145 &lt;main&gt;:
+    1163:   e8 d8 fe ff ff          callq  1040 &lt;addvec@plt&gt;
+    ···
+    1180:   e8 ab fe ff ff          callq  1030 &lt;printf@plt&gt;
+</code></pre>
+<ul>
+<li>过程链接表（PLT）. PLT 是一个数组，每个条目大小为 16 字节。
+<ul>
+<li><code>PLT[0]</code> 跳转至动态链接器中。</li>
+<li>// CS:APP 存在这一条目，实际测试高版本这个条目如上显示已经没有了。 <code>PLT[1]</code> 调用启动函数，初始化执行环境。</li>
+<li><code>PLT[1]</code> 开始为用户代码调用的函数，在示例中为 PLT[1] 为 <code>printf</code>，<code>PLT[2]</code> 为 <code>addvec</code></li>
+</ul></li>
+<li>全局偏移量表（GOT）.
+<ul>
+<li><code>GOT[0]</code> 和 <code>GOT[1]</code> 包含动态链接器在解析函数地址时使用的信息。</li>
+<li><code>GOT[2]</code> 为 <strong>动态链接器</strong>的入口地址。</li>
+<li><code>GOT[3]</code> 之后为对应调用的函数。示例中 GOT[4] 对应 <code>addvec</code><br />
+每个 GOT 条目都对应一个 PLT 条目，初始时，每条 GOT 条目都指向对应 PLT 条目的第二条指令。</li>
+</ul></li>
+</ul>
+<p>GOT 和 PLT 协同工作的步骤如下, 第一次调用 addvec：</p>
+<ol>
+<li>不直接调用 addvec, 程序调用进入 PLT[2], 这个是 addvec 的PLT条目。</li>
+<li>第一条PLT指令通过 GOT[4] 进行间接调转。将控制传送给 PLT[2] 中的下一条指令。</li>
+<li>在把 addvec 的 ID(0x1) 压入栈中之后，PLT[2] 跳转到 PLT[0].</li>
+<li>PLT[0] 通过 GOT[1] 间接的把动态链接器的一个参数压入栈中，然后通过 GOT[2] 间接跳转进动态链接器中。动态链接再通过某种计算来确定 addvec 的运行时位置，再用这个地址重写 GOT[4]，最后将控制传递给 addvec.</li>
+</ol>
+<p>第二次调用 addvec:</p>
+<ol>
+<li>控制传递到 PLT[2].</li>
+<li>通过 GOT[4] 的间接跳转将控制直接转移到 addvec.</li>
+</ol>
+<h3 id="总结"><span id = "summary">总结</span></h3>
+<p>理解 ELF 格式文件有助于分析程序的结构及运行过程。</p>
+<p>链接中最重要的步骤就是重定位，然后链接器和汇编器围绕重定位进行一系列的处理。<strong>GOT</strong> 和 <strong>PLT</strong> 对重定位是比较简单粗暴且有效的处理。</p>
+<h3 id="参考"><span id = "ref">参考</span></h3>
+<ol>
+<li><a href="http://csapp.cs.cmu.edu/3e/home.html">深入理解计算机系统</a>，程序的链接</li>
+</ol>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

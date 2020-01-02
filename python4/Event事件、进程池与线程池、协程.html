@@ -1,0 +1,289 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Event事件、进程池与线程池、协程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Event事件、进程池与线程池、协程</center></div><div class='banquan'>原文出处:本文由博客园博主SetCreed提供。<br/>
+原文连接:https://www.cnblogs.com/setcreed/p/11735441.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#event事件">Event事件</a></li>
+        <li><a href="#进程池与线程池">进程池与线程池</a></li>
+        <li><a href="#多线程爬取梨视频">多线程爬取梨视频</a></li>
+        <li><a href="#协程">协程</a><ul>
+        <li><a href="#协程目的">协程目的</a></li>
+        </ul></li>
+        <li><a href="#gevent">gevent</a></li>
+        <li><a href="#tcp服务端socket套接字实现协程">TCP服务端socket套接字实现协程</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="event事件">Event事件</h1>
+<p>用来控制线程的执行</p>
+<p>出现<code>e.wait()</code>，就会把这个线程设置为False，就不能执行这个任务；</p>
+<p>只要有一个线程出现<code>e.set()</code>，就会告诉Event对象，把有<code>e.wait</code>的用户全部改为True，剩余的任务就会立马去执行。由一些线程去控制另一些线程，中间通过Event。</p>
+<pre><code><code>from threading import Event
+from threading import Thread
+import time
+# 调用Event实例化出对象
+e = Event()
+#
+# # 若该方法出现在任务中，则为False，阻塞
+# e.wait()  # False
+# # 若该方法出现在任务中，则将其他线程的False改为True，进入就绪态和运行态
+# e.set()  # True
+
+
+def light():
+    print(&#39;红灯亮...&#39;)
+    time.sleep(5)
+    # 应该发出信号，告诉其他线程准备执行
+    e.set()   # 将car中的False变为True
+    print(&#39;绿灯亮...&#39;)
+
+
+def car(name):
+    print(&#39;正在等红灯...&#39;)
+    # 让所有汽车任务进入阻塞态
+    e.wait()  # False
+    print(f&#39;{name}正在加速飘逸...&#39;)
+
+
+# 让一个light线程控制多个car线程
+t = Thread(target=light)
+t.start()
+
+for i in range(10):
+    t = Thread(target=car, args=(f&#39;汽车{i}号&#39;, ))
+    t.start()</code></pre>
+<h1 id="进程池与线程池">进程池与线程池</h1>
+<ol>
+<li><p>进程池与线程池是用来控制当前程序允许创建（进程/线程）的数量</p></li>
+<li><p>作用：保证在硬件允许的范围内创建（进程/线程）的数量</p></li>
+</ol>
+<p>线程池使用一：</p>
+<pre><code><code>from concurrent.futures import ThreadPoolExecutor
+import time
+
+pool = ThreadPoolExecutor(5) # 5代表只能开启5个进程, 不加默认使用cpu的进程数
+
+# ThreadPoolExecutor(5) # 5代表只能开启5个线程
+
+# pool.submit() #异步提交任务， 括号里传函数地址
+
+
+def task():
+    print(&#39;线程任务开始了...&#39;)
+    time.sleep(1)
+    print(&#39;线程任务结束了...&#39;)
+
+
+for line in range(5):
+    pool.submit(task)</code></pre>
+<p>使用二：</p>
+<pre><code><code>from concurrent.futures import ThreadPoolExecutor
+import time
+
+pool = ThreadPoolExecutor(5) # 5代表只能开启5个进程, 不加默认使用cpu的进程数
+
+# ThreadPoolExecutor(5) # 5代表只能开启5个线程
+
+# pool.submit() #异步提交任务， 括号里传函数地址
+
+
+def task():
+    print(&#39;线程任务开始了...&#39;)
+    time.sleep(1)
+    print(&#39;线程任务结束了...&#39;)
+    return 123
+
+
+# 回调函数
+def call_back(res):
+    print(type(res))
+    res2 = res.result()  # 注意：赋值操作不要与接收的res同名
+    print(res2)
+
+
+for line in range(5):
+    pool.submit(task).add_done_callback(call_back)</code></pre>
+<p><code>pool.shutdown()</code> 会让所有线程池的任务结束后，才往下执行代码</p>
+<h1 id="多线程爬取梨视频">多线程爬取梨视频</h1>
+<p>利用requests模块，封装底层socket套接字</p>
+<ol>
+<li>主页中获取所有视频id号，拼接视频详情页url</li>
+<li>在视频详情页中获取真实视频url srcUrl=</li>
+<li>往真实视频url地址发送请求获取 视频 二进制数据</li>
+<li>最后把视频二进制数据保存到本地</li>
+</ol>
+<h1 id="协程">协程</h1>
+<ul>
+<li>进程： 资源单位</li>
+<li>线程： 执行单位</li>
+<li>协程： 在单线程下实现并发</li>
+</ul>
+<p>注意： 协程不是操作系统资源，目的是让单线程实现并发</p>
+<h2 id="协程目的">协程目的</h2>
+<ul>
+<li>操作系统：使用多道技术，切换 + 保存状态，一个是遇到IO， 另一个是CPU执行时间过长</li>
+<li>协程：通过手动模拟操作系统 “多道计数”， 实现 切换 + 保存状态
+<ul>
+<li>手动实现，遇到IO切换，欺骗操作系统误以为没有IO操作</li>
+<li>单线程时，遇到IO，就切换 + 保存状态</li>
+<li>单线程时，对于计算密集型，来回切换 + 保存状态反而效率更低</li>
+</ul></li>
+</ul>
+<p>优点：在IO密集型的情况下，会提高效率</p>
+<p>缺点：若在计算密集型的情况下，来回切换，反而效率更低</p>
+<pre><code><code>import time
+
+def func1():
+    for i in range(10000000):
+        i+1
+
+def func2():
+    for i in range(10000000):
+        i+1
+
+
+start = time.time()
+func1()
+func2()
+stop = time.time()
+print(stop - start)   # 1.0312113761901855
+
+
+# 基于yield实现并发 在计算密集型的情况下效率更低
+
+def func1():
+    while True:
+        10000000+1
+        yield
+
+def func2():
+    g = func1()
+    for i in range(10000000):
+        i+1
+        next(g)   # 每次执行next相当于切换到func1下面
+
+
+start = time.time()
+func2()
+stop = time.time()
+print(stop - start)  # 1.3294126987457275</code></pre>
+<h1 id="gevent">gevent</h1>
+<p>gevent是一个第三方模块，可以帮你监听IO操作，并切换</p>
+<p>使用gevent的目的：在单线程下实现，遇到IO就会 保存状态 + 切换</p>
+<pre><code><code>import time
+from gevent import monkey
+
+monkey.patch_all()  # 可以监听该程序下所有的IO操作
+from gevent import spawn, joinall # 用于做切换 + 保存状态
+
+
+def func1():
+    print(&#39;1&#39;)
+    time.sleep(1)  # IO操作
+
+
+def func2():
+    print(&#39;2&#39;)
+    time.sleep(3)
+
+
+def func3():
+    print(&#39;3&#39;)
+    time.sleep(5)
+
+start = time.time()
+
+s1 = spawn(func1)
+s2 = spawn(func2)
+s3 = spawn(func3)
+
+s1.join()  # 发送信号，相当于等待自己（在单线程的情况下）
+s2.join()
+s3.join()
+
+# joinall((s1, s2, s3))  #  一个个执行很麻烦，可以用joinall把这些全部装进去
+
+end = time.time()
+print(end - start)  # 5.006161451339722</code></pre>
+<h1 id="tcp服务端socket套接字实现协程">TCP服务端socket套接字实现协程</h1>
+<p>服务端：</p>
+<pre><code><code>from gevent import monkey
+from gevent import spawn
+import socket
+
+monkey.patch_all()
+server = socket.socket()
+server.bind((&#39;127.0.0.1&#39;, 9999))
+server.listen(5)
+
+def task(conn):
+    while True:
+        try:
+            data = conn.recv(1024)
+            if len(data) == 0:
+                break
+            print(data.decode(&#39;utf-8&#39;))
+            send_data = data.upper()
+            conn.send(send_data)
+
+        except Exception:
+            break
+
+    conn.close()
+
+
+def server2():
+    while True:
+        conn, addr = server.accept()
+        print(addr)
+        spawn(task, conn)
+
+
+if __name__ == &#39;__main__&#39;:
+    s = spawn(server2)
+    s.join()</code></pre>
+<p>客户端：</p>
+<pre><code><code>import socket
+from threading import Thread, current_thread
+
+def client():
+    client = socket.socket()
+    client.connect((&#39;127.0.0.1&#39;, 9999))
+
+    number = 0
+    while True:
+        send_data = f&#39;{current_thread().name} {number}&#39;
+        client.send(send_data.encode(&#39;utf-8&#39;))
+
+        data = client.recv(1024)
+        print(data.decode(&#39;utf-8&#39;))
+        number += 1
+
+
+for i in range(400):
+    t = Thread(target=client)
+    t.start()</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

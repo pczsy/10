@@ -1,0 +1,174 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【ASP.NET Core学习】远程过程调用 - gRPC使用' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【ASP.NET Core学习】远程过程调用 - gRPC使用</center></div><div class='banquan'>原文出处:本文由博客园博主WilsonPan提供。<br/>
+原文连接:https://www.cnblogs.com/WilsonPan/p/12000796.html</div><br>
+    <div class="ws-content">
+<p>&nbsp;本文介绍在gRPC使用，将从下面几个方面介绍</p>
+<ol>
+<li><a href="#whatIsPPC">什么是RPC</a></li>
+<li><a href="#whenToNeed">什么时候需要RPC</a></li>
+<li><a href="#howToUsed">如何使用gRPC</a></li>
+</ol></div>
+<p id="whatIsPPC" class="ws-title">什么是RPC</p>
+<div class="ws-content">
+<p>RPC是Remote Procedure Call简称，翻译过来是远程过程调用。它是一个进程间的通讯技术，基于Client-Server模式，让程序像调用本地方法一样使用，而无需去关系它细节如何实现。</p>
+<p>上面是我的理解，怕理解有错或者表达不准确，下面引用维基百科</p>
+<p><a href="https://en.wikipedia.org/wiki/Remote_procedure_call" target="_blank">维基百科</a> a remote procedure call (RPC) is when a computer program causes a procedure (subroutine) to execute in a different address space (commonly on another computer on a shared network), which is coded as if it were a normal (local) procedure call, without the programmer explicitly coding the details for the remote interaction</p>
+<p>网上找到一个图，比较形象描述RPC调用过程</p>
+<p><img style="height: 455px;" src="./images/【ASP.NET Core学习】远程过程调用 - gRPC使用0.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+<p id="whenToNeed" class="ws-title">什么时候需要RPC</p>
+<div class="ws-content">
+<p>RPC是解决进程间通讯（可以是同一个服务器，也可以是不同服务器的进程间，但是通常是内网的不同服务器之间进程通讯）。&nbsp;</p>
+<p>解决进程间通信，Web Api也是可以解决，为什么还需要RPC？我认为可以从下面几点</p>
+<p>1. Web Api是基于HTTP，RPC可以是HTTP，也可以是TCP，甚至基于Socket，RPC框架通常都是隐藏通讯细节，让我们无感知使用</p>
+<p>2. Web Api 通常基于JSON格式，XML格式，这种格式易读性强，但是随之带来就是传输过程需要把数据的元数据也带进去传输</p>
+<p>3. Web Api更多应用场景是提供方定义好接口，由客户端按需调用，RPC通常需要调用方和提供方沟通一起定义接口</p>
+<p>所以PRC更多是使用以下场景</p>
+<ol>
+<li>对通讯性能要求较高</li>
+<li>微服务</li>
+<li>点到点通讯</li>
+</ol></div>
+<p id="howToUsed" class="ws-title">gRPC使用</p>
+<div class="ws-content">
+<p>&nbsp;gRPC是Google开源的高性能RPC框架，有以下几个特点</p>
+<ol>
+<li>现代高性能轻量级 RPC 框架。</li>
+<li>
+<p>协定优先 API 开发，默认使用protobuf，允许与语言无关的实现。（这里涉及两点，1.面向接口开发，依赖抽象而不是具体，2. 可以不同语言实现协作）</p>
+</li>
+<li>
+<p>使用 Protobuf 二进制序列化减少对网络的使用。（减少网络传输）</p>
+</li>
+<li>
+<p>可用于多种语言的工具，以生成强类型服务器和客户端。</p>
+</li>
+<li>
+<p>支持客户端、服务器和双向流式处理调用。</p>
+</li>
+</ol>
+<p>下面开始介绍如何在Net Core上使用gRPC</p>
+<p>&nbsp;</p>
+<p><strong>一、安装dotnet-gRPC工具（用于引用protobuf文件，生成客户端/服务端代码）</strong></p>
+<div class="cnblogs_code">
+<pre><code>dotnet tool install dotnet-grpc <strong>-g</strong></pre>
+</div>
+<p><strong>二、新建一个protobuf文件</strong></p>
+<div class="cnblogs_code">
+<pre><code>syntax = <span style="color: #800000;">"</span><span style="color: #800000;">proto3</span><span style="color: #800000;">"</span><span style="color: #000000;">;
+
+option csharp_namespace </span>= <span style="color: #800000;">"</span><span style="color: #800000;">gRPC.Services</span><span style="color: #800000;">"</span><span style="color: #000000;">;
+
+package sms;
+
+</span><span style="color: #008000;">//</span><span style="color: #008000;"> The greeting service definition.</span>
+<span style="color: #000000;">service SmsSender {
+  </span><span style="color: #008000;">//</span><span style="color: #008000;"> Sends a greeting</span>
+<span style="color: #000000;">  rpc SendSms (SmsRequest) returns (SmsResponse);
+}
+
+</span><span style="color: #008000;">//</span><span style="color: #008000;"> The request message containing the user's name.</span>
+<span style="color: #000000;">message SmsRequest {
+  </span><span style="color: #0000ff;">string</span> tel = <span style="color: #800080;">1</span><span style="color: #000000;">;
+  </span><span style="color: #0000ff;">string</span> content = <span style="color: #800080;">2</span><span style="color: #000000;">;
+}
+
+</span><span style="color: #008000;">//</span><span style="color: #008000;"> The response message containing the greetings.</span>
+<span style="color: #000000;">message SmsResponse {
+  int32 code </span>= <span style="color: #800080;">1</span><span style="color: #000000;">;
+  </span><span style="color: #0000ff;">string</span> message = <span style="color: #800080;">2</span><span style="color: #000000;">;
+}</span></pre>
+</div>
+<p><strong>三、新建一个服务端</strong></p>
+<p>1. 新建一个gRPC工程</p>
+<div class="cnblogs_code">
+<pre><code>dotnet <span style="color: #0000ff;">new</span> grpc -n gRPC.Services</pre>
+</div>
+<p>2. 引入步骤二生成的protobuf文件（可以使用通配符引入多个protobuf文件）</p>
+<div class="cnblogs_code">
+<pre><code>dotnet-grpc add-file ..\gRPC.Protos\*.proto -s Serve</pre>
+</div>
+<p>3. 新建服务类</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> SmsService : SmsSender.SmsSenderBase
+{
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">readonly</span> ILogger&lt;SmsService&gt;<span style="color: #000000;"> _logger;
+    </span><span style="color: #0000ff;">public</span> SmsService(ILogger&lt;SmsService&gt;<span style="color: #000000;"> logger)
+    {
+        _logger </span>=<span style="color: #000000;"> logger;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span> Task&lt;SmsResponse&gt;<span style="color: #000000;"> SendSms(SmsRequest request, ServerCallContext context)
+    {
+        </span><span style="color: #0000ff;">return</span> Task.FromResult(<span style="color: #0000ff;">new</span><span style="color: #000000;"> SmsResponse
+        {
+            Code </span>= <span style="color: #800080;">1</span><span style="color: #000000;">,
+            Message </span>= <span style="color: #800000;">"</span><span style="color: #800000;">发送成功</span><span style="color: #800000;">"</span><span style="color: #000000;">
+        });
+    }
+}</span></pre>
+</div>
+<div>SmsSender 是生成工具生成的服务端代码</div>
+<p>4. 配置grpc服务类终结点</p>
+<div class="cnblogs_code">
+<pre><code>app.UseEndpoints(endpoints =&gt;<span style="color: #000000;">
+{
+    endpoints.MapGrpcService</span>&lt;SmsService&gt;<span style="color: #000000;">();
+});</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>四、新建客户端</strong></p>
+<p>&nbsp;1. 新建控制台程序</p>
+<div class="cnblogs_code">
+<pre><code>dotnet <span style="color: #0000ff;">new</span> console -n gRPC.Client</pre>
+</div>
+<p>2. 添加包（Google.Protobuf）</p>
+<div class="cnblogs_code">
+<pre><code>dotnet add package Google.Protobuf</pre>
+</div>
+<p>3.&nbsp;引入步骤二生成的protobuf文件（可以使用通配符引入多个protobuf文件）,注意：这里需要生成是客户端代码，当然也可以用Both参数生成</p>
+<div class="cnblogs_code">
+<pre><code>dotnet-grpc add-file ..\gRPC.Protos\*.proto -s Client</pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>五、运行</strong></p>
+<p>1. 运行服务端</p>
+<p>2. 启动客户端</p>
+<p>客户端输出下面信息</p>
+<p>{"Code":1,"Message":"\u53D1\u9001\u6210\u529F"}</p>
+<p>&nbsp;</p>
+<p><strong>六、小结</strong></p>
+<p>gRPC的生命周期</p>
+<p>Client（发送请求） -&gt; Client stub(压缩/解压) -&gt; Client RPC Transfer(发送/接收） -&gt; Server RPC Transfer(接收/发送) -&gt; Server stub(解压/压缩) -&gt; Server （处理响应）</p>
+<p>gPRC帮我们隐藏中间的环节，只剩下两头的代码（俗称业务逻辑代码）</p>
+<p>protobuf它是一种可序列化的数据结构，但它更重要是定义接口，让服务端和客户端能分离出来</p>
+</div>
+<div class="ws-copyright">
+<p>转发请标明出处：https://www.cnblogs.com/WilsonPan/p/12000796.html</p>
+<p>示例代码：https://github.com/WilsonPan/AspNetCoreExamples/tree/master/gRPC</p>
+</div>
+<p></p>
+<p><audio controls="controls" style="display: none;"></audio></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

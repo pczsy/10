@@ -1,0 +1,55 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修记一次paramiko远程连接遇到的坑' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>记一次paramiko远程连接遇到的坑</center></div><div class='banquan'>原文出处:本文由博客园博主steven__xu提供。<br/>
+原文连接:https://www.cnblogs.com/stevenxu123/p/11307666.html</div><br>
+    <p><strong>背景</strong>：工作中遇到了一个问题，需要用到windows向windows连接（文件传发）以及，linux向windows连接（文件传发）的需求。</p>
+<p>自然而然会考虑到用paramiko，然而paramiko我用的比较多的还是连接linux的操作，至于连接windows的操作没用过。在网上搜索一段时间后，发现网上的教程基本上没有。折腾一段时间后发现了winrm，winrm在命令发送比较简单，但是文件上传、下载，还是没有合适的路子（或者说适合自己的方法）。一番折腾后还是想自己研究一把paramiko。</p>
+<p><br /><strong>问题1</strong>：在网上搜索方法的时候，发现别人可以直接用paramiko连接windows，并用psutil 获取cpu、内存等数据，代码和我们连接linux基本一样的，那么我也来试一下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> paramiko
+client</span>=<span style="color: #000000;">paramiko.SSHClient()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+client.connect(hostname</span>=<span style="color: #800000;">'</span><span style="color: #800000;">***</span><span style="color: #800000;">'</span>,port=22,username=<span style="color: #800000;">'</span><span style="color: #800000;">Administrator</span><span style="color: #800000;">'</span>,password=<span style="color: #800000;">'</span><span style="color: #800000;">***</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+client.close()</span></pre>
+</div>
+<p><img src="./images/记一次paramiko远程连接遇到的坑0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><strong>思考1</strong>：也可能是因为windows不支持ssh连接，那么我就试一下transaport：</p>
+<div class="cnblogs_code">
+<pre><code>scp=paramiko.Transport((IP,22<span style="color: #000000;">))
+scp.connect(username</span>=username,password=<span style="color: #000000;">password)
+sftp</span>=<span style="color: #000000;">paramiko.SFTPClient.from_transport(scp)
+scp.close()</span></pre>
+</div>
+<p>依然遇到了同样的问题</p>
+<p><strong>思考2</strong>：既然别人可以，代码应该就没有问题，那么会是什么问题。网上搜索一番，发现可能和openssh有关系，接着下载openssh</p>
+<p><strong>问题2</strong>：按照下面的教程在目标window10 的机器上面安装了openssh之后，再次尝试了一把，但是还是遇到了&ldquo;[WinError 10061] 由于目标计算机积极拒绝，无法连接。&rdquo;<br /><a href="https://www.jianshu.com/p/6e5bc39d386e" target="_blank">https://www.jianshu.com/p/6e5bc39d386e</a></p>
+<p><strong>思考3</strong>：会不会因为是22 端口没有开启导致的，于是乎查看端口情况发现端口是开的</p>
+<p><strong>思考4</strong>：会不会是因为防火墙的原因，关闭防火墙之后发现还是同样的问题，此时的心态已经接近崩溃</p>
+<p><strong>问题3</strong>：即使我们目标端的windows的机器安装了openssh但是我们还是不能连接上去：</p>
+<p><img src="./images/记一次paramiko远程连接遇到的坑1.png" alt="" /></p>
+<p><strong>思考5</strong>：继续尝试后发现我的目标windows的机器可以通过ssh连接到其他的机器上面，但是我却不能ssh到目标机器上面，这时候似乎明白了什么。查看服务发现ssh启动的只有sshd服务，此时我们把ssh的服务端和客户端都打开应该问题就解决了</p>
+<p>ps：其实正在发现问题所在是我在用exe版安装openssh的时候发现了下面的选项，exe版安装是默认按照客户端和服务器端的，而我们源码安装应该只有客户端。</p>
+<p><img src="./images/记一次paramiko远程连接遇到的坑2.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

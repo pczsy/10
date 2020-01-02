@@ -1,0 +1,148 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python 之  并发编程（守护线程与守护进程的区别、线程互斥锁、死锁现象与递归锁、信号量、GIL全局解释器锁）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python 之  并发编程（守护线程与守护进程的区别、线程互斥锁、死锁现象与递归锁、信号量、GIL全局解释器锁）</center></div><div class='banquan'>原文出处:本文由博客园博主small_white-提供。<br/>
+原文连接:https://www.cnblogs.com/mylu/p/11240939.html</div><br>
+    <h4 class="md-end-block md-heading"><span class="md-plain">9.94 守护线程与守护进程的区别</span></h4>
+<pre><code><span><span class="cm-number">1.<span class="cm-variable">对主进程来说，运行完毕指的是主进程代码运行完毕<br /><span><span class="cm-number">2.<span class="cm-variable">对主线程来说，运行完毕指的是主线程所在的进程内所有非守护线程统统运行完毕，主线程才算运行完毕<br /><span><span>​<br /><span><span class="cm-variable">详细解释：<br /><span><span class="cm-comment">1.主进程在其代码结束后就已经算运行完毕了（守护进程在此时就被回收）,然后主进程会一直等非守护的子进程都运行完毕后回收子进程的资源(否则会产生僵尸进程)，才会结束，<br /><span><span class="cm-comment">2.主线程在其他非守护线程运行完毕后才算运行完毕（守护线程在此时就被回收）。因为主线程的结束意味着进程的结束，进程整体的资源都将被回收，而进程必须保证非守护线程都运行完毕后才能结束。</span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre>
+<h4 class="md-end-block md-heading"><span class="md-plain">9.95 线程互斥锁</span></h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Thread,Lock
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+mutex</span>=<span style="color: #000000;">Lock()
+x</span>=100
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> task():
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> x
+    mutex.acquire()
+    temp</span>=<span style="color: #000000;">x
+    time.sleep(</span>0.1<span style="color: #000000;">)
+    x</span>=temp-1<span style="color: #000000;">
+    mutex.release()
+​
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    start</span>=<span style="color: #000000;">time.time()
+    t_l</span>=<span style="color: #000000;">[]
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(100<span style="color: #000000;">):
+        t</span>=Thread(target=<span style="color: #000000;">task)
+        t_l.append(t)
+        t.start()
+    </span><span style="color: #0000ff;">for</span> t <span style="color: #0000ff;">in</span><span style="color: #000000;"> t_l:
+        t.join()
+​
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">主</span><span style="color: #800000;">'</span>,x)            <span style="color: #008000;">#</span><span style="color: #008000;">主 0</span>
+    <span style="color: #0000ff;">print</span>(time.time()-start)  <span style="color: #008000;">#</span><span style="color: #008000;">10.1311</span></pre>
+</div>
+<h4 class="md-end-block md-heading"><span class="md-plain">9.96 死锁现象与递归锁</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">mutexA=mutexB=RLock() 一个线程拿到锁，counter加1,该线程内又碰到加锁的情况，则counter继续加1，这期间所有其他线程都只能等待，等待该线程释放所有锁，即counter递减到0为止</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Thread,Lock,RLock
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> mutexA=Lock()</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> mutexB=Lock()         #产生死锁</span>
+mutexA=mutexB=RLock()    <span style="color: #008000;">#</span><span style="color: #008000;">递归锁</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> MyThread(Thread):
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        self.f1()
+        self.f2()
+​
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> f1(self):
+        mutexA.acquire()
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">%s 拿到了A锁</span><span style="color: #800000;">'</span> %<span style="color: #000000;">self.name)
+        mutexB.acquire()
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">%s 拿到了B锁</span><span style="color: #800000;">'</span> %<span style="color: #000000;">self.name)
+        mutexB.release()
+        mutexA.release()
+​
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> f2(self):
+        mutexB.acquire()
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">%s 拿到了B锁</span><span style="color: #800000;">'</span> %<span style="color: #000000;">self.name)
+        time.sleep(</span>0.1<span style="color: #000000;">)
+        mutexA.acquire()
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">%s 拿到了A锁</span><span style="color: #800000;">'</span> %<span style="color: #000000;">self.name)
+        mutexA.release()
+        mutexB.release()
+​
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(10<span style="color: #000000;">):
+        t</span>=<span style="color: #000000;">MyThread()
+        t.start()
+​
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">主</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<h4 class="md-end-block md-heading"><span class="md-plain">9.97 信号量</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">同进程的一样,Semaphore管理一个内置的计数器，每当调用acquire( )时内置计数器-1；调用release() 时内置计数器+1；<span class="md-softbreak"> <span class="md-plain">计数器不能小于0；当计数器为0时，acquire()将阻塞线程直到其他线程调用release()</span></span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> from multiprocessing import Semaphore</span>
+<span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Thread,Semaphore,current_thread
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time,random
+​
+sm</span>=Semaphore(5<span style="color: #000000;">)
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> go_wc():
+    sm.acquire()
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">%s 上厕所ing</span><span style="color: #800000;">'</span> %<span style="color: #000000;">current_thread().getName())
+    time.sleep(random.randint(</span>1,3<span style="color: #000000;">))
+    sm.release()
+​
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(23<span style="color: #000000;">):
+        t</span>=Thread(target=<span style="color: #000000;">go_wc)
+        t.start()</span></pre>
+</div>
+<p class="md-end-block md-p md-focus"><span class="md-plain">与进程池是完全不同的概念，进程池Pool(4)，最大只能产生4个进程，而且从头到尾都只是这四个进程，不会产生新的，而信号量是产生一堆线程/进程</span></p>
+<h3 class="md-end-block md-heading"><span class="md-plain md-expand">9.10 GIL解释器锁</span></h3>
+<p class="md-end-block md-p"><span><strong>GIL:全局解释器锁</strong><span class="md-softbreak"> <span class="md-plain"> GIL本质就是一把互斥锁，是夹在解释器身上的，每一个python进程内都有这么一把锁，同一个进程内的所有线程都需要先抢到GIL锁，才能执行解释器代码</span></span></span></p>
+<p class="md-end-block md-p"><span><strong>GIL会对单进程下的多个线程造成什么样的影响：</strong><span class="md-softbreak"> <span class="md-tab"> <span class="md-plain">多线程要想执行，首先需要争抢GIL，对所有待执行的线程来说，GIL就相当于执行权限，同一时刻只有一个线程争抢成功，即单进程下的多个线程同一时刻只有一个在运行，意味着单进程下的多线程没有并行的效果，但是有并发的效果</span></span></span></span></p>
+<p class="md-end-block md-p"><span><strong>ps:</strong><span class="md-plain">分散于不同进程内的线程不会去争抢同一把GIL，只有同一个进程的多个线程才争抢同一把GIL</span></span></p>
+<p class="md-end-block md-p"><span><strong>为什么要有GIL：</strong><span class="md-softbreak"> <span class="md-tab"> <span class="md-plain">Cpython解释器的内存管理机制不是线程安全的</span></span></span></span></p>
+<p class="md-end-block md-p"><span><strong>GIL的优缺点：</strong><span class="md-softbreak"> <span class="md-plain"> 优点：<span class="md-softbreak"> <span class="md-plain"> 保证Cpython解释器内存管理的线程安全</span></span></span></span></span></p>
+<p class="md-end-block md-p"><span class="md-tab"> <span class="md-plain">缺点：<span class="md-softbreak"> <span class="md-plain">​ <span class="md-tab"> <span class="md-plain">同一进程内所有的线程同一时刻只能有一个执行，也就说Cpython解释器的多线程无法实现并行</span></span></span></span></span></span></p>
+<p class="md-end-block md-p"><span><strong>GIL与自定义互斥锁的异同</strong><span class="md-plain">，多个线程争抢GIL与自定义互斥锁的过程分析：<span class="md-softbreak"> <span class="md-tab"> <span class="md-plain">相同：都是互斥锁<span class="md-softbreak"> <span class="md-tab"> <span class="md-plain">不同点：GIL是加到解释器上的，作用于全局，自定义互斥锁作用于局部；单进程内的所有线程都会去抢GIL，单进程内的只有一部分线程会去抢自定义的互斥锁</span></span></span></span></span></span></span></span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">9.101 Cpython解释器并发效率验证</span></h4>
+<p class="md-end-block md-p"><span class="md-plain"> 单进程下的多个线程是无法并行，无法并行意味着不能利用多核优势</span></p>
+<p class="md-end-block md-p"><span class="md-plain">计算密集型应该使用多进程，如金融分析；IO密集型应该使用多线程，多核对性能的提升微不足道，如socket，爬虫，web</span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">9.102 线程互斥锁与GIL对比</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">GIL保护的是解释器级的数据，保护用户自己的数据则需要自己加锁处理</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Thread,Lock
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+mutex</span>=<span style="color: #000000;">Lock()
+count</span>=<span style="color: #000000;">0
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> task():
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> count
+    mutex.acquire() </span><span style="color: #008000;">#</span><span style="color: #008000;">GIL只能让线程先访问到解释器的代码，即拿到执行权限，然后将target的代码交给解释器的代</span>
+    temp=count      <span style="color: #008000;">#</span><span style="color: #008000;">码去执行，但线程拿不到mutex,同样要等待</span>
+    time.sleep(0.1<span style="color: #000000;">)
+    count</span>=temp+1<span style="color: #000000;">
+    mutex.release()
+​
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    t_l</span>=<span style="color: #000000;">[]
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(2<span style="color: #000000;">):
+        t</span>=Thread(target=<span style="color: #000000;">task)
+        t_l.append(t)
+        t.start()
+    </span><span style="color: #0000ff;">for</span> t <span style="color: #0000ff;">in</span><span style="color: #000000;"> t_l:
+        t.join()
+​
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">主</span><span style="color: #800000;">'</span>,count)    <span style="color: #008000;">#</span><span style="color: #008000;">主   2</span></pre>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,50 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Mock接口数据 = mock服务 + iptable配置' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Mock接口数据 = mock服务 + iptable配置</center></div><div class='banquan'>原文出处:本文由博客园博主大吉莉提供。<br/>
+原文连接:https://www.cnblogs.com/wl-0929/p/mockInterface_wl.html</div><br>
+    <p>一、mock接口数据应用场景：</p>
+<p>　　1、测试接口A，A接口代码中调用其他服务的B接口，由于开发排期、测试环境不通等原因，依赖接口不可用</p>
+<p>　　2、测试异常情况，依赖接口B返回的数据格式不对、返回None、超时等，A接口的错误处理是否合理</p>
+<p>二、 搭建mock服务 (python3.6 搭建，index.py)，详细的flask使用，请另行百度。</p>
+<p>　　1、代码示例</p>
+<pre><code># -*- coding: utf-8 -*-<br />from flask import Flask,render_template,request<br />import json,sys,flask<br />sys.path.append("..")<br /><br /></pre>
+<pre><code>app = Flask(__name__)</pre>
+<pre><code># get方法 1<br />@app.route('/MockInterface/get_msg/&lt;para&gt;',methods=['GET'])<br />def get_mes(para):<br />    if para:<br />        return {"result":"succ"}<br />    else:<br />        return {"result":"fail"}<br /><br /># get方法 2<br />@app.route('/MockInterface/testget',methods=['GET'])<br />def testget():<br />    para1 = flask.request.args.get('para1')<br />    para2 = flask.request.args.get('para2')<br />    para3 = flask.request.args.get('para3')<br />    result = {<br />        "para1":para1,<br />        "para2":para2,<br />        "para3":para3<br />    }<br />    return result<br /><br /></pre>
+<pre><code># 设置用户的【用户等级】<br />@app.route('/MockInterface/set_userinfo_level',methods=['POST'])<br />def set_userinfo_level():<br /><em id="__mceDel"><em id="__mceDel"><em id="__mceDel">    try:<br /></em></em></em><em id="__mceDel"><em id="__mceDel"><em id="__mceDel">        uid = str(flask.request.values.get('uid'))</em></em></em></pre>
+<pre><code><em><em><em>        level = int(flask.request.values.get('level'))<br />    except Exception as e:<br />        datas = json.loads(flask.request.get_data())<br />        uid = str(datas['uid'])<br />        level = int(datas['level'])<br /><br />    result = preAdmin_op().set_yh_evel(uid,level)　　# 实际业务方法，可根据实际需求如何改<br />    return(str(result))<br /><br /></em></em></em></pre>
+<pre><code>if __name__ == '__main__':<br />    app.run(host='0.0.0.0',port=5000,debug=True)</pre>
+<pre><code><em id="__mceDel"><em id="__mceDel"><em id="__mceDel">&nbsp;</em></em></em></pre>
+<p>　　2、启动mock服务&nbsp;</p>
+<p>　　注：mock部署的服务器，须与开发代码所在的服务器 网络互通。mock部署的位置信息用于以下iptable配置。</p>
+<p>&nbsp;</p>
+<p>三、iptable配置 （在开发代码部署的机器上，root权限操作）</p>
+<div>　　1、查看iptables配置：iptables -t nat -L --line-number&nbsp;</div>
+<div>　　2、代码在A机器上，代码里需要访问192.169.4.17:80(依赖方)，测试时候依赖方的接口没有准备好，就可以mock这个接口，让代码请求依赖方时，转到自己mock的服务上(192.169.4.18:8099)，也方便构造各种场景</div>
+<div>　　iptables -t nat -A OUTPUT -d 192.169.4.17&nbsp;-p tcp --dport 80 -j DNAT --to&nbsp;192.169.4.18:8099</div>
+<div>　　3、参数含义：-t 表名 -A 增加规则名 -d 发往目的地ip -p 协议 -d端口号 -j 跳转目标 --to 目标ip：端口号</div>
+<div>　　4、测试完后，需要删除A机器上的这条转发规则。行号可根据第一步种查出</div>
+<div>　　iptables -t nat -D OUTPUT 行号</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

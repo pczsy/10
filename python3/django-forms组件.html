@@ -1,0 +1,241 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修django-forms组件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>django-forms组件</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11377441.html</div><br>
+    <h1 id="自我总结">08.19自我总结</h1>
+<h1 id="django-forms组件">django-forms组件</h1>
+<h2 id="一.forms的作用">一.forms的作用</h2>
+<ul>
+<li>前端和后端都要校验</li>
+<li>前端校验的目的：减少后台代码连接数据库的压力</li>
+</ul>
+<p>用forms可以同时完成前端和后端同时校验且减少代码量</p>
+<h2 id="二.forms的基本使用">二.forms的基本使用：</h2>
+<h3 id="定义数据的时候导入from类">1.定义数据的时候导入from类</h3>
+<h3 id="字段通过fields进行导入">2.字段通过fields进行导入</h3>
+<h3 id="演示">3.演示</h3>
+<p>views.py</p>
+<pre><code><code>
+from django.forms import Form
+from django.forms import fields
+class LoginForm(Form):
+    ### 全部都是验证的规则
+    username = fields.CharField(
+        required=True,  ### 不能为空
+        max_length=18,  ### 最大的长度是18
+        min_length=6,   ### 最小的长度是6
+        error_messages = {  ### 对英文进行重写
+            &quot;required&quot; : &quot;不能为空&quot;,
+            &quot;max_length&quot;:&quot;太长了&quot;,
+            &quot;min_length&quot;:&quot;太短了&quot;,
+        }
+    )
+
+    pwd = fields.CharField()</code></pre>
+<h3 id="方法中对于传参进行定义">4.方法中对于传参进行定义</h3>
+<p>views.py</p>
+<pre><code><code>def login(request):
+    if request.method == &#39;GET&#39;:
+        return render(request, &quot;login.html&quot;)
+    else:
+        # username = request.POST.get(&#39;username&#39;)
+        # pwd = request.POST.get(&#39;pwd&#39;)
+        obj = LoginForm(request.POST) ## {&quot;username&quot;:&#39;xx&#39;, &#39;pwd&#39;:&#39;xx&#39;}
+        if obj.is_valid():
+            print(obj.cleaned_data) ## 对象
+            else:
+                print(obj.errors) ### 对象 __str__
+
+                return render(request, &quot;login.html&quot;, {&#39;obj&#39;:obj})</code></pre>
+<h3 id="html中对于返回值进行渲染">5.html中对于返回值进行渲染</h3>
+<p>login.html</p>
+<p>渲染方式一:</p>
+<pre><code><code>&lt;form action=&quot;/login/&quot; method=&quot;post&quot;&gt;
+    username: &lt;input type=&quot;text&quot; name=&quot;username&quot;&gt;{{ obj.errors.username.0 }}&lt;br&gt;
+    password: &lt;input type=&quot;password&quot; name=&quot;pwd&quot;&gt;{{ obj.errors.pwd.0 }}&lt;br&gt;
+    &lt;input type=&quot;submit&quot; value=&quot;提交&quot;&gt;&lt;br&gt;
+&lt;/form&gt;         </code></pre>
+<p>渲染方式二:</p>
+<pre><code><code>#前提标题由forms组件进行
+{{obj.username}} #对于字段的input框
+{{obj.as_p }}#对象的所有字段
+{{obj.errors.username }}#对象的错误信息</code></pre>
+<h2 id="三.forms组件所有参数">三.forms组件所有参数</h2>
+<h3 id="field">1.Field</h3>
+<pre><code><code>required=True,               是否允许为空
+widget=None,                 HTML插件
+label=None,                  用于生成Label标签或显示内容
+initial=None,                初始值
+help_text=&#39;&#39;,                帮助信息(在标签旁边显示)
+error_messages=None,         错误信息 {&#39;required&#39;: &#39;不能为空&#39;, &#39;invalid&#39;: &#39;格式错误&#39;}
+validators=[],               自定义验证规则
+localize=False,              是否支持本地化
+disabled=False,              是否可以编辑
+label_suffix=None            Label内容后缀</code></pre>
+<h3 id="charfieldfield">2.CharField(Field)</h3>
+<pre><code><code>max_length=None,             最大长度
+min_length=None,             最小长度
+strip=True                   是否移除用户输入空白</code></pre>
+<h3 id="integerfieldfield">3.IntegerField(Field)</h3>
+<pre><code><code>max_value=None,              最大值
+min_value=None,              最小值</code></pre>
+<h3 id="floatfieldintegerfield">4.FloatField(IntegerField)</h3>
+<pre><code><code>max_value=None,              最大值
+min_value=None,              最小值</code></pre>
+<h3 id="decimalfieldintegerfield">5.DecimalField(IntegerField)</h3>
+<pre><code><code>max_value=None,              最大值
+min_value=None,              最小值
+max_digits=None,             总长度
+decimal_places=None,         小数位长度</code></pre>
+<h3 id="basetemporalfieldfield">6.BaseTemporalField(Field)</h3>
+<pre><code><code>input_formats=None          时间格式化   </code></pre>
+<h3 id="datefieldbasetemporalfield">7.DateField(BaseTemporalField)</h3>
+<pre><code><code> 格式：2015-09-01</code></pre>
+<h3 id="timefieldbasetemporalfield">8.TimeField(BaseTemporalField)</h3>
+<pre><code><code> 格式：11:12</code></pre>
+<h3 id="datetimefieldbasetemporalfield">9.DateTimeField(BaseTemporalField)</h3>
+<pre><code><code>格式：2015-09-01 11:12</code></pre>
+<h3 id="durationfieldfield">10.DurationField(Field)</h3>
+<pre><code><code> 时间间隔：%d %H:%M:%S.%f</code></pre>
+<h3 id="regexfieldcharfield">11.RegexField(CharField)</h3>
+<pre><code><code>regex,                      自定制正则表达式
+max_length=None,            最大长度
+min_length=None,            最小长度
+error_message=None,         忽略，错误信息使用 error_messages={&#39;invalid&#39;: &#39;...&#39;}</code></pre>
+<h3 id="emailfieldcharfield">12.EmailField(CharField)</h3>
+<h3 id="filefieldfield">13.FileField(Field)</h3>
+<pre><code><code>allow_empty_file=False     是否允许空文件</code></pre>
+<h3 id="imagefieldfilefield">14.ImageField(FileField)</h3>
+<pre><code><code>  注：需要PIL模块，pip3 install Pillow
+    以上两个字典使用时，需要注意两点：
+        - form表单中 enctype=&quot;multipart/form-data&quot;
+        - view函数中 obj = MyForm(request.POST, request.FILES)</code></pre>
+<h3 id="urlfieldfield">15.URLField(Field)</h3>
+<h3 id="booleanfieldfield">16.BooleanField(Field)</h3>
+<h3 id="nullbooleanfieldbooleanfield">17.NullBooleanField(BooleanField)</h3>
+<h3 id="choicefieldfield">18.ChoiceField(Field)</h3>
+<pre><code><code>choices=(),                选项，如：choices = ((0,&#39;上海&#39;),(1,&#39;北京&#39;),)
+required=True,             是否必填
+widget=None,               插件，默认select插件
+label=None,                Label内容
+initial=None,              初始值
+help_text=&#39;&#39;,              帮助提示</code></pre>
+<h3 id="modelchoicefieldchoicefield">19.ModelChoiceField(ChoiceField)</h3>
+<pre><code><code>   ...                        django.forms.models.ModelChoiceField
+    queryset,                  # 查询数据库中的数据
+    empty_label=&quot;---------&quot;,   # 默认空显示内容
+    to_field_name=None,        # HTML中value的值对应的字段
+    limit_choices_to=None      # ModelForm中对queryset二次筛选</code></pre>
+<h3 id="modelmultiplechoicefieldmodelchoicefield">20.ModelMultipleChoiceField(ModelChoiceField)</h3>
+<pre><code><code> ...                        django.forms.models.ModelMultipleChoiceField</code></pre>
+<h3 id="typedchoicefieldchoicefield">21.TypedChoiceField(ChoiceField)</h3>
+<pre><code><code>coerce = lambda val: val   对选中的值进行一次转换
+empty_value= &#39;&#39;            空值的默认值</code></pre>
+<h3 id="multiplechoicefieldchoicefield">22.MultipleChoiceField(ChoiceField)</h3>
+<h3 id="typedmultiplechoicefieldmultiplechoicefield">23.TypedMultipleChoiceField(MultipleChoiceField)</h3>
+<pre><code><code>coerce = lambda val: val   对选中的每一个值进行一次转换
+empty_value= &#39;&#39;            空值的默认值</code></pre>
+<h3 id="combofieldfield">24.ComboField(Field)</h3>
+<pre><code><code>   fields=()                  使用多个验证，如下：即验证最大长度20，又验证邮箱格式
+                               fields.ComboField(fields=[fields.CharField(max_length=20), fields.EmailField(),])</code></pre>
+<h3 id="multivaluefieldfield">25.MultiValueField(Field)</h3>
+<pre><code><code>PS: 抽象类，子类中可以实现聚合多个字典去匹配一个值，要配合MultiWidget使用</code></pre>
+<h3 id="splitdatetimefieldmultivaluefield">26.SplitDateTimeField(MultiValueField)</h3>
+<pre><code><code>input_date_formats=None,   格式列表：[&#39;%Y--%m--%d&#39;, &#39;%m%d/%Y&#39;, &#39;%m/%d/%y&#39;]    input_time_formats=None    格式列表：[&#39;%H:%M:%S&#39;, &#39;%H:%M:%S.%f&#39;, &#39;%H:%M&#39;]</code></pre>
+<h3 id="filepathfieldchoicefield-文件选项目录下文件显示在页面中">27.FilePathField(ChoiceField) 文件选项，目录下文件显示在页面中</h3>
+<pre><code><code>path,                      文件夹路径
+match=None,                正则匹配
+recursive=False,           递归下面的文件夹
+allow_files=True,          允许文件
+allow_folders=False,       允许文件夹
+required=True,
+widget=None,
+label=None,
+initial=None,
+help_text=&#39;&#39;</code></pre>
+<h3 id="genericipaddressfield">28.GenericIPAddressField</h3>
+<pre><code><code>protocol=&#39;both&#39;,           both,ipv4,ipv6支持的IP格式
+unpack_ipv4=False          解析ipv4地址，如果是::ffff:192.0.2.1时候，可解析为192.0.2.1， PS：protocol必须为both才能启用</code></pre>
+<h3 id="slugfieldcharfield">29.SlugField(CharField)</h3>
+<p>数字，字母，下划线，减号（连字符）</p>
+<h3 id="uuidfieldcharfield">30.UUIDField(CharField)</h3>
+<p>uuid类型</p>
+<h2 id="四.相关参数使用演示">四.相关参数使用演示</h2>
+<pre><code><code>from django.forms import Form
+from django.forms import fields
+from django.forms import Widget,PasswordInput
+class LoginForm(Form):
+    username = fields.CharField(
+        required=True,
+        # label=&#39;用户名&#39;,
+        # initial=666,
+        # help_text=&#39;帮助信息&#39;,
+        # # disabled=True,
+        # label_suffix=&#39;---&gt;&#39;,
+        max_length=18,
+        min_length=6,
+        error_messages={
+            &#39;required&#39; : &#39;用户名不能为空&#39;,
+            &#39;max_length&#39;: &#39;用户名不能超过18&#39;,
+            &#39;min_length&#39;: &#39;用户名最小为6&#39;,
+        }
+    )
+    # password = fields.IntegerField(
+    #     required=True,
+    #     max_value=99999999,
+    #     min_value=100000,
+    #     error_messages={
+    #         &#39;required&#39; : &#39;密码不能为空&#39;,
+    #         &#39;invalid&#39;  :  &#39;格式不正确&#39;,
+    #         &#39;min_value&#39;: &#39;密码最少六位&#39;,
+    #         &#39;max_value&#39;: &#39;密码最多12位&#39;,
+    #     },
+    #     # widget=PasswordInput
+    # )
+    email = fields.EmailField()
+def login(request):
+    if request.method == &#39;GET&#39;:
+        obj = LoginForm()
+        print(obj)
+        return render(request, &#39;login.html&#39;, {&#39;obj&#39;:obj})
+    else:
+        # username = request.POST.get(&#39;username&#39;)
+        # print(username)
+        obj = LoginForm(request.POST)
+        if obj.is_valid():
+            print(obj.cleaned_data)
+        else:
+            errors = obj.errors
+            # &lt;ul class=&quot;errorlist&quot;&gt;
+            #   &lt;li&gt;username
+            #       &lt;ul class=&quot;errorlist&quot;&gt;
+            #           &lt;li&gt;This field is required.&lt;/li&gt;
+            #       &lt;/ul&gt;
+            #   &lt;/li&gt;
+            # &lt;/ul&gt;
+            # print(type(errors))
+            # print(errors)
+        return render(request, &#39;login.html&#39;, {&#39;obj&#39; : obj})</code></pre>
+<h2 id="section"></h2>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

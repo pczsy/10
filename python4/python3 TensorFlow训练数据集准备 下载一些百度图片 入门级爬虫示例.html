@@ -1,0 +1,127 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python3 TensorFlow训练数据集准备 下载一些百度图片 入门级爬虫示例' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python3 TensorFlow训练数据集准备 下载一些百度图片 入门级爬虫示例</center></div><div class='banquan'>原文出处:本文由博客园博主正态分个布提供。<br/>
+原文连接:https://www.cnblogs.com/zrmw/p/11771710.html</div><br>
+    <p>从百度图片下载一些图片当做训练集，好久没写爬虫，生疏了。没有任何反爬，随便抓。</p>
+<p>网页：</p>
+<p><img src="./images/python3 TensorFlow训练数据集准备 下载一些百度图片 入门级爬虫示例0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;动态加载，往下划会出现更多的图片，一次大概30个。先找到保存每一张图片的json，其对应的url：</p>
+<p><img src="./images/python3 TensorFlow训练数据集准备 下载一些百度图片 入门级爬虫示例1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;打开调试，清空，然后往下划。然后出现：</p>
+<p><img src="./images/python3 TensorFlow训练数据集准备 下载一些百度图片 入门级爬虫示例2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;点击左侧的链接，出现右边的详细信息，对应的就是URL。对这个url做请求即可。以下是代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding: utf-8 -*-</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> import tensorflow as tf</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> import os</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> import numpy as np</span>
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> my_fake_useragent as ua
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> re
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> random
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 蓝色背景</span>
+<span style="color: #0000ff;">def</span> blue_print(*s, end=<span style="color: #800000;">'</span><span style="color: #800000;">\n</span><span style="color: #800000;">'</span><span style="color: #000000;">):
+    </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span><span style="color: #000000;"> s:
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[46m {} \033[0m</span><span style="color: #800000;">'</span>.format(item), end=<span style="color: #800000;">''</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(end=<span style="color: #000000;">end)
+
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 高亮，绿色字体，红色背景</span>
+<span style="color: #0000ff;">def</span> green_print(*s, end=<span style="color: #800000;">'</span><span style="color: #800000;">\n</span><span style="color: #800000;">'</span><span style="color: #000000;">):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> print('\033[1m {} \033[0m'.format(s), end=end)</span>
+    <span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span><span style="color: #000000;"> s:
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">\033[1;32;41m {} \033[0m</span><span style="color: #800000;">'</span>.format(item), end=<span style="color: #800000;">''</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(end=<span style="color: #000000;">end)
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> download_data():
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 初始化常用参数</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 请求头</span>
+        self.user_agent =<span style="color: #000000;"> ua.UserAgent()
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 正则用于匹配响应内容中的图片url</span>
+        self.pattern_url = r<span style="color: #800000;">'</span><span style="color: #800000;">"thumbURL":"(.*?)"</span><span style="color: #800000;">'</span>
+
+
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 爬虫：从网上下载数据集</span>
+    <span style="color: #0000ff;">def</span><span style="color: #000000;"> get_url_from_internet(self, url):
+        </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(5<span style="color: #000000;">):
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> print(self.user_agent.random())</span>
+                res = requests.get(url, headers={<span style="color: #800000;">'</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">'</span>: self.user_agent.random()}, timeout=5<span style="color: #000000;">)
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> print(res.text)</span>
+                url_list =<span style="color: #000000;"> re.findall(self.pattern_url, res.text)
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> print(url_list)</span>
+                <span style="color: #0000ff;">return</span><span style="color: #000000;"> url_list
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">pass</span>
+
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 这里可以将请求失败的url存入数据库，防止数据丢失</span>
+        <span style="color: #0000ff;">return</span><span style="color: #000000;"> None
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> write_img(self, url):
+        </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(3<span style="color: #000000;">):
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> 真正下载图片数据的，就这两行代码</span>
+                res = requests.get(url, headers={<span style="color: #800000;">'</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">'</span>: self.user_agent.random()}, timeout=5<span style="color: #000000;">)
+                img </span>=<span style="color: #000000;"> res.content
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> print(img)</span>
+
+                <span style="color: #008000;">#</span><span style="color: #008000;"> 将响应内容写入本地*.jpg文件中</span>
+                with open(<span style="color: #800000;">'</span><span style="color: #800000;">dataset/monkey{}.jpg</span><span style="color: #800000;">'</span>.format(random.randint(10 ** 8, 10 ** 9)), <span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+                    f.write(img)
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">monkey{} 下载完成</span><span style="color: #800000;">'</span>.format(random.randint(10 ** 8, 10 ** 9<span style="color: #000000;">)))
+                </span><span style="color: #0000ff;">return</span>
+            <span style="color: #0000ff;">except</span><span style="color: #000000;">:
+                </span><span style="color: #0000ff;">pass</span>
+
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 这里可以将请求失败的url存入数据库，防止数据丢失</span>
+        <span style="color: #0000ff;">return</span><span style="color: #000000;"> None
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    tt </span>=<span style="color: #000000;"> download_data()
+    </span><span style="color: #0000ff;">for</span> page <span style="color: #0000ff;">in</span> range(0, 1000, 30<span style="color: #000000;">):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 构造url，设置range的右边界越大，下载的图片就越多</span>
+        url = <span style="color: #800000;">'</span><span style="color: #800000;">https://image.baidu.com/search/acjson?tn=resultjson_com&amp;ipn=rj&amp;ct=201326592&amp;is=&amp;fp=result\
+            &amp;queryWord=%E7%8C%B4%E5%AD%90+%E5%9B%BE%E7%89%87&amp;cl=2&amp;lm=-1&amp;ie=utf-8&amp;oe=utf-8&amp;adpicid=&amp;st=&amp;z=&amp;ic=\
+            &amp;hd=&amp;latest=&amp;copyright=&amp;word=%E7%8C%B4%E5%AD%90+%E5%9B%BE%E7%89%87&amp;s=&amp;se=&amp;tab=&amp;width=&amp;height=&amp;face=\
+            &amp;istype=&amp;qc=&amp;nc=&amp;fr=&amp;expermode=&amp;force=&amp;pn={}&amp;rn=30&amp;gsm=&amp;1572502599384=</span><span style="color: #800000;">'</span><span style="color: #000000;">.format(page)
+        url_list </span>=<span style="color: #000000;"> tt.get_url_from_internet(url)
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> url_list:
+            </span><span style="color: #0000ff;">for</span> each_url <span style="color: #0000ff;">in</span><span style="color: #000000;"> url_list:
+                tt.write_img(each_url)</span></pre>
+</div>
+<p>什么都不打印看着不舒服，随便打印一些结果出来：</p>
+<p><img src="./images/python3 TensorFlow训练数据集准备 下载一些百度图片 入门级爬虫示例3.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;文件夹：</p>
+<p><img src="./images/python3 TensorFlow训练数据集准备 下载一些百度图片 入门级爬虫示例4.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>用网上的图片作训练集，而且还是自己抓的，效果估计不会太好。先用着看。自己手动将质量差的图片删一删。</p>
+<p>11-19</p>
+<p>有时候会遇到一点点反爬，响应码403，在headers中添加&nbsp;"referer": "https://image.baidu.com"即可</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

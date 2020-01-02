@@ -1,0 +1,125 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Google 开源的 Python 命令行库：初探 fire' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Google 开源的 Python 命令行库：初探 fire</center></div><div class='banquan'>原文出处:本文由博客园博主削微寒提供。<br/>
+原文连接:https://www.cnblogs.com/xueweihan/p/12084550.html</div><br>
+    <p><img src="./images/Google 开源的 Python 命令行库：初探 fire0.png" /><br />
+<p align="center"><br />
+作者：HelloGitHub-<strong>Prodesire</strong><br />
+</p></p>
+<blockquote>
+<p>HelloGitHub 的《讲解开源项目》系列，项目地址：<a href="https://github.com/HelloGitHub-Team/Article" class="uri">https://github.com/HelloGitHub-Team/Article</a></p>
+</blockquote>
+<h2 id="一前言">一、前言</h2>
+<p>在本系列前面所有文章中，我们分别介绍了 <code>argparse</code>、<code>docopt</code> 和 <code>click</code> 的主要功能和用法。它们各具特色，都能出色地完成命令行任务。<code>argparse</code> 是面向过程的，需要先设置解析器，再定义参数，再解析命令行，最后实现业务逻辑。<code>docopt</code> 先用声明式的语法定义出参数，再过程式地解析命令行和实现业务逻辑。<code>click</code> 则是用装饰器的方式进一步简化显式的命令调用逻辑，但仍然不够面向对象。</p>
+<p>而今天要介绍的 <a href="https://github.com/google/python-fire">fire</a> 则是用一种面向广义对象的方式来玩转命令行，这种对象可以是类、函数、字典、列表等，它更加灵活，也更加简单。</p>
+<pre><code><code>本系列文章默认使用 Python 3 作为解释器进行讲解。
+若你仍在使用 Python 2，请注意两者之间语法和库的使用差异哦~</code></pre>
+<h2 id="二介绍">二、介绍</h2>
+<p><a href="https://github.com/google/python-fire">fire</a> 可以根据任何 Python 对象自动生成命令行接口。它有如下特性：</p>
+<ul>
+<li>能以简单的方式生成 CLI</li>
+<li>是一个开发和调试 Python 代码的实用工具</li>
+<li>能将现存代码或别人的代码转换为 CLI</li>
+<li>使得在 Bash 和 Python 间的转换变得更容易</li>
+<li>通过预先为 REPL 设置所需的模块和变量，使得实用 REPL 更加容易</li>
+</ul>
+<p>通过如下命令可快速安装 <code>fire</code> 库：</p>
+<pre class="bash"><code>pip install fire</code></pre>
+<h2 id="三快速开始">三、快速开始</h2>
+<p>回忆下使用 <code>argparse</code>、<code>docopt</code> 和 <code>click</code> 实现命令行程序的步骤：</p>
+<ul>
+<li>对于 <code>argparse</code> 来说，要先设置解析器，再定义参数，再解析命令行，最后实现业务逻辑（四步）</li>
+<li>对于 <code>docopt</code> 来说，要先定义定义接口描述，再解析命令行，最后实现业务逻辑（三步）</li>
+<li>对于 <code>click</code> 来说，就是实现业务逻辑和通过装饰器的方式定义参数（两步）</li>
+</ul>
+<p>它们的实现步骤越来越简单，从四步简化到了两步。而今天的主角 <code>fire</code> <strong>只需一步，现业务逻辑就够了。</strong></p>
+<p>这简直简单的不可思议，为什么这样做就够了？我们不妨考虑下 Python 中的函数，函数是不是可以对应一个命令行程序，而函数的参数可以对应命令行程序的参数和选项呢？再看看 Python 中的类，一个类是不是可以对应一个命令行程序，而类中的每个实例方法就可以对应子命令，实例方法中的参数就是对应子命令的参数和选项。</p>
+<p>这么一想，理论上确实是可以实现的，我们不妨通过下面的示例来看看 <code>fire</code> 是如何让我们通过简单的方式实现命令行程序。</p>
+<h3 id="使用函数">3.1 使用函数</h3>
+<p>来看这么一个例子：</p>
+<pre class="python"><code>import fire
+
+def hello(name=&quot;World&quot;):
+  return &#39;Hello {name}!&#39;.format(name=name)
+
+if __name__ == &#39;__main__&#39;:
+  fire.Fire(hello)</code></pre>
+<p>在上述例子中定义一个 <code>hello</code> 函数，它接受 <code>name</code> 参数，并且有默认值 &quot;World&quot;。使用 <code>fire.Fire(hello)</code> 即可非常简单快速地实现命令功能，这个命令行就接受 <code>--name</code> 选项，不提供时使用默认值 &quot;World&quot;，提供时就按提供的值来。</p>
+<p>可在命令行中执行下列命令：</p>
+<pre class="bash"><code>$ python hello.py
+Hello World!
+$ python hello.py --name=Prodesire
+Hello Prodesire!
+$ python hello.py --help
+INFO: Showing help with the command &#39;hello.py -- --help&#39;.
+
+NAME
+    hello.py
+
+SYNOPSIS
+    hello.py &lt;flags&gt;
+
+FLAGS
+    --name=NAME</code></pre>
+<h3 id="使用类">3.2 使用类</h3>
+<p>使用函数是最简单的方式，如果我们想以更有组织的方式来实现，比如使用类，<code>fire</code> 也是支持的。</p>
+<pre class="python"><code>import fire
+
+class Calculator(object):
+  &quot;&quot;&quot;A simple calculator class.&quot;&quot;&quot;
+
+  def double(self, number):
+    return 2 * number
+
+  def triple(self, number):
+    return 3 * number
+
+if __name__ == &#39;__main__&#39;:
+  fire.Fire(Calculator)</code></pre>
+<p>在上述例子中定义一个 <code>Calculator</code> 类，它有两个实例方法 <code>double</code> 和 <code>triple</code>，并且都接受 <code>number</code> 参数，没有默认值。使用 <code>fire.Fire(Calculator)</code> 即可非常简单快速地实现命令功能，这个命令行支持两个子命令 <code>double</code> 和 <code>triple</code>，位置参数 <code>NUMBER</code> 或选项参数 <code>--number</code></p>
+<p>可在命令行中执行下列命令：</p>
+<pre class="bash"><code>$ python calculator.py double 10
+20
+$ python calculator.py triple --number=15
+45
+$ python calculator.py double --help
+INFO: Showing help with the command &#39;calculator.py double -- --help&#39;.
+
+NAME
+    calculator.py double
+
+SYNOPSIS
+    calculator.py double NUMBER
+
+POSITIONAL ARGUMENTS
+    NUMBER
+
+NOTES
+    You can also use flags syntax for POSITIONAL ARGUMENTS</code></pre>
+<h2 id="四小结">四、小结</h2>
+<p><code>fire</code> 的使用方式非常简单，定一个 Python 对象，剩下的就交给 <code>fire</code> 来处理，可谓是非常的 Pythonic，这也是它会如此受欢迎的原因。</p>
+<p>除了上面展示的内容，<code>fire</code> 还支持更多种类的 Python 对象，也拥有很多强大的功能，我们将在接下来几节中逐步走近它。</p>
+<hr />
+<p><strong>『讲解开源项目系列』</strong>——让对开源项目感兴趣的人不再畏惧、让开源项目的发起者不再孤单。跟着我们的文章，你会发现编程的乐趣、使用和发现参与开源项目如此简单。欢迎留言联系我们、加入我们，让更多人爱上开源、贡献开源～</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

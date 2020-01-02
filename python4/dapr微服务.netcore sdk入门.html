@@ -1,0 +1,446 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修dapr微服务.netcore sdk入门' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>dapr微服务.netcore sdk入门</center></div><div class='banquan'>原文出处:本文由博客园博主斗半米哥提供。<br/>
+原文连接:https://www.cnblogs.com/migomiddle/p/12055454.html</div><br>
+    <h1>Actors入门</h1>
+<h2>先决条件</h2>
+<ul>
+<li><a href="https://dotnet.microsoft.com/download" rel="nofollow">.Net Core SDK 3.0</a></li>
+<li><a href="https://github.com/dapr/cli">Dapr CLI</a></li>
+<li><a href="https://github.com/dapr/dotnet-sdk">Dapr DotNet SDK</a></li>
+</ul>
+<h2>概述</h2>
+<p>本文档描述如何在客户端应用程序上创建Actor（MyActor）并调用其方法.</p>
+<div class="cnblogs_code">
+<pre><code>MyActor ---<span style="color: #000000;"> MyActor.Interfaces
+         </span>|
+         +-<span style="color: #000000;"> MyActorService
+         </span>|
+         +- MyActorClient</pre>
+</div>
+<ul>
+<li>
+<p>接口项目（\MyActor\MyActor.Interfaces）。此项目包含参与者的接口定义。Actor接口可以在任何名称的项目中定义。接口定义了actor实现和调用actor的客户机共享的actor契约。因为客户机项目可能依赖于它，所以通常在与actor实现分离的程序集中定义它是有意义的.</p>
+</li>
+<li>
+<p>actor服务项目（\MyActor\MyActor service）。这个项目实现了ASP.Net核心web服务，该服务将承载参与者。它包含actor MyActor.cs的实现。actor实现是从基类型actor派生并实现MyActor.interfaces项目中定义的接口的类。actor类还必须实现一个构造函数，该构造函数接受ActorService实例和ActorId，并将它们传递给基本actor类.</p>
+</li>
+<li>
+<p>actor客户端项目（\MyActor\MyActor client）此项目包含actor客户端的实现，该客户端调用actor接口中定义的MyActor方法.</p>
+</li>
+</ul>
+<h2>第1步 -&nbsp;创建Actor接口</h2>
+<p>Actor接口定义Actor实现和调用Actor的客户机共享的Actor契约.</p>
+<p>Actor接口定义如下:</p>
+<ul>
+<li>Actor接口必须继承&nbsp;<code>Dapr.Actors.IActor</code>&nbsp;接口</li>
+<li>Actor方法的返回类型必须是Task或Task&lt;object&gt;</li>
+<li>Actor方法最多可以有一个参数</li>
+</ul>
+<h3><a id="user-content-create-project-and-add-dependencies" class="anchor" href="https://github.com/dapr/dotnet-sdk/blob/master/docs/get-started-dapr-actor.md#create-project-and-add-dependencies"></a>创建项目和添加依赖</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"># Create Actor Interfaces
+dotnet </span><span style="color: #0000ff;">new</span> classlib -<span style="color: #000000;">o MyActor.Interfaces
+
+cd MyActor.Interfaces
+
+# Add Dapr.Actors nuget package
+dotnet add package Dapr.Actors</span></pre>
+</div>
+<h3>升级项目到 .NET Core 3.0</h3>
+<p>更新csproj文件中的netcore到 .NET Core 3.0</p>
+<div class="cnblogs_code">
+<pre><code>&lt;Project Sdk=<span style="color: #800000;">"</span><span style="color: #800000;">Microsoft.NET.Sdk</span><span style="color: #800000;">"</span>&gt;
+
+  &lt;PropertyGroup&gt;
+    &lt;TargetFramework&gt;netcoreapp3.<span style="color: #800080;">0</span>&lt;/TargetFramework&gt;
+  &lt;/PropertyGroup&gt;
+
+  &lt;ItemGroup&gt;
+    &lt;PackageReference Include=<span style="color: #800000;">"</span><span style="color: #800000;">Dapr.Actors</span><span style="color: #800000;">"</span> Version=<span style="color: #800000;">"</span><span style="color: #800000;">0.1.0-preview01</span><span style="color: #800000;">"</span> /&gt;
+  &lt;/ItemGroup&gt;
+
+&lt;/Project&gt;</pre>
+</div>
+<h3>实现 IMyActor&nbsp;接口</h3>
+<p>定义 IMyActor&nbsp;接口和 MyData&nbsp;数据对象.</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">using</span><span style="color: #000000;"> Dapr.Actors;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Threading.Tasks;
+
+</span><span style="color: #0000ff;">namespace</span><span style="color: #000000;"> MyActor.Interfaces
+{
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span><span style="color: #000000;"> IMyActor : IActor
+    {       
+        Task</span>&lt;<span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;"> SetDataAsync(MyData data);
+        Task</span>&lt;MyData&gt;<span style="color: #000000;"> GetDataAsync();
+        Task RegisterReminder();
+        Task UnregisterReminder();
+        Task RegisterTimer();
+        Task UnregisterTimer();
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> MyData
+    {
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">string</span> PropertyA { <span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span><span style="color: #000000;">; }
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">string</span> PropertyB { <span style="color: #0000ff;">get</span>; <span style="color: #0000ff;">set</span><span style="color: #000000;">; }
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">string</span><span style="color: #000000;"> ToString()
+        {
+            </span><span style="color: #0000ff;">var</span> propAValue = <span style="color: #0000ff;">this</span>.PropertyA == <span style="color: #0000ff;">null</span> ? <span style="color: #800000;">"</span><span style="color: #800000;">null</span><span style="color: #800000;">"</span> : <span style="color: #0000ff;">this</span><span style="color: #000000;">.PropertyA;
+            </span><span style="color: #0000ff;">var</span> propBValue = <span style="color: #0000ff;">this</span>.PropertyB == <span style="color: #0000ff;">null</span> ? <span style="color: #800000;">"</span><span style="color: #800000;">null</span><span style="color: #800000;">"</span> : <span style="color: #0000ff;">this</span><span style="color: #000000;">.PropertyB;
+            </span><span style="color: #0000ff;">return</span> $<span style="color: #800000;">"</span><span style="color: #800000;">PropertyA: {propAValue}, PropertyB: {propBValue}</span><span style="color: #800000;">"</span><span style="color: #000000;">;
+        }
+    }
+}</span></pre>
+</div>
+<h2>第2步 -&nbsp;创建Actor服务</h2>
+<p>Dapr使用ASP.NET web服务托管Actor服务.&nbsp;本节将实现&nbsp;<code>IMyActor</code>&nbsp;接口以及注册Actor到Dapr运行时.</p>
+<h3><a id="user-content-create-project-and-add-dependencies-1" class="anchor" href="https://github.com/dapr/dotnet-sdk/blob/master/docs/get-started-dapr-actor.md#create-project-and-add-dependencies-1"></a>创建项目及添加依赖</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"># Create ASP.Net Web service to host Dapr actor
+dotnet </span><span style="color: #0000ff;">new</span> webapi -<span style="color: #000000;">o MyActorService
+
+cd MyActorService
+
+# Add Dapr.Actors nuget package
+dotnet add package Dapr.Actors
+
+# Add Dapr.Actors.AspNetCore nuget package
+dotnet add package Dapr.Actors.AspNetCore
+
+# Add Actor Interface reference
+dotnet add reference ..</span>/MyActor.Interfaces/MyActor.Interfaces.csproj</pre>
+</div>
+<h3>添加Actor实现</h3>
+<p>实现IMyActor接口并从Dapr.Actors.Actor类派生。下面的示例还演示了如何使用Actor提醒。对于Actor来说，使用提醒，它必须来源于IRemindable。如果不打算使用提醒功能，可以跳过实现下面代码中显示的IRemindable和提醒特定方法.</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">using</span><span style="color: #000000;"> Dapr.Actors;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> Dapr.Actors.Runtime;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> MyActor.Interfaces;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Threading.Tasks;
+
+</span><span style="color: #0000ff;">namespace</span><span style="color: #000000;"> MyActorService
+{
+    </span><span style="color: #0000ff;">internal</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> MyActor : Actor, IMyActor, IRemindable
+    {
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Initializes a new instance of MyActor
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #808080;">///</span> <span style="color: #808080;">&lt;param name="actorService"&gt;</span><span style="color: #008000;">The Dapr.Actors.Runtime.ActorService that will host this actor instance.</span><span style="color: #808080;">&lt;/param&gt;</span>
+        <span style="color: #808080;">///</span> <span style="color: #808080;">&lt;param name="actorId"&gt;</span><span style="color: #008000;">The Dapr.Actors.ActorId for this actor instance.</span><span style="color: #808080;">&lt;/param&gt;</span>
+        <span style="color: #0000ff;">public</span><span style="color: #000000;"> MyActor(ActorService actorService, ActorId actorId)
+            : </span><span style="color: #0000ff;">base</span><span style="color: #000000;">(actorService, actorId)
+        {
+        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> This method is called whenever an actor is activated.
+        </span><span style="color: #808080;">///</span><span style="color: #008000;"> An actor is activated the first time any of its methods are invoked.
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> Task OnActivateAsync()
+        {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Provides opportunity to perform some optional setup.</span>
+            Console.WriteLine($<span style="color: #800000;">"</span><span style="color: #800000;">Activating actor id: {this.Id}</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> Task.CompletedTask;
+        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> This method is called whenever an actor is deactivated after a period of inactivity.
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> Task OnDeactivateAsync()
+        {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Provides Opporunity to perform optional cleanup.</span>
+            Console.WriteLine($<span style="color: #800000;">"</span><span style="color: #800000;">Deactivating actor id: {this.Id}</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> Task.CompletedTask;
+        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Set MyData into actor's private state store
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #808080;">///</span> <span style="color: #808080;">&lt;param name="data"&gt;</span><span style="color: #008000;">the user-defined MyData which will be stored into state store as "my_data" state</span><span style="color: #808080;">&lt;/param&gt;</span>
+        <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">async</span> Task&lt;<span style="color: #0000ff;">string</span>&gt;<span style="color: #000000;"> SetDataAsync(MyData data)
+        {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Data is saved to configured state store implicitly after each method execution by Actor's runtime.
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Data can also be saved explicitly by calling this.StateManager.SaveStateAsync();
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> State to be saved must be DataContract serialziable.</span>
+            <span style="color: #0000ff;">await</span> <span style="color: #0000ff;">this</span>.StateManager.SetStateAsync&lt;MyData&gt;<span style="color: #000000;">(
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">my_data</span><span style="color: #800000;">"</span>,  <span style="color: #008000;">//</span><span style="color: #008000;"> state name</span>
+                data);      <span style="color: #008000;">//</span><span style="color: #008000;"> data saved for the named state "my_data"</span>
+
+            <span style="color: #0000ff;">return</span> <span style="color: #800000;">"</span><span style="color: #800000;">Success</span><span style="color: #800000;">"</span><span style="color: #000000;">;
+        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Get MyData from actor's private state store
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #808080;">///</span> <span style="color: #808080;">&lt;return&gt;</span><span style="color: #008000;">the user-defined MyData which is stored into state store as "my_data" state</span><span style="color: #808080;">&lt;/return&gt;</span>
+        <span style="color: #0000ff;">public</span> Task&lt;MyData&gt;<span style="color: #000000;"> GetDataAsync()
+        {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Gets state from the state store.</span>
+            <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">this</span>.StateManager.GetStateAsync&lt;MyData&gt;(<span style="color: #800000;">"</span><span style="color: #800000;">my_data</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Register MyReminder reminder with the actor
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">async</span><span style="color: #000000;"> Task RegisterReminder()
+        {
+            </span><span style="color: #0000ff;">await</span> <span style="color: #0000ff;">this</span><span style="color: #000000;">.RegisterReminderAsync(
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">MyReminder</span><span style="color: #800000;">"</span>,              <span style="color: #008000;">//</span><span style="color: #008000;"> The name of the reminder</span>
+                <span style="color: #0000ff;">null</span>,                      <span style="color: #008000;">//</span><span style="color: #008000;"> User state passed to IRemindable.ReceiveReminderAsync()</span>
+                TimeSpan.FromSeconds(<span style="color: #800080;">5</span>),   <span style="color: #008000;">//</span><span style="color: #008000;"> Time to delay before invoking the reminder for the first time</span>
+                TimeSpan.FromSeconds(<span style="color: #800080;">5</span>));  <span style="color: #008000;">//</span><span style="color: #008000;"> Time interval between reminder invocations after the first invocation</span>
+<span style="color: #000000;">        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Unregister MyReminder reminder with the actor
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">public</span><span style="color: #000000;"> Task UnregisterReminder()
+        {
+            Console.WriteLine(</span><span style="color: #800000;">"</span><span style="color: #800000;">Unregistering MyReminder...</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">this</span>.UnregisterReminderAsync(<span style="color: #800000;">"</span><span style="color: #800000;">MyReminder</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> &lt;summary&gt;
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> Implement IRemindeable.ReceiveReminderAsync() which is call back invoked when an actor reminder is triggered.
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> &lt;/summary&gt;</span>
+        <span style="color: #0000ff;">public</span> Task ReceiveReminderAsync(<span style="color: #0000ff;">string</span> reminderName, <span style="color: #0000ff;">byte</span><span style="color: #000000;">[] state, TimeSpan dueTime, TimeSpan period)
+        {
+            Console.WriteLine(</span><span style="color: #800000;">"</span><span style="color: #800000;">ReceiveReminderAsync is called!</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> Task.CompletedTask;
+        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Register MyTimer timer with the actor
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">public</span><span style="color: #000000;"> Task RegisterTimer()
+        {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">this</span><span style="color: #000000;">.RegisterTimerAsync(
+                </span><span style="color: #800000;">"</span><span style="color: #800000;">MyTimer</span><span style="color: #800000;">"</span>,                  <span style="color: #008000;">//</span><span style="color: #008000;"> The name of the timer</span>
+                <span style="color: #0000ff;">this</span>.OnTimerCallBack,       <span style="color: #008000;">//</span><span style="color: #008000;"> Timer callback</span>
+                <span style="color: #0000ff;">null</span>,                       <span style="color: #008000;">//</span><span style="color: #008000;"> User state passed to OnTimerCallback()</span>
+                TimeSpan.FromSeconds(<span style="color: #800080;">5</span>),    <span style="color: #008000;">//</span><span style="color: #008000;"> Time to delay before the async callback is first invoked</span>
+                TimeSpan.FromSeconds(<span style="color: #800080;">5</span>));   <span style="color: #008000;">//</span><span style="color: #008000;"> Time interval between invocations of the async callback</span>
+<span style="color: #000000;">        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Unregister MyTimer timer with the actor
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">public</span><span style="color: #000000;"> Task UnregisterTimer()
+        {
+            Console.WriteLine(</span><span style="color: #800000;">"</span><span style="color: #800000;">Unregistering MyTimer...</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">this</span>.UnregisterTimerAsync(<span style="color: #800000;">"</span><span style="color: #800000;">MyTimer</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+        }
+
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Timer callback once timer is expired
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">private</span> Task OnTimerCallBack(<span style="color: #0000ff;">object</span><span style="color: #000000;"> data)
+        {
+            Console.WriteLine(</span><span style="color: #800000;">"</span><span style="color: #800000;">OnTimerCallBack is called!</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> Task.CompletedTask;
+        }
+    }
+}</span></pre>
+</div>
+<h4>使用显式actor类型名</h4>
+<p>默认情况下，客户端看到的actor的&ldquo;类型&rdquo;是从actor实现类的名称派生的。如果需要，可以通过将actor attribute属性附加到actor实现类来指定显式类型名.</p>
+<div class="cnblogs_code">
+<pre><code>[Actor(TypeName = <span style="color: #800000;">"</span><span style="color: #800000;">MyCustomActorTypeName</span><span style="color: #800000;">"</span><span style="color: #000000;">)]
+</span><span style="color: #0000ff;">internal</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> MyActor : Actor, IMyActor
+{
+    </span><span style="color: #008000;">//</span><span style="color: #008000;"> ...</span>
+}</pre>
+</div>
+<h3>注册 Actor&nbsp;到 Dapr&nbsp;运行时</h3>
+<p><code><span style="font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;">将&nbsp;</span>MyActor</code>&nbsp;注册到 actor&nbsp;runtime并设置本地主机端口(<code>https://localhost:3000</code>) , Dapr runtime可以通过该端口调用actor.</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">const</span> <span style="color: #0000ff;">int</span> AppChannelHttpPort = <span style="color: #800080;">3000</span><span style="color: #000000;">;
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> IWebHostBuilder CreateWebHostBuilder(<span style="color: #0000ff;">string</span>[] args) =&gt;<span style="color: #000000;">
+            WebHost.CreateDefaultBuilder(args)
+                .UseStartup</span>&lt;Startup&gt;<span style="color: #000000;">()
+                .UseActors(actorRuntime </span>=&gt;<span style="color: #000000;">
+                {
+                    </span><span style="color: #008000;">//</span><span style="color: #008000;"> Register MyActor actor type</span>
+                    actorRuntime.RegisterActor&lt;MyActor&gt;<span style="color: #000000;">();
+                }
+                )
+                .UseUrls($</span><span style="color: #800000;">"</span><span style="color: #800000;">http://localhost:{AppChannelHttpPort}/</span><span style="color: #800000;">"</span>);</pre>
+</div>
+<h3>更新Startup.cs</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Startup
+    {
+        ...
+        
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> ConfigureServices(IServiceCollection services)
+        {
+            services.AddRouting();
+        }
+        
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        {
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (env.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;">
+            {
+                app.UseHsts();
+            }
+        }
+    }</span></pre>
+</div>
+<h2>第3步 -&nbsp;添加客户端</h2>
+<p>创建一个简单的控制台应用程序来调用actor服务。Dapr SDK提供Actor代理客户端来调用Actor接口中定义的Actor方法.</p>
+<h3><a id="user-content-create-project-and-add-dependencies-2" class="anchor" href="https://github.com/dapr/dotnet-sdk/blob/master/docs/get-started-dapr-actor.md#create-project-and-add-dependencies-2"></a>创建项目并添加依赖</h3>
+<div class="cnblogs_code">
+<pre><code># Create Actor<span style="color: #800000;">'</span><span style="color: #800000;">s Client</span>
+dotnet <span style="color: #0000ff;">new</span> console -<span style="color: #000000;">o MyActorClient
+
+cd MyActorClient
+
+# Add Dapr.Actors nuget package
+dotnet add package Dapr.Actors
+
+# Add Actor Interface reference
+dotnet add reference ..</span>/MyActor.Interfaces/MyActor.Interfaces.csproj</pre>
+</div>
+<h3>使用Actor远程服务调用Actor方法</h3>
+<p>我们建议使用本地代理到actor实例，因为ActorProxy.Create&lt;IMyActor&gt;（actorID，actorType）返回强类型actor实例来设置远程过程调用.</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">namespace</span><span style="color: #000000;"> MyActorClient
+{
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> Dapr.Actors;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> Dapr.Actors.Client;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> MyActor.Interfaces;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Threading.Tasks;
+
+    ...
+        </span><span style="color: #0000ff;">static</span> <span style="color: #0000ff;">async</span><span style="color: #000000;"> Task InvokeActorMethodWithRemotingAsync()
+        {
+            </span><span style="color: #0000ff;">var</span> actorType = <span style="color: #800000;">"</span><span style="color: #800000;">MyActor</span><span style="color: #800000;">"</span>;      <span style="color: #008000;">//</span><span style="color: #008000;"> Registered Actor Type in Actor Service</span>
+            <span style="color: #0000ff;">var</span> actorID = <span style="color: #0000ff;">new</span> ActorId(<span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Create the local proxy by using the same interface that the service implements
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> By using this proxy, you can call strongly typed methods on the interface using Remoting.</span>
+            <span style="color: #0000ff;">var</span> proxy = ActorProxy.Create&lt;IMyActor&gt;<span style="color: #000000;">(actorID, actorType);
+            </span><span style="color: #0000ff;">var</span> response = <span style="color: #0000ff;">await</span> proxy.SetDataAsync(<span style="color: #0000ff;">new</span><span style="color: #000000;"> MyData()
+            {
+                PropertyA </span>= <span style="color: #800000;">"</span><span style="color: #800000;">ValueA</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+                PropertyB </span>= <span style="color: #800000;">"</span><span style="color: #800000;">ValueB</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            });
+            Console.WriteLine(response);
+
+            </span><span style="color: #0000ff;">var</span> savedData = <span style="color: #0000ff;">await</span><span style="color: #000000;"> proxy.GetDataAsync();
+            Console.WriteLine(savedData);
+        }
+    ...
+}</span></pre>
+</div>
+<h3>非远程方式调用 Actor&nbsp;方法</h3>
+<p>如果Actor方法最多接受一个参数，则可以调用Actor方法而无需远程处理（直接通过http或使用ActorProxy中提供的helper方法）。Actor运行时将从客户端反序列化传入的请求体，并将其用作方法参数来调用Actor方法。当进行非远程处理调用时，Actor方法参数和返回类型被序列化，反序列化为JSON.</p>
+<p><code>ActorProxy.Create(actorID, actorType)</code>&nbsp;返回&nbsp;ActorProxy&nbsp;实例并允许使用原始http客户端调用IMyActor中定义的方法.</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">namespace</span><span style="color: #000000;"> MyActorClient
+{
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> Dapr.Actors;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> Dapr.Actors.Client;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> MyActor.Interfaces;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System;
+    </span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Threading.Tasks;
+
+    ...
+        </span><span style="color: #0000ff;">static</span> <span style="color: #0000ff;">async</span><span style="color: #000000;"> Task InvokeActorMethodWithoutRemotingAsync()
+        {
+            </span><span style="color: #0000ff;">var</span> actorType = <span style="color: #800000;">"</span><span style="color: #800000;">MyActor</span><span style="color: #800000;">"</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">var</span> actorID = <span style="color: #0000ff;">new</span> ActorId(<span style="color: #800000;">"</span><span style="color: #800000;">1</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Create Actor Proxy instance to invoke the methods defined in the interface</span>
+            <span style="color: #0000ff;">var</span> proxy =<span style="color: #000000;"> ActorProxy.Create(actorID, actorType);
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Need to specify the method name and response type explicitly</span>
+            <span style="color: #0000ff;">var</span> response = <span style="color: #0000ff;">await</span> proxy.InvokeAsync&lt;<span style="color: #0000ff;">string</span>&gt;(<span style="color: #800000;">"</span><span style="color: #800000;">SetMyDataAsync</span><span style="color: #800000;">"</span>, <span style="color: #0000ff;">new</span><span style="color: #000000;"> MyData()
+            {
+                PropertyA </span>= <span style="color: #800000;">"</span><span style="color: #800000;">ValueA</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+                PropertyB </span>= <span style="color: #800000;">"</span><span style="color: #800000;">ValueB</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+            });
+            Console.WriteLine(response);
+
+            </span><span style="color: #0000ff;">var</span> savedData = <span style="color: #0000ff;">await</span> proxy.InvokeAsync&lt;MyData&gt;(<span style="color: #800000;">"</span><span style="color: #800000;">GetMyDataAsync</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            Console.WriteLine(savedData);
+        }
+    ...
+}</span></pre>
+</div>
+<h2>运行Actor</h2>
+<p>为了验证及调试 actor&nbsp;服务及客户端,&nbsp;我们首先需要通过Dapr CLI运行actor服务.</p>
+<ol>
+<li>
+<p>Run Dapr Runtime via Dapr cli</p>
+<div class="cnblogs_code">
+<pre><code>$ dapr run --app-id myapp --app-port <span style="color: #800080;">3000</span> dotnet MyActorService.dll</pre>
+</div>
+<p>在通过Dapr运行时执行MyActorService之后，确保在端口3000上发现应用程序并成功建立actor连接.</p>
+<div class="cnblogs_code">
+<pre><code>INFO[0000] starting Dapr Runtime -- version  -- commit
+ INFO[0000] log level set to: info
+ INFO[0000] standalone mode configured
+ INFO[0000] dapr id: myapp
+ INFO[0000] loaded component statestore (state.redis)
+ INFO[0000] application protocol: http. waiting on port 3000
+ INFO[0000] application discovered on port 3000
+ INFO[0000] application configuration loaded
+ 2019/08/27 14:42:06 redis: connecting to localhost:6379
+ 2019/08/27 14:42:06 redis: connected to localhost:6379 (localAddr: [::1]:53155, remAddr: [::1]:6379)
+ INFO[0000] actor runtime started. actor idle timeout: 1h0m0s. actor scan interval: 30s
+ INFO[0000] actors: starting connection attempt to placement service at localhost:50005
+ INFO[0000] http server is running on port 3500
+ INFO[0000] gRPC server is running on port 50001
+ INFO[0000] dapr initialized. Status: Running. Init Elapsed 19.699438ms
+ INFO[0000] actors: established connection to placement service at localhost:50005
+ INFO[0000] actors: placement order received: lock
+ INFO[0000] actors: placement order received: update
+ INFO[0000] actors: placement tables updated
+ INFO[0000] actors: placement order received: unlock
+ ...
+</pre>
+</div>
+</li>
+<li>
+<p>运行 MyActorClient</p>
+<p>如果MyActorClient成功调用托管在MyActorService中的actor，它将在控制台输出.</p>
+<p>如果指定不同的Dapr运行时http端口（默认端口：3500），则需要在运行客户端之前设置Dapr_http_port环境变量.</p>
+<div class="cnblogs_code">
+<pre><code>Success
+PropertyA: ValueA, PropertyB: ValueB
+</pre>
+</div>
+</li>
+</ol>
+<p>&nbsp;</p>
+<p>原文参考翻译：<a title="https://github.com/dapr/dotnet-sdk/blob/master/docs/get-started-dapr-actor.md" href="https://github.com/dapr/dotnet-sdk/blob/master/docs/get-started-dapr-actor.md" target="_blank">https://github.com/dapr/dotnet-sdk/blob/master/docs/get-started-dapr-actor.md</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,117 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python切片中的误区与高级用法' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python切片中的误区与高级用法</center></div><div class='banquan'>原文出处:本文由博客园博主python学习者0提供。<br/>
+原文连接:https://www.cnblogs.com/xxpythonxx/p/11768086.html</div><br>
+    <p>众所周知，我们可以通过索引值（或称下标）来查找序列类型（如字符串、列表、元组...）中的单个元素，那么，如果要获取一个索引区间的元素该怎么办呢？</p>
+<p>切片（slice）就是一种截取索引片段的技术，借助切片技术，我们可以十分灵活地处理序列类型的对象。通常来说，切片的作用就是截取序列对象，然而，它还有一些使用误区与高级用法，都值得我们注意。所以，本文将主要跟大家一起来探讨这些内容，希望你能学有所获。</p>
+<p>事先声明，切片并非列表的专属操作，但因为列表最具有代表性，所以，本文仅以列表为例作探讨。</p>
+<p><strong>1、切片的基础用法</strong></p>
+<p>列表是 Python 中极为基础且重要的一种数据结构，我曾写过一篇汇总文章（链接见文末）较全面地学习过它。文中详细地总结了切片的基础用法，现在回顾一下：</p>
+<p>切片的书写形式：[i : i+n : m] ；其中，i 是切片的起始索引值，为列表首位时可省略；i+n 是切片的结束位置，为列表末位时可省略；m 可以不提供，默认值是1，不允许为0 ，当m为负数时，列表翻转。注意：这些值都可以大于列表长度，不会报越界。</p>
+<p>切片的基本含义是：从序列的第i位索引起，向右取到后n位元素为止，按m间隔过滤 。</p>
+<pre><code><code>  li = [1, 4, 5, 6, 7, 9, 11, 14, 16]
+  ​
+  # 以下写法都可以表示整个列表，其中 X &gt;= len(li)
+  li[0:X] == li[0:] == li[:X] == li[:] == li[::] == li[-X:X] == li[-X:]
+  ​
+  li[1:5] == [4,5,6,7] # 从1起，取5-1位元素
+  li[1:5:2] == [4,6] # 从1起，取5-1位元素，按2间隔过滤
+  li[-1:] == [16] # 取倒数第一个元素
+  li[-4:-2] == [9, 11] # 从倒数第四起，取-2-(-4)=2位元素
+  li[:-2] == li[-len(li):-2] == [1,4,5,6,7,9,11] # 从头开始，取-2-(-len(li))=7位元素
+  ​
+  # 步长为负数时，列表先翻转，再截取
+  li[::-1] == [16,14,11,9,7,6,5,4,1] # 翻转整个列表
+  li[::-2] == [16,11,7,5,1] # 翻转整个列表，再按2间隔过滤
+  li[:-5:-1] == [16,14,11,9] # 翻转整个列表，取-5-(-len(li))=4位元素
+  li[:-5:-3] == [16,9] # 翻转整个列表，取-5-(-len(li))=4位元素，再按3间隔过滤
+  ​
+  # 切片的步长不可以为0
+  li[::0]  # 报错（ValueError: slice step cannot be zero）</code></pre>
+<p>上述的某些例子对于初学者（甚至很多老手）来说，可能还不好理解。我个人总结出两条经验：（1）牢牢记住公式[i : i+n : m] ，当出现缺省值时，通过想象把公式补全；（2）索引为负且步长为正时，按倒数计算索引位置；索引为负且步长为负时，先翻转列表，再按倒数计算索引位置。</p>
+<p><strong>2、切片是伪独立对象</strong></p>
+<p>切片操作的返回结果是一个新的独立的序列。以列表为例，列表切片后得到的还是一个列表，占用新的内存地址。</p>
+<p>当取出切片的结果时，它是一个独立对象，因此，可以将其用于赋值操作，也可以用于其它传递值的场景。但是，切片只是浅拷贝，它拷贝的是原列表中元素的引用，所以，当存在变长对象的元素时，新列表将受制于原列表。</p>
+<pre><code><code>  li = [1, 2, 3, 4]
+  ls = li[::]
+  ​
+  li == ls # True
+  id(li) == id(ls) # False
+  li.append(li[2:4]) # [1, 2, 3, 4, [3, 4]]
+  ls.extend(ls[2:4]) # [1, 2, 3, 4, 3, 4]
+  ​
+  # 下例等价于判断li长度是否大于8
+  if(li[8:]):
+      print(&quot;not empty&quot;)
+  else:
+      print(&quot;empty&quot;)
+  ​
+  # 切片列表受制于原列表
+  lo = [1,[1,1],2,3]
+  lp = lo[:2] # [1, [1, 1]]
+  lo[1].append(1) # [1, [1, 1, 1], 2, 3]
+  lp # [1, [1, 1, 1]]</code></pre>
+<p>由于可见，将切片结果取出，它可以作为独立对象使用，但是也要注意，是否取出了变长对象的元素。</p>
+<p><strong>3、切片可作为占位符</strong></p>
+<p>切片既可以作为独立对象被“取出”原序列，也可以留在原序列，作为一种占位符使用。</p>
+<p>对于列表来说，使用切片作为占位符，同样能够实现拼接列表的效果。特别需要注意的是，给切片赋值的必须是可迭代对象。</p>
+<pre><code><code>  li = [1, 2, 3, 4]
+  ​
+  # 在头部拼接
+  li[:0] = [0] # [0, 1, 2, 3, 4]
+  # 在末尾拼接
+  li[len(li):] = [5,7] # [0, 1, 2, 3, 4, 5, 7]
+  # 在中部拼接
+  li[6:6] = [6] # [0, 1, 2, 3, 4, 5, 6, 7]
+  ​
+  # 给切片赋值的必须是可迭代对象
+  li[-1:-1] = 6 # （报错，TypeError: can only assign an iterable）
+  li[:0] = (9,) #  [9, 0, 1, 2, 3, 4, 5, 6, 7]
+  li[:0] = range(3) #  [0, 1, 2, 9, 0, 1, 2, 3, 4, 5, 6, 7]</code></pre>
+<p>上述例子中，若将切片作为独立对象取出，那你会发现它们都是空列表，即 li[:0]== li[len(li):] == li [6 : 6]==[] ，我将这种占位符称为“纯占位符”，对纯占位符赋值，并不会破坏原有的元素，只会在特定的索引位置中拼接进新的元素。删除纯占位符时，也不会影响列表中的元素。</p>
+<p>与“纯占位符”相对应，“非纯占位符”的切片是非空列表，对它进行操作（赋值与删除），将会影响原始列表。如果说纯占位符可以实现列表的拼接，那么，非纯占位符可以实现列表的替换。</p>
+<pre><code><code>  li = [1, 2, 3, 4]
+  ​
+  # 不同位置的替换
+  li[:3] = [7,8,9] # [7, 8, 9, 4]
+  li[3:] = [5,6,7] # [7, 8, 9, 5, 6, 7]
+  li[2:4] = [&#39;a&#39;,&#39;b&#39;] # [7, 8, &#39;a&#39;, &#39;b&#39;, 6, 7]
+  ​
+  # 非等长替换
+  li[2:4] = [1,2,3,4] # [7, 8, 1, 2, 3, 4, 6, 7]
+  li[2:6] = [&#39;a&#39;]  # [7, 8, &#39;a&#39;, 6, 7]
+  ​
+  # 删除元素
+  del li[2:3] # [7, 8, 6, 7]</code></pre>
+<p>切片占位符可以带步长，从而实现连续跨越性的替换或删除效果。需要注意的是，这种用法只支持等长替换。</p>
+<pre><code><code>  li = [1, 2, 3, 4, 5, 6]
+  ​
+  li[::2] = [&#39;a&#39;,&#39;b&#39;,&#39;c&#39;] # [&#39;a&#39;, 2, &#39;b&#39;, 4, &#39;c&#39;, 6]
+  li[::2] = [0]*3 # [0, 2, 0, 4, 0, 6]
+  li[::2] = [&#39;w&#39;] # 报错，attempt to assign sequence of size 1 to extended slice of size 3
+  ​
+  del li[::2] # [2, 4, 6]</code></pre>
+<p><strong>4、更多思考</strong></p>
+<p>其它编程语言是否有类似于 Python 的切片操作呢？有什么差异？</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

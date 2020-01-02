@@ -1,0 +1,104 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python连载29-log的使用需求实现举例' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python连载29-log的使用需求实现举例</center></div><div class='banquan'>原文出处:本文由博客园博主心悦君兮君不知-睿提供。<br/>
+原文连接:https://www.cnblogs.com/ruigege0000/p/11312727.html</div><br>
+    <p>一、Format类</p>
+<p>1.直接实例化</p>
+<p>2.可以继承Format添加特殊字符</p>
+<p>3.三个参数</p>
+<p>（1）fmt：指定消息格式化字符串，如果不指定该参数则默认使用message的原始值</p>
+<p>（2）datemt：指定日期格式字符串，如果不指定该参数，则默认使用&ldquo;%Y-%m-%d %H:%M:%S"</p>
+<p>（3）style:Python3.2新增的参数，可取值为&rdquo;%&ldquo;，&ldquo;{&rdquo;和&ldquo;￥&rdquo;，如果不指定默认使用&ldquo;%&rdquo;</p>
+<p>二、Filter类</p>
+<p>1.可以被Handler和Logger使用</p>
+<p>2.控制传递过来的信息的具体内容。</p>
+<p>三、例子</p>
+<p>#现在有一下几个日志记录的需求：</p>
+<p>#（1）要求将所有级别的所有日志写入磁盘文件</p>
+<p>#（2）all.log文件中记录所有的日志信息，日志格式为：日期和时间-日志级别-日志信息</p>
+<p>#（3）error.log文件中单独记录error及以上级别的日志信息，日志格式：日期和时间-日志级别-文件名【：行号】- 日志信息</p>
+<p>#（4）要求all.log在每天凌晨进行日志切割</p>
+<p>#分析</p>
+<p>#(1)要记录所有级别的日志，因此日志器的有效level需要设置为最低级别&nbsp; --DEBUG</p>
+<p>#(2)日志需要被发送到两个不同的目的地，因此需要为日志设置两个handler；另外。两个目的地都是磁盘文件。因此这两个handler都是与fileHander</p>
+<p>#(3)all.log要求按照时间进行日志切割，因此它需要logging.handler.TimeRotatingFileHandler；而error.log没有要求日志切割。因此</p>
+<p>#(4)两个日志文件的格式不同,因此需要对两个handler分别进行设置格式器</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> logger
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> logging.handlers
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> datetime
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">定义Logger</span>
+<span style="color: #000000;">
+logger </span>= logging.getLogger(<span style="color: #800000;">"</span><span style="color: #800000;">mylogger</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+logging.setLevel(logging.DEBUG)
+
+ 
+
+rf_handler </span>= logging.handlers.TimedRotatingFileHandler(<span style="color: #800000;">"</span><span style="color: #800000;">all.log</span><span style="color: #800000;">"</span>,when=<span style="color: #800000;">"</span><span style="color: #800000;">midnight</span><span style="color: #800000;">"</span>,interval=1,backupCount=7,atTime=<span style="color: #000000;">None)
+
+rf_handler.setFormatter(logging.Formatter(</span><span style="color: #800000;">"</span><span style="color: #800000;">%(asctime)s-%(levelname)s-%(message)s</span><span style="color: #800000;">"</span><span style="color: #000000;">))
+
+ 
+
+f_handler </span>= logging.FileHandler(<span style="color: #800000;">"</span><span style="color: #800000;">error.log</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+f_handler </span>=<span style="color: #000000;"> setLevel(logging.ERROR)
+
+f_handler.setFormat(logging.Formatter(</span><span style="color: #800000;">"</span><span style="color: #800000;">%(asctime)s-%(levelname)s-%(filename)s[:%(lineno)d-%(message)s)</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+ 
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">把相应的处理器组装到logger上</span>
+<span style="color: #000000;">
+logger.addHandler(rf_handler)
+
+logger.addHandler(f_handler)
+
+ 
+
+logger.debug(</span><span style="color: #800000;">"</span><span style="color: #800000;">debug message</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+logger.info(</span><span style="color: #800000;">"</span><span style="color: #800000;">info message</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+logger.warning(</span><span style="color: #800000;">"</span><span style="color: #800000;">warning message</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+logger.error(</span><span style="color: #800000;">"</span><span style="color: #800000;">error message</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+logger.critical(</span><span style="color: #800000;">"</span><span style="color: #800000;">critical message</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>四、源码</p>
+<p>d23_3_log_example.py</p>
+<p>地址：https://github.com/ruigege66/Python_learning/blob/master/d23_3_log_example.py</p>
+<p>2.CSDN：https://blog.csdn.net/weixin_44630050（心悦君兮君不知-睿）</p>
+<p>3.博客园：https://www.cnblogs.com/ruigege0000/</p>
+<p>4.欢迎关注微信公众号：傅里叶变换</p>
+<p><img src="./images/Python连载29-log的使用需求实现举例0.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

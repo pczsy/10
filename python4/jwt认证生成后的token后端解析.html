@@ -1,0 +1,140 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修jwt认证生成后的token后端解析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>jwt认证生成后的token后端解析</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11755572.html</div><br>
+    <h2 id="一.首先前端发送token">一.首先前端发送token</h2>
+<p>token所在的位置<code>headers</code></p>
+<p><code>{'authorization':token的值',Content-Type':application/json}</code></p>
+<p>在ajax写</p>
+<pre><code><code>//只展示headers部分代码
+headers:{&quot;authorization&quot;:this.$cookies.get(&quot;token&quot;)}
+//token值一般是放在cookies里面
+//默认就是json格式所有不需要声明js格式</code></pre>
+<h2 id="二.后端接受并解析token">二.后端接受并解析token</h2>
+<h3 id="首先先定义个认证类">1.首先先定义个认证类</h3>
+<pre class="python"><code>from rest_framework.exceptions import AuthenticationFailed
+import jwt
+from rest_framework_jwt.authentication import BaseJSONWebTokenAuthentication
+from rest_framework_jwt.authentication import jwt_decode_handler
+from rest_framework_jwt.authentication import get_authorization_header
+class JWTAuthentication(BaseJSONWebTokenAuthentication):
+    # 自定义认证类，重写authenticate方法
+    def authenticate(self, request):
+        # 认证通过，返回user，auth
+        # 认证失败，返回None
+        # auth = request.META.get(&#39;HTTP_AUTHORIZATION&#39;)  # 前台用auth携带token
+        # 通过前台传过来的请求头中获取auth
+        auth = get_authorization_header(request)
+        if not auth:
+            raise AuthenticationFailed(&#39;Authorization 字段是必须的&#39;)
+        try:
+            payload = jwt_decode_handler(auth)
+
+        # 出现jwt解析异常，直接抛出异常，代表非法用户，也可以返回None，作为游客处理
+        except jwt.ExpiredSignature:
+            raise AuthenticationFailed(&#39;token已过期&#39;)
+        except:
+            raise AuthenticationFailed(&#39;token非法&#39;)
+
+        user = self.authenticate_credentials(payload)
+        return (user, auth)</code></pre>
+<p><code>关于其中的几个方法</code></p>
+<ul>
+<li>auth = request.META.get('HTTP_AUTHORIZATION') 获取token的<code>字符串格式</code></li>
+<li>auth = get_authorization_header(reuqest对象) 获取token的<code>二进制格式</code></li>
+<li>jwt_decode_handler(token的<code>二进制格式</code>)
+<ul>
+<li>如果token没有过期:返回用户信息</li>
+<li>如果token过期:<code>抛异常</code>,过期的异常是<code>jwt.ExpiredSignature</code></li>
+</ul></li>
+<li>authenticate_credentials(jwt_decode_handler解析后信息)返回user对象</li>
+</ul>
+<h3 id="局部调用用户认证类">2.局部调用用户认证类</h3>
+<pre class="python"><code>#评率认证类写法
+from rest_framework.throttling import SimpleRateThrottle
+
+class SMSRateThrottle(SimpleRateThrottle):
+    scope = &#39;sms&#39;    #这个是为了全局设置给予的一个变量名称
+    
+    # 只对提交手机号的get方法进行限制
+    def get_cache_key(self, request, view):
+        mobile = request.query_params.get(&#39;mobile&#39;)
+        # 没有手机号，就不做频率限制
+        if not mobile:
+            return None
+        # 返回可以根据手机号动态变化，且不易重复的字符串，作为操作缓存的key
+        return &#39;throttle_%(scope)s_%(ident)s&#39; % {&#39;scope&#39;: self.scope, &#39;ident&#39;: mobile}</code></pre>
+<pre class="python"><code>class Test(APIView):
+    authentication_classes = [我们自定义用户认证的类] #如[JWTAuthentication]
+    #来判断登入账号的信息算游客还是正常用户
+    
+    permission_classes =[IsAuthenticated] 
+    #给与权限
+    #AllowAny:允许所有
+    #IsAuthenticated:只允许登入用户
+    #IsAuthenticatedOrReadOnly：游客只读，登录用户无限制
+    #IsAdminUser：是否是后台用户
+    
+    DEFAULT_THROTTLE_RATES = [频率认证类]#如[SMSRateThrottle]
+    #局部评率认证
+    
+    
+    
+    #满足以上给予的权限才可以进行下面的操作</code></pre>
+<h3 id="全局调用用户认证类">3.全局调用用户认证类</h3>
+<p>setting.py中</p>
+<pre class="python"><code>#drf配置
+&quot;&quot;&quot;
+AllowAny：允许所有用户
+IsAuthenticated：只允许登录用户
+IsAuthenticatedOrReadOnly：游客只读，登录用户无限制
+IsAdminUser：是否是后台用户
+&quot;&quot;&quot;
+REST_FRAMEWORK = {
+    &#39;DEFAULT_AUTHENTICATION_CLASSES&#39;: [
+        # django默认session校验：校验规则 游客 及 登录用户
+        # &#39;rest_framework.authentication.SessionAuthentication&#39;,
+        # &#39;rest_framework.authentication.BasicAuthentication&#39;,
+        # &#39;rest_framework_jwt.authentication.JSONWebTokenAuthentication&#39;,
+        &#39;api.authentications.JWTAuthentication&#39;,
+    ],
+    &#39;DEFAULT_PERMISSION_CLASSES&#39;: [
+        # &#39;rest_framework.permissions.AllowAny&#39;,
+        # 全局配置：一站式网站（所有操作都需要登录后才能访问）
+        # &#39;rest_framework.permissions.IsAuthenticated&#39;,
+    ],
+    &#39;DEFAULT_THROTTLE_RATES&#39;: {
+        &#39;user&#39;: &#39;5/min&#39;,  # 登录的用户一分钟可以访问5次
+        &#39;anon&#39;: &#39;3/min&#39;,   # 游客一分钟可以访问3次
+        &#39;sms&#39;: &#39;1/min&#39;     #同一个手机1分钟一次
+    }
+}
+
+jwt配置
+import datetime
+JWT_AUTH = {
+    &#39;JWT_EXPIRATION_DELTA&#39;: datetime.timedelta(seconds=1000), #生成token有效期
+    &#39;JWT_AUTH_HEADER_PREFIX&#39;: &#39;TOKEN&#39;,
+}</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

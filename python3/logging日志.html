@@ -1,0 +1,126 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修logging日志' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>logging日志</center></div><div class='banquan'>原文出处:本文由博客园博主Lav3nder提供。<br/>
+原文连接:https://www.cnblogs.com/lav3nder/p/11295091.html</div><br>
+    <h2 id="在settings配置文件中配置以下文件">1.在settings配置文件中配置以下文件:</h2>
+<pre><code><code># 定义三种日志输出格式 开始
+
+standard_format = &#39;[%(asctime)s][%(threadName)s:%(thread)d][task_id:%(name)s][%(filename)s:%(lineno)d]&#39; \
+                  &#39;[%(levelname)s][%(message)s]&#39; #其中name为getlogger指定的名字
+
+simple_format = &#39;[%(levelname)s][%(asctime)s][%(filename)s:%(lineno)d]%(message)s&#39;
+
+id_simple_format = &#39;[%(levelname)s][%(asctime)s] %(message)s&#39;
+
+# 定义日志输出格式 结束
+
+logfile_dir = os.path.dirname(os.path.abspath(__file__))  # log文件的目录
+
+logfile_name = &#39;all2.log&#39;  # log文件名
+
+# 如果不存在定义的日志目录就创建一个
+if not os.path.isdir(logfile_dir):
+    os.mkdir(logfile_dir)
+
+# log文件的全路径
+logfile_path = os.path.join(logfile_dir, logfile_name)
+
+# log配置字典
+LOGGING_DIC = {
+    &#39;version&#39;: 1,
+    &#39;disable_existing_loggers&#39;: False,
+    &#39;formatters&#39;: {
+        &#39;standard&#39;: {
+            &#39;format&#39;: standard_format
+        },
+        &#39;simple&#39;: {
+            &#39;format&#39;: simple_format
+        },
+    },
+    &#39;filters&#39;: {},
+    &#39;handlers&#39;: {
+        #打印到终端(屏幕)的日志
+        &#39;console&#39;: {
+            &#39;level&#39;: &#39;DEBUG&#39;,
+            &#39;class&#39;: &#39;logging.StreamHandler&#39;,  # 打印到屏幕
+            &#39;formatter&#39;: &#39;simple&#39;
+        },
+        #打印到文件的日志,收集info及以上的日志
+        &#39;default&#39;: {
+            &#39;level&#39;: &#39;DEBUG&#39;,
+            &#39;class&#39;: &#39;logging.handlers.RotatingFileHandler&#39;,  # 保存到文件
+            &#39;formatter&#39;: &#39;standard&#39;,
+            &#39;filename&#39;: logfile_path,  # 日志文件
+            &#39;maxBytes&#39;: 1024*1024*5,  # 日志大小 5M
+            &#39;backupCount&#39;: 5,
+            &#39;encoding&#39;: &#39;utf-8&#39;,  # 日志文件的编码，再也不用担心中文log乱码了
+        },
+    },
+    &#39;loggers&#39;: {
+        #logging.getLogger(__name__)拿到的logger配置
+        &#39;&#39;: {
+            &#39;handlers&#39;: [&#39;default&#39;, &#39;console&#39;],  # 这里把上面定义的两个handler都加上，即log数据既写入文件又打印到屏幕
+            &#39;level&#39;: &#39;DEBUG&#39;,
+            &#39;propagate&#39;: True,  # 向上（更高level的logger）传递
+        },
+    },
+}</code></pre>
+<h2 id="在common公共文件在配置以下函数">2.在common公共文件在配置以下函数:</h2>
+<pre><code><code>def get_logger():
+    path = r&#39;F:\s24\day21\liye.log&#39;
+    LOGGING_DIC[&#39;handlers&#39;][&#39;file&#39;][&#39;filename&#39;] = path
+    logging.config.dictConfig(LOGGING_DIC)  # 导入上面定义的logging配置
+    logger = logging.getLogger(__name__)  # 生成一个log实例
+    return logger</code></pre>
+<h2 id="在主函数中应用">3.在主函数中应用:</h2>
+<pre><code><code>def save():
+logger = get_logger()
+logger.info(f&#39;{} 存入300元&#39;) # 记录该文件的运行状态
+save()</code></pre>
+<h2 id="logging日志的级别">4.logging日志的级别:</h2>
+<pre><code><code>logger.debug(&#39;logger debug message&#39;) 
+logger.info(&#39;logger info message&#39;) 
+logger.warning(&#39;logger warning message&#39;) 
+logger.error(&#39;logger error message&#39;) 
+logger.critical(&#39;logger critical message&#39;)
+# 默认的日志级别设置为WARNING</code></pre>
+<h2 id="format参数中可能用到的格式化串">5.<strong>format参数中可能用到的格式化串</strong>：</h2>
+<ul>
+<li>%(name)s Logger的名字</li>
+<li>%(levelno)s 数字形式的日志级别</li>
+<li>%(levelname)s 文本形式的日志级别</li>
+<li>%(pathname)s 调用日志输出函数的模块的完整路径名，可能没有</li>
+<li>%(filename)s 调用日志输出函数的模块的文件名</li>
+<li>%(module)s 调用日志输出函数的模块名</li>
+<li>%(funcName)s 调用日志输出函数的函数名</li>
+<li>%(lineno)d 调用日志输出函数的语句所在的代码行</li>
+<li>%(created)f 当前时间，用UNIX标准的表示时间的浮 点数表示</li>
+<li>%(relativeCreated)d 输出日志信息时的，自Logger创建以 来的毫秒数</li>
+<li>%(asctime)s 字符串形式的当前时间。默认格式是 “2003-07-08 16:49:45,896”。逗号后面的是毫秒</li>
+<li>%(thread)d 线程ID。可能没有</li>
+<li>%(threadName)s 线程名。可能没有</li>
+<li>%(process)d 进程ID。可能没有</li>
+<li>%(message)s用户输出的消息</li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

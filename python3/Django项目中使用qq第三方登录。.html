@@ -1,0 +1,115 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django项目中使用qq第三方登录。' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django项目中使用qq第三方登录。</center></div><div class='banquan'>原文出处:本文由博客园博主记住我忘记我提供。<br/>
+原文连接:https://www.cnblogs.com/nmsghgnv/p/11343711.html</div><br>
+    <p>使用qq登录的前提是已经在qq互联官网创建网站应用并获取到QQ互联中网站应用的APP ID和APP KEY</p>
+<p>1，建路由</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">     qq登录</span>
+    path(<span style="color: #800000;">'</span><span style="color: #800000;">loginQq/</span><span style="color: #800000;">'</span>,qq.loginQq,name=<span style="color: #800000;">'</span><span style="color: #800000;">loginQq/</span><span style="color: #800000;">'</span><span style="color: #000000;">),
+    path(</span><span style="color: #800000;">'</span><span style="color: #800000;">returns/</span><span style="color: #800000;">'</span>,qq.returns,name=<span style="color: #800000;">'</span><span style="color: #800000;">returns/</span><span style="color: #800000;">'</span>),</pre>
+</div>
+<p>2，前端页面写qq登录的链接，本文没有用图标，暂时使用a链接请求。</p>
+<div class="cnblogs_code">
+<pre><code>&lt;a data-wow-delay=<span style="color: #800000;">"</span><span style="color: #800000;">.5s</span><span style="color: #800000;">"</span> href=<span style="color: #800000;">"</span><span style="color: #800000;">/blog/loginQq/</span><span style="color: #800000;">"</span>&gt; &raquo;  QQ登录&lt;/a&gt;</pre>
+</div>
+<p>3，在项目的应用下创建utils文件夹并创建function.py用于封装函数，封装的函数用于从返回数据中提取openid（腾讯公司数据库里面的用户id）</p>
+<p><img src="./images/Django项目中使用qq第三方登录。0.png" alt="" /></p>
+<p>封装的函数内容如下；</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> re
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> parse_jsonp(jsonp_str):
+    </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span> re.search(<span style="color: #800000;">'</span><span style="color: #800000;">^[^(]*?\((.*)\)[^)]*$</span><span style="color: #800000;">'</span>, jsonp_str).group(1<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">except</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">raise</span> ValueError(<span style="color: #800000;">'</span><span style="color: #800000;">无效数据！</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>4，后台代码</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.shortcuts <span style="color: #0000ff;">import</span><span style="color: #000000;"> render,redirect,HttpResponse,HttpResponseRedirect
+</span><span style="color: #0000ff;">from</span> blog.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> Member
+</span><span style="color: #0000ff;">from</span> urllib <span style="color: #0000ff;">import</span><span style="color: #000000;"> parse
+</span><span style="color: #0000ff;">from</span> urllib <span style="color: #0000ff;">import</span><span style="color: #000000;"> request as req
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> re
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> random
+</span><span style="color: #0000ff;">from</span> blog.utils <span style="color: #0000ff;">import</span><span style="color: #000000;"> function
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> loginQq(request):
+    state </span>= str(random.randrange(100000,999999)) <span style="color: #008000;">#</span><span style="color: #008000;"> 定义一个随机状态码，防止跨域伪造攻击。</span>
+    request.session[<span style="color: #800000;">'</span><span style="color: #800000;">state</span><span style="color: #800000;">'</span>] = state  <span style="color: #008000;">#</span><span style="color: #008000;"> 将随机状态码存入Session，用于授权信息返回时验证。</span>
+    client_id = <span style="color: #800000;">'</span><span style="color: #800000;">101716344</span><span style="color: #800000;">'</span>  <span style="color: #008000;">#</span><span style="color: #008000;"> QQ互联中网站应用的APP ID。</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 对回调地址进行编码，用户同意授权后将调用此链接。</span>
+    callback = parse.urlencode({<span style="color: #800000;">'</span><span style="color: #800000;">redirect_uri</span><span style="color: #800000;">'</span>:<span style="color: #800000;">'</span><span style="color: #800000;">http://127.0.0.1:8000/blog/returns</span><span style="color: #800000;">'</span>})   <span style="color: #008000;">#</span><span style="color: #008000;">redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Fblog%2Freturns</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 组织QQ第三方登录链接</span>
+    login_url = <span style="color: #800000;">'</span><span style="color: #800000;">https://graph.qq.com/oauth2.0/authorize?response_type=code&amp;client_id=%s&amp;%s&amp;state=%s</span><span style="color: #800000;">'</span>%<span style="color: #000000;">(client_id,callback,state)
+    </span><span style="color: #0000ff;">return</span> HttpResponseRedirect(login_url)  <span style="color: #008000;">#</span><span style="color: #008000;"> 重定向到QQ第三方登录授权页面</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> returns(request):
+    </span><span style="color: #0000ff;">if</span> request.session[<span style="color: #800000;">'</span><span style="color: #800000;">state</span><span style="color: #800000;">'</span>] == request.GET[<span style="color: #800000;">'</span><span style="color: #800000;">state</span><span style="color: #800000;">'</span>]:  <span style="color: #008000;">#</span><span style="color: #008000;"> 验证状态码，防止跨域伪造攻击。</span>
+        code = request.GET[<span style="color: #800000;">'</span><span style="color: #800000;">code</span><span style="color: #800000;">'</span>]  <span style="color: #008000;">#</span><span style="color: #008000;"> 获取用户授权码</span>
+        client_id = <span style="color: #800000;">'</span><span style="color: #800000;">101716344</span><span style="color: #800000;">'</span>  <span style="color: #008000;">#</span><span style="color: #008000;"> QQ互联中网站应用的APP ID。</span>
+        client_secret = <span style="color: #800000;">'</span><span style="color: #800000;">7f42aaac69f866750078fbe1edd9d2a4</span><span style="color: #800000;">'</span>  <span style="color: #008000;">#</span><span style="color: #008000;"> QQ互联中网站应用的APP Key。</span>
+        callback = parse.urlencode({<span style="color: #800000;">'</span><span style="color: #800000;">redirect_uri</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">http://127.0.0.1:8000/blog/returns</span><span style="color: #800000;">'</span><span style="color: #000000;">})
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 对回调地址进行编码，用户同意授权后将调用此链接。</span>
+        login_url = <span style="color: #800000;">'</span><span style="color: #800000;">https://graph.qq.com/oauth2.0/token?grant_type=authorization_code&amp;code=%s&amp;client_id=%s&amp;client_secret=%s&amp;%s</span><span style="color: #800000;">'</span> % (code, client_id, client_secret, callback)  <span style="color: #008000;">#</span><span style="color: #008000;"> 组织获取访问令牌的链接</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> return HttpResponse(login_url)</span>
+        response = req.urlopen(login_url).read().decode()  <span style="color: #008000;">#</span><span style="color: #008000;"> 打开获取访问令牌的链接   access_token:123456789&amp;</span>
+<span style="color: #000000;">
+        access_token </span>= re.split(<span style="color: #800000;">'</span><span style="color: #800000;">&amp;</span><span style="color: #800000;">'</span>, response)[0]  <span style="color: #008000;">#</span><span style="color: #008000;"> 获取访问令牌  access_token:123456789</span>
+<span style="color: #000000;">
+        res </span>= req.urlopen(<span style="color: #800000;">'</span><span style="color: #800000;">https://graph.qq.com/oauth2.0/me?</span><span style="color: #800000;">'</span> + access_token).read().decode()  <span style="color: #008000;">#</span><span style="color: #008000;"> 打开获取openid的链接</span>
+<span style="color: #000000;">
+        openid </span>= json.loads(function.parse_jsonp(res))[<span style="color: #800000;">'</span><span style="color: #800000;">openid</span><span style="color: #800000;">'</span>]  <span style="color: #008000;">#</span><span style="color: #008000;"> 从返回数据中获取openid  410225632333335556566</span>
+<span style="color: #000000;">
+        userinfo </span>= req.urlopen(<span style="color: #800000;">'</span><span style="color: #800000;">https://graph.qq.com/user/get_user_info?oauth_consumer_key=%s&amp;openid=%s&amp;%s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> (
+            client_id, openid, access_token)).read().decode()  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 打开获取用户信息的链接</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 打印查看获取到的用户信息</span>
+        <span style="color: #0000ff;">print</span><span style="color: #000000;">(userinfo)
+        userinfo </span>= json.loads(userinfo)  <span style="color: #008000;">#</span><span style="color: #008000;"> 将返回的用户信息数据（JSON格式）读取为字典。</span>
+        user = Member.objects.filter(member_qq_id=openid)  <span style="color: #008000;">#</span><span style="color: #008000;"> 查询是否已存在用户</span>
+        <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span> user:  <span style="color: #008000;">#</span><span style="color: #008000;"> 如果不存在用户</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> 创建新用户</span>
+            member_obj = Member.objects.create(member_qq_id=openid,member_nickname=userinfo[<span style="color: #800000;">'</span><span style="color: #800000;">nickname</span><span style="color: #800000;">'</span>],member_name=userinfo[<span style="color: #800000;">'</span><span style="color: #800000;">nickname</span><span style="color: #800000;">'</span>],member_photo = userinfo[<span style="color: #800000;">'</span><span style="color: #800000;">figureurl_qq_1</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> user = Member()  # 创建新用户</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> user.member_qq_id = openid  # 写入用户信息</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> user.member_nickname = userinfo['nickname']  # 写入用户信息</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> user.member_name = userinfo['nickname']  # 写入用户信息</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> # user.gender = userinfo['gender']  # 写入用户信息</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> user.member_photo = userinfo['figureurl_qq_1']  # 写入用户信息</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;"> user.save()  # 保存或更新用户</span>
+            request.session[<span style="color: #800000;">'</span><span style="color: #800000;">member_id</span><span style="color: #800000;">'</span>] = member_obj.member_id  <span style="color: #008000;">#</span><span style="color: #008000;"> 将已登录的用户openid写入Session</span>
+            request.session[<span style="color: #800000;">'</span><span style="color: #800000;">member_name</span><span style="color: #800000;">'</span>] = userinfo[<span style="color: #800000;">'</span><span style="color: #800000;">nickname</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">  返回路径至网站首页</span>
+        <span style="color: #0000ff;">return</span> redirect(<span style="color: #800000;">'</span><span style="color: #800000;">/blog/index/</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span> HttpResponse(<span style="color: #800000;">'</span><span style="color: #800000;">授权失败！</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>本文是在本地测试项目中的qq登录功能，所以qq互联官网中的回调地址需要修改为本地的地址，</p>
+<p>5，启动项目测试功能</p>
+<p><img src="./images/Django项目中使用qq第三方登录。1.png" alt="" /></p>
+<p><img src="./images/Django项目中使用qq第三方登录。2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>6，查看数据库会员表，会员信息已写入。</p>
+<p><img src="./images/Django项目中使用qq第三方登录。3.png" alt="" /></p>
+<p>done。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

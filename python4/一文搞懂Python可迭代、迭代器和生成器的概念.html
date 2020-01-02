@@ -1,0 +1,250 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修一文搞懂Python可迭代、迭代器和生成器的概念' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>一文搞懂Python可迭代、迭代器和生成器的概念</center></div><div class='banquan'>原文出处:本文由博客园博主hylinux1024提供。<br/>
+原文连接:https://www.cnblogs.com/angrycode/p/11386970.html</div><br>
+    <blockquote>
+<p>关于我<br />
+一个有思想的程序猿，终身学习实践者，目前在一个创业团队任team lead，技术栈涉及Android、Python、Java和Go，这个也是我们团队的主要技术栈。<br />
+Github：<a href="https://github.com/hylinux1024" class="uri">https://github.com/hylinux1024</a><br />
+微信公众号：终身开发者(angrycode)</p>
+</blockquote>
+<p>在<code>Python</code>中可迭代(<code>Iterable</code>)、迭代器(<code>Iterator</code>)和生成器(<code>Generator</code>)这几个概念是经常用到的，初学时对这几个概念也是经常混淆，现在是时候把这几个概念搞清楚了。</p>
+<h4 id="x00-可迭代iterable">0x00 可迭代(Iterable)</h4>
+<p>简单的说，一个对象(在Python里面一切都是对象)只要实现了只要实现了<code>__iter__()</code>方法，那么用<code>isinstance()</code>函数检查就是<code>Iterable</code>对象；</p>
+<p>例如</p>
+<pre><code><code>class IterObj:
+    
+    def __iter__(self):
+        # 这里简单地返回自身
+        # 但实际情况可能不会这么写
+        # 而是通过内置的可迭代对象来实现
+        # 下文的列子中将会展示
+        return self </code></pre>
+<p>上面定义了一个类<code>IterObj</code>并实现了<code>__iter__()</code>方法，这个就是一个<strong>可迭代(Iterable)对象</strong></p>
+<pre><code><code>    it = IterObj()
+    print(isinstance(it, Iterable))  # true
+    print(isinstance(it, Iterator))  # false
+    print(isinstance(it, Generator)) # false</code></pre>
+<p>记住这个类，下文我们还会看到这个类的定义。</p>
+<h5 id="常见的可迭代对象">常见的可迭代对象</h5>
+<p>在<code>Python</code>中有哪些常见的可迭代对象呢？</p>
+<ol>
+<li>集合或序列类型（如<code>list</code>、<code>tuple</code>、<code>set</code>、<code>dict</code>、<code>str</code>）</li>
+<li>文件对象<br />
+</li>
+<li>在类中定义了<code>__iter__()</code>方法的对象，可以被认为是 <code>Iterable</code>对象，但自定义的可迭代对象要能在<code>for</code>循环中正确使用，就需要保证<code>__iter__()</code>实现必须是正确的（即可以通过内置<code>iter()</code>函数转成<code>Iterator</code>对象。关于<code>Iterator</code>下文还会说明，这里留下一个坑，只是记住<code>iter()</code>函数是能够将一个可迭代对象转成迭代器对象，然后在<code>for</code>中使用）<br />
+</li>
+<li>在类中实现了如果只实现<code>__getitem__()</code>的对象可以通过<code>iter()</code>函数转化成迭代器但其本身不是可迭代对象。所以当一个对象能够在<code>for</code>循环中运行，但不一定是<code>Iterable</code>对象。</li>
+</ol>
+<p>关于<strong>第1、2点</strong>我们可以通过以下来验证</p>
+<pre><code><code>    print(isinstance([], Iterable))  # true list 是可迭代的
+    print(isinstance({}, Iterable))  # true 字典是可迭代的
+    print(isinstance((), Iterable))  # true 元组是可迭代的
+    print(isinstance(set(), Iterable))  # true set是可迭代的
+    print(isinstance(&#39;&#39;, Iterable))  # true 字符串是可迭代的
+    
+    currPath = os.path.dirname(os.path.abspath(__file__))
+    with open(currPath+&#39;/model.py&#39;) as file:
+        print(isinstance(file, Iterable)) # true</code></pre>
+<p>我们再来看<strong>第3点</strong>，</p>
+<pre><code><code>    print(hasattr([], &quot;__iter__&quot;)) # true
+    print(hasattr({}, &quot;__iter__&quot;)) # true
+    print(hasattr((), &quot;__iter__&quot;)) # true
+    print(hasattr(&#39;&#39;, &quot;__iter__&quot;)) # true</code></pre>
+<p>这些内置集合或序列对象都有<code>__iter__</code>属性，即他们都实现了同名方法。但这个可迭代对象要在<code>for</code>循环中被使用，那么它就应该能够被内置的<code>iter()</code>函数调用并转化成<code>Iterator</code>对象。<br />
+例如，我们看内置的可迭代对象</p>
+<pre><code><code>    print(iter([])) # &lt;list_iterator object at 0x110243f28&gt;
+    print(iter({})) # &lt;dict_keyiterator object at 0x110234408&gt;
+    print(iter(())) # &lt;tuple_iterator object at 0x110243f28&gt;
+    print(iter(&#39;&#39;)) # &lt;str_iterator object at 0x110243f28&gt;</code></pre>
+<p>它们都相应的转成了对应的迭代器(<code>Iterator</code>)对象。<br />
+现在回过头再看看一开始定义的那个<code>IterObj</code>类</p>
+<pre><code><code>class IterObj:
+    
+    def __iter__(self):
+        return self 
+        
+it = IterObj()
+print(iter(it))</code></pre>
+<p>我们使用了<code>iter()</code>函数，这时候将再控制台上打印出以下信息：</p>
+<pre><code><code>Traceback (most recent call last):
+  File &quot;/Users/mac/PycharmProjects/iterable_iterator_generator.py&quot;, line 71, in &lt;module&gt;
+    print(iter(it))
+TypeError: iter() returned non-iterator of type &#39;IterObj&#39;</code></pre>
+<p>出现了类型错误，意思是<code>iter()</code>函数不能将‘非迭代器’类型转成迭代器。</p>
+<p>那如何才能将一个可迭代(<code>Iterable</code>)对象转成迭代器(<code>Iterator</code>)对象呢？<br />
+我们修改一下<code>IterObj</code>类的定义</p>
+<pre><code><code>class IterObj:
+
+    def __init__(self):
+        self.a = [3, 5, 7, 11, 13, 17, 19]
+
+    def __iter__(self):
+        return iter(self.a)</code></pre>
+<p>我们在构造方法中定义了一个名为<code>a</code>的列表，然后还实现了<code>__iter__()</code>方法。</p>
+<p>修改后的类是可以被<code>iter()</code>函数调用的，即也可以在<code>for</code>循环中使用</p>
+<pre><code><code>    it = IterObj()
+    print(isinstance(it, Iterable)) # true
+    print(isinstance(it, Iterator)) # false
+    print(isinstance(it, Generator)) # false
+    print(iter(it)) # &lt;list_iterator object at 0x102007278&gt;
+    for i in it:
+        print(i) # 将打印3、5、7、11、13、17、19元素</code></pre>
+<p>因此<strong>在定义一个可迭代对象时，我们要非常注意<code>__iter__()</code>方法的内部实现逻辑，一般情况下，是通过一些已知的可迭代对象（例如，上文提到的集合、序列、文件等或其他正确定义的可迭代对象）来辅助我们来实现</strong></p>
+<p>关于<strong>第4点</strong>说明的意思是<code>iter()</code>函数可以将一个实现了<code>__getitem__()</code>方法的对象转成迭代器对象，也可以在<code>for</code>循环中使用，但是如果用<code>isinstance()</code>方法来检测时，它不是一个可迭代对象。</p>
+<pre><code><code>class IterObj:
+    
+    def __init__(self):
+        self.a = [3, 5, 7, 11, 13, 17, 19]
+    
+    def __getitem__(self, i):
+        return self.a[i]
+        
+it = IterObj()
+print(isinstance(it, Iterable)) # false
+print(isinstance(it, Iterator)) # false
+print(isinstance(it, Generator)) false
+print(hasattr(it, &quot;__iter__&quot;)) # false
+print(iter(it)) # &lt;iterator object at 0x10b231278&gt;
+
+for i in it:
+    print(i) # 将打印出3、5、7、11、13、17、19</code></pre>
+<p>这个例子说明了可以<strong>在<code>for</code>中使用的对象，不一定是可迭代对象。</strong></p>
+<p>现在我们做个小结：</p>
+<ol>
+<li>一个可迭代的对象是实现了<code>__iter__()</code>方法的对象</li>
+<li>它要在<code>for</code>循环中使用，就必须满足<code>iter()</code>的调用(即调用这个函数不会出错，能够正确转成一个<code>Iterator</code>对象)</li>
+<li>可以通过已知的可迭代对象来辅助实现我们自定义的可迭代对象。</li>
+<li>一个对象实现了<code>__getitem__()</code>方法可以通过<code>iter()</code>函数转成<code>Iterator</code>，即可以在<code>for</code>循环中使用，但它不是一个可迭代对象(可用isinstance方法检测())</li>
+</ol>
+<h4 id="x01-迭代器iterator">0x01 迭代器(Iterator)</h4>
+<p>上文很多地方都提到了<code>Iterator</code>,现在我们把这个坑填上。<br />
+当我们对可迭代的概念了解后，对于迭代器就比较好理解了。<br />
+<strong>一个对象实现了<code>__iter__()</code>和<code>__next__()</code>方法，那么它就是一个迭代器对象。</strong> 例如</p>
+<pre><code><code>class IterObj:
+
+    def __init__(self):
+        self.a = [3, 5, 7, 11, 13, 17, 19]
+
+        self.n = len(self.a)
+        self.i = 0
+
+    def __iter__(self):
+        return iter(self.a)
+
+    def __next__(self):
+        while self.i &lt; self.n:
+            v = self.a[self.i]
+            self.i += 1
+            return v
+        else:
+            self.i = 0
+            raise StopIteration()</code></pre>
+<p>在<code>IterObj</code>中，构造函数中定义了一个列表<code>a</code>,列表长度<code>n</code>,索引<code>i</code>。</p>
+<pre><code><code>    it = IterObj()
+    print(isinstance(it, Iterable)) # true
+    print(isinstance(it, Iterator)) # true
+    print(isinstance(it, Generator)) # false
+    print(hasattr(it, &quot;__iter__&quot;)) # true
+    print(hasattr(it, &quot;__next__&quot;)) # true</code></pre>
+<p>我们可以发现上文提到的<br />
+<strong>集合和序列对象是可迭代的但不是迭代器</strong></p>
+<pre><code><code>    print(isinstance([], Iterator)) # false
+    print(isinstance({}, Iterator)) # false
+    print(isinstance((), Iterator)) # false
+    print(isinstance(set(), Iterator)) # false
+    print(isinstance(&#39;&#39;, Iterator)) # false</code></pre>
+<p>而<strong>文件对象是迭代器</strong></p>
+<pre><code><code>    currPath = os.path.dirname(os.path.abspath(__file__))
+    with open(currPath+&#39;/model.py&#39;) as file:
+        print(isinstance(file, Iterator)) # true</code></pre>
+<p><strong>一个迭代器(<code>Iterator</code>)对象不仅可以在<code>for</code>循环中使用，还可以通过内置函数<code>next()</code>函数进行调用。</strong> 例如</p>
+<pre><code><code>it = IterObj()
+next(it) # 3
+next(it) # 5</code></pre>
+<h4 id="x02-生成器generator">0x02 生成器(Generator)</h4>
+<p>现在我们来看看什么是生成器？<br />
+<strong>一个生成器既是可迭代的也是迭代器</strong></p>
+<p>定义生成器有两种方式：</p>
+<ol>
+<li>列表生成器</li>
+<li>使用<code>yield</code>定义生成器函数</li>
+</ol>
+<p>先看第1种情况</p>
+<pre><code><code>    g = (x * 2 for x in range(10)) # 0～18的偶数生成器 
+    print(isinstance(g, Iterable)) # true
+    print(isinstance(g, Iterator)) # true
+    print(isinstance(g, Generator)) # true
+    print(hasattr(g, &quot;__iter__&quot;)) # true
+    print(hasattr(g, &quot;__next__&quot;)) # true
+    print(next(g)) # 0
+    print(next(g)) # 2</code></pre>
+<p>列表生成器可以不需要消耗大量的内存来生成一个巨大的列表，只有在需要数据的时候才会进行计算。<br />
+再看第2种情况</p>
+<pre><code><code>def gen():
+    for i in range(10):
+        yield i </code></pre>
+<p>这里<code>yield</code>的作用就相当于<code>return</code>,这个函数就是顺序地返回<code>[0,10)</code>的之间的自然数，可以通过<code>next()</code>或使用<code>for</code>循环来遍历。<br />
+当程序遇到<code>yield</code>关键字时，这个生成器函数就返回了，直到再次执行了<code>next()</code>函数，它就会从上次函数返回的执行点继续执行，即<code>yield</code>退出时保存了函数执行的位置、变量等信息，再次执行时，就从这个<code>yield</code>退出的地方继续往下执行。<br />
+在<code>Python</code>中利用生成器的这些特点可以实现协程。协程可以理解为一个轻量级的线程，它相对于线程处理高并发场景有很多优势。</p>
+<p>看下面一个用协程实现的<strong>生产者-消费者模型</strong></p>
+<pre><code><code>def producer(c):
+    n = 0
+    while n &lt; 5:
+        n += 1
+        print(&#39;producer {}&#39;.format(n))
+        r = c.send(n)
+        print(&#39;consumer return {}&#39;.format(r))
+
+
+def consumer():
+    r = &#39;&#39;
+    while True:
+        n = yield r
+        if not n:
+            return
+        print(&#39;consumer {} &#39;.format(n))
+        r = &#39;ok&#39;
+
+
+if __name__ == &#39;__main__&#39;:
+    c = consumer()
+    next(c)  # 启动consumer
+    producer(c)</code></pre>
+<p>这段代码执行效果如下</p>
+<pre><code><code>producer 1
+consumer 1 
+producer return ok
+producer 2
+consumer 2 
+producer return ok
+producer 3
+consumer 3 
+producer return ok</code></pre>
+<p>协程实现了<code>CPU</code>在两个函数之间进行切换从而实现并发的效果。</p>
+<h4 id="x04-引用">0x04 引用</h4>
+<ol>
+<li><a href="https://docs.python.org/3.7/" class="uri">https://docs.python.org/3.7/</a></li>
+</ol>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

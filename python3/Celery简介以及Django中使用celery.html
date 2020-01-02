@@ -1,0 +1,387 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Celery简介以及Django中使用celery' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Celery简介以及Django中使用celery</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11754721.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#celery简介">Celery简介</a><ul>
+        <li><a href="#消息中间件">消息中间件</a></li>
+        <li><a href="#任务执行单元">任务执行单元</a></li>
+        <li><a href="#任务结果存储">任务结果存储</a></li>
+        <li><a href="#使用场景">使用场景</a></li>
+        </ul></li>
+        <li><a href="#celery的安装和配置">Celery的安装和配置</a></li>
+        <li><a href="#celery执行异步任务">Celery执行异步任务</a><ul>
+        <li><a href="#基本使用">基本使用</a></li>
+        <li><a href="#延时任务">延时任务</a></li>
+        <li><a href="#定时任务">定时任务</a></li>
+        <li><a href="#异步处理django任务">异步处理Django任务</a><ul>
+        <li><a href="#案例">案例：</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="celery简介">Celery简介</h1>
+<p>Celery是由三部分组成，消息中间件（message broker）、任务执行的单元（worker）和任务执行结果存储（task result store）。</p>
+<h2 id="消息中间件">消息中间件</h2>
+<p>Celery本身不提供消息服务，但是可以方便的和第三方提供的消息中间件集成。包括，RabbitMQ, Redis等等。</p>
+<h2 id="任务执行单元">任务执行单元</h2>
+<p>Worker是Celery提供的任务执行的单元，worker并发的运行在分布式的系统节点中。</p>
+<h2 id="任务结果存储">任务结果存储</h2>
+<p>Task result store用来存储Worker执行的任务的结果，Celery支持以不同方式存储任务的结果，包括AMQP, redis等</p>
+<h2 id="使用场景">使用场景</h2>
+<p>异步任务：将耗时操作任务提交给Celery去异步执行，比如发送短信/邮件、消息推送、音视频处理等等</p>
+<p>定时任务：定时执行某件事情，比如每天数据统计</p>
+<h1 id="celery的安装和配置">Celery的安装和配置</h1>
+<p>安装：<code>pip install celery</code></p>
+<p>消息中间件：RabbitMQ/Redis</p>
+<p>app = Celery('任务名'， broker=‘xxx’, bankend='vvv')</p>
+<h1 id="celery执行异步任务">Celery执行异步任务</h1>
+<h2 id="基本使用">基本使用</h2>
+<h4 id="包架构封装">包架构封装</h4>
+<pre><code><code>project
+  |-- celery_task      # celery包
+  |   |-- __init__.py  # 包文件
+  |   |-- celery.py    # celery连接和配置相关文件，且名字必须交celery.py
+  |   |-- tasks.py      # 所有任务函数
+  |-- add_task.py      # 添加任务
+  |-- get_result.py    # 获取结果</code></pre>
+<h4 id="celery.py">celery.py</h4>
+<pre><code><code># 1）创建app + 任务
+
+# 2）启动celery(app)服务：
+# 非windows
+# 命令：celery worker -A celery_task -l info
+# windows：
+# pip3 install eventlet
+# celery worker -A celery_task -l info -P eventlet
+
+# 3）添加任务：手动添加，要自定义添加任务的脚本，右键执行脚本
+
+# 4）获取结果：手动获取，要自定义获取任务的脚本，右键执行脚本
+
+
+from celery import Celery
+
+&quot;&quot;&quot;
+broker=存储tasks的仓库 
+backend=存储results的仓库 
+include=[任务文件们]
+&quot;&quot;&quot;
+
+broker = &#39;redis://127.0.0.1:6379/1&#39;
+backend = &#39;redis://127.0.0.1:6379/2&#39;
+
+# redis有密码时
+# broker = &#39;redis://:123456@127.0.0.1:6379/2&#39;
+# backend = &#39;redis://:123456@127.0.0.1:6379/3&#39;
+app = Celery(broker=broker, backend=backend, include=[&#39;celery_task.tasks&#39;])
+
+
+# 启动celery服务的命令：
+# 前提：一定要进入celery_task所属的文件夹
+# celery worker -A celery_task -l info -P eventlet</code></pre>
+<h4 id="tasks.py">tasks.py</h4>
+<pre><code><code>from .celery import app
+import time
+
+
+@app.task
+def add(n, m):
+    print(n)
+    print(m)
+    time.sleep(10)
+    print(&#39;n+m的结果：%s&#39; % (n + m))
+    return n + m
+
+@app.task
+def low(n, m):
+    print(n)
+    print(m)
+    print(&#39;n-m的结果：%s&#39; % (n - m))
+    return n - m</code></pre>
+<h4 id="add_task.py">add_task.py</h4>
+<pre><code><code>from celery_task import tasks
+
+# 添加立即执行任务
+t1 = tasks.add.delay(10, 20)
+t2 = tasks.low.delay(100, 50)
+print(t1.id)</code></pre>
+<h4 id="get_result.py">get_result.py</h4>
+<pre><code><code>from celery_task.celery import app
+from celery.result import AsyncResult
+
+id = &#39;4e249f2d-559a-4a3e-8b43-d498b3d6355e&#39;  # 随机的任务结果
+if __name__ == &#39;__main__&#39;:
+    async = AsyncResult(id=id, app=app)
+    if async.successful():
+        result = async.get()
+        print(result)
+    elif async.failed():
+        print(&#39;任务失败&#39;)
+    elif async.status == &#39;PENDING&#39;:
+        print(&#39;任务等待中被执行&#39;)
+    elif async.status == &#39;RETRY&#39;:
+        print(&#39;任务异常后正在重试&#39;)
+    elif async.status == &#39;STARTED&#39;:
+        print(&#39;任务已经开始被执行&#39;)</code></pre>
+<h2 id="延时任务">延时任务</h2>
+<h4 id="包架构封装-1">包架构封装</h4>
+<pre><code><code>project
+  |-- celery_task
+  |   |-- __init__.py 
+  |   |-- celery.py 
+  |   |-- tasks.py
+  |-- add_task.py
+  |-- get_result.py</code></pre>
+<h4 id="celery.py-1">celery.py</h4>
+<pre><code><code>from celery import Celery
+
+broker = &#39;redis://127.0.0.1:6379/11&#39;
+backend = &#39;redis://127.0.0.1:6379/12&#39;
+include = [&#39;celery_task.tasks&#39;,]
+app = Celery(broker=broker, backend=backend, include=include)
+
+# 启动celery服务的命令：
+# 前提：一定要进入celery_task所属的文件夹
+# celery worker -A celery_task -l info -P eventlet</code></pre>
+<h4 id="tasks.py-1">tasks.py</h4>
+<pre><code><code>from .celery import app
+
+@app.task
+def add(n, m):
+    res = n + m
+    print(res)
+    return res
+
+@app.task
+def low(n, m):
+    res = n - m
+    print(res)
+    return res</code></pre>
+<h4 id="add_task.py-1">add_task.py</h4>
+<pre><code><code>from celery_task.tasks import add, low
+
+# 添加延迟任务
+from datetime import datetime, timedelta
+
+def eta_second(second):
+    ctime = datetime.now()
+    utc_ctime = datetime.utcfromtimestamp(ctime.timestamp())
+    time_delay = timedelta(seconds=second)
+    return utc_ctime + time_delay
+
+# 手动添加 延迟任务
+if __name__ == &#39;__main__&#39;:
+    result = add.apply_async(args=(200, 50), eta=eta_second(10))
+    print(result.id)
+    result = low.apply_async(args=(200, 50), eta=eta_second(8))
+    print(result.id)</code></pre>
+<h4 id="get_result.py-1">get_result.py</h4>
+<pre><code><code>from celery_task.celery import app
+from celery.result import AsyncResult
+
+id = &#39;74b4f1b2-36ee-4eab-afa7-3da40b7e794e&#39;
+
+if __name__ == &#39;__main__&#39;:
+    async = AsyncResult(id=id, app=app)
+    if async.successful():
+        result = async.get()
+        print(result)
+    elif async.failed():
+        print(&#39;任务失败&#39;)
+    elif async.status == &#39;PENDING&#39;:
+        print(&#39;任务等待中被执行&#39;)
+    elif async.status == &#39;RETRY&#39;:
+        print(&#39;任务异常后正在重试&#39;)
+    elif async.status == &#39;STARTED&#39;:
+        print(&#39;任务已经开始被执行&#39;)</code></pre>
+<h2 id="定时任务">定时任务</h2>
+<h4 id="包架构封装-2">包架构封装</h4>
+<pre><code><code>project
+  |-- celery_task
+  |   |-- __init__.py
+  |   |-- celery.py
+  |   |-- tasks.py</code></pre>
+<h4 id="celery.py-2">celery.py</h4>
+<pre><code><code>from celery import Celery
+
+broker = &#39;redis://127.0.0.1:6379/11&#39;
+backend = &#39;redis://127.0.0.1:6379/12&#39;
+include = [&#39;celery_task.tasks&#39;,]
+app = Celery(broker=broker, backend=backend, include=include)
+
+# 启动celery服务的命令：
+# 前提：一定要进入celery_task所属的文件夹
+# celery worker -A celery_task -l info -P eventlet
+
+
+# 自动添加任务
+# 时区
+app.conf.timezone = &#39;Asia/Shanghai&#39;
+# 是否使用UTC
+app.conf.enable_utc = False
+
+# 任务的定时配置
+from datetime import timedelta
+from celery.schedules import crontab
+app.conf.beat_schedule = {
+    &#39;low-task&#39;: {
+        &#39;task&#39;: &#39;celery_task.tasks.low&#39;,
+        &#39;schedule&#39;: timedelta(seconds=3),
+        # &#39;schedule&#39;: crontab(hour=8, day_of_week=1),  # 每周一早八点
+        &#39;args&#39;: (300, 150),
+    },
+    &#39;my-add-task&#39;: {
+        &#39;task&#39;: &#39;celery_task.tasks.add&#39;,
+        &#39;schedule&#39;: timedelta(seconds=6),
+        &#39;args&#39;: (300, 150),
+    }
+}
+
+# 启动 添加任务 服务的命令
+# celery beat -A celery_task -l info</code></pre>
+<h4 id="tasks.py-2">tasks.py</h4>
+<pre><code><code>from .celery import app
+
+
+@app.task
+def add(n, m):
+    res = n + m
+    print(res)
+    return res
+
+@app.task
+def low(n, m):
+    res = n - m
+    print(res)
+    return res</code></pre>
+<h2 id="异步处理django任务">异步处理Django任务</h2>
+<h4 id="包架构封装-3">包架构封装</h4>
+<pre><code><code>project
+  |-- celery_task
+  |   |-- __init__.py
+  |   |-- celery.py
+  |   |-- tasks.py</code></pre>
+<h4 id="celery.py-3">celery.py</h4>
+<pre><code><code># 启动django依赖
+
+import sys
+sys.path.append(r&#39;C:\Users\oldboy\Desktop\luffy\luffyapi&#39;)
+
+import os, django
+os.environ.setdefault(&#39;DJANGO_SETTINGS_MODULE&#39;, &#39;luffyapi.settings.dev&#39;)
+django.setup()
+
+
+from celery import Celery
+
+broker = &#39;redis://127.0.0.1:6379/11&#39;
+backend = &#39;redis://127.0.0.1:6379/12&#39;
+include = [&#39;celery_task.tasks&#39;,]
+app = Celery(broker=broker, backend=backend, include=include)
+
+# 启动celery服务的命令：
+# 前提：一定要进入celery_task所属的文件夹
+# celery worker -A celery_task -l info -P eventlet
+
+
+# 自动添加任务
+# 时区
+app.conf.timezone = &#39;Asia/Shanghai&#39;
+# 是否使用UTC
+app.conf.enable_utc = False
+
+# 任务的定时配置
+from datetime import timedelta
+from celery.schedules import crontab
+app.conf.beat_schedule = {
+    &#39;django-task&#39;: {
+        &#39;task&#39;: &#39;celery_task.tasks.django_task&#39;,
+        &#39;schedule&#39;: timedelta(seconds=3),
+        # &#39;schedule&#39;: crontab(hour=8, day_of_week=1),  # 每周一早八点
+        &#39;args&#39;: (300, 150),
+    },
+}
+
+# 启动 添加任务 服务的命令
+# celery beat -A celery_task -l info</code></pre>
+<h4 id="tasks.py-3">tasks.py</h4>
+<pre><code><code>from .celery import app
+
+@app.task
+def django_task():
+    pass</code></pre>
+<h3 id="案例">案例：</h3>
+<h4 id="celery.py-4">celery.py</h4>
+<pre><code><code># 启动django依赖
+
+# 将celery服务框架放在项目根目录下
+# import sys
+# sys.path.append(r&#39;C:\Users\oldboy\Desktop\luffy\luffyapi&#39;)
+
+import os, django
+os.environ.setdefault(&#39;DJANGO_SETTINGS_MODULE&#39;, &#39;luffyapi.settings&#39;)
+django.setup()
+
+
+from celery import Celery
+
+broker = &#39;redis://127.0.0.1:6379/11&#39;
+backend = &#39;redis://127.0.0.1:6379/12&#39;
+include = [&#39;celery_task.tasks&#39;,]
+app = Celery(broker=broker, backend=backend, include=include)
+
+app.conf.timezone = &#39;Asia/Shanghai&#39;
+
+app.conf.enable_utc = False
+
+# 任务的定时配置
+from datetime import timedelta
+from celery.schedules import crontab
+app.conf.beat_schedule = {
+    &#39;django-task&#39;: {
+        &#39;task&#39;: &#39;celery_task.tasks.django_task&#39;,
+        &#39;schedule&#39;: timedelta(seconds=10),
+        # &#39;schedule&#39;: crontab(hour=8, day_of_week=1),  # 每周一早八点
+        &#39;args&#39;: (),
+    },
+}
+</code></pre>
+<h4 id="tasks.py-4">tasks.py</h4>
+<pre><code><code>from .celery import app
+from django.core.cache import cache
+from apps.home import models, serializers
+
+
+@app.task
+def django_task():
+    banner_query = models.Banner.objects.filter(is_show=True, is_delete=False).order_by(&#39;-orders&#39;)
+    banner_list_data = serializers.BannerModelSerializer(banner_query, many=True).data
+    # 建立接口缓存
+    cache.set(&#39;api_banner_list_data&#39;, banner_list_data)
+    return &#39;轮播图缓存更新完毕&#39;</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

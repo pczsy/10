@@ -1,0 +1,348 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修曹工说Spring Boot源码（4）--  我是怎么自定义ApplicationContext，从json文件读取bean definition的？' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>曹工说Spring Boot源码（4）--  我是怎么自定义ApplicationContext，从json文件读取bean definition的？</center></div><div class='banquan'>原文出处:本文由博客园博主三国梦回提供。<br/>
+原文连接:https://www.cnblogs.com/grey-wolf/p/12078673.html</div><br>
+    <h1 id="写在前面的话">写在前面的话</h1>
+<p>相关背景及资源：</p>
+<p><a href="https://www.cnblogs.com/grey-wolf/p/12044199.html">曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享</a></p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn">工程代码地址</a> <a href="https://www.processon.com/view/link/5deeefdee4b0e2c298aa5596">思维导图地址</a></p>
+<p>工程结构图：</p>
+<p><img src="./images/曹工说Spring Boot源码（4）--  我是怎么自定义ApplicationContext，从json文件读取bean definition的？0.png" /></p>
+<h1 id="大体思路">大体思路</h1>
+<p>总体来说，bean definition是什么，我们前面几讲，说了个大概了；目前，我们将聚焦于怎么获取bean definition。</p>
+<p>我们这次做个实验，就是将bean definition（一共两个bean，有依赖关系，依赖是手动指定的）定义在json文件内，然后自定义一个applicationcontext，从该文件内读取bean definiton，最后我们测试下是否能work。</p>
+<p>注意哈，这里的依赖，依然和前面讲的一样，都是手动指定依赖，类似@Autowired这种，还会放到后面才会讲，开车也要先学手动档嘛，是伐？</p>
+<p>建议大家直接拖源码下来看：</p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-beans-json-extend" class="uri">https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-beans-json-extend</a></p>
+<h1 id="定义json文件">定义json文件</h1>
+<p>json文件内，要表达bean definition，按照我们前面说的，基本就包括几个必要的就行了，比如beanClassName。但我这里还是展示一个完整的，但我也是用<code>fastjson</code>先在之前的工程里生成了一个json，之后再拷贝到了json文件里：</p>
+<pre><code><code>// 这里获取到的bean definition的实际类型是 GenericBeanDefiniton，所以序列化出来的的json，就是一个
+// GenericBeanDefiniton集合的json
+List&lt;BeanDefinition&gt; beanDefinitionList = factory.getBeanDefinitionList()
+JSON.toJSONString(beanDefinitionList)</code></pre>
+<p>json文件内容如下：</p>
+<pre class="json"><code>[
+  {
+    &quot;abstract&quot;: false,
+    &quot;autowireCandidate&quot;: true,
+    &quot;autowireMode&quot;: 0,
+    &quot;beanClass&quot;: &quot;org.springframework.simple.TestService&quot;,
+    &quot;beanClassName&quot;: &quot;org.springframework.simple.TestService&quot;,
+    &quot;constructorArgumentValues&quot;: {
+      &quot;argumentCount&quot;: 0,
+      &quot;empty&quot;: true,
+      &quot;genericArgumentValues&quot;: [],
+      &quot;indexedArgumentValues&quot;: {}
+    },
+    &quot;dependencyCheck&quot;: 0,
+    &quot;enforceDestroyMethod&quot;: true,
+    &quot;enforceInitMethod&quot;: true,
+    &quot;lazyInit&quot;: false,
+    &quot;lenientConstructorResolution&quot;: true,
+    &quot;methodOverrides&quot;: {
+      &quot;empty&quot;: true,
+      &quot;overrides&quot;: []
+    },
+    &quot;nonPublicAccessAllowed&quot;: true,
+    &quot;primary&quot;: false,
+    &quot;propertyValues&quot;: {
+      &quot;converted&quot;: false,
+      &quot;empty&quot;: true,
+      &quot;propertyValueList&quot;: [],
+      &quot;propertyValues&quot;: []
+    },
+    &quot;prototype&quot;: false,
+    &quot;qualifiers&quot;: [],
+    &quot;resolvedAutowireMode&quot;: 0,
+    &quot;role&quot;: 0,
+    &quot;scope&quot;: &quot;&quot;,
+    &quot;singleton&quot;: true,
+    &quot;synthetic&quot;: false
+  },
+  {
+    &quot;abstract&quot;: false,
+    &quot;autowireCandidate&quot;: true,
+    &quot;autowireMode&quot;: 0,
+    &quot;beanClass&quot;: &quot;org.springframework.simple.byconstructor.TestControllerByConstructor&quot;,
+    &quot;beanClassName&quot;: &quot;org.springframework.simple.byconstructor.TestControllerByConstructor&quot;,
+    &quot;constructorArgumentValues&quot;: {
+      &quot;argumentCount&quot;: 2,
+      &quot;empty&quot;: false,
+      &quot;genericArgumentValues&quot;: [],
+      &quot;indexedArgumentValues&quot;: {
+        0: {
+          &quot;converted&quot;: false,
+          &quot;value&quot;: {
+            &quot;beanName&quot;: &quot;testService&quot;,
+            &quot;toParent&quot;: false
+          }
+        },
+        1: {
+          &quot;converted&quot;: false,
+          &quot;value&quot;: &quot;wire by constructor&quot;
+        }
+      }
+    },
+    &quot;dependencyCheck&quot;: 0,
+    &quot;enforceDestroyMethod&quot;: true,
+    &quot;enforceInitMethod&quot;: true,
+    &quot;lazyInit&quot;: false,
+    &quot;lenientConstructorResolution&quot;: true,
+    &quot;methodOverrides&quot;: {
+      &quot;empty&quot;: true,
+      &quot;overrides&quot;: []
+    },
+    &quot;nonPublicAccessAllowed&quot;: true,
+    &quot;primary&quot;: false,
+    &quot;propertyValues&quot;: {
+      &quot;converted&quot;: false,
+      &quot;empty&quot;: true,
+      &quot;propertyValueList&quot;: [],
+      &quot;propertyValues&quot;: []
+    },
+    &quot;prototype&quot;: false,
+    &quot;qualifiers&quot;: [],
+    &quot;resolvedAutowireMode&quot;: 0,
+    &quot;role&quot;: 0,
+    &quot;scope&quot;: &quot;&quot;,
+    &quot;singleton&quot;: true,
+    &quot;synthetic&quot;: false
+  }
+]</code></pre>
+<p>大家可能看得有点懵，其实换成xml，就是类似下面这样的：</p>
+<pre class="xml"><code>    &lt;bean name=&quot;testService&quot; class=&quot;org.springframework.simple.TestService&quot; /&gt;
+
+    &lt;bean id=&quot;testController&quot; class=&quot;org.springframework.simple.TestController&quot;&gt;
+        &lt;constructor-arg ref=&quot;testService&quot;/&gt;
+    &lt;/bean&gt;</code></pre>
+<h1 id="扩展-applicationcontext">扩展 applicationContext</h1>
+<pre><code><code>package org.springframework.beans.extend.json.applicationcontext;
+
+import org.springframework.beans.BeansException;
+import org.springframework.beans.extend.json.JsonBeanDefinitionReader;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.xml.ResourceEntityResolver;
+import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.AbstractRefreshableConfigApplicationContext;
+import java.io.IOException;
+
+
+public class ClassPathJsonApplicationContext extends AbstractRefreshableConfigApplicationContext {
+
+    @Override
+    protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) throws BeansException, IOException {
+        //其实主要内容和xmlapplicationcontext是一样的，主要就是下面这行不一样，new了一个json reader
+        JsonBeanDefinitionReader beanDefinitionReader = new JsonBeanDefinitionReader(beanFactory);
+
+        beanDefinitionReader.setEnvironment(this.getEnvironment());
+        beanDefinitionReader.setResourceLoader(this);
+        // 这里通过json bean definiton reader去读取bean definition
+        loadBeanDefinitions(beanDefinitionReader);
+    }
+
+    /**
+     *通过json bean definiton reader去读取bean definition
+     **/
+    protected void loadBeanDefinitions(JsonBeanDefinitionReader reader) throws BeansException, IOException {
+        // 这里获取json文件的path，这个location是在new ClassPathJsonApplicationContext时传进来的
+        String[] configResources = getConfigLocations();
+        if (configResources != null) {
+            reader.loadBeanDefinitions(configResources);
+        }
+    }
+
+    public ClassPathJsonApplicationContext(String configLocation) throws BeansException {
+        this(new String[] {configLocation}, true, null);
+    }
+
+    /**
+     * 这里一模一样，不需要任何变化
+     **/
+    public ClassPathJsonApplicationContext(String[] configLocations, boolean refresh, ApplicationContext parent)
+            throws BeansException {
+
+        super(parent);
+        setConfigLocations(configLocations);
+        if (refresh) {
+            refresh();
+        }
+    }
+}
+</code></pre>
+<h1 id="扩展jsonbeandefinitionreader">扩展jsonBeanDefinitionReader</h1>
+<pre><code><code>package org.springframework.beans.extend.json;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.BeanDefinitionStoreException;
+import org.springframework.beans.factory.config.ConstructorArgumentValues;
+import org.springframework.beans.factory.config.RuntimeBeanReference;
+import org.springframework.beans.factory.support.AbstractBeanDefinitionReader;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanNameGenerator;
+import org.springframework.beans.factory.support.GenericBeanDefinition;
+import org.springframework.context.annotation.AnnotationBeanNameGenerator;
+import org.springframework.core.NamedThreadLocal;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.EncodedResource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StreamUtils;
+import org.xml.sax.InputSource;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.*;
+
+/**
+ * 类似
+ * {@link org.springframework.beans.factory.xml.XmlBeanDefinitionReader}
+ * 只是本类是去json文件里读取bean definition
+ *
+ */
+@Slf4j
+public class JsonBeanDefinitionReader extends AbstractBeanDefinitionReader {
+    private final ThreadLocal&lt;Set&lt;EncodedResource&gt;&gt; resourcesCurrentlyBeingLoaded =
+            new NamedThreadLocal&lt;Set&lt;EncodedResource&gt;&gt;(&quot;json bean definition resources currently being loaded&quot;);
+
+
+    public JsonBeanDefinitionReader(BeanDefinitionRegistry registry) {
+        super(registry);
+    }
+
+    @Override
+    public int loadBeanDefinitions(Resource resource) throws BeanDefinitionStoreException {
+        // 以下照抄xmlbeanDefintionReader开始
+        Set&lt;EncodedResource&gt; currentResources = this.resourcesCurrentlyBeingLoaded.get();
+        if (currentResources == null) {
+            currentResources = new HashSet&lt;EncodedResource&gt;(4);
+            this.resourcesCurrentlyBeingLoaded.set(currentResources);
+        }
+
+        EncodedResource encodedResource = new EncodedResource(resource);
+        if (!currentResources.add(encodedResource)) {
+            throw new BeanDefinitionStoreException(
+                    &quot;Detected cyclic loading of &quot; + encodedResource + &quot; - check your import definitions!&quot;);
+        }
+        //照抄xmlbeanDefintionReader结束
+        
+        
+        //这里的encodedResource.getResource()就是我们的json文件，这里通过spring core里面的一个工具类读取为InputStream
+        String json = null;
+        try (InputStream inputStream = encodedResource.getResource().getInputStream()) {
+            json = StreamUtils.copyToString(inputStream, Charset.forName(&quot;UTF-8&quot;));
+        } catch (IOException e) {
+            log.error(&quot;{}&quot;,e);
+            return 0;
+        } finally {
+            currentResources.remove(encodedResource);
+            if (currentResources.isEmpty()) {
+                this.resourcesCurrentlyBeingLoaded.remove();
+            }
+        }
+        
+        //熟悉的fastjson，熟悉的味道
+        List&lt;GenericBeanDefinition&gt; list = JSON.parseArray(json, GenericBeanDefinition.class);
+        if (CollectionUtils.isEmpty(list)) {
+            return 0;
+        }
+        
+        /**
+         * 1：因为GenericBeanDefinition，只有setBeanClassName，所以bean反序列化时，只序列化了这个字        * 段；实际我们知道，beanClass很重要，所以我们只能自己处理一下了
+         * 2：第二个问题，我们在下面解释
+         **/
+        for (GenericBeanDefinition genericBeanDefinition : list) {
+            /**
+             * 1、处理beanClass
+             */
+            Class&lt;?&gt; clazz = null;
+            try {
+                clazz = Thread.currentThread().getContextClassLoader().loadClass(genericBeanDefinition.getBeanClassName());
+            } catch (ClassNotFoundException e) {
+                log.error(&quot;bean class cant be load for beandefinition: {}&quot;,genericBeanDefinition);
+                throw new RuntimeException();
+            }
+
+            genericBeanDefinition.setBeanClass(clazz);
+
+            /**
+             * 2、处理constructor问题，因为Object value = valueHolder.getValue();
+             * 是Object类型，但这个实际是一个可变类型，当构造器参数为String类型时，这个Object就是                 * String类型的，当构造器参数类型为其他bean的引用时，这个object就是RuntimeBeanReference              * 的，
+             * 因为fastjson把我的object转成jsonobject类型了，所以这里要手动搞成RuntimeBeanReference
+             */
+            ConstructorArgumentValues constructorArgumentValues = genericBeanDefinition.getConstructorArgumentValues();
+            if (constructorArgumentValues.isEmpty()) {
+                continue;
+            }
+            Map&lt;Integer, ConstructorArgumentValues.ValueHolder&gt; map = constructorArgumentValues.getIndexedArgumentValues();
+            if (CollectionUtils.isEmpty(map)) {
+                continue;
+            }
+            for (ConstructorArgumentValues.ValueHolder valueHolder : map.values()) {
+                Object value = valueHolder.getValue();
+                if (value instanceof JSONObject) {
+                    JSONObject jsonObject = (JSONObject) value;
+                    RuntimeBeanReference runtimeBeanReference = jsonObject.toJavaObject(RuntimeBeanReference.class);
+                    valueHolder.setValue(runtimeBeanReference);
+                }
+            }
+        }
+        
+        //这里new一个BeanNameGenerator，这是自带的
+        setBeanNameGenerator(new AnnotationBeanNameGenerator());
+        BeanNameGenerator beanNameGenerator = getBeanNameGenerator();
+        // 获取BeanDefinitionRegistry，bean factory默认实现了BeanDefinitionRegistry
+        BeanDefinitionRegistry registry = getRegistry();
+        //注册bean definition到BeanDefinitionRegistry里面去
+        for (GenericBeanDefinition genericBeanDefinition : list) {
+            String beanName = beanNameGenerator.generateBeanName(genericBeanDefinition, registry);
+            registry.registerBeanDefinition(beanName,genericBeanDefinition);
+        }
+
+        return list.size();
+    }
+}
+</code></pre>
+<h1 id="收工了测试一下">收工了，测试一下</h1>
+<pre><code><code>public class BootStrap {
+    public static void main(String[] args) {
+        // new一个我们的自定义json上下文
+        ClassPathJsonApplicationContext context = new ClassPathJsonApplicationContext(&quot;beanDefinition.json&quot;);
+        // getBean试一下
+        TestControllerByConstructor bean = context.getBean(TestControllerByConstructor.class);
+        System.out.println(bean);
+    }
+}
+</code></pre>
+<p><img src="./images/曹工说Spring Boot源码（4）--  我是怎么自定义ApplicationContext，从json文件读取bean definition的？1.png" /></p>
+<p>可以看到，已经注入进去了。没有什么问题。</p>
+<h1 id="总结">总结</h1>
+<p>今天比较晚，写得也比较急，有问题的话，请大家务必指出，谢谢大家</p>
+<p>源码地址：</p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-beans-json-extend" class="uri">https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-beans-json-extend</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

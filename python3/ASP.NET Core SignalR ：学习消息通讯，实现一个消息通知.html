@@ -1,0 +1,253 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修ASP.NET Core SignalR ：学习消息通讯，实现一个消息通知' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>ASP.NET Core SignalR ：学习消息通讯，实现一个消息通知</center></div><div class='banquan'>原文出处:本文由博客园博主灬丶提供。<br/>
+原文连接:https://www.cnblogs.com/MrHanBlog/p/11996689.html</div><br>
+    <h2 id="what-is-opno-locsignalr"><span data-ttu-id="4ed7c-104">&nbsp;<a href="https://docs.microsoft.com/zh-cn/aspnet/core/signalr/introduction?view=aspnetcore-3.1" target="_blank">什么是 SignalR</a></span></h2>
+<p><span data-ttu-id="4ed7c-104">&nbsp; &nbsp; &nbsp; &nbsp;目前我用业余时间正在做一个博客系统，其中有个功能就是评论通知，就是假如A用户评论B用户的时候，如果B用户首页处于打开状态，那么就会提示B用户有未读消息。暂时用SignalR来实现这个功能。我也是看了两天的资料才明白怎么去使用。</span></p>
+<p><span data-ttu-id="4ed7c-104">&nbsp; &nbsp; &nbsp; 关于SignalR的理论知识可以去官网或者百度，我这里只是结合自己的功能来分享下，如果有错，请原谅指出。</span></p>
+<h1><span style="font-family: 'Microsoft YaHei'; font-size: 14pt;"><span data-ttu-id="4ed7c-104"><span style="font-size: 18pt;">下载js</span></span></span></h1>
+<p><span data-ttu-id="4ed7c-104">&nbsp; &nbsp; &nbsp; SignalR是需要微软提供的js，因为我的项目是前后端分离的，所以我是单独下载到一个文件夹，然后复制js到我的前端项目里。只需要</span>signalr.js</p>
+<h1><span data-ttu-id="4ed7c-104">页面加载创建连接</span></h1>
+<p><span data-ttu-id="4ed7c-104">&nbsp; &nbsp; &nbsp;</span></p>
+<div class="cnblogs_code">
+<pre><code> //创建连接  <br /> <span style="color: #0000ff;">var</span> connection = <span style="color: #0000ff;">new</span> signalR.HubConnectionBuilder().withUrl('http://127.0.0.1:5000/chatHub').build();<br /> //ajax执行成功执行</pre>
+<div>
+<div>&nbsp;&nbsp;$.ajax({</div>
+<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; success:&nbsp;function&nbsp;(response)&nbsp;{&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</div>
+<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;connection.start().then(function&nbsp;()&nbsp;{</div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;connection.invoke('SetConnectionMaps',&nbsp;response.data.account);</div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;});</div>
+<div>&nbsp; &nbsp; &nbsp;</div>
+</div>
+</div>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 首先你要了解到SignalR基本运行的原理，官网：<a href="https://docs.microsoft.com/zh-cn/aspnet/core/tutorials/signalr?view=aspnetcore-3.1&amp;tabs=visual-studio">https://docs.microsoft.com/zh-cn/aspnet/core/tutorials/signalr?view=aspnetcore-3.1&amp;tabs=visual-studio</a></p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 你可以直接继承Hub这个类，我这里用的是强类型Hub&lt;T&gt;，我就是为了让前端和后端统一下。刚开始Hub&lt;T&gt;我纠结了好久，不知道怎么用，最后我手动做了下，认为它只是为了方便前端和后端统一。</p>
+<p>&nbsp;如果你只是简单的继承Hub类,你就必须调用SendAsync方法，并且指定前端接收触发的方法名称&ldquo;InvokeMessage&rdquo;，如果你后端和前端名字对应不上，就会有问题。</p>
+<div class="cnblogs_code">
+<pre><code>public class SingalrService : Hub<span style="color: #000000;">
+    {
+        private ISingalrSvc _singalrSvc;
+        public SingalrService(ISingalrSvc singalrSvc)
+        {
+            _singalrSvc </span>=<span style="color: #000000;"> singalrSvc;
+        }
+      
+        public async Task SendMessageAsync(Message sendMessage)
+        {
+            await Clients.All.SendAsync(</span>"InvokeMessage"<span style="color: #000000;">,sendMessage);
+        }
+
+        public </span><span style="color: #0000ff;">void</span><span style="color: #000000;"> SetConnectionMaps(string account)
+        {
+            string connectionid </span>=<span style="color: #000000;"> Context.ConnectionId;
+            _singalrSvc.SetConnectionMaps(connectionid, account);
+        }
+        public override Task OnDisconnectedAsync(Exception exception)
+        {
+            _singalrSvc.Remove(Context.ConnectionId);           
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> base.OnDisconnectedAsync(exception);
+        }
+    }</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;所以有了强类型Hub&lt;T&gt;，自己定义一个接口，提过方法InvokeMessage供前前端调用。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">    //</span><span style="color: #008000;">/ &lt;summary&gt;</span>
+    <span style="color: #008000;">//</span><span style="color: #008000;">/ 客户端js调用方法</span>
+    <span style="color: #008000;">//</span><span style="color: #008000;">/ &lt;/summary&gt;</span>
+<span style="color: #000000;">    public interface ISingalrClient
+    {
+        Task InvokeMessage(Message sendMessage);
+    }
+    public class SingalrService : Hub</span>&lt;ISingalrClient&gt;<span style="color: #000000;">
+    {
+        private ISingalrSvc _singalrSvc;
+        public SingalrService(ISingalrSvc singalrSvc)
+        {
+            _singalrSvc </span>=<span style="color: #000000;"> singalrSvc;
+        }
+        public </span><span style="color: #0000ff;">void</span><span style="color: #000000;"> SetConnectionMaps(string account)
+        {
+            string connectionid </span>=<span style="color: #000000;"> Context.ConnectionId;
+            _singalrSvc.SetConnectionMaps(connectionid, account);
+        }<br />        //连接中断时执行，微软这样描述的：<br /><span data-ttu-id="e14f4-194">        //重写&nbsp;<code>OnDisconnectedAsync</code>&nbsp;虚方法，以便在客户端断开连接时执行操作。&nbsp;<span data-ttu-id="e14f4-195">如果客户端故意断开连接（例如，通过调用&nbsp;<code>connection.stop()</code>），<code>exception</code>&nbsp;参数将&nbsp;<code>null</code>。<br />        //<span data-ttu-id="e14f4-196">但是，如果客户端由于错误（例如网络故障）而断开连接，则&nbsp;<code>exception</code>&nbsp;参数将包含描述失败的异常</span></span></span>
+        public override Task OnDisconnectedAsync(Exception exception)
+        {
+            _singalrSvc.Remove(Context.ConnectionId);           
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> base.OnDisconnectedAsync(exception);
+        }
+    }</span></pre>
+</div>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;这个时候一个用户打开了首页，然后首页有个js方法来初始化连接，同一个页面内的connectionid是一样的，每次刷新或新打开一个窗口的新页面的connectionid是不一样的，并且你刷新页面或者关掉会认为是连接中断，会执行OnDisconnectedAsync方法，这个方法时SingalR自带的，它是个虚方法，你也可以重写，就像我一样。我这里的代码逻辑是将连接id和当前登录人作为键值对存入内存，然后用户关掉页面就会执行OnDisconnectedAsync方法，将相关的coonectionid从内存删掉：&nbsp;&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">layui.use(['element', 'layer'],&nbsp;function&nbsp;() {          <br />            var</span> element =<span style="color: #000000;"> layui.element;
+            element.render(</span>'nav'<span style="color: #000000;">);
+            initLoad();<br />            //初始化连接，每个页面的connection的connectionid是一样的，但是每次创建的不一样
+            </span><span style="color: #0000ff;">var</span> connection = <span style="color: #0000ff;">new</span> signalR.HubConnectionBuilder().withUrl('http://127.0.0.1:5000/chatHub'<span style="color: #000000;">).build();<br />            //绑定后台触发的方法，前面已经讲过了，具体业务还没实现，
+            connection.on(</span>'InvokeMessage', (reviceMessage) =&gt;<span style="color: #000000;"> {
+                </span><span style="color: #0000ff;">var</span> v =<span style="color: #000000;"> reviceMessage;
+            });
+            $.ajax({
+                url: url </span>+ 'user/userInfo'<span style="color: #000000;">,
+                type: </span>'get'<span style="color: #000000;">,
+                dataType: </span>'json'<span style="color: #000000;">,
+                beforeSend: </span><span style="color: #0000ff;">function</span><span style="color: #000000;"> (xhr) {
+                    doBeforeSend(xhr);
+                },
+                success: </span><span style="color: #0000ff;">function</span><span style="color: #000000;"> (response) {
+                    </span><span style="color: #0000ff;">if</span> (response.code == '1'<span style="color: #000000;">) {
+                        $(</span>"#nologin"<span style="color: #000000;">).show();
+                        $(</span>"#user"<span style="color: #000000;">).hide();
+                    }
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                        $(</span>"#nologin"<span style="color: #000000;">).hide();
+                        $(</span>"#user"<span style="color: #000000;">).show();
+                        $(</span>"#photo").attr('src'<span style="color: #000000;">, response.data.headPhoto);<br />                           //连接开始
+                        connection.start().then(</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> () {<br />                            //调用后台方法，不是api接口，将当前登录人账号传过去
+                            connection.invoke(</span>'SetConnectionMaps'<span style="color: #000000;">, response.data.account);
+                        })
+                    }
+                },
+                complete: </span><span style="color: #0000ff;">function</span><span style="color: #000000;"> (xhr) {
+                    doComplete(xhr);
+                },
+            });
+        });</span></pre>
+</div>
+<p>&nbsp; 这个时候连接已经创建完成，并且用户并没有关闭首页，连接一直处于连接状态。这个时候另一个用户打开了一篇文章详情，并且对它评论提交内容后，我让它触发了一个连接SingalR的事件，</p>
+<div class="cnblogs_code">
+<pre><code>    form.on('submit(review)', <span style="color: #0000ff;">function</span><span style="color: #000000;"> (data) {
+        loading </span>= layer.load(2<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">var</span> commentModel =<span style="color: #000000;"> {
+            </span>'Content'<span style="color: #000000;">: data.field.desc,
+        }
+        $.ajax({
+            url: url </span>+ 'article/review/' +<span style="color: #000000;"> id,
+            contentType: </span>'application/json; charset=utf-8'<span style="color: #000000;">,
+            type: </span>'post'<span style="color: #000000;">,
+            datatype: </span>'json'<span style="color: #000000;">,
+            data: JSON.stringify(commentModel),
+            beforeSend: </span><span style="color: #0000ff;">function</span><span style="color: #000000;"> (xhr) {
+                doBeforeSend(xhr);
+            },
+            success: </span><span style="color: #0000ff;">function</span><span style="color: #000000;"> (response) {
+                </span><span style="color: #0000ff;">if</span> (response.code == 0<span style="color: #000000;">) {
+                    //另一个用户创建了连接
+                    </span><span style="color: #0000ff;">var</span> connection = <span style="color: #0000ff;">new</span> signalR.HubConnectionBuilder().withUrl('http://127.0.0.1:5000/chatHub'<span style="color: #000000;">).build();
+                    connection.start().then(</span><span style="color: #0000ff;">function</span><span style="color: #000000;"> () {
+                        </span><span style="color: #0000ff;">var</span> apiRoute=url+'Singalr/admin'<span style="color: #000000;">;//admin是我设置死的，实际应该是自己判断，会调用下面的api，[Route("api/[controller]")],SingalR也是支持api调用的
+                        </span><span style="color: #0000ff;">var</span> token=localStorage.getItem('token'<span style="color: #000000;">);
+                        fetch(apiRoute,{
+                            method:</span>'get'<span style="color: #000000;">,
+                            headers:{
+                                </span>'Authorization':'Bearer ' +<span style="color: #000000;"> token                               
+                            }
+                        })
+                        event.preventDefault();
+                    })
+                    layer.close(loading);
+                } </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                    layer.close(loading);
+                    layer.msg(</span>"评论失败"<span style="color: #000000;">, {
+                        icon: </span>5<span style="color: #000000;">
+                    });
+                }
+            },
+            complete: </span><span style="color: #0000ff;">function</span><span style="color: #000000;"> (xhr) {
+                doComplete(xhr);
+            },
+        })</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">    [ApiController]
+    public class SingalrController : ControllerBase
+    {
+        private IHubContext</span>&lt;SingalrService, ISingalrClient&gt;<span style="color: #000000;"> _hubContext;
+        private ISingalrSvc _singalrSvc;
+        public SingalrController(IHubContext</span>&lt;SingalrService, ISingalrClient&gt;<span style="color: #000000;"> hubContext, ISingalrSvc singalrSvc)
+        {
+            _hubContext </span>=<span style="color: #000000;"> hubContext;
+            _singalrSvc </span>=<span style="color: #000000;"> singalrSvc;
+        }
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">/ &lt;summary&gt;</span>
+        <span style="color: #008000;">//</span><span style="color: #008000;">/ 查询未处理数量</span>
+        <span style="color: #008000;">//</span><span style="color: #008000;">/ &lt;/summary&gt;</span>
+        <span style="color: #008000;">//</span><span style="color: #008000;">/ &lt;param name="account"&gt;&lt;/param&gt;</span>
+        <span style="color: #008000;">//</span><span style="color: #008000;">/ &lt;returns&gt;&lt;/returns&gt;</span>
+        [HttpGet("{account}"<span style="color: #000000;">)]
+        public async Task NewsCount(string account)
+        {
+            Message sendMessage </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Message();
+            sendMessage.Data </span>= "11"<span style="color: #000000;">;<br />            //刚已经讲了，用户加载首页的时候已经把connectionid和account存入到了内存里面，现在再取用户相关的connectionID，如果直接调用Clinets.ALL就是给所有客户端发送消息
+            IReadOnlyList</span>&lt;string&gt; connectionIds = (IReadOnlyList&lt;string&gt;<span style="color: #000000;">)_singalrSvc.GetConnectionIds(account);
+            await _hubContext.Clients.Clients(connectionIds).InvokeMessage(sendMessage);
+        }
+    }</span></pre>
+</div>
+<p>这个时候调用了这个api执行了里面的<em id="__mceDel" style="font-family: 'Courier New'; font-size: 12px;">_hubContext.Clients.Clients(connectionIds).InvokeMessage(sendMessage)，</em>connectionIds是根据业务逻辑所判断的触发的那些客户端;然后前端会根据方法名响应对应的js代码，如下</p>
+<p>&nbsp;</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:html;gutter:true;">layui.use(['element', 'layer'], function () {
+            var element = layui.element;
+            element.render('nav');
+            initLoad();
+            var connection = new signalR.HubConnectionBuilder().withUrl('http://127.0.0.1:5000/chatHub').build();<br /><br />            //我认为是一个用来侦听服务端方法的js
+            connection.on('InvokeMessage', (reviceMessage) =&gt; {
+                var v = reviceMessage;<br />                //响应后端方法成功后，就开始自己的业务逻辑
+            });
+            $.ajax({
+                url: url + 'user/userInfo',
+                type: 'get',
+                dataType: 'json',
+                beforeSend: function (xhr) {
+                    doBeforeSend(xhr);
+                },
+                success: function (response) {
+                    if (response.code == '1') {
+                        $("#nologin").show();
+                        $("#user").hide();
+                    }
+                    else {
+                        $("#nologin").hide();
+                        $("#user").show();
+                        $("#photo").attr('src', response.data.headPhoto);
+                        connection.start().then(function () {
+                            connection.invoke('SetConnectionMaps', response.data.account);
+                        })
+                    }
+                },
+                complete: function (xhr) {
+                    doComplete(xhr);
+                },
+            });
+        });
+</pre>
+</div>
+<p>　　</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;</p>
+<p>&nbsp;</p>
+<p><span style="background-color: #ffffff;" data-ttu-id="4ed7c-104">&nbsp; &nbsp; &nbsp;&nbsp;</span></p>
+<p>游戏也能赚钱？如果你热爱游戏，并且想通过游戏赢得零花钱，5173是个不错的选择&nbsp;&nbsp;<a href="http://www.5173.com/?recommenduserid=US15061749098191-04F6">http://www.5173.com/?recommenduserid=US15061749098191-04F6</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

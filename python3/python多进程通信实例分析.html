@@ -1,0 +1,259 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python多进程通信实例分析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python多进程通信实例分析</center></div><div class='banquan'>原文出处:本文由博客园博主alpha_panda提供。<br/>
+原文连接:https://www.cnblogs.com/yssjun/p/11438850.html</div><br>
+    <p>操作系统会为每一个创建的进程分配一个独立的地址空间，不同进程的地址空间是完全隔离的，因此如果不加其他的措施，他们完全感觉不到彼此的存在。那么进程之间怎么进行通信？他们之间的关联是怎样的？实现原理是什么？本文就来借助Python简单的聊一下进程之间的通信？还是那句话，原理是相同的，希望能透过具体的例子来体会一下本质的东西。</p>
+<p>&nbsp;下面尽量以简单的方式介绍一下每一类通信方式，具体的细节可以参照文档使用；</p>
+<h3>1. 管道</h3>
+<p>先来看一下最简单、古老的一种IPC：管道。通常指的是无名管道，本质上可以看做一种文件，只存在于内存当中，不会存盘。不同进程通过系统提供的接口来向管道中读取或者写入数据。</p>
+<p>也就是说我们通过这样一个中间介质为进程提供交流的方式。无名管道的局限在于一般只用于有直接关联关系的父子进程。下面通过一个简单的例子来看一下其用法。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Process, Pipe
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> pstart(pname, conn):
+    conn.send(</span><span style="color: #800000;">"</span><span style="color: #800000;">Data@subprocess</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(conn.recv())          <span style="color: #008000;">#</span><span style="color: #008000;"> Data@parentprocess</span>
+
+<span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    conn1, conn2 </span>=<span style="color: #000000;"> Pipe(True)
+    sub_proc </span>= Process(target=pstart, args=(<span style="color: #800000;">'</span><span style="color: #800000;">subprocess</span><span style="color: #800000;">'</span><span style="color: #000000;">, conn2,))
+    sub_proc.start()
+    </span><span style="color: #0000ff;">print</span> (conn1.recv())        <span style="color: #008000;">#</span><span style="color: #008000;"> Data@subprocess</span>
+    conn1.send(<span style="color: #800000;">"</span><span style="color: #800000;">Data@parentprocess</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    sub_proc.join()</span></pre>
+</div>
+<p>管道通信三步曲：</p>
+<ol>
+<li>创建Pipe，得到两个connection对象conn1和conn2；</li>
+<li>父进程持有conn1，将conn2传递给子进程；</li>
+<li>父子进程通过对持有的connection对象进行send和recv操作以进行数据传递和接受；</li>
+</ol>
+<p>上面我们创建的是全双工管道，也可以创建半双工管道，具体使用可以参照官网描述：</p>
+<blockquote>
+<p>Returns a pair <code><span class="pre">(conn1, <span class="pre">conn2)</span></span></code> of <code class="xref py py-class docutils literal">Connection</code> objects representing the ends of a pipe.</p>
+<p>If <em>duplex</em> is <code>True</code> (the default) then the pipe is bidirectional. If <em>duplex</em> is <code>False</code> then the pipe is unidirectional: <code>conn1</code> can only be used for receiving messages and <code>conn2</code> can only be used for sending messages.</p>
+</blockquote>
+<h3>2. 具名管道（FIFO）</h3>
+<p>上面介绍的管道主要用于有直接关系的进程，局限性比较大。下面来看一下可以在任意进程间进行通信的具名管道。</p>
+<p>由于window平台上os模块没有mkfifo属性，因此这个例子只能在linux上运行（测试环境 CentOS 7， Python 2.7.5）：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/python</span>
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> os, time
+</span><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Process
+
+input_pipe </span>= <span style="color: #800000;">"</span><span style="color: #800000;">./pipe.in</span><span style="color: #800000;">"</span><span style="color: #000000;">
+output_pipe </span>= <span style="color: #800000;">"</span><span style="color: #800000;">./pipe.out</span><span style="color: #800000;">"</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> consumer():
+    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> os.path.exists(input_pipe):
+        os.remove(input_pipe)
+    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> os.path.exists(output_pipe):
+        os.remove(output_pipe)
+
+    os.mkfifo(output_pipe)
+    os.mkfifo(input_pipe)
+    in1 </span>= os.open(input_pipe, os.O_RDONLY)        <span style="color: #008000;">#</span><span style="color: #008000;"> read from pipe.in</span>
+    out1 = os.open(output_pipe, os.O_SYNC | os.O_CREAT |<span style="color: #000000;"> os.O_RDWR)
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+        read_data </span>= os.read(in1, 1024<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">received data from pipe.in: %s @consumer</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> read_data)
+        </span><span style="color: #0000ff;">if</span> len(read_data) ==<span style="color: #000000;"> 0:
+            time.sleep(</span>1<span style="color: #000000;">)
+            </span><span style="color: #0000ff;">continue</span>
+
+        <span style="color: #0000ff;">if</span> <span style="color: #800000;">"</span><span style="color: #800000;">exit</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">in</span><span style="color: #000000;"> read_data:
+            </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+        os.write(out1, read_data)
+    os.close(in1)
+    os.close(out1)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> producer():
+    in2 </span>=<span style="color: #000000;"> None
+    out2 </span>= os.open(input_pipe, os.O_SYNC | os.O_CREAT |<span style="color: #000000;"> os.O_RDWR)
+
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1, 4<span style="color: #000000;">):
+        msg </span>= <span style="color: #800000;">"</span><span style="color: #800000;">msg </span><span style="color: #800000;">"</span> +<span style="color: #000000;"> str(i)
+        len_send </span>=<span style="color: #000000;"> os.write(out2, msg)
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">------product msg: %s by producer------</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> msg)
+        </span><span style="color: #0000ff;">if</span> in2 <span style="color: #0000ff;">is</span><span style="color: #000000;"> None:
+            in2 </span>= os.open(output_pipe, os.O_RDONLY)        <span style="color: #008000;">#</span><span style="color: #008000;"> read from pipe.out</span>
+        data = os.read(in2, 1024<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">if</span> len(data) ==<span style="color: #000000;"> 0:
+            </span><span style="color: #0000ff;">break</span>
+        <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">received data from pipe.out: %s @producer</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> data)
+        time.sleep(</span>1<span style="color: #000000;">)
+
+    os.write(out2, </span><span style="color: #800000;">'</span><span style="color: #800000;">exit</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    os.close(in2)
+    os.close(out2)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    pconsumer </span>= Process(target=consumer, args=<span style="color: #000000;">())
+    pproducer </span>= Process(target=producer, args=<span style="color: #000000;">())
+    pconsumer.start()
+    time.sleep(</span>0.5<span style="color: #000000;">)
+    pproducer.start()
+    pconsumer.join()
+    pproducer.join()</span><span style="color: #000000;"><br /></span></pre>
+</div>
+<p>运行流程如下：</p>
+<p><img src="./images/python多进程通信实例分析0.png" alt="" /></p>
+<p>　每一轮的过程如下：</p>
+<ol>
+<li>producer进程往pipe.in文件中写入消息数据；</li>
+<li>consumer进程从pipe.in文件中读入消息数据；</li>
+<li>consumer进程往pipe.out文件中写入回执消息数据；</li>
+<li>producer进程从pipe.out文件中读出回执消息数据；</li>
+</ol>
+<p>结果如下：</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('da74868c-c7b5-4b6f-bc58-e27548600577')"><img id="code_img_closed_da74868c-c7b5-4b6f-bc58-e27548600577" class="code_img_closed" src="./images/python多进程通信实例分析1.png" alt="" /><img id="code_img_opened_da74868c-c7b5-4b6f-bc58-e27548600577" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('da74868c-c7b5-4b6f-bc58-e27548600577',event)" src="./images/python多进程通信实例分析2.png" alt="" />
+<div id="cnblogs_code_open_da74868c-c7b5-4b6f-bc58-e27548600577" class="cnblogs_code_hide">
+<pre><code><span style="color: #000000;">[shijun@localhost python]$ python main.py
+</span>------product msg: msg 1 by producer------<span style="color: #000000;">
+received data </span><span style="color: #0000ff;">from</span> pipe.<span style="color: #0000ff;">in</span>: msg 1<span style="color: #000000;"> @consumer
+received data </span><span style="color: #0000ff;">from</span> pipe.out: msg 1<span style="color: #000000;"> @producer
+</span>------product msg: msg 2 by producer------<span style="color: #000000;">
+received data </span><span style="color: #0000ff;">from</span> pipe.<span style="color: #0000ff;">in</span>: msg 2<span style="color: #000000;"> @consumer
+received data </span><span style="color: #0000ff;">from</span> pipe.out: msg 2<span style="color: #000000;"> @producer
+</span>------product msg: msg 3 by producer------<span style="color: #000000;">
+received data </span><span style="color: #0000ff;">from</span> pipe.<span style="color: #0000ff;">in</span>: msg 3<span style="color: #000000;"> @consumer
+received data </span><span style="color: #0000ff;">from</span> pipe.out: msg 3<span style="color: #000000;"> @producer
+received data </span><span style="color: #0000ff;">from</span> pipe.<span style="color: #0000ff;">in</span>: exit @consumer</pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<p>两个进程没有直接的关系，每个进程有一个读文件和写文件，如果两个进程的读写文件是关联的，就可以进行通信。</p>
+<h3>&nbsp;3. 消息队列（Queue）</h3>
+<p>进程之间通过向队列中添加数据或者从队列中获取数据来进行消息数据的传递。下面是一个简单的例子。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Process, Queue
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> producer(que):
+    </span><span style="color: #0000ff;">for</span> product <span style="color: #0000ff;">in</span> (<span style="color: #800000;">'</span><span style="color: #800000;">Orange</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">Apple</span><span style="color: #800000;">'</span>, <span style="color: #800000;">''</span><span style="color: #000000;">):
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">put product: %s to queue</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> product)
+        que.put(product)
+        time.sleep(</span>0.5<span style="color: #000000;">)
+        res </span>=<span style="color: #000000;"> que.get()
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">consumer result: %s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> res)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> consumer(que):
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+        product </span>=<span style="color: #000000;"> que.get()
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">get product:%s from queue</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> product)
+        que.put(</span><span style="color: #800000;">'</span><span style="color: #800000;">suc!</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        time.sleep(</span>0.5<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> product:
+            </span><span style="color: #0000ff;">break</span>
+
+<span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    que </span>= Queue(1<span style="color: #000000;">)
+    p </span>= Process(target=producer, args=<span style="color: #000000;">(que,))
+    c </span>= Process(target=consumer, args=<span style="color: #000000;">(que,))
+    p.start()
+    c.start()
+    p.join()
+    c.join()</span></pre>
+</div>
+<p>这个例子比较简单，queue的具体用法可以参考一下官网。</p>
+<p>结果：</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('2ca4334b-da2d-45da-9dde-60b8d198c00e')"><img id="code_img_closed_2ca4334b-da2d-45da-9dde-60b8d198c00e" class="code_img_closed" src="./images/python多进程通信实例分析1.png" alt="" /><img id="code_img_opened_2ca4334b-da2d-45da-9dde-60b8d198c00e" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('2ca4334b-da2d-45da-9dde-60b8d198c00e',event)" src="./images/python多进程通信实例分析2.png" alt="" />
+<div id="cnblogs_code_open_2ca4334b-da2d-45da-9dde-60b8d198c00e" class="cnblogs_code_hide">
+<pre><code><span style="color: #000000;">put product: Orange to queue
+consumer result: suc!
+put product: Apple to queue
+consumer result: suc!
+put product:  to queue
+consumer result: suc!
+get product:Orange </span><span style="color: #0000ff;">from</span><span style="color: #000000;"> queue
+get product:Apple </span><span style="color: #0000ff;">from</span><span style="color: #000000;"> queue
+get product: </span><span style="color: #0000ff;">from</span> queue</pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<p>这里有几点需要注意下：</p>
+<ol>
+<li>可以指定队列的容量，如果超出容量会有异常：raise Full；</li>
+<li>默认put和get均会阻塞当前进程；</li>
+<li>如果put没有设置成阻塞，那么可能自己从队列中取出自己放入的数据；</li>
+</ol>
+<h3>4. 共享内存</h3>
+<p>共享内存是一种常用的，高效的进程之间的通信方式，为了保证共享内存的有序访问，需要对进程采取额外的同步措施。</p>
+<p>下面的这个例子仅仅简单的演示了Python中如何在不同进程间使用共享内存进行通信的。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Process
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> mmap
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> contextlib
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> writer():
+    with contextlib.closing(mmap.mmap(</span>-1, 1024, tagname=<span style="color: #800000;">'</span><span style="color: #800000;">cnblogs</span><span style="color: #800000;">'</span>, access=<span style="color: #000000;">mmap.ACCESS_WRITE)) as mem:
+        </span><span style="color: #0000ff;">for</span> share_data <span style="color: #0000ff;">in</span> (<span style="color: #800000;">"</span><span style="color: #800000;">Hello</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">Alpha_Panda</span><span style="color: #800000;">"</span><span style="color: #000000;">):
+            mem.seek(0)
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Write data:== %s == to share memory!</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> share_data)
+            mem.write(str.encode(share_data))
+            mem.flush()
+            time.sleep(</span>0.5<span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> reader():
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+        invalid_byte, empty_byte </span>= str.encode(<span style="color: #800000;">'</span><span style="color: #800000;">\x00</span><span style="color: #800000;">'</span>), str.encode(<span style="color: #800000;">''</span><span style="color: #000000;">)
+        with contextlib.closing(mmap.mmap(</span>-1, 1024, tagname=<span style="color: #800000;">'</span><span style="color: #800000;">cnblogs</span><span style="color: #800000;">'</span>, access=<span style="color: #000000;">mmap.ACCESS_READ)) as mem:
+            share_data </span>= mem.read(1024<span style="color: #000000;">).replace(invalid_byte, empty_byte)
+            </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> share_data:
+                </span><span style="color: #800000;">"""</span><span style="color: #800000;"> 当共享内存没有有效数据时结束reader </span><span style="color: #800000;">"""</span>
+                <span style="color: #0000ff;">break</span>
+            <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">Get data:== %s == from share memory!</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> share_data.decode())
+        time.sleep(</span>0.5<span style="color: #000000;">)
+
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    p_reader </span>= Process(target=reader, args=<span style="color: #000000;">())
+    p_writer </span>= Process(target=writer, args=<span style="color: #000000;">())
+    p_writer.start()
+    p_reader.start()
+    p_writer.join()
+    p_reader.join()</span></pre>
+</div>
+<p>执行结果：</p>
+<div class="cnblogs_code">
+<pre><code>Write data:== Hello ==<span style="color: #000000;"> to share memory!
+Write data:</span>== Alpha_Panda ==<span style="color: #000000;"> to share memory!
+Get data:</span>== Hello == <span style="color: #0000ff;">from</span><span style="color: #000000;"> share memory!
+Get data:</span>== Alpha_Panda == <span style="color: #0000ff;">from</span> share memory!</pre>
+</div>
+<p>下面简单的来说明一下共享内存的原理；</p>
+<p>进程虚拟地址到物理地址的一个映射关如下：</p>
+<p><img src="./images/python多进程通信实例分析5.png" alt="" /></p>
+<p>&nbsp;上面这个图已经很明白的展示了共享内存的原理。</p>
+<p>左边是正常情况下，不同进程的线性地址空间被映射到不同的物理内存页，这样不管其他进程怎么修改物理内存，都不会影响到其他进程；</p>
+<p>右边表示的是进程共享内存的情况下，不同进程的部分线性地址会被映射到同一物理页，一个进程对这个物理页的修改，会对另一个进程立即可见；</p>
+<p>当然潜在的问题就是要采取进程同步措施，也就是对共享内存的访问必须是互斥的。这个可以借助信号量来实现。</p>
+<h3>5. socket通信</h3>
+<p>最后再来介绍一种可以跨主机的进程间通信：socket。</p>
+<p>懂网络编程的人，对这个应该都比较熟悉。socket不仅可以跨主机进行通信，甚至有时候可以使用socket在同一主机的不同进程间进行通信。</p>
+<p>这部分代码比较简单常见，这里仅仅使用流程图来表示一下socket通信的流程及相关接口。</p>
+<p><img src="./images/python多进程通信实例分析6.png" alt="" width="730" height="532" /></p>
+<p>&nbsp;上图表示客户端上某进程使用socket和服务器上监听程序进行socket通信的一个流程。</p>
+<h3>&nbsp;小结</h3>
+<p>到这里关于常见的进程间通信相关的概念和实例均简单介绍了一下。希望本文能让你对进程间通信有一个更深入的理解和认识。</p>
+<p>结合之前几篇介绍线程、进程概念及线程间同步的一些措施的介绍，相信应该对线程和进程相关概念有一个简单清晰的认识了。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

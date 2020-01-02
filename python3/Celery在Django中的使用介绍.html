@@ -1,0 +1,121 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Celery在Django中的使用介绍' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Celery在Django中的使用介绍</center></div><div class='banquan'>原文出处:本文由博客园博主raynduan提供。<br/>
+原文连接:https://www.cnblogs.com/raynduan/p/11797697.html</div><br>
+    <h1 id="celery在django中的使用介绍">Celery在Django中的使用介绍</h1>
+<h2 id="celery简介">Celery简介</h2>
+<p>celery是一个简单、灵活且可靠的，处理大量消息的分布式系统，并且提供维护这样一个系统的必须工具。</p>
+<p>它是一个专注于实时处理的任务队列，同时也支持任务调度。</p>
+<h2 id="何为任务队列">何为任务队列</h2>
+<p>任务队列：是一种在线程和机器间分发任务的机制。</p>
+<h2 id="celery的三大组成部分">celery的三大组成部分</h2>
+<h3 id="worker">worker</h3>
+<p>任务执行单元--&gt;Worker是Celery提供的任务执行的单元，worker并发的运行在分布式的系统节点中。</p>
+<h3 id="broker存tasks的仓库">broker（存tasks的仓库）</h3>
+<p>消息中间件--&gt; Celery本身不提供消息服务，但是可以方便的和第三方提供的消息中间件集成。包括，RabbitMQ, Redis等等</p>
+<h3 id="backend-存results的仓库">backend （存results的仓库）</h3>
+<p>ask result store用来存储Worker执行的任务的结果，Celery支持以不同方式存储任务的结果，包括AMQP, redis等</p>
+<h2 id="使用场景">使用场景</h2>
+<ul>
+<li>异步任务：将耗时操作任务提交给celery去异步执行，比如发送短信、邮件，消息推送、音视频处理等。</li>
+<li>定时任务：定时执行某件事情，比如每天数据统计</li>
+</ul>
+<h2 id="基本命令">基本命令</h2>
+<pre><code><code># 1. 启动celery服务：
+#   非windows:
+#   指令：celery worker -A celery_task(celery项目文件) -l info
+#   windows: 需要先下载eventlet模块，pip install eventlet
+#   指令： celery worker -A celery_task -l info -P eventlet
+
+# 2. 添加任务：手动添加，需要自定义添加任务脚本；自动添加任务，在celery.py中配置
+
+# 3. 获取结构：手动获取，需要自定义任务脚本</code></pre>
+<h2 id="celery在django项目中的使用">celery在Django项目中的使用</h2>
+<h3 id="celery目录结构">celery目录结构</h3>
+<pre><code><code>project
+    |---celery_task
+        |---celery.py # celery连接和相关配置，且名字必须是celery.py，如果要自动添加任务，那么相                         关配置也在celery.py里配置；
+        |---tasks.py  # 所有任务函数
+    |---add_task.py   # 手动添加任务：立即任务，延时任务，定时任务；
+    |---get_result.py # 获取结果</code></pre>
+<p>后面两个文件可以不用添加，看需求来。</p>
+<h3 id="使用">使用</h3>
+<h4 id="celery.py">celery.py</h4>
+<pre><code><code>from celery import Celery
+# 导入时间相关包，用法看下面
+from datetime import timedelta
+from celery.schedules import crontab
+
+# 因为需要调用Django项目中的models，所有需要添加Django环境
+import os,django
+os.environ.setdefault(&#39;DJANGO_SETTINGS_MODULE&#39;, &#39;bookapi.settings.dev&#39;)
+django.setup()
+
+# 添加任务的仓库，这里使用了Redis
+broker = &quot;redis://127.0.0.1:6379/11&quot;
+# 接收处理结果的仓库
+backend = &quot;redis://127.0.0.1:6379/12&quot;
+# 指定需要处理的任务
+include = [&#39;celery_task.tasks&#39;]
+app = Celery(broker=broker,backend=backend,include=include)
+
+# 配置任务时区
+app.conf.timezone = &#39;Asia/Shanghai&#39;
+app.conf.enable_utc = False
+
+# 配置定时任务
+app.conf.beat_schedule = {
+    &#39;recommend-task&#39;: {
+        &#39;task&#39;: &#39;celery_task.tasks.recommend_num&#39;,
+        # &#39;schedule&#39;: timedelta(seconds=20),
+        &#39;schedule&#39;: crontab(hour=24),  
+        &#39;args&#39;: ()
+    },
+    &#39;monthly-task&#39;: {
+        &#39;task&#39;: &#39;celery_task.tasks.monthly_num&#39;,
+        # &#39;schedule&#39;: timedelta(seconds=60),
+        &#39;schedule&#39;: crontab(day_of_month=1,hour=0),
+        &#39;args&#39;: ()
+    }
+}</code></pre>
+<h4 id="tasks.py">tasks.py</h4>
+<pre><code><code>from .celery import app
+from bookapi.apps.user import models
+
+
+@app.task
+def recommend_num():
+    user_list = models.User.objects.all()
+    # print(user_list)   ## &lt;QuerySet [&lt;User: admin&gt;, &lt;User: 18700022899&gt;]&gt;
+    for user in user_list:
+        models.User.objects.filter(username=user.username).update(recommend_nums=3)
+
+
+@app.task
+def monthly_num():
+    user_list = models.User.objects.all()
+    # print(user_list)   ## &lt;QuerySet [&lt;User: admin&gt;, &lt;User: 18700022899&gt;]&gt;
+    for user in user_list:
+        models.User.objects.filter(username=user.username).update(monthly_nums=2)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,317 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修springcloud-Eureka组件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>springcloud-Eureka组件</center></div><div class='banquan'>原文出处:本文由博客园博主AizenSousuke提供。<br/>
+原文连接:https://www.cnblogs.com/aizen-sousuke/p/12029292.html</div><br>
+    <h2 id="一简介">一、简介</h2>
+<p>Eureka 是 Netflix 开发的服务发现框架，本身是一个基于 REST 的服务，主要用于定位运行在 AWS 域中的中间层服务，以达到负载均衡和中间层服务故障转移的目的。SpringCloud 将它集成在其子项目 spring-cloud-netflix 中，以实现 SpringCloud 的服务发现功能。</p>
+<h2 id="二组成">二、组成</h2>
+<p>Eureka 包含两个部分，EurekaServer 和 EurekaClient。</p>
+<ul>
+<li><code>EurekaServer</code> 是注册中心，负责微服务的发现功能，各个 EurekaClient 启动后也会注册到配置的 EurekaServer 中，Eureka Server 通过 Register、Get、Renew 等接口提供服务的注册、发现和心跳检测等服务，各个 EurekaServer 也是一个服务，可以在集群版中注册到其他的 EurekaServer 中，保证高可用。</li>
+<li><code>EurekaClient</code> 是各个 java 微服务应用，在应用启动后向 EurekaServer 注册，并周期性的向 Eureka Server 发送心跳，默认周期为 30 秒，如果 Eureka Server 在多个心跳周期内没有接收到某个节点的心跳，Eureka Server 将会从服务注册表中把这个服务节点移除，默认 90 秒，服务提供方和服务消费方统一都属于 EurekaClient。</li>
+</ul>
+<h2 id="三架构原理">三、架构原理</h2>
+<p><img src="./images/springcloud-Eureka组件0.png" alt="Eureka架构图.png" /></p>
+<blockquote>
+<ul>
+<li>Register(服务注册)：把自己的 IP 和端口注册给 EurekaServer。</li>
+<li>Renew(服务续约)：发送心跳包，每 30 秒发送一次。告诉 EurekaServer 自己还活着。</li>
+<li>Cancel(服务下线)：当 provider 关闭时会向 EurekaServer 发送消息，把自己从服务列表中删除。防止 consumer 调用到不存在的服务。</li>
+<li>Get Registry(获取服务注册列表)：获取其他服务列表。</li>
+<li>Replicate(集群中数据同步)：eurekaServer 集群中的数据复制与同步。</li>
+<li>Make Remote Call(远程调用)：完成服务的远程调用。</li>
+</ul>
+</blockquote>
+<h2 id="四构建单机版-eurekaserver">四、构建单机版 EurekaServer</h2>
+<p>1）首先在 <code>pom.xml</code> 文件引入需要用到的依赖包，如下：</p>
+<pre><code><code>&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+
+&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+  xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+  &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+  &lt;parent&gt;
+    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+    &lt;artifactId&gt;spring-boot-starter-parent&lt;/artifactId&gt;
+    &lt;version&gt;1.5.16.RELEASE&lt;/version&gt;
+  &lt;/parent&gt;
+
+  &lt;groupId&gt;com.aizen&lt;/groupId&gt;
+  &lt;artifactId&gt;springcloud-eureka-test&lt;/artifactId&gt;
+  &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;
+  &lt;name&gt;springcloud-eureka-test&lt;/name&gt;
+
+  &lt;properties&gt;
+    &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;
+    &lt;maven.compiler.source&gt;1.8&lt;/maven.compiler.source&gt;
+    &lt;maven.compiler.target&gt;1.8&lt;/maven.compiler.target&gt;
+  &lt;/properties&gt;
+
+  &lt;dependencyManagement&gt;
+    &lt;dependencies&gt;
+      &lt;dependency&gt;
+        &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-cloud-dependencies&lt;/artifactId&gt;
+        &lt;version&gt;Edgware.SR4&lt;/version&gt;
+        &lt;type&gt;pom&lt;/type&gt;
+        &lt;scope&gt;import&lt;/scope&gt;
+      &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+  &lt;/dependencyManagement&gt;
+
+  &lt;dependencies&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+      &lt;scope&gt;test&lt;/scope&gt;
+    &lt;/dependency&gt;
+    &lt;!-- spring cloud Eureka Server 启动器，健康检查及安全认证会用到 --&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-cloud-starter-eureka-server&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+    &lt;!-- spring 监控组件 --&gt;
+    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-actuator&lt;/artifactId&gt;
+    &lt;/dependency&gt;
+  &lt;/dependencies&gt;
+
+  &lt;build&gt;
+    &lt;plugins&gt;
+      &lt;plugin&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+      &lt;/plugin&gt;
+    &lt;/plugins&gt;
+    &lt;resources&gt;
+      &lt;resource&gt;
+        &lt;filtering&gt;true&lt;/filtering&gt;
+        &lt;directory&gt;src/main/resources&lt;/directory&gt;
+      &lt;/resource&gt;
+    &lt;/resources&gt;
+  &lt;/build&gt;
+&lt;/project&gt;</code></pre>
+<p>2）然后在 <code>application.yml</code> 文件中配置完成基本功能常用的基本项：</p>
+<pre class="yaml"><code>server:
+  port: 8080
+spring:
+  application:
+    name: eureka-server
+eureka:
+  instance:
+    # 获取当前节点的ip地址
+    hostname: ${spring.cloud.client.ipAddress}
+    # 表示eureka server至上一次收到client的心跳之后，等待下一次心跳的超时时间，在这个时间内若没收到下一次心跳，则将移除该instance
+    lease-expiration-duration-in-seconds: 90
+    # 表示eureka client发送心跳给server端的频率
+    lease-renewal-interval-in-seconds: 30
+    prefer-ip-address: true
+    instance-id: ${spring.cloud.client.ipAddress}:${server.port}
+  server:
+    # 服务保护模式（自我保护模式）：一般情况下，微服务在Eureka上注册后，会每30秒发送心跳包，Eureka通过心跳来判断服务时候健康，
+    # 同时会定期删除超过90秒没有发送心跳服务。
+    # 导致Eureka Server接收不到心跳包的可能：一是微服务自身的原因，二是微服务与Eureka之间的网络故障。
+    # 通常微服务的自身的故障只会导致个别服务出现故障，一般不会出现大面积故障，而网络故障通常会导致Eureka Server在短时间内无法收到大批心跳。
+    # 虑到这个区别，Eureka设置了一个阀值，当判断挂掉的服务的数量超过阀值时，Eureka Server认为很大程度上出现了网络故障，将不再删除心跳过期的服务。
+    # Eureka Server在运行期间，会统计心跳失败的比例在15分钟内是否低于85%，如果低于85%，Eureka Server则任务是网络故障，不会删除心跳过期服务。
+    # 这种服务保护算法叫做Eureka Server的服务保护模式。
+    # 这种不删除的，90秒没有心跳的服务，称为无效服务，但是还是保存在服务列表中。如果Consumer到注册中心发现服务，
+    # 则Eureka Server会将所有好的数据（有效服务数据）和坏的数据（无效服务数据）都返回给Consumer。
+    enable-self-preservation: false
+    # eureka server清理无效节点的时间间隔，默认60000毫秒，即60秒
+    eviction-interval-timer-in-ms: 60000
+  client:
+    # 是否将自己作为微服务注册到 Eureka-Serve r中，默认的为true
+    register-with-eureka: false
+    # 是否从 Eureka-Server 中获取服务注册信息，默认为true，单机版设置为 false，集群版设置为 true，多个 Eureka-Server 互相同步数据
+    fetch-registry: false
+    # 设置服务注册中心地址，查询服务和注册服务都需要依赖这个地址
+    service-url:
+      default-zone: http://${eureka.instance.instance-id}/eureka/
+    # 从eureka服务器注册表中获取注册信息的时间间隔，对于api-gateway，如果要迅速获取服务注册状态，可以缩小该值，比如5秒
+    registry-fetch-interval-seconds: 30
+    # 开启健康检查（依赖spring-boot-starter-actuator）
+    healthcheck:
+      enabled: true</code></pre>
+<ul>
+<li>关于 <code>EurekaClient 的详细配置</code> 可以在查看以下文件：~/.m2/repository/org/springframework/cloud/spring-cloud-netflix-eureka-client/1.2.3.RELEASE/spring-cloud-netflix-eureka-client-1.2.3.RELEASE.jar!/META-INF/spring-configuration-metadata.json</li>
+<li>关于 <code>EurekaServer 的详细配置</code> 可以在查看以下文件：~/.m2/repository/org/springframework/cloud/spring-cloud-netflix-eureka-server/1.2.3.RELEASE/spring-cloud-netflix-eureka-server-1.2.3.RELEASE.jar!/META-INF/spring-configuration-metadata.json</li>
+</ul>
+<p>3）最后启动类配置：</p>
+<pre class="java"><code>@EnableEurekaServer
+@SpringBootApplication(scanBasePackages = {&quot;com.test&quot;})
+public class EurekaTestApplication {
+    public static void main(String[] args){
+        SpringApplication.run(EurekaTestApplication.class, args);
+    }
+}</code></pre>
+<p>启动程序，访问 http://localhost:8080 即可查看 eurekaServer 基本信息。</p>
+<h2 id="五搭建集群版-eurekaserver">五、搭建集群版 EurekaServer</h2>
+<p>Eureka 作为微服务的注册中心，在微服务生态中是极其重要的角色，单机版的 eureka 并不能保证注册中心的高可用性，所以在商用时一般都配置集群版的 Eureka 集群。</p>
+<p>集群版的 pom 依赖和启动类同单机版；<br />
+<code>application.yml</code> 配置文件中有一点不同，设置注册中心时，将本节点注册到其他所有的集群节点中：</p>
+<pre class="yaml"><code>eureka:
+  client:
+    # 设置服务注册中心地址，配置多个 eurekaServer 的 host
+    service-url:
+      default-zone: http://192.168.0.2/eureka/,http://192.168.0.3/eureka/</code></pre>
+<p>EurekaServer 的每个节点都是平等的，每个节点都向外提供服务发现和注册功能，可以作为微服务注册到其他 EurekaServer 节点并发现其他节点中已注册的服务。因此很多程序员会将不同的微服务注册到不同的 EurekaServer 节点，然后通过 EurekaServer 节点之间相互注册通讯来发现全部的微服务，这种方法是极不推荐的，因为 EurekaServer 在服务管理上，会根据连带责任来维护注册的服务列表，如果某台 EurekaServer 节点宕机，则该节点中注册的所有微服务都会被删除，因此，推荐 EurekaClient 配置注册中心时配置 EurekaServer 中所有节点。</p>
+<h2 id="六关于-eurekaserver-的自我保护模式">六、关于 EurekaServer 的自我保护模式</h2>
+<h4 id="自我保护模式">1. 自我保护模式</h4>
+<p>默认情况下，微服务会定时（默认30秒，可自行配置）向 EurekaServer 发送心跳，如果一定时间内（默认90秒，可自行配置）EurekaServer 没有收到某个微服务的心跳，则会从微服务列表中剔除该微服务，这是正常的微服务治理机制。</p>
+<p>但在微服务本身健康情况下，可能会由于网络原因无法与 EurekaServer 通信，此时不应该错误的剔除掉该微服务，Eureka 为了解决该问题提出 <strong>自我保护模式</strong>：</p>
+<blockquote>
+<p>Eureka Server 在运行期间会去统计节点心跳失败比例在 15 分钟之内是否低于 85%，如果低于 85%，Eureka Server 会认为发生了网络故障，不会从列表中删除这些心跳过期的服务，这些服务称为无效服务。此时如果 Consumer 从注册中心发现服务，注册中心会将有效服务和无效服务一起返回，Consumer 调用了无效服务就会失败，这里需要 Consumer 使用熔断器来提供容错处理以提升系统稳定性和用户体验。</p>
+</blockquote>
+<h4 id="自我保护激活条件">2. 自我保护激活条件</h4>
+<p>在 1 分钟后 <strong><em>Renews (last min) &lt; Renews threshold</em></strong>。</p>
+<ul>
+<li><p><code>Renews</code> : Eureka Server 期望每分钟收到客户端实例续约的总数。计算公式如下：</p>
+<blockquote>
+<p>当前服务节点数 * (60s/心跳间隔) * 0.85 #默认心跳间隔30s，默认心跳失败比例 0.85，都可通过配置文件更改</p>
+</blockquote></li>
+<li><p><code>Renews threshold</code>：Eureka Server 最后 1 分钟实际收到客户端实例续约的总数。<br />
+这两个参数可以在 Eureka 信息页面看到：<br />
+<img src="./images/springcloud-Eureka组件1.png" alt="Eureka 信息页面.png" /></p></li>
+</ul>
+<h4 id="eureka-开启健康检查">3. Eureka 开启健康检查</h4>
+<p>在上图中，Status 栏显示着 UP，表示应用程序状态正常。其它取值 DOWN、OUT_OF_SERVICE、UNKNOWN 等，只有 UP 的微服务会被请求。</p>
+<p>由于 EurekaServer 与 EurekaClient 通过心跳机制来判断应用程序状态，因此只要两者之间的心跳保持正常，应用程序状态就会一直保持 UP 状态，所以 Status 值并不能完全反应应用的实际健康状态。</p>
+<p>我们可以使用 <code>Spring Boot Actuator</code> 的健康检查机制来完成应用程序的健康检查，并将节点的健康状态传播给 EurekaServer，配置文件如下：</p>
+<pre class="yaml"><code>eureka:
+  client:
+    # 开启健康检查（依赖spring-boot-starter-actuator）
+    healthcheck:
+      enabled: true</code></pre>
+<p>如果需要更细粒度健康检查，可实现 com.netflix.appinfo.HealthCheckHandler 接口，EurekaHealthCheckHandler 已实现了该接口。</p>
+<h4 id="自我保护模式的优缺点">4. 自我保护模式的优缺点</h4>
+<ul>
+<li><p>优点：</p>
+<blockquote>
+<ol>
+<li>保留无效服务可以防止误删除健康服务，待网络故障消除，EurekaServer 会自动退出自我保护模式；</li>
+<li>EurekaClient 具有缓存服务列表功能，即使 EurekaServer 出现网络故障，Consumer 和 Provider 之间也可以正常通信，只有所有的 Provider 都不可用时，Consumer 才会从注册中心重新发现服务列表；</li>
+<li>微服务的负载均衡策略会自动剔除死亡的微服务节点（Robbin）。</li>
+</ol>
+</blockquote></li>
+<li><p>缺点：</p>
+<blockquote>
+<ol>
+<li>当无效服务中包括不健康 Provider 节点时，Consumer 发现服务列表后，请求 Provoder 会调用失败，此时需要额外使用熔断器来加强容错。</li>
+</ol>
+</blockquote></li>
+</ul>
+<p>单机版可关闭自我保护：</p>
+<pre class="yaml"><code>eureka:
+  server:
+    enable-self-preservation: false</code></pre>
+<h2 id="七eurekaclient">七、EurekaClient</h2>
+<p>EurekaClient 在配置注册中心时，建议把所有的 EurekaServer 集群所有节点都配置上。 实际上，只配置一个 Eureka Server 节点其实就可以了，但是，Eureka Server 对服务的管理有连带责任。如果只配置一个Eureka Server 节点，那么会导致连带删除的风险，导致服务不可靠。如果配置了多个 Eureka Server 节点，EurekaClient 在注册服务时会根据注册中心列表顺序注册，不会将当前的服务同时注册到所有 Eureka Server 节点上，从第一个配置的 Eureka Server节 点开始注册，如果注册成功，后续的 Eureka Server 节点不再重复注册，每30秒，Eureka Client 发送一个心跳到 Eureka Server 上，如果心跳没有反馈，则从已配置的 Eureka Server 节点列表的下一个服务节点继续注册。这样做可以保证服务的可靠性，降低服务连带责任导致的服务不可靠。</p>
+<p>当有多个 EurekaClient 需要注册时，建议 EurekaServer 的顺序异序排列，即微服务A注册中心服务顺序为 s1，s2，s3，微服务B推荐为 s2，s3，s1……这样可以充分发挥 EurekaServer 集群的特性，因为 Eureka Server 和 Eureka Client 对心跳的监测都是（3*间隔时间）的，所以会有服务列表数据的不同步可能。在CAP原则上，Eureka Server是保证AP原则，放弃C原则的。<br />
+1）基本的 <code>application.yaml</code> 配置：</p>
+<pre class="yaml"><code>spring:
+  application:
+    name: user-service
+server:
+  port: 8080
+
+# 配置Eureka Server的地址信息，如果是Eureka Server集群，多个节点使用逗号&#39;,&#39;分割。
+eureka.client.serviceUrl.defaultZone=http://server1:8080/eureka/,http://server2:8080/eureka/</code></pre>
+<p>2）启动类配置：</p>
+<pre class="java"><code>@EnableEurekaClient
+@SpringBootApplication
+public class UserServiceApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(UserServiceApplication .class, args);
+    }
+}</code></pre>
+<h2 id="八cap定理">八、CAP定理</h2>
+<p>CAP原则又称CAP定理，指的是在一个分布式系统中，Consistency（数据一致性）、 Availability（服务可用性）、Partition tolerance（分区容错性），三者不可兼得。</p>
+<style>
+table th:first-of-type {
+    width: 100px;
+}
+table th {
+    height: 26px;
+}
+</style>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: center;">性质</th>
+<th style="text-align: left;">描述</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">数据一致性<br>(Consistency)</td>
+<td style="text-align: left;">从客户端角度来说，客户端请求分布式集群中的任何节点获取到的数据都是最新的数据；<br>从服务端角度来说，服务端每次执行更新数据操作后都需要同步到集群中的其他节点。</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">服务可用性<br>(Availability)</td>
+<td style="text-align: left;">即服务一直可用，每一个客户端请求在合理时间内都能得到合理的服务端响应，而不会出现用户操作失败或者请求超时等用户体验不好的情况。</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">分区容错性<br>(Partition tolerance)</td>
+<td style="text-align: left;">分布式系统在网络分区或者节点故障的情况下，仍能正常向外提供一致性或者可用性服务，分布式系统外观看起来像是一个整体，集群内部虽然有节点故障，但是系统仍能满足用户使用需求，不会影响用户体验</td>
+</tr>
+</tbody>
+</table>
+<p>由于三者不可兼得，所以放弃任何一个都会带来相应的影响：</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: center;">分类</th>
+<th style="text-align: left;">影响</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">CA<br>(放弃P)</td>
+<td style="text-align: left;">如果放弃P（不允许分区），那么数据可以保证一致性和可用性，但是单节点服务不具备系统扩展性，违背了分布式系统的设计初衷，所以分布式系统不可避免地都会使用P原则。</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">CP<br>(放弃A)</td>
+<td style="text-align: left;">如果放弃A（不保证服务可用性），每次当某台服务器数据更新后都要向集群中其他节点同步数据，只有所有节点同步完数据后，才会重新接受客户端请求，这个过程可能要耗时很长，就会造成一段时间内服务不可用，用户请求超时报错等问题，牺牲用户体验</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">AP<br>(放弃C)</td>
+<td style="text-align: left;">这里所说的放弃一致性，并不是完全放弃数据一致性，而是放弃数据的强一致性，而保留数据的最终一致性。一旦网络分区发生，各节点之间数据不能同步，为了保证高可用，服务器只能使用本地的缓存数据，造成全局的数据不一致性。典型的例子就是抢购场景，用户前几秒在页面看见还有货（优先保证服务可用性），下单时会提示已售罄（此时需要保证数据一致性），牺牲少许用户体验，但不会造成严重的网络阻塞</td>
+</tr>
+</tbody>
+</table>
+<p>zookeeper 作为常用的注册中心，与 eureka 有很大的区别：</p>
+<ul>
+<li>zookeeper 是 CP 型的，eureka 是 AP 型的，前者在注册中心故障时更倾向于保证数据一致性，后者更倾向于保证服务可用性；</li>
+<li>zookeeper 通过选举算法产生一个 leader，由 leader 向外提供注册发现服务，其他的 slaver 则通过订阅监听同步 leader 的信息，当 leader 宕机时，zookeeper 会暂停向外提供服务，通过选举算法重新选举 leader 后再向外提供服务，选举过程中会进行 leader 和 slaver 数据的同步，保证了数据的一致性；eureka 当某个注册中心宕机后，如果有新的服务要注册到该注册中心，会根据配置的 serviceUrl 属性，注册到下一个 eurekaServer 节点，保证了服务的可用性，各个 eurekaServer 节点之间的数据并不保证实时一致性，各节点之间通过网络通信完成数据同步保证数据的最终一致性；</li>
+<li>关于客户端监听服务端的变化，zookeeper 通过订阅方式来实现，eureka 通过轮询方式来实现；</li>
+<li>zookeeper 除了可以提供注册中心服务外，还可以提供存储等其他服务，eureka 则是一个单纯的注册中心。</li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,183 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修带你从头到尾捋一遍MySQL索引结构（2）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>带你从头到尾捋一遍MySQL索引结构（2）</center></div><div class='banquan'>原文出处:本文由博客园博主有痣青年提供。<br/>
+原文连接:https://www.cnblogs.com/zydj333/p/12031716.html</div><br>
+    <h2><span style="color: #008000;">前言</span></h2>
+<p>Hello我又来了，快年底了，作为一个有抱负的码农，我想给自己攒一个年终总结。索性这次把数据库中最核心的也是最难搞懂的内容，也就是索引，分享给大家。</p>
+<p><strong>这篇博客我会谈谈对于索引结构我自己的看法，以及分享如何从零开始一层一层向上最终理解索引结构，书接上文。</strong></p>
+<h2><span style="color: #008000;">多页模式</span></h2>
+<p>在多页模式下，MySQL终于可以完成多数据的存储了，就是采用开辟新页的方式，将多条数据放在不同的页中，然后同样采用链表的数据结构，将每一页连接起来。那么可以思考第四个问题：<span style="color: #ff6600;"><strong>多页情况下是否对查询效率有影响呢？</strong></span></p>
+<h3><span style="color: #008000;">多页模式对于查询效率的影响</span></h3>
+<p>针对这个问题，既然问出来了，那么答案是肯定的，多页会对查询效率产生一定的影响，影响主要就体现在，多页其本质也是一个链表结构，只要是链表结构，查询效率一定不会高。</p>
+<p>假设数据又非常多条，数据库就会开辟非常多的新页，而这些新页就会像链表一样连接在一起，当我们要在这么多页中查询某条数据时，它还是会从头节点遍历到存在我们要查找的那条数据所存在的页上，我们好不容易通过页目录优化了页中数据的查询效率，现在又出现了以页为单位的链表，这不是前功尽弃了吗？</p>
+<h3><span style="color: #008000;">如何优化多页模式</span></h3>
+<p>由于多页模式会影响查询的效率，那么肯定需要有一种方式来优化多页模式下的查询。相信有同学已经猜出来了，既然我们可以用页目录来优化页内的数据区，那么我们也可以采取类似的方式来优化这种多页的情况。</p>
+<p>是的，页内数据区和多页模式本质上都是链表，那么的确可以采用相同的方式来对其进行优化，它就是目录页。</p>
+<p>所以我们对比页内数据区，来分析如何优化多页结构。在单页时，我们<strong>采用了页目录的目录项来指向一行数据，这条数据就是存在于这个目录项中的最小数据，那么就可以通过页目录来查找所需数据。</strong></p>
+<p>所以对于多页结构也可以采用这种方式，使用一个目录项来指向某一页，而这个目录项存放的就是这一页中存放的最小数据的索引值。和页目录不同的地方在于，<strong>这种目录管理的级别是页，而页目录管理的级别是行。</strong></p>
+<p><strong>那么分析到这里，我们多页模式的结构就会是下图所示的这样：</strong></p>
+<p><img src="./images/带你从头到尾捋一遍MySQL索引结构（2）0.png" alt="" /></p>
+<p>存在一个目录页来管理页目录，目录页中的数据存放的就是指向的那一页中最小的数据。</p>
+<p>这里要注意的一点是：其实<strong>目录页的本质也是页，普通页中存的数据是项目数据，而目录页中存的数据是普通页的地址。</strong></p>
+<p>假设我们要查找id=19的数据，那么按照以前的查找方式，我们需要从第一页开始查找，发现不存在那么再到第二页查找，一直找到第四页才能找到id=19的数据，但是如果有了目录页，就可以使用id=19与目录页中存放的数据进行比较，发现19大于任何一条数据，于是进入id=16指向的页进行查找，直接然后再通过页内的页目录行级别的数据的查找，很快就可以找到id为19的数据了。随着数据越来越多，这种结构的效率相对于普通的多页模式，优势也就越来越明显。</p>
+<p><strong>回归正题，相信有对MySQL比较了解的同学已经发现了，我们画的最终的这幅图，就是MySQL中的一种索引结构&mdash;&mdash;B+树。</strong></p>
+<h2><span style="color: #008000;">B+树的引入</span></h2>
+<p>我们将我们画的存在目录页的多页模式图宏观化，可以形成下面的这张图：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/带你从头到尾捋一遍MySQL索引结构（2）1.png" alt="" /></p>
+<p>这就是我们兜兜转转由简到繁形成的一颗B+树。和常规B+树有些许不同，这是一棵MySQL意义上的B+树，MySQL的一种索引结构，其中的每个节点就可以理解为是一个页，而叶子节点也就是数据页，除了叶子节点以外的节点就是目录页。</p>
+<p>这一点在图中也可以看出来，非叶子节点只存放了索引，而只有叶子节点中存放了真实的数据，这也是符合B+树的特点的。</p>
+<h3><span style="color: #008000;">B+树的优势</span></h3>
+<blockquote>
+<ul class="list-paddingleft-2">
+<li>
+<p>由于叶子节点上存放了所有的数据，并且有指针相连，每个叶子节点在逻辑上是相连的，所以对于范围查找比较友好。</p>
+</li>
+<li>
+<p>B+树的所有数据都在叶子节点上，所以B+树的查询效率稳定，一般都是查询3次。</p>
+</li>
+<li>
+<p>B+树有利于数据库的扫描。</p>
+</li>
+<li>
+<p>B+树有利于磁盘的IO，因为他的层高基本不会因为数据扩大而增高（三层树结构大概可以存放两千万数据量。</p>
+</li>
+</ul>
+</blockquote>
+<h2><span style="color: #008000;">页的完整结构</span></h2>
+<p>说完了页的概念和页是如何一步一步地组合称为B+树的结构之后，相信大家对于页都有了一个比较清楚的认知，所以这里就要开始说说官方概念了，基于我们上文所说的，给出一个完整的页结构，也算是对上文中自己理解页结构的一种补充。</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/带你从头到尾捋一遍MySQL索引结构（2）2.png" alt="" /></p>
+<p>上图为 Page 数据结构，File Header 字段用于记录 Page 的头信息，其中比较重要的是 FIL_PAGE_PREV 和 FIL_PAGE_NEXT 字段，通过这两个字段，我们可以找到该页的上一页和下一页，实际上所有页通过两个字段可以形成一条双向链表。</p>
+<blockquote data-type="2" data-url="" data-author-name="" data-content-utf8-length="271" data-source-title="引用来源：https://www.cnblogs.com/bdsir/p/8745553.html">
+<p>Page Header 字段用于记录 Page 的状态信息。接下来的 Infimum 和 Supremum 是两个伪行记录，Infimum（下确界）记录比该页中任何主键值都要小的值，Supremum （上确界）记录比该页中任何主键值都要大的值，这个伪记录分别构成了页中记录的边界。</p>
+<p>&nbsp;</p>
+<p>User Records 中存放的是实际的数据行记录，具体的行记录结构将在本文的第二节中详细介绍。Free Space 中存放的是空闲空间，被删除的行记录会被记录成空闲空间。Page Directory 记录着与二叉查找相关的信息。File Trailer 存储用于检测数据完整性的校验和等数据。</p>
+<span class="blockquote_other">引用来源：https://www.cnblogs.com/bdsir/p/8745553.html</span></blockquote>
+<h2><span style="color: #008000;">基于B+树聊聊MySQL的其它知识点</span></h2>
+<p>看到这里，我们已经了解了MySQL从单条数据开始，到通过页来减少磁盘IO次数，并且在页中实现了页目录来优化页中的查询效率，然后使用多页模式来存储大量的数据，最终使用目录页来实现多页模式的查询效率并形成我们口中的索引结构&mdash;&mdash;B+树。既然说到这里了，那我们就来聊聊MySQL的其他知识点。</p>
+<h3><span style="color: #008000;">聚簇索引和非聚簇索引</span></h3>
+<p>所谓聚簇索引，就是将索引和数据放到一起，找到索引也就找到了数据，我们刚才看到的B+树索引就是一种聚簇索引，而非聚簇索引就是将数据和索引分开，查找时需要先查找到索引，然后通过索引回表找到相应的数据。InnoDB有且只有一个聚簇索引，而MyISAM中都是非聚簇索引。</p>
+<h3><span style="color: #008000;">联合索引的最左前缀匹配原则</span></h3>
+<p>在MySQL数据库中不仅可以对某一列建立索引，还可以对多列建立一个联合索引，而联合索引存在一个最左前缀匹配原则的概念，如果基于B+树来理解这个最左前缀匹配原则，相对来说就会容易很很多了。</p>
+<p>首先我们基于文首的这张表建立一个联合索引：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">create</span> <span style="color: #0000ff;">index</span> idx_obj <span style="color: #0000ff;">on</span> <span style="color: #ff00ff;">user</span>(age <span style="color: #0000ff;">asc</span>,height <span style="color: #0000ff;">asc</span>,weight <span style="color: #0000ff;">asc</span>)</pre>
+</div>
+<p>我们已经了解了索引的数据结构是一颗B+树，也了解了B+树优化查询效率的其中一个因素就是对数据进行了排序，那么我们在创建idx_obj这个索引的时候，也就相当于创建了一颗B+树索引，而这个索引就是<strong>依据联合索引的成员来进行排序</strong>，这里是age,height,weight。</p>
+<p>看过我之前那篇博客的同学知道，InnoDB中只要有主键被定义，那么主键列被作为一个聚簇索引，而其它索引都将被作为非聚簇索引，所以自然而然的，这个索引就会是一个非聚簇索引。</p>
+<p>所以根据这些我们可以得出结论：</p>
+<ul class="list-paddingleft-2">
+<li>
+<p>idx_obj这个索引会根据age,height,weight进行排序</p>
+</li>
+<li>
+<p>idx_obj这个索引是一个非聚簇索引，查询时需要回表</p>
+</li>
+</ul>
+<p>根据这两个结论，首先需要了解的就是，如何排序？</p>
+<p>单列排序很简单，比大小嘛，谁都会，但是<span style="color: #ff0000;"><strong>多列排序是基于什么原则的呢（重点）？</strong></span></p>
+<p>实际上在MySQL中，联合索引的排序有这么一个原则，从左往右依次比较大小，就拿刚才建立的索引举例子，他会先去比较age的大小，如果age的大小相同，那么比较height的大小，如果height也无法比较大小， 那么就比较weight的大小，最终对这个索引进行排序。</p>
+<p>那么根据这个排序我们也可以画出一个B+树，这里就不像上文画的那么详细了，简化一下：</p>
+<p>数据：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/带你从头到尾捋一遍MySQL索引结构（2）3.png" alt="" /></p>
+<p>B+树：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/带你从头到尾捋一遍MySQL索引结构（2）4.png" alt="" /></p>
+<p>注意：此时由于是非聚簇索引，所以叶子节点不在有数据，而是存了一个主键索引，最终会通过主键索引来回表查询数据。</p>
+<p>B+树的结构有了，就可以通过这个来理解最左前缀匹配原则了。</p>
+<p>我们先写一个查询语句</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> <span style="color: #808080;">*</span> <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> <span style="color: #0000ff;">WHERE</span> age<span style="color: #808080;">=</span><span style="color: #800000; font-weight: bold;">1</span> <span style="color: #808080;">and</span> height <span style="color: #808080;">=</span> <span style="color: #800000; font-weight: bold;">2</span> <span style="color: #808080;">and</span> weight <span style="color: #808080;">=</span> <span style="color: #800000; font-weight: bold;">7</span></pre>
+</div>
+<p>毋庸置疑，这条语句一定会走idx_obj这个索引。</p>
+<p>那么我们再看一个语句：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> <span style="color: #808080;">*</span> <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> <span style="color: #0000ff;">WHERE</span> height<span style="color: #808080;">=</span><span style="color: #800000; font-weight: bold;">2</span> <span style="color: #808080;">and</span> weight <span style="color: #808080;">=</span> <span style="color: #800000; font-weight: bold;">7</span></pre>
+</div>
+<p><span style="color: #ff0000;"><strong>思考一下，这条SQL会走索引吗？</strong></span></p>
+<p>答案是否定的，那么我们分析的方向就是，为什么这条语句不会走索引。</p>
+<p>上文中我们提到了一个多列的排序原则，是从左到右进行比较然后排序的，而我们的idx_obj这个索引从左到右依次是age,height,weight，所以当我们使用height和weight来作为查询条件时，由于age的缺失，那么就无法从age来进行比较了。</p>
+<p>看到这里可能有小伙伴会有疑问，那<strong>如果直接用height和weight来进行比较不可以吗？</strong>显然是不可以的，可以举个例子，<strong>我们把缺失的这一列写作一个问号，那么这条语句的查询条件就变成了?27，那么我们从这课B+树的根节点开始，根节点上有127和365，那么以height和weight来进行比较的话，走的一定是127这一边，但是如果缺失的列数字是大于3的呢？</strong><strong>比如427，527，627，那么如果走索引来查询数据，将会丢失数据，错误查询。</strong><strong>所以这种情况下是绝对不会走索引进行查询的。</strong><strong>这就是最左前缀匹配原则的成因。</strong></p>
+<ol>
+<li><strong>　</strong>最左前缀匹配原则，MySQL会一直向右匹配直到遇到范围查询（&gt;、&lt;、between、like）就停止匹配，比如 a=3 and b=4 and c&gt;5 and d=6,如果建立(a,b,c,d)顺序的索引，d是无法使用索引的，如果建立(a,b,d,c)的索引则都可以使用到，a、b、d的顺序可以任意调整。　</li>
+<li>&nbsp; &nbsp;&nbsp;=和in可以乱序，比如 a=1 and b=2 and c=3 建立(a,b,c)索引可以任意顺序，MySQL的查询优化器会帮你优化成索引可以识别的形式。</li>
+</ol>
+<p>根据我们了解的可以得出结论：</p>
+<p><strong>只要无法进行排序比较大小的，就无法走联合索引。</strong></p>
+<p>可以再看几个语句：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> <span style="color: #808080;">*</span> <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> <span style="color: #0000ff;">WHERE</span> age<span style="color: #808080;">=</span><span style="color: #800000; font-weight: bold;">1</span> <span style="color: #808080;">and</span> height <span style="color: #808080;">=</span> <span style="color: #800000; font-weight: bold;">2</span></pre>
+</div>
+<p>这条语句是可以走idx_obj索引的，因为它可以通过比较 (12?&lt;365)。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> <span style="color: #808080;">*</span> <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> <span style="color: #0000ff;">WHERE</span> age<span style="color: #808080;">=</span><span style="color: #800000; font-weight: bold;">1</span> <span style="color: #808080;">and</span> weight<span style="color: #808080;">=</span><span style="color: #800000; font-weight: bold;">7</span></pre>
+</div>
+<p>这条语句也是可以走ind_obj索引的，因为它也可以通过比较(1?7&lt;365)，走左子树，但是实际上weight并没有用到索引，因为根据最左匹配原则，如果有两页的age都等于1，那么会去比较height，但是height在这里并不作为查询条件，所以MySQL会将这两页全都加载到内存中进行最后的weight字段的比较，进行扫描查询。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> <span style="color: #808080;">*</span> <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> <span style="color: #0000ff;">where</span> age<span style="color: #808080;">&gt;</span><span style="color: #800000; font-weight: bold;">1</span></pre>
+</div>
+<p>这条语句不会走索引，但是可以走索引。这句话是什么意思呢？这条SQL很特殊，由于其存在可以比较的索引，所以它走索引也可以查询出结果，但是由于这种情况是范围查询并且是全字段查询，如果走索引，还需要进行回表，MySQL查询优化器就会认为走索引的效率比全表扫描还要低，所以MySQL会去优化它，让他直接进行全表扫描。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> <span style="color: #808080;">*</span> <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> WEHRE age<span style="color: #808080;">=</span><span style="color: #800000; font-weight: bold;">1</span> <span style="color: #808080;">and</span> height<span style="color: #808080;">&gt;</span><span style="color: #800000; font-weight: bold;">2</span> <span style="color: #808080;">and</span> weight<span style="color: #808080;">=</span><span style="color: #800000; font-weight: bold;">7</span></pre>
+</div>
+<p>这条语句是可以走索引的，因为它可以通过age进行比较，但是weight不会用到索引，因为height是范围查找，与第二条语句类似，如果有两页的height都大于2，那么MySQL会将两页的数据都加载进内存，然后再来通过weight匹配正确的数据。</p>
+<h3><span style="color: #008000;">为什么InnoDB只有一个聚簇索引，而不将所有索引都使用聚簇索引？</span></h3>
+<p>因为聚簇索引是将索引和数据都存放在叶子节点中，如果所有的索引都用聚簇索引，则每一个索引都将保存一份数据，会造成数据的冗余，在数据量很大的情况下，这种数据冗余是很消耗资源的。</p>
+<h2><span style="color: #008000;">补充两个关于索引的点</span></h2>
+<p>这两个点也是上次写关于索引的博客时漏下的，这里补上。</p>
+<p><strong>1.什么情况下会发生明明创建了索引，但是执行的时候并没有通过索引呢？</strong></p>
+<p><strong>科普时间：</strong>查询优化器 一条SQL语句的查询，可以有不同的执行方案，至于最终选择哪种方案，需要通过优化器进行选择，选择执行成本最低的方案。</p>
+<p>在一条单表查询语句真正执行之前，MySQL的查询优化器会找出执行该语句所有可能使用的方案，对比之后找出成本最低的方案。这个成本最低的方案就是所谓的执行计划。</p>
+<p>优化过程大致如下：</p>
+<blockquote>
+<p>1、根据搜索条件，找出所有可能使用的索引<br />2、计算全表扫描的代价<br />3、计算使用不同索引执行查询的代价<br />4、对比各种执行方案的代价，找出成本最低的那一个 。</p>
+
+</blockquote>
+<blockquote data-type="2" data-url="" data-author-name="" data-content-utf8-length="50" data-source-title="">
+<p>参考：https://juejin.im/post/5d23ef4ce51d45572c0600bc</p>
+
+</blockquote>
+<p>根据我们刚才的那张表的非聚簇索引，这条语句就是由于查询优化器的作用，造成没有走索引：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> <span style="color: #808080;">*</span> <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> <span style="color: #0000ff;">where</span> age<span style="color: #808080;">&gt;</span><span style="color: #800000; font-weight: bold;">1</span></pre>
+</div>
+<p><strong>2.在稀疏索引情况下通常需要通过叶子节点的指针回表查询数据，什么情况下不需要回表？</strong></p>
+<p>科普时间：覆盖索引 覆盖索引（covering index）指一个查询语句的执行只用从索引中就能够取得，不必从数据表中读取。也可以称之为实现了索引覆盖。</p>
+<p>当一条查询语句符合覆盖索引条件时，MySQL只需要通过索引就可以返回查询所需要的数据，这样避免了查到索引后再返回表操作，减少I/O提高效率。</p>
+<p>如，表<span style="background-color: #ff99cc;"><code>covering_index_sample</code></span>中有一个普通索引<span style="background-color: #ff99cc;">&nbsp;<code>idx_key1_key2(key1,key2)</code></span>。当我们通过SQL语句：<span style="background-color: #ff99cc;"><code>select key2 from covering_index_sample where key1 = 'keytest';</code></span>的时候，就可以通过覆盖索引查询，无需回表。</p>
+<blockquote data-type="2" data-url="" data-author-name="" data-content-utf8-length="50" data-source-title="">
+<p>参考：https://juejin.im/post/5d23ef4ce51d45572c0600bc</p>
+</blockquote>
+<p>例如:</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">SELECT</span> age <span style="color: #0000ff;">FROM</span> <span style="color: #ff00ff;">user</span> <span style="color: #0000ff;">where</span> age <span style="color: #808080;">=</span> <span style="color: #800000; font-weight: bold;">1</span></pre>
+</div>
+<p>这句话就不需要进行回表查询。</p>
+<h2><span style="color: #008000;">结语</span></h2>
+<p>本篇文章着重聊了一下关于MySQL的索引结构，从零开始慢慢构建了一个B+树索引，并且根据这个过程谈了B+树是如何一步一步去优化查询效率的。</p>
+<p>简单地归纳一下就是：</p>
+<blockquote>
+<p>排序：优化查询的根本，插入时进行排序实际上就是为了优化查询的效率。<br />页：用于减少IO次数，还可以利用程序局部性原理，来稍微提高查询效率。<br />页目录：用于规避链表的软肋，避免在查询时进行链表的扫描。<br />多页：数据量增加的情况下开辟新页来保存数据。<br />目录页：&ldquo;特殊的页目录&rdquo;，其中保存的数据是页的地址。查询时可以通过目录页快速定位到页，避免多页的扫描。</p>
+</blockquote>
+<p>&nbsp;</p>
+<p style="text-align: center;"><span style="color: #008000; font-size: 18pt;"><strong>END</strong></span></p>
+<p><strong>&nbsp;</strong></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

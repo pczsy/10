@@ -1,0 +1,249 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【python】多任务（1. 线程）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【python】多任务（1. 线程）</center></div><div class='banquan'>原文出处:本文由博客园博主小白一生提供。<br/>
+原文连接:https://www.cnblogs.com/liudianer/p/11766547.html</div><br>
+    <p>线程执行的顺序是不确定,可以通过适当的延时，保证某一线程先执行</p>
+<h2 id="基础语法">基础语法</h2>
+<pre><code><code># 多线程的使用方式
+import threading
+
+def test1():...
+# 如果创建Thread时执行的函数,运行结束,那么意味着,这个子线程结束了
+
+
+def test2():...
+
+
+def main():
+    t1 = threading.Thread(target=test1)
+    t2 = threading.Thread(target=test2)
+
+    t1.start()
+    t2.start()
+
+    print(threading.enumerate())
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<p>比较复杂的过程，通过类继承Thread类完成创建线程</p>
+<pre><code><code>import threading
+import time
+
+
+class MyThread(threading.Thread):
+    def fun(self):
+        for i in range(5):
+            time.sleep(1)
+            print(&quot;[%s]&quot; % i)
+            
+            
+if __name__ == &#39;__main__&#39;:
+    t = MyThread()
+    t.start()
+
+# start() 调用 self.run() , 涉及调用其它方法，到run函数中调用</code></pre>
+<h2 id="多线程全局变量的共享">多线程全局变量的共享</h2>
+<p>在一个函数中对全局变量进行修改的时候，到底是否需要使用global进行说明要看是否对全局变量的执行指向进行了修改，<br />
+如果修改了执行，即让全局变量指向了一个新的地方，那么必须使用global<br />
+如果，仅仅是修改了指向的空间中的数据，此时不必使用global</p>
+<pre><code><code># 无参
+import  threading
+import  time
+
+g_num = 100
+
+def test1():
+    global g_num
+    g_num += 1
+    print(&quot;--------in test1 g_num=%d--------&quot; % g_num)
+
+
+def test2():
+    print(&quot;--------in test2 g_num=%d--------&quot; % g_num)
+
+
+def main():
+    t1 = threading.Thread(target=test1)
+    t2 = threading.Thread(target=test2)
+
+    t1.start()
+    time.sleep(1)
+    
+    t2.start()
+    time.sleep(1)
+
+    print(&quot;--------in main  g_num=%d--------&quot; % g_num)
+
+if __name__ == &#39;__main__&#39;:
+    main()
+
+
+# 带参
+import  threading
+import  time
+
+g_num = 100
+
+def test1(temp):
+    temp.append(33)
+    print(&quot;--------in test1 g_nums=%s--------&quot; % str(temp))
+
+
+def test2(temp):
+    print(&quot;--------in test2 g_nums=%s--------&quot; % str(temp))
+
+g_nums = [11,22]
+
+def main():
+    # target 去哪个函数执行代码
+    # args 带着什么过去的
+    t1 = threading.Thread(target=test1, args=(g_nums,))
+    t2 = threading.Thread(target=test2, args=(g_nums,))
+
+    t1.start()
+    time.sleep(1)
+
+    t2.start()
+    time.sleep(1)
+
+    print(&quot;--------in main  g_nums=%s--------&quot; % str(g_nums))
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="多线程任务的资源竞争">多线程任务的资源竞争</h2>
+<pre><code><code>import threading
+import time
+
+
+g_num = 0
+
+def test1(num):
+    global g_num
+    for i in range(num):
+        g_num += 1
+    print(&quot;----in test1 g_num=%d----&quot; % g_num)
+
+
+def test2(num):
+    global g_num
+    for i in range(num):
+        g_num += 1
+    print(&quot;----in test2 g_num=%d----&quot; % g_num)
+
+
+def main():
+    t1 = threading.Thread(target=test1, args=(1000000,))
+    t2 = threading.Thread(target=test2, args=(1000000,))
+
+    t1.start()
+    t2.start()
+
+    time.sleep(5)
+
+    print(&quot;----in main  gnum=%d----&quot; % g_num)
+
+if __name__ == &#39;__main__&#39;:
+    main()
+&quot;&quot;&quot;
+    ----in test1 g_num=1188472----
+    ----in test2 g_num=1319841----
+    ----in main  g_num=1319841----
+&quot;&quot;&quot;</code></pre>
+<h2 id="互斥锁避免资源竞争">互斥锁，避免资源竞争</h2>
+<pre><code><code>import threading
+import time
+
+
+g_num = 0
+
+def test1(num):
+
+    global g_num
+    # 上锁,如果之前没有被上锁,那么此时,上锁成功
+    # 如果上锁之前,已经被上锁了,那么此时会阻塞在这里,直到这个锁被解开为止
+    mutex1.acquire()
+    for i in range(num):
+        g_num += 1
+    mutex1.release()
+    print(&quot;----in test1 g_num=%d----&quot; % g_num)
+
+
+def test2(num):
+    global g_num
+    mutex1.acquire()
+    for i in range(num):
+        g_num += 1
+    mutex1.release()
+    print(&quot;----in test2 g_num=%d----&quot; % g_num)
+
+mutex1 = threading.Lock()
+def main():
+
+
+
+    t1 = threading.Thread(target=test1, args=(1000000,))
+    t2 = threading.Thread(target=test2, args=(1000000,))
+
+    t1.start()
+    t2.start()
+
+    time.sleep(1)
+
+    print(&quot;----in main  gnum=%d----&quot; % g_num)
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="多线程版udp聊天器">多线程版UDP聊天器</h2>
+<pre><code><code>import  socket
+import threading
+
+# 接收数据
+def recv_msg(udp_socket):
+    while True:
+        recv_data,data_from = udp_socket.recvfrom(1024)
+        print(&quot;来自%s: [%s] &quot; % (data_from, recv_data.decode(&#39;gbk&#39;)))
+
+# 接收数据
+def send_msg(udp_socket):
+    while True:
+        send_data = input(&quot;输入要发送的数据:&quot;)
+        udp_socket.sendto(send_data.encode(&#39;gbk&#39;),(&quot;192.168.2.193&quot;, 8080))
+
+def main():
+
+    udp_socket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    # 2. 绑定本地信息
+    udp_socket.bind((&quot;&quot;, 7890))
+    # 对方的连接信息,用的固定值,没有用变量传递
+
+    # 创建两个线程
+    t_recv = threading.Thread( target=recv_msg, args=(udp_socket,))
+    t_send = threading.Thread( target=send_msg, args=(udp_socket,))
+
+    t_recv.start()
+    t_send.start()
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

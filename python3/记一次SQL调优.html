@@ -1,0 +1,103 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修记一次SQL调优' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>记一次SQL调优</center></div><div class='banquan'>原文出处:本文由博客园博主濯缨提供。<br/>
+原文连接:https://www.cnblogs.com/ripley/p/12080652.html</div><br>
+    <h2 id="insert优化"><code>insert</code>优化</h2>
+<p>如果你在某一时刻有大量的<code>insert</code>操作，一条一条插入是非常耗时的。<code>insert</code>语句本身支持一次插入很多条记录，插入记录数上限受sql语句长度限制，一般一次插个几千条是没问题的。在我的 <a href="https://www.cnblogs.com/ripley/p/12045098.html">《如何手动实现Try Insert和Insert Or Update》</a> 一文中对于各种情况都有具体的例子，这里就不赘述了。</p>
+<h2 id="explain语句结果分析"><code>explain</code>语句结果分析</h2>
+<p>SQL本身是一种对机器来说抽象级别很高的语言，我们通过SQL告诉DBMS我们需要什么，而没有告诉它具体要怎么做。DBMS会猜测性地以最优的方法去完成我们给的任务，但是它往往做得不太好，毕竟不同业务最优做法各不相同，目前我们还没有办法让机器完全理解我们的业务。所以我们需要辅助机器，帮助它找到最好的查询逻辑。通常的做法是<strong>添加合适的索引，让所有的查询都走索引</strong>。在MySQL中，在任何一个<code>select</code>语句前加上<code>explain</code>，就可以知道MySQL对这条查询的理解和实际执行逻辑。</p>
+<p>下面来分析<code>explain</code>语句返回的结果。<code>explain</code>会展示查询涉及到的每张表分析结果，里面有很多参数，我们一般只需要关注以下几个参数：</p>
+<ol>
+<li><p>type</p>
+<p>type描述表是怎么<code>join</code>的，按从<strong>最好到最坏</strong>一共有以下几个值：</p>
+<table>
+<thead>
+<tr class="header">
+<th>值</th>
+<th>解释</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>system</td>
+<td>表只有一行，是一种特殊的<code>const</code> type</td>
+</tr>
+<tr class="even">
+<td>const</td>
+<td>表里只有一行匹配的记录，<code>join</code>时可以认为是常量</td>
+</tr>
+<tr class="odd">
+<td>eq_ref</td>
+<td>使用的索引为<code>primary key</code>或<code>unique not null index</code></td>
+</tr>
+<tr class="even">
+<td>ref</td>
+<td><code>join</code>只使用最左前缀匹配原则的普通索引</td>
+</tr>
+<tr class="odd">
+<td>fulltext</td>
+<td>使用全文检索索引</td>
+</tr>
+<tr class="even">
+<td>ref_or_null</td>
+<td>与<code>ref</code>差不多，主要是多了NULL值的查询</td>
+</tr>
+<tr class="odd">
+<td>index_merge</td>
+<td>使用了MySQL的索引合并优化</td>
+</tr>
+<tr class="even">
+<td>unique_subquery</td>
+<td>类似<code>eq_ref</code>，主要用于包含IN子查询的查询</td>
+</tr>
+<tr class="odd">
+<td>range</td>
+<td>走索引的范围查询</td>
+</tr>
+<tr class="even">
+<td>index</td>
+<td>索引树被整个扫了，速度比扫表好一点</td>
+</tr>
+<tr class="odd">
+<td>ALL</td>
+<td>整个表被扫，非常糟糕的情况，一般要避免</td>
+</tr>
+</tbody>
+</table>
+<p>一般做SQL优化，通常出现<code>index</code>和<code>ALL</code>都是需要优化的。</p></li>
+<li><p>Extra</p>
+<p>MySQL查询的附件信息，有时候代表着查询的额外代价，出现 <code>Using filesort</code>、<code>Using temperary</code>都表示查询速度不行。</p>
+<ul>
+<li><code>Using filesort</code>表示<code>order by</code>子句不走索引，使用文件排序，需要对<code>order by</code>进行优化。</li>
+<li><code>Using temperary</code>表示查询过程中创建了临时表，通常发生在包含<code>group by</code>和<code>order by</code>的查询中。</li>
+</ul></li>
+<li><p>rows和filtered</p>
+<p><code>rows</code>表示MySQL预估的查询需要的行数，<code>filtered</code>表示根据条件过滤之后的行所占的百分比。值为100表示没有行被过滤掉。所以<code>rows</code>*<code>filtered</code>查询需要的总的行数。这个值自然是越小越好。</p></li>
+</ol>
+<h2 id="查询优化实践">查询优化实践</h2>
+<p>查询优化的策略就是加索引，primary key 和 unique key在根据具体业务定，我们做优化，一般都是添加普通索引。普通索引分为两种，单个字段的索引和多个字段的联合索引。联合索引的应用场景相对窄一点，如果你要查的数据可以被联合索引全部囊括，直接从索引拿数据，可以考虑使用联合索引。<strong>读多写少重复值少散列分布的字段最适合建索引</strong>。你可以把你的程序使用到的所有SQL都列出来，一条一条<code>explain</code>，没有走索引的，就酌情给某个或某几个字段（<code>join</code>里的字段、<code>where</code>里的字段都是重点考虑对象）加上索引，直到所有的查询走索引为止。这么做以后，你的查询type正常都可以到达比较好的情况，但是对于包含<code>order by</code>子句的查询，可能你的Extra信息就不太理想了。<code>Using filesort</code>和<code>Using temperary</code>有时候阴魂不散，很难搞。这时候最佳的策略就是变着花样选择排序的字段。比如你的表有一个自增主键，你可以考虑用它作为插入时间来做排序。MySQL本身在这方面的优化非常糟糕，需要耐心地多尝试。</p>
+<h3 id="reference">Reference</h3>
+<p><a href="https://dev.mysql.com/doc/refman/5.7/en/explain-output.html#explain-join-types">MySQL explain</a></p>
+<p><a href="https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html">MySQL ORDER BY优化</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

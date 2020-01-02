@@ -1,0 +1,105 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Dubbo源码分析之SPI（二）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Dubbo源码分析之SPI（二）</center></div><div class='banquan'>原文出处:本文由博客园博主yxfree提供。<br/>
+原文连接:https://www.cnblogs.com/yxfree/p/12053225.html</div><br>
+    <h2>一、概述</h2>
+<p>　　本篇文章是dubbo SPI源码分析的第二篇，接着第一篇继续分析dubbo SPI的内容，我们主要介绍 getDefaultExtension() 获取默认扩展点方法。</p>
+<p>由于此方法比较简单，我们略过示例部分，直接分析源码。</p>
+<h2>二、源码分析</h2>
+<p>　　获取默认扩展方法getDefaultExtension()是一个public、可对外提供调用的方法。我们知道，dubbo中扩展点接口必须要有@SPI注解修饰，@SPI注解代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #000000;">@Documented
+</span><span style="color: #008080;"> 2</span> <span style="color: #000000;">@Retention(RetentionPolicy.RUNTIME)
+</span><span style="color: #008080;"> 3</span> <span style="color: #000000;">@Target({ElementType.TYPE})
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">public</span> @<span style="color: #0000ff;">interface</span><span style="color: #000000;"> SPI {
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 7</span> <span style="color: #008000;">     * default extension name
+</span><span style="color: #008080;"> 8</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 9</span>     String value() <span style="color: #0000ff;">default</span> ""<span style="color: #000000;">;
+</span><span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span> }</pre>
+</div>
+<p>　　注解可以修饰类和接口，同时提供 一个默认为空的value字段。</p>
+<p>　　这个value字段 就是本篇文章要介绍的默认扩展实现。</p>
+<p>　　现在我们来看getDefaultExtension()方法内部：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span><span style="color: #000000;"> T getDefaultExtension() {
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">    getExtensionClasses();
+</span><span style="color: #008080;">3</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> cachedDefaultName为@SPI中的value</span>
+<span style="color: #008080;">4</span>     <span style="color: #0000ff;">if</span> (<span style="color: #0000ff;">null</span> == cachedDefaultName || cachedDefaultName.length() == 0 || "true"<span style="color: #000000;">.equals(cachedDefaultName)) {
+</span><span style="color: #008080;">5</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;">6</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">7</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> getExtension(cachedDefaultName);
+</span><span style="color: #008080;">8</span> }</pre>
+</div>
+<p>　　第二行方法 getExtensionClasses()是加载配置文本文件，获取配置的扩展点实现类，方法执行完，会把配置文本文件的key和扩展点实现类的Class对象存储在cachedClasses 成员变量中，这个我们在第一篇已经介绍过。</p>
+<p>　　接下来就是方法的关键点，成员变量cachedDefaultName 的判断了，如果cachedDefaultName 为空或为&rdquo;true&ldquo; 直接返回 null，如果cachedDefaultName 不为空，则调用getExtension(..)方法，返回扩展点实现类对象。这个方法我们在第一篇也已经介绍了。现在我们只需要分析cachedDefaultName的赋值点 就ok 了。</p>
+<p>　　成员变量cachedDefaultName 我们在第一篇有介绍到，不知道大家是否还有印象，我们现在看看变量定义：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">//</span><span style="color: #008000;"> SPI()内value，默认的接口实现</span>
+<span style="color: #008080;">2</span> <span style="color: #0000ff;">private</span> String cachedDefaultName;</pre>
+</div>
+<p>　　私有的字符串变量。</p>
+<p>　　变量cachedDefaultName的赋值，我们先提前介绍下，其实就是在加载配置文本文件的过程中进行的，具体的方法调用链为：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> getDefaultExtension() --&gt;getExtensionClasses()--&gt;loadExtensionClasses()</pre>
+</div>
+<p>　　这几个方法我们都有介绍，我们现在看看loadExtensionClasses()：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> Map&lt;String, Class&lt;?&gt;&gt;<span style="color: #000000;"> loadExtensionClasses() {
+</span><span style="color: #008080;"> 2</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 获取注解 SPI的接口
+</span><span style="color: #008080;"> 3</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> type为传入的扩展接口，必须有@SPI注解</span>
+<span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">final</span> SPI defaultAnnotation = type.getAnnotation(SPI.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+</span><span style="color: #008080;"> 5</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 获取默认扩展实现value，如果存在，赋值给cachedDefaultName</span>
+<span style="color: #008080;"> 6</span>     <span style="color: #0000ff;">if</span> (defaultAnnotation != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 7</span>         String value =<span style="color: #000000;"> defaultAnnotation.value();
+</span><span style="color: #008080;"> 8</span>         <span style="color: #0000ff;">if</span> ((value = value.trim()).length() &gt; 0<span style="color: #000000;">) {
+</span><span style="color: #008080;"> 9</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> @SPI value 只能是一个，不能为逗号分割的多个
+</span><span style="color: #008080;">10</span>             <span style="color: #008000;">//</span><span style="color: #008000;"> @SPI value为默认的扩展实现</span>
+<span style="color: #008080;">11</span>             String[] names =<span style="color: #000000;"> NAME_SEPARATOR.split(value);
+</span><span style="color: #008080;">12</span>             <span style="color: #0000ff;">if</span> (names.length &gt; 1<span style="color: #000000;">) {
+</span><span style="color: #008080;">13</span>                 <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> IllegalStateException("more than 1 default extension name on extension " + type.getName() + ": " +<span style="color: #000000;"> Arrays.toString(names));
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">15</span>             <span style="color: #0000ff;">if</span> (names.length == 1<span style="color: #000000;">)
+</span><span style="color: #008080;">16</span>                 cachedDefaultName = names[0<span style="color: #000000;">];
+</span><span style="color: #008080;">17</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">19</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 加载三个目录配置的扩展类</span>
+<span style="color: #008080;">20</span>     Map&lt;String, Class&lt;?&gt;&gt; extensionClasses = <span style="color: #0000ff;">new</span> HashMap&lt;String, Class&lt;?&gt;&gt;<span style="color: #000000;">();
+</span><span style="color: #008080;">21</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> META-INF/dubbo/internal</span>
+<span style="color: #008080;">22</span> <span style="color: #000000;">    loadDirectory(extensionClasses, DUBBO_INTERNAL_DIRECTORY);
+</span><span style="color: #008080;">23</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> META-INF/dubbo</span>
+<span style="color: #008080;">24</span> <span style="color: #000000;">    loadDirectory(extensionClasses, DUBBO_DIRECTORY);
+</span><span style="color: #008080;">25</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> META-INF/services/</span>
+<span style="color: #008080;">26</span> <span style="color: #000000;">    loadDirectory(extensionClasses, SERVICES_DIRECTORY);
+</span><span style="color: #008080;">27</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> extensionClasses;
+</span><span style="color: #008080;">28</span> }</pre>
+</div>
+<p>　　没错，对cachedDefaultName的赋值，仅此一出。</p>
+<p>　　cachedDefaultName的内容就是解析@SPI注解的value内容。此处赋值后，getDefaultExtension()方法的返回就是根据这个值进行扩展点获取并返回的。</p>
+<h2>三、总结</h2>
+<p>　　获取默认扩展点的方法getDefaultExtension() 逻辑很简单，就是解析出注解@SPI的value内容，通过前一篇介绍的getExtension(..)方法进行扩展点获取。如果@SPI没有配置value或者设置的是&rdquo;true&ldquo;，getDefaultExtension()方法返回的就是null。</p>
+<p><img id="uploading_image_20950" src="./images/Dubbo源码分析之SPI（二）0.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

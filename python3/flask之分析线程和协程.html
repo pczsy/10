@@ -1,0 +1,242 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修flask之分析线程和协程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>flask之分析线程和协程</center></div><div class='banquan'>原文出处:本文由博客园博主tomjoy提供。<br/>
+原文连接:https://www.cnblogs.com/guapitomjoy/p/12061463.html</div><br>
+    <h1 id="flask之分析线程和协程">flask之分析线程和协程</h1>
+<h1 id="思考每个请求之间的关系">01 思考：每个请求之间的关系</h1>
+<p>我们每一个请求进来的时候都开一个进程肯定不合理，那么如果每一个请求进来都是串行的，那么根本实现不了并发，所以我们假定每一个请求进来使用的是线程。</p>
+<p>那么线程中数据互相不隔离，存在修改数据的时候数据不安全的问题。</p>
+<p>假定我们的需求是，每个线程都要设置值，并且该线程打印该线程修改的值。</p>
+<pre><code><code>from threading import Thread,current_thread
+import time
+
+class Foo(object):
+    def __init__(self):
+        self.name = 0
+
+locals_values = Foo()
+
+def func(num):
+    locals_values.name = num
+    time.sleep(2)             # 取出该线程的名字
+    print(locals_values.name, current_thread().name)
+
+for i in range(10):
+                                    # 设置该线程的名字
+    t = Thread(target=func,args=(i,),name=&#39;线程%s&#39;%i)
+    t.start()</code></pre>
+<p>很明显阻塞了2秒的时间所有的线程都完成了修改值，而2秒后所有的线程打印出来的时候都是9了，就产生了数据不安全的问题。</p>
+<p><img src="./images/flask之分析线程和协程0.png" alt="1552975111079" /></p>
+<p>所以我们要解决这种线程不安全的问题，有如下两种解决方案。</p>
+<ul>
+<li><p>方案一：是加锁</p></li>
+<li><p>方案二：使用<code>threading.local</code>对象把要修改的数据复制一份，使得每个数据互不影响。</p>
+<p>我们要实现的并发是多个请求实现并发，而不是纯粹的只是修改一个数据，所以第二种思路更适合做我们每个请求的并发，把每个请求对象的内容都复制一份让其互相不影响。</p>
+<p><em>详解：为什么不用加锁的思路？加锁的思路是多个线程要真正实现共用一个数据，并且该线程修改了数据之后会影响到其他线程，更适合类似于12306抢票的应用场景，而我们是要做请求对象的并发，想要实现的是该线程对于请求对象这部分内容有任何修改并不影响其他线程。所以使用方案二</em></p></li>
+</ul>
+<h1 id="threading.local">02 threading.local</h1>
+<p>多个线程修改同一个数据，复制多份数据给每个线程用,为每个线程开辟一块空间进行数据存储</p>
+<p><strong>实例：</strong></p>
+<pre><code><code>from threading import Thread,current_thread,local
+import time
+
+locals_values = local()
+# 可以简单理解为，识别到新的线程的时候，都会开辟一片新的内存空间，相当于每个线程对该值进行了拷贝。
+
+def func(num):
+    locals_values.name = num
+    time.sleep(2)
+    print(locals_values.name, current_thread().name)
+
+for i in range(10):
+    t = Thread(target=func,args=(i,),name=&#39;线程%s&#39;%i)
+    t.start()</code></pre>
+<p><img src="./images/flask之分析线程和协程1.png" alt="1552976228090" /></p>
+<p>如上通过threading.local实例化的对象，实现了多线程修改同一个数据，每个线程都复制了一份数据，并且修改的也都是自己的数据。达到了我们想要的效果。</p>
+<h1 id="通过字典自定义threading.local">03 通过字典自定义threading.local</h1>
+<p><strong>实例：</strong></p>
+<pre><code><code>from threading import get_ident,Thread,current_thread
+# get_ident()可以获取每个线程的唯一标记，
+import time
+
+class Local(object):
+    storage = {}# 初始化一个字典
+    get_ident = get_ident # 拿到get_ident的地址
+    def set(self,k,v):
+        ident =self.get_ident()# 获取当前线程的唯一标记
+        origin = self.storage.get(ident)
+        if not origin:
+            origin={}
+        origin[k] = v
+        self.storage[ident] = origin
+    def get(self,k):
+        ident = self.get_ident() # 获取当前线程的唯一标记
+        v= self.storage[ident].get(k)
+        return v
+
+locals_values = Local()
+def func(num):
+    # get_ident() 获取当前线程的唯一标记
+    locals_values.set(&#39;KEY&#39;,num)
+    time.sleep(2)
+    print(locals_values.get(&#39;KEY&#39;),current_thread().name)
+
+for i in range(10):
+    t = Thread(target=func,args=(i,),name=&#39;线程%s&#39;%i)
+    t.start()</code></pre>
+<p><strong>讲解：</strong></p>
+<p>利用<code>get_ident()</code>获取每个线程的唯一标记作为键，然后组织一个字典storage。</p>
+<p><strong>如</strong>：｛线程1的唯一标记：{k:v}，线程2的唯一标记：{k:v}.......｝</p>
+<pre><code><code> ｛
+    15088: {&#39;KEY&#39;: 0}, 
+    8856: {&#39;KEY&#39;: 1},
+    17052: {&#39;KEY&#39;: 2}, 
+    8836: {&#39;KEY&#39;: 3}, 
+    13832: {&#39;KEY&#39;: 4}, 
+    15504: {&#39;KEY&#39;: 5}, 
+    16588: {&#39;KEY&#39;: 6}, 
+    5164: {&#39;KEY&#39;: 7}, 
+    560: {&#39;KEY&#39;: 8}, 
+    1812: {&#39;KEY&#39;: 9}
+                    }</code></pre>
+<p><strong>运行效果</strong>：</p>
+<p><img src="./images/flask之分析线程和协程2.png" alt="1552981453617" /></p>
+<h1 id="通过setattr和getattr实现自定义threthreading.local">04 通过setattr和getattr实现自定义threthreading.local</h1>
+<p><strong>实例</strong>：</p>
+<pre><code><code>from threading import get_ident,Thread,current_thread
+# get_ident()可以获取每个线程的唯一标记，
+import time
+
+class Local(object):
+    storage = {}# 初始化一个字典
+    get_ident = get_ident # 拿到get_ident的地址
+
+    def __setattr__(self, k, v):
+        ident =self.get_ident()# 获取当前线程的唯一标记
+        origin = self.storage.get(ident)
+        if not origin:
+            origin={}
+        origin[k] = v
+        self.storage[ident] = origin
+    def __getattr__(self, k):
+        ident = self.get_ident() # 获取当前线程的唯一标记
+        v= self.storage[ident].get(k)
+        return v
+
+locals_values = Local()
+def func(num):
+    # get_ident() 获取当前线程的唯一标记
+    locals_values.KEY=num
+    time.sleep(2)
+    print(locals_values.KEY,current_thread().name)
+
+for i in range(10):
+    t = Thread(target=func,args=(i,),name=&#39;线程%s&#39;%i)
+    t.start()</code></pre>
+<h1 id="每个对象有自己的存储空间字典">05 每个对象有自己的存储空间（字典）</h1>
+<p>我们可以自定义实现了threading.local的功能，但是现在存在一个问题，如果我们想生成多个Local对象，但是会导致多个Local对象所管理的线程设置的内容都放到了类属性storage = {}里面，所以我们如果想实现每一个Local对象所对应的线程设置的内容都放到自己的storage里面，就需要重新设计代码。</p>
+<p><strong>实例：</strong></p>
+<pre><code><code>from threading import get_ident,Thread,current_thread
+# get_ident()可以获取每个线程的唯一标记，
+import time
+
+class Local(object):
+    def __init__(self):
+        # 千万不要按照注释里这么写，否则会造成递归死循环，死循环在__getattr__中,不理解的话可以全程使用debug测试。
+        # self.storage = {}
+        # self.get_ident =get_ident
+        object.__setattr__(self,&quot;storage&quot;,{})
+        object.__setattr__(self,&quot;get_ident&quot;,get_ident) # 借用父类设置对象的属性，避免递归死循环。
+
+    def __setattr__(self, k, v):
+        ident =self.get_ident() # 获取当前线程的唯一标记
+        origin = self.storage.get(ident)
+        if not origin:
+            origin={}
+        origin[k] = v
+        self.storage[ident] = origin
+    def __getattr__(self, k):
+        ident = self.get_ident() # 获取当前线程的唯一标记
+        v= self.storage[ident].get(k)
+        return v
+
+locals_values = Local()
+locals_values2 = Local()
+def func(num):
+    # get_ident() 获取当前线程的唯一标记
+    # locals_values.set(&#39;KEY&#39;,num)
+    locals_values.KEY=num
+    time.sleep(2)
+    print(locals_values.KEY,current_thread().name)
+    # print(&#39;locals_values2.storage：&#39;,locals_values2.storage) # 查看locals_values2.storage的私有的storage
+
+for i in range(10):
+    t = Thread(target=func,args=(i,),name=&#39;线程%s&#39;%i)
+    t.start()</code></pre>
+<p>显示效果我就不做演示了，和前几个案例演示效果一样。</p>
+<h1 id="如果是你会如何设计flask的请求并发">06 如果是你会如何设计flask的请求并发？</h1>
+<ul>
+<li><p>情况一：单进程单线程，基于全局变量就可以做</p></li>
+<li><p>情况二：单进程多线程，基于threading.local对象做</p></li>
+<li><p>情况三：单进程多线程多协程，如何做？</p>
+<p><em>提示：协程属于应用级别的，协程会替代操作系统自动切换遇到 <code>IO</code>的任务或者运行级别低的任务，而应用级别的切换速度远高于操作系统的切换</em></p>
+<p>当然如果是自己来设计框架，为了提升程序的并发性能，一定是上诉的情况三，不光考虑多线程并且要多协程，那么该如何设计呢？</p>
+<p>在我们的flask中为了这种并发需求，依赖于底层的<code>werkzeug</code>外部包，<code>werkzeug</code>实现了保证多线程和多协程的安全，<code>werkzeug</code>基本的设计理念和上一个案例一致，唯一的区别就是在导入的时候做了一步处理，且看<code>werkzeug</code>源码。</p>
+<p><strong><code>werkzeug.local.py</code>部分源码</strong></p>
+<pre><code><code>...
+
+try:
+    from greenlet import getcurrent as get_ident # 拿到携程的唯一标识
+except ImportError:
+    try:
+        from thread import get_ident #线程的唯一标识
+    except ImportError:
+        from _thread import get_ident
+
+class Local(object):
+    ...
+
+    def __init__(self):
+        object.__setattr__(self, &#39;__storage__&#39;, {})
+        object.__setattr__(self, &#39;__ident_func__&#39;, get_ident)
+
+      ...
+
+    def __getattr__(self, name):
+        try:
+            return self.__storage__[self.__ident_func__()][name]
+        except KeyError:
+            raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        ident = self.__ident_func__()
+        storage = self.__storage__
+        try:
+            storage[ident][name] = value
+        except KeyError:
+            storage[ident] = {name: value}</code></pre>
+<p>分析：</p>
+<p>原理就是在最开始导入线程和协程的唯一标识的时候统一命名为<code>get_ident</code>，并且先导入协程模块的时候如果报错说明不支持协程，就会去导入线程的<code>get_ident</code>，这样无论是只有线程运行还是协程运行都可以获取唯一标识，并且把这个标识的线程或协程需要设置的内容都分类存放于<code>__storage__</code>字典中。</p></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

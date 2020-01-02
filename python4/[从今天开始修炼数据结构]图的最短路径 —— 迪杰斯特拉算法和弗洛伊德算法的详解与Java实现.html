@@ -1,0 +1,175 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现</center></div><div class='banquan'>原文出处:本文由博客园博主Joey777210提供。<br/>
+原文连接:https://www.cnblogs.com/Joey777210/p/12069958.html</div><br>
+    <p>在网图和非网图中，最短路径的含义不同。非网图中边上没有权值，所谓的最短路径，其实就是两顶点之间经过的边数最少的路径；而对于网图来说，<strong>最短路径，是指两顶点之间经过的边上权值之和最少的路径</strong>，我们称路径上第一个顶点是源点，最后一个顶点是终点。</p>
+<p>我们讲解两种求最短路径的算法。第一种，<strong>从某个源点到其余各顶点的最短路径问题</strong>。</p>
+<p>　<span style="font-size: 14pt;"><strong>　1，迪杰斯特拉(Dijkstra)算法</strong></span></p>
+<p>　　　　迪杰斯特拉算法是一个按路径长度递增的次序产生最短路径的算法，每次找到一个距离V0最短的点，不断将这个点的邻接点加入判断，更新新加入的点到V0的距离，然后再找到现在距离V0最短的点，循环之前的步骤。有些类似之前的普里姆算法，是针对点进行运算，贪心算法。</p>
+<p>　　　　这里我们首先约定，Vi在vertex[]中存储的index = i，以方便阐述思路。思路如下：</p>
+<p>　　　　（1）我们拿到网图，如下.我们要找到从V0到V8的最短路径，使用邻接矩阵存储的图结构。我们寻找距离V0最近的顶点，找到了邻接点V1，距离是1，将其连入最短路径。</p>
+<p><img src="./images/[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现0.png" alt="" width="359" height="241" /></p>
+<p>&nbsp;</p>
+<p>　　</p>
+<p>　　（2）修正与V1直接相关联的所有点到V0的最短路径。比如原本V2到V0的路径是5，现在通过V1，将其修改为1+3 = 4.，将V4置为6，V3置为8.我们现在就需要一个数组来存储每个点到V0的最短路径了。我们设置一个数组ShortPathTable[numVertex]来存储。</p>
+<p>　　　　同时我们还需要存储每个点到V0的最短路径，为此我们设置一个数组Patharc[numVertex]，P[i] = k表示Vi到V0的最短路径中，Vi的前驱是Vk。我们还需要一个数组来存储某个顶点是否已经找到了到V0的最短路径，为此我们设置finals[numVertex]。此时</p>
+<div class="cnblogs_code">
+<pre><code>    S[] = { 0 , 1 , 4 , 8 , 6<span style="color: #000000;"> , I , I , I , I }
+    P[] </span>= { 0 , 0 , 1 , 1 , 1 , 0 , 0 , 0 , 0<span style="color: #000000;"> }
+    f[] </span>= { 1 , 1 , 0 , 0 , 0 , 0 , 0 , 0 , 0 }</pre>
+</div>
+<p>　　（3）此时拿到与V0距离最短的点（还没有加入最短路径的，即final[i] = 0的点），这里是V2，然后更新V2的邻接点V4，V5到V0的最短路径分别为1+3+1=5和1+3+7=11，并将V2加入最短路径</p>
+<div class="cnblogs_code">
+<pre><code>    S[] = { 0 , 1 , 4 , 8 , 5<span style="color: #000000;"> , I , I , I , I }
+    P[] </span>= { 0 , 0 , 1 , 1 , 2 , 0 , 0 , 0 , 0<span style="color: #000000;"> }
+    f[] </span>= { 1 , 1 , 1 , 0 , 0 , 0 , 0 , 0 , 0 }</pre>
+</div>
+<p>　　<img src="./images/[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现1.png" alt="" width="362" height="242" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>　　　　接下来的步骤跟前面类似，我就不再重复了，大家应该也理解迪杰斯特拉算法的步骤了，下面来看代码实现。</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> ShortestPath_Dijkstra(){
+        </span><span style="color: #0000ff;">int</span>[] ShortPathTable= <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span><span style="color: #000000;">[numVertex];
+        </span><span style="color: #0000ff;">int</span>[] Patharc = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span><span style="color: #000000;">[numVertex];
+        </span><span style="color: #0000ff;">int</span>[] finals = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span><span style="color: #000000;">[numVertex];
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">初始化</span>
+        <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = 0; i &lt; numVertex; i++<span style="color: #000000;">){
+            ShortPathTable[i] </span>= edges[0][i];    <span style="color: #008000;">//</span><span style="color: #008000;">初始化为v0的邻接边</span>
+            Patharc[i] = 0<span style="color: #000000;">;
+            finals[i] </span>= 0<span style="color: #000000;">;
+        }
+        finals[</span>0] = 1;  <span style="color: #008000;">//</span><span style="color: #008000;">v0无需找自己的邻边</span>
+
+        <span style="color: #0000ff;">int</span> minIndex = 0;   <span style="color: #008000;">//</span><span style="color: #008000;">用来保存当前已经发现的点中到V0距离最短的点</span>
+        <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = 1; i &lt; numVertex; i++<span style="color: #000000;">){
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">找到目前距离V0最近的点</span>
+            <span style="color: #0000ff;">int</span> min =<span style="color: #000000;"> INFINITY;
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> index = 0; index &lt; numVertex; index++<span style="color: #000000;">){
+                </span><span style="color: #0000ff;">if</span> (finals[index] != 1 &amp;&amp; ShortPathTable[index] &lt;<span style="color: #000000;"> min){
+                    minIndex </span>=<span style="color: #000000;"> index;
+                    min </span>=<span style="color: #000000;"> ShortPathTable[index];
+                }
+            }
+            finals[minIndex] </span>= 1<span style="color: #000000;">;
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">更新还未加入最短路径的点到V0的距离</span>
+            <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> index = 0; index &lt; numVertex; index++<span style="color: #000000;">){
+                </span><span style="color: #0000ff;">if</span> (finals[index] != 1 &amp;&amp; (ShortPathTable[index] &gt; (min +<span style="color: #000000;"> edges[minIndex][index]))){
+                    ShortPathTable[index] </span>= min +<span style="color: #000000;"> edges[minIndex][index];
+                    Patharc[index] </span>=<span style="color: #000000;"> minIndex;
+                }
+            }
+        }
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">输出最短路径</span>
+        <span style="color: #0000ff;">int</span> s = 8<span style="color: #000000;">;
+        System.out.println(</span>8<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">while</span> ( s != 0<span style="color: #000000;">){
+            s </span>=<span style="color: #000000;"> Patharc[s];
+            System.out.println(s);
+        }
+    }</span></pre>
+</div>
+<p>　　其实根据这个算法得到了<strong>v0到任意一个顶点的最短路径和路径长度</strong>的。时间复杂度O(n方)。</p>
+<p>　　如果我们想得到v1，或者v2等到任意一个顶点的最短路径呢？我们要再跑一次这个算法才能得到这样复杂度就达到了O(n<sup>3</sup>)，这是我们所不能接受的。下面我们来介绍一种直接得到每一个顶点到另外一个顶点的最短路径。</p>
+<p><span style="font-size: 14pt;"><strong>　　2，弗洛伊德(Floyd)算法</strong></span></p>
+<p>　　　　弗洛伊德算法的想法是，如果V1到V2的距离，大于V1到V0再从V0到V2的距离，那么就把V1到V0的权值的拷贝，改为V1到V0+V0到V2. 同时把储存的最短路径也改掉，直到网中的每一条边都被遍历。</p>
+<p>　　　　我们用二维矩阵ShortPathTable存储行号到列号的最短路径的权值之和（初始化为邻接矩阵）；Patharc存储行号到列号的最短路径中列号元素的前驱。初始化如下</p>
+<p>　　　　举例如下：<img src="./images/[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现2.png" alt="" width="322" height="205" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;　　　　ShortPathTable矩阵：&nbsp;<img src="./images/[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现3.png" alt="" />　　Patharc矩阵：<img src="./images/[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现4.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;　　　　（1）从V0进入网图中，此时没有什么需要变化的。</p>
+<p>　　　　 （2）到达V1，让所有的顶点的路径都从V1经过，发现V0到V2的路径大于先到V1再到V2的路径，所以将S矩阵和P矩阵中的相应位置更改。同理S[0][3] = 8, S[0][4] = 6。</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;<img src="./images/[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现5.png" alt="" /><img src="./images/[从今天开始修炼数据结构]图的最短路径 —— 迪杰斯特拉算法和弗洛伊德算法的详解与Java实现6.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>后面同理，依次循环V2~V8，针对每个顶点作为中转得到计算结果。这样我们的最短路径就完成了。</p>
+<p>实现代码如下：</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> ShortestPath_Floyd(){
+        </span><span style="color: #0000ff;">int</span>[][] ShortPathTable = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span><span style="color: #000000;">[numVertex][numVertex];
+        </span><span style="color: #0000ff;">int</span>[][] Patharc = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span><span style="color: #000000;">[numVertex][numVertex];
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">初始化两个矩阵</span>
+        <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> row = 0; row &lt; numVertex; row++<span style="color: #000000;">){
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> col = 0; col &lt; numVertex; col++<span style="color: #000000;">){
+                ShortPathTable[row][col] </span>=<span style="color: #000000;"> edges[row][col];
+                Patharc[row][col] </span>=<span style="color: #000000;"> col;
+            }
+        }
+
+        </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> path = 0; path &lt; numVertex; path++<span style="color: #000000;">){
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> row = 0; row &lt; numVertex; row++<span style="color: #000000;">){
+                </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> col = 0; col &lt; numVertex; col++<span style="color: #000000;">){
+                    </span><span style="color: #0000ff;">if</span> (ShortPathTable[row][col] &gt; (ShortPathTable[row][path] +<span style="color: #000000;"> ShortPathTable[path][col])){
+                        ShortPathTable[row][col] </span>= (ShortPathTable[row][path] +<span style="color: #000000;"> ShortPathTable[path][col]);
+                        Patharc[row][col] </span>=<span style="color: #000000;"> Patharc[row][path];
+                    }
+                }
+            }
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">打印看结果</span>
+        <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> row = 0; row &lt; numVertex; row++<span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> col = 0; col &lt; numVertex; col++<span style="color: #000000;">) {
+                System.out.print(ShortPathTable[row][col] </span>+ "\t"<span style="color: #000000;">);
+            }
+            System.out.println();
+        }
+        System.out.println(</span>"***********************************"<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> row = 0; row &lt; numVertex; row++<span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> col = 0; col &lt; numVertex; col++<span style="color: #000000;">) {
+                System.out.print(Patharc[row][col] </span>+ "\t"<span style="color: #000000;">);
+            }
+            System.out.println();
+        }
+    }</span></pre>
+</div>
+<p>结果：</p>
+<div class="cnblogs_code">
+<pre><code>0    1    4    7    5    8    10    12    16    
+1    0    3    6    4    7    9     11    15    
+4    3    0    3    1    4    6     8    12    
+7    6    3    0    2    5    3     5    9    
+5    4    1    2    0    3    5     7    11    
+8    7    4    5    3    0    7     5    9    
+10   9    6    3    5    7    0     2    6    
+12   11   8    5    7    5    2     0    4    
+16   15   12   9    11   9    6     4    0    
+***********************************
+0    1    1    1    1    1    1    1    1    
+0    1    2    2    2    2    2    2    2    
+1    1    2    4    4    4    4    4    4    
+4    4    4    3    4    4    6    6    6    
+2    2    2    3    4    5    3    3    3    
+4    4    4    4    4    5    7    7    7    
+3    3    3    3    3    7    6    7    7    
+6    6    6    6    6    5    6    7    8    
+7    7    7    7    7    7    7    7    8    </pre>
+</div>
+<p>我们可以发现，P矩阵的第一列与迪杰斯特拉算法的结果是一样的。它的时间复杂度是三次方的，但它可以解决多个顶点到多个顶点的最短路径问题，比同样场景下的迪杰斯特拉算法要省时得多。</p>
+<p>上面是两个算法对于无向图的应用，实际上对于有向图，也是同样的使用效果。因为无向图和有向图的区别仅仅是邻接矩阵是否对称而已。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

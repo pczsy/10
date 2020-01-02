@@ -1,0 +1,185 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python如何实现微信群万人同步直播？' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python如何实现微信群万人同步直播？</center></div><div class='banquan'>原文出处:本文由博客园博主猪哥66提供。<br/>
+原文连接:https://www.cnblogs.com/pig66/p/12049385.html</div><br>
+    <p>很多人传言微信网页版（<a href="https://wx.qq.com/）接口已经被封了，所以所有的微信都不能登录网页版，这是错误的" class="uri">https://wx.qq.com/）接口已经被封了，所以所有的微信都不能登录网页版，这是错误的</a>。</p>
+<p>2019年7月微信对网页版微信进行了动态安全策略调整，导致一大批微信号不能登录网页版，<strong>但有些微信老号还是可以登录网页版的</strong>，具体哪些微信号可以登录哪些又不能登录，这个目前暂不了解！</p>
+<p>微信机器人项目我们之前已经写过四篇了：</p>
+<ol>
+<li>[Python创建微信机器人]：详细讲解如何使用<code>wxpy</code>库创建微信机器人。</li>
+<li>[如何用机器人监听老板微信？]：监听群成员聊天信息做转发。</li>
+<li>[python实现微信消息防撤回]：讲解微信撤回消息的原理并实现将撤回消息转发。</li>
+<li>[超详细Pycharm部署项目视频教程]：详细讲解如何将微信机器人项目部署到Linux服务器上。</li>
+</ol>
+<p>以上文章可关注微信公众号：裸睡的猪 ，查看！</p>
+<p>今天我们来学习微信机器人系列的第五篇：<strong>多群转发做同步图文直播</strong>！</p>
+<h2 id="一背景介绍">一、背景介绍</h2>
+<p>猪哥一年前在建Python学习群的时候就说过，要邀请企业大佬来学习群做直播。</p>
+<p>其实文章早就写好了，但是一直没有找到好的转发软件，所以耽搁了几个月。</p>
+<p>最近猪哥感觉不能再拖了，所以就考虑自己开发一个多群直播项目，使用原来我们做的微信机器人项目。</p>
+<p>需求很简单：<strong>能做到24个微信大群（共万人）同步转发就可以</strong>！</p>
+<p>相信很多公司企业也会有同样的需求吧！<br />
+<img src="./images/Python如何实现微信群万人同步直播？0.png" alt="在这里插入图片描述" /></p>
+<h2 id="二功能设计">二、功能设计</h2>
+<p>如何做多群直播呢？简单的就是用机器人做二级转发：</p>
+<ol>
+<li>新建一个直播主讲群</li>
+<li>将三个机器人和主讲人拉进群里</li>
+<li>主讲人发到群里的消息机器人都自动转发到群里</li>
+<li>机器人转发完毕后在主讲群回复</li>
+<li>继续发消息</li>
+</ol>
+<p>为了大家便于理解，猪哥画了一个简单的设计图：<br />
+<img src="./images/Python如何实现微信群万人同步直播？1.png" alt="在这里插入图片描述" /><br />
+根据上图设计，我们这次功能设计有4个主要元素：<strong>主讲群、主讲人、转发群、机器人管理员</strong>。</p>
+<h2 id="三功能实现">三、功能实现</h2>
+<h3 id="加载直播4个元素">1.加载直播4个元素</h3>
+<p>根据上面的设计图，我们得知首先需要一个<strong>直播主讲群</strong>，然后直播群里个<strong>主讲人</strong>，然后还需要加载需要转发的<strong>转发群</strong>。</p>
+<p>这些信息我们都可以在写在一个配置文件里面。<br />
+<img src="./images/Python如何实现微信群万人同步直播？2.png" alt="在这里插入图片描述" /><br />
+然后我们在机器人启动的时候，调用加载配置文件的方法，而加载配置文件的方法又去调用加载直播信息的方法！<br />
+<img src="./images/Python如何实现微信群万人同步直播？3.png" alt="在这里插入图片描述" /><br />
+首先是加载机器人管理员，然后在方法中间去调用加载群信息的方法！<br />
+<img src="./images/Python如何实现微信群万人同步直播？4.png" alt="在这里插入图片描述" /><br />
+下面是load_live方法的详细代码，主要做三件事：<strong>加载主讲群、检查主讲群里是否有主讲人、加载直播群。</strong></p>
+<pre><code><code>def load_live(bot):
+    &quot;&quot;&quot;加载直播需要的群&quot;&quot;&quot;
+    # 设置开关
+    bot.is_live_mode = config.is_live_mode
+    if not bot.is_live_mode:
+        return &#39;\n未开启直播模式，可在 config.py 文件中将 is_live_mode 设置为True开启！&#39;
+    live_status_detail = &#39;&#39;
+    # 1、加载主讲群
+    live_group = bot.groups().search(config.live_group)
+    if len(live_group) &lt; 1:
+        bot.live_group = None
+        bot.is_live_mode = False
+        return f&#39;\n主讲群：未找到群名包含「{config.live_group}」的主讲群！\n开启群直播失败！\n\n可在主讲群中发任意消息，然后管理员使用命令：开启群直播模式，从新加载直播信息！&#39;
+    elif len(live_group) &gt; 1:
+        bot.live_group = live_group[0]
+        live_status_detail += f&#39;\n主讲群：找到多个群名包含「{config.live_group}」的主讲群，默认选取第一个群（{live_group[0]}）作为主讲群!&#39;
+    else:
+        bot.live_group = live_group[0]
+
+    # 2、加载主讲人
+    live_group_members = bot.live_group.members
+    for member in live_group_members:
+        if member.name == config.live_speaker:
+            live_status_detail += f&#39;\n主讲人：「{config.live_speaker}」&#39;
+            bot.live_speaker = config.live_speaker
+            break
+    else:
+        live_status_detail += f&#39;\n主讲人：主讲群内未找到主讲人「{config.live_speaker}」。\n开启群直播失败！&#39;
+        bot.is_live_mode = False
+        return live_status_detail
+
+    # 3、加载转发群
+    forward_groups = search_groups(bot, config.forward_groups)
+    bot.forward_groups = forward_groups
+    live_status_detail += f&#39;\n转发群：消息将会转发至这些群：{str(forward_groups)}，共{len(forward_groups)}个。\n\n如有遗漏可在这些群中发任意消息，然后管理员使用命令：开启群直播模式，从新加载直播信息！&#39;
+    return live_status_detail</code></pre>
+<p>这里我们就加载完了直播需要的4个要素：<strong>机器人管理员、主讲群、主讲人、转发群</strong>。</p>
+<h3 id="实现转发消息">2.实现转发消息</h3>
+<p>所需要的信息都加载完毕之后，我们就可以来开始做转发了。</p>
+<p>大概的思路是：</p>
+<ol>
+<li>定义一个接收群消息的方法</li>
+<li>接收到群消息就判断这条消息需不需要转发，判断条件是：<strong>开启直播模式+当前消息是主讲群内的+发消息的人是主讲人</strong></li>
+<li>如果满足上诉三个条件，则将消息转发到群里</li>
+<li>转发完毕在主讲群内回复：一转发完毕，这时主讲人就可以讲下一句话</li>
+</ol>
+<p>我们来看看代码吧<br />
+<img src="./images/Python如何实现微信群万人同步直播？5.png" alt="在这里插入图片描述" /><br />
+我们再来看看<strong>wx_command.remote_forward(msg)</strong>的具体代码吧！</p>
+<pre><code><code>def remote_forward(msg):
+    &quot;&quot;&quot;转发消息&quot;&quot;&quot;
+    forward_groups = []
+    for group in msg.bot.forward_groups:
+        msg.forward(group, suffix=&#39;&#39;)
+        forward_groups.append(group.name)
+        time.sleep(random.random())
+    return forward_groups</code></pre>
+<p>这个方法很简单，循环遍历需要转发的群，然后一个一个发送，发送完毕后有一个一秒以内的随机停顿，这是为了防止消息发送过于频繁导致消息发不出去。</p>
+<p>这里关于多群转发的代码就完成了，下面我们就可以开始测试了。</p>
+<h2 id="四测试">四、测试</h2>
+<h3 id="测试流程">1.测试流程</h3>
+<p>代码写完我们就可以开始测试了，测试的整体思路就是：</p>
+<ol>
+<li>新建<strong>一个主讲群</strong>，然后将机器人和主讲人拉进去</li>
+<li>新建 <strong>24个测试群</strong>，把机器人拉进去</li>
+<li>启动项目，让机器人进入直播模式</li>
+<li>主讲人在群里模拟真实的直播，注意控制直播速度</li>
+<li>直播完毕，关闭机器人</li>
+</ol>
+<h3 id="一个机器人转发24个群">2.一个机器人转发24个群</h3>
+<p>猪哥在最开始的时候是想的是：用一个机器人，然后转发到24个群里，配置文件大概是这样：<br />
+<img src="./images/Python如何实现微信群万人同步直播？6.png" alt="在这里插入图片描述" /><br />
+但是发现这样会导致消息发不出去，微信提示消息发送过于频繁。<br />
+<img src="./images/Python如何实现微信群万人同步直播？7.png" alt="在这里插入图片描述" /><br />
+消息怎么发都发不出去，到这里猪哥几乎要放弃了，以为不能多群转发呢。</p>
+<h3 id="三个微信转发24个群">3.三个微信转发24个群</h3>
+<p>猪哥就去网上看看有没有免费的转发软件，然后看了看wetools（一款基于windows的微信运营工具），发现他们付费版的一个微信最多也就可以转发9个群。</p>
+<p>于是猪哥猜想是不是一个微信最多只能转发9个群呢？那我用三个微信做转发不就可以吗？<br />
+<img src="./images/Python如何实现微信群万人同步直播？8.png" alt="在这里插入图片描述" /><br />
+上面的配置文件意味着我需要启动三次程序，换三个微信，然后每次更换<code>forward_groups</code>配置。</p>
+<p>很多同学还不知道：<strong>PyCharm一个项目如何做到同时多次运行？</strong><br />
+<img src="./images/Python如何实现微信群万人同步直播？9.png" alt="在这里插入图片描述" /><br />
+<img src="./images/Python如何实现微信群万人同步直播？10.png" alt="在这里插入图片描述" /><br />
+<img src="./images/Python如何实现微信群万人同步直播？11.png" alt="在这里插入图片描述" /><br />
+用三个微信转发24个微信群，看起来是个不错的想法，实践起来是不是可以成功呢？<br />
+<img src="./images/Python如何实现微信群万人同步直播？12.png" alt="在这里插入图片描述" /><br />
+本次直播测试差不多播了30分钟，完全正确的运行无消息丢失和机器人掉线。</p>
+<p>期间发送过：文字、图片、文件、语音。</p>
+<h2 id="五实际直播">五、实际直播</h2>
+<p>24个微信大群同步直播，说实话之前很少有一个人能完成的，我咨询了很多以前做过群直播的同行，他们基本都是人工复制的方式。</p>
+<p>但是，直播前一天顺利测试，给了猪哥很大的信心！</p>
+<p>实际直播的流程大概是：</p>
+<ol>
+<li>提前几个小时修改公告发布晚上群直播消息</li>
+<li>禁止拉新人入群，防止拉发广告的进来</li>
+<li>提前半小时打卡，直播结束后随机踢出几名未打卡占坑的群成员</li>
+<li>直播前5分钟停止打卡，开始准备直播</li>
+<li>晚20:00准时开始直播</li>
+<li>大概20:40直播结束，收集大家反馈意见</li>
+</ol>
+<p><img src="./images/Python如何实现微信群万人同步直播？13.png" alt="在这里插入图片描述" /><br />
+因为当时直播，忘记截图24个群的未读消息图，只能找点聊天记录截图给大家看。</p>
+<h2 id="六遇到的问题">六、遇到的问题</h2>
+<p>其实直播的代码很简单，也不多，但是因为群多，用户体量大所以难免会遇到很多问题，下面猪哥就总结一下遇到的问题：</p>
+<ol>
+<li>最大转发群数问题：最开始猪哥想的是只用一个机器人转发到24个群里，但是消息发不出去，被提示消息过于频繁，最后是看到wetools上他们的最大转发群数是9个，所以才考虑到使用三个微信，每个转发8个群。</li>
+<li>转发模式问题：之前是一个机器人，主讲人直接发给转发机器人，后来变成三个机器人，如何发送消息给三个机器人呢？在朋友的提示下采用了主讲群转发模式。</li>
+<li>加载不到群问题：有时候启动项目后会加载不到你想要的群，这时候需要在群里发送任意消息，再重新开启直播模式，就可以了，切记！切记！</li>
+<li>在实际直播中有个机器人掉线问题：测试过程中未出现机器人掉线，但在实际直播中出现过一次，重新登录这个机器人就好了。</li>
+<li>很多微信都不能登录网页版微信：这个确实很头疼，找几个能登录网页版的还真不好找。</li>
+</ol>
+<p>当然上面讲述的都是一些技术上的问题，关于直播过程中出现的操作问题，比如：停止打卡后仍然有人打卡影响阅读、直播速度过快、内容不够浅显等问题就不一一列出了，如果你想详细了解这些细节可以加猪哥微信了解。</p>
+<h2 id="七总结">七、总结</h2>
+<p>近些年，我们guo家慢慢由“中国制造”演变为“中国创造”，这是一件艰巨而振奋人心的事情。</p>
+<p>对于我们做技术的也是如此，工作中很多Ctrl+C(V)操作，不正是我们理解的“制造”嘛！</p>
+<p>将技术应用于生活，去解决出现的一些痛点和难题，创造一些有趣的事情，我认为这才是真正的技术创造！</p>
+<p>在解决自己遇到的问题的同时也解决了别人的困难，也许这时，机遇正向你走来！</p>
+<p>获取源码，关注微信公众号：<strong>裸睡的猪</strong>，回复：微信机器人<br />
+<img src="./images/Python如何实现微信群万人同步直播？14.png" alt="vx公众号" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

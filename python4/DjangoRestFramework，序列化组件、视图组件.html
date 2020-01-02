@@ -1,0 +1,1073 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DjangoRestFramework，序列化组件、视图组件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DjangoRestFramework，序列化组件、视图组件</center></div><div class='banquan'>原文出处:本文由博客园博主changxin7提供。<br/>
+原文连接:https://www.cnblogs.com/changxin7/p/12042513.html</div><br>
+    <h1 id="一-序列化组件">一 序列化组件</h1>
+<p>　　<strong>首先</strong>按照restful规范咱们创建一些api接口，按照下面这些形式写吧：</p>
+<p>　　　　Courses --- GET ---&gt; 查看数据-----&gt;返回所有数据列表[{},{},]</p>
+<p>　　　　Courses--- POST ---&gt;添加数据 -----&gt; 返回添加的数据{ }</p>
+<p>　　　　courses/1 ---PUT---&gt; 更新pk=1的数据 -----&gt;返回更新后的数据{ }</p>
+<p>　　　　courses/1 --- DELETE---&gt; 删除pk=1的数据 -----&gt; 返回空</p>
+<p>　　　　courses/1 --- GET ---&gt;查看单条数据 -----&gt; 返回单条数据 { }</p>
+<p>　　这样，我们先看一个drf给我们提供的一个类似于Postman功能的页面，首先我们创建一个django项目，创建一个Course表，然后添加一些数据，然后按照下面的步骤操作，</p>
+<h2 id="第一步引入drf的response对象">第一步：引入drf的Response对象　</h2>
+<pre><code><code>from django.shortcuts import render,HttpResponse,redirect
+import json
+from django.views import View
+from app01 import models
+from rest_framework.views import APIView
+
+#引用drf提供的Response对象
+from rest_framework.response import Response
+#写我们的CBV视图
+class CourseView(APIView):
+　　#返回所有的Course数据
+    def get(self,request):
+        course_obj_list = models.Course.objects.all()
+        ret = []
+        for course_obj in course_obj_list:
+            ret.append({
+                &quot;title&quot;:course_obj.title,
+                &quot;desc&quot;:course_obj.desc,
+            })
+        # return HttpResponse(json.dumps(ret, ensure_ascii=False))
+        return Response(json.dumps(ret, ensure_ascii=False)) #这里使用Response来返回消息
+
+    def post(self,request):
+        print(request.data)
+        return HttpResponse(&#39;POST&#39;)</code></pre>
+<h2 id="第二步配置app在我们的settings配置文件中配置">第二步：配置App，在我们的settings配置文件中配置</h2>
+<pre><code><code>INSTALLED_APPS = [
+    &#39;django.contrib.admin&#39;,
+    &#39;django.contrib.auth&#39;,
+    &#39;django.contrib.contenttypes&#39;,
+    &#39;django.contrib.sessions&#39;,
+    &#39;django.contrib.messages&#39;,
+    &#39;django.contrib.staticfiles&#39;,
+    &#39;app01.apps.App01Config&#39;,
+    &#39;rest_framework&#39;,  #将它注册成App
+]</code></pre>
+<h2 id="第三步配置我们的路由">第三步，配置我们的路由</h2>
+<pre><code><code>&quot;&quot;&quot;
+from django.conf.urls import url
+from django.contrib import admin
+from app01 import views
+urlpatterns = [
+    url(r&#39;^admin/&#39;, admin.site.urls),
+    url(r&#39;^courses/&#39;, views.CourseView.as_view(),name=&#39;courses&#39;),
+]</code></pre>
+<h2 id="第四步启动项目通过浏览器访问我们的路由必须是浏览器访问才能看到对应的功能看效果">第四步：启动项目，通过浏览器访问我们的路由(必须是浏览器访问才能看到对应的功能)，看效果：</h2>
+<p>　　　　　　<img src="./images/DjangoRestFramework，序列化组件、视图组件0.png" alt="img" /></p>
+<p>　　　　这里面我们可以发送不同类型的请求，看到对应的返回数据，类似于Postman，但是没有Postman好用，所以以后调试我们还是用Postman工具，但是我们知道一下昂。</p>
+<p>　　上面的数据，我们通过json自己进行的序列化，其实django也给我们提供了一个简单的序列化组件，看用法：</p>
+<pre><code><code>from django.shortcuts import render,HttpResponse,redirect
+import json
+from django.views import View
+from app01 import models
+from rest_framework.views import APIView
+from django.core.serializers import serialize  #django的序列化组件，不是我们要学的drf的序列化组件昂
+
+#不用json自己来序列化了，太麻烦，我们使用drf提供的序列化组件
+from rest_framework.response import Response
+
+class CourseView(APIView):
+
+    def get(self,request):
+        course_obj_list = models.Course.objects.all()
+        # ret = []
+        # for course_obj in course_obj_list:
+        #     ret.append({
+        #         &quot;title&quot;:course_obj.title,
+        #         &quot;desc&quot;:course_obj.desc,
+        #     })
+        # return HttpResponse(json.dumps(ret, ensure_ascii=False))
+        # return Response(json.dumps(ret, ensure_ascii=False)
+        se_data = serialize(&#39;json&#39;,course_obj_list,ensure_ascii=False)
+        print(se_data)#也拿到了序列化之后的数据，简洁很多
+        #[{&quot;model&quot;: &quot;app01.course&quot;, &quot;pk&quot;: 1, &quot;fields&quot;: {&quot;title&quot;: &quot;python&quot;, &quot;desc&quot;: &quot;666&quot;}}, {&quot;model&quot;: &quot;app01.course&quot;, &quot;pk&quot;: 2, &quot;fields&quot;: {&quot;title&quot;: &quot;linux&quot;, &quot;desc&quot;: &quot;\u4e5f\u5f88\u597d&quot;}}, {&quot;model&quot;: &quot;app01.course&quot;, &quot;pk&quot;: 3, &quot;fields&quot;: {&quot;title&quot;: &quot;go&quot;, &quot;desc&quot;: &quot;\u5c06\u6765\u53ef\u80fd\u5f88\u597d&quot;}}]
+
+        return Response(se_data)</code></pre>
+<p>　　那么我们知道了两个序列化方式了，这个序列化是不是就简单很多啊，但是drf给我们做了一个更牛逼的序列化组件，功能更强大，而且不仅仅能做序列化，还能做其他的事情，所以呢，做api的时候，我们还是用drf提供的序列化组件。</p>
+<pre><code><code>import json
+from datetime import datetime
+from datetime import date
+
+#对含有日期格式数据的json数据进行转换
+class JsonCustomEncoder(json.JSONEncoder):
+    def default(self, field):
+        if isinstance(field,datetime):
+            return field.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;)
+        elif isinstance(field,date):
+            return field.strftime(&#39;%Y-%m-%d&#39;)
+        else:
+            return json.JSONEncoder.default(self,field)
+
+
+d1 = datetime.now()
+
+dd = json.dumps(d1,cls=JsonCustomEncoder)
+print(dd)</code></pre>
+<h2 id="接下来重点到了我们玩一下drf提供的数据序列化组件">接下来重点到了，我们玩一下drf提供的数据序列化组件：</h2>
+<h3 id="我们通过get方法来查看所有的course数据">1.我们通过GET方法，来查看所有的Course数据。</h3>
+<pre><code><code>from django.shortcuts import render,HttpResponse,redirect
+import json
+from django.views import View
+from app01 import models
+from rest_framework.views import APIView
+from django.core.serializers import serialize  #django的序列化组件，不是我们要学的drf的序列化组件昂
+#from rest_framework import status #返回指定状态码的时候会用到
+#return Response(se_data，status=status=HTTP_400_BAD_REQUEST)
+#或者这种方式返回来指定状态码：return JsonResponse(serializer.data, status=201)
+from rest_framework.response import Response
+
+# 序列化方式3，1.引入drf序列化组件
+from rest_framework import serializers
+
+# 2.首先实例化一个类，继承drf的serializers.Serializer，类似于我们的form组件和models的用法
+class CourseSerializers(serializers.Serializer):
+    #这里面也要写对应的字段，你写了哪些字段，就会对哪些字段的数据进行序列化，没有被序列化的字段，不会有返回数据，你可以注释掉一个，然后看返回的数据是啥
+    title = serializers.CharField(max_length=32，required=False) #序列化的时候还能校验字段
+    desc = serializers.CharField(max_length=32)
+
+class CourseView(APIView):
+
+    def get(self,request):
+        course_obj_list = models.Course.objects.all()
+        # 3.使用我们创建的序列化类
+        cs = CourseSerializers(course_obj_list, many=True)  # 序列化多个对象的时候，需要些many=True参数
+        #4.通过返回对象的data属性就能拿到序列化之后的数据
+        se_data = cs.data
+        print(se_data) #[OrderedDict([(&#39;title&#39;, &#39;python&#39;), (&#39;desc&#39;, &#39;666&#39;)]), OrderedDict([(&#39;title&#39;, &#39;linux&#39;), (&#39;desc&#39;, &#39;也很好&#39;)]), OrderedDict([(&#39;title&#39;, &#39;go&#39;), (&#39;desc&#39;, &#39;将来可能很好&#39;)])] 列表嵌套的有序字典。
+
+        #还记得创建字典的另外一种写法吗？这个没啥用昂，给大家回顾一下之前的知识
+        # d1 = {&#39;name&#39;:&#39;chao&#39;}
+        # d2 = dict([(&#39;name&#39;,&#39;chao&#39;),(&#39;age&#39;,18)])
+        # print(d1) #{&#39;name&#39;: &#39;chao&#39;}
+        # print(d2) #{&#39;age&#39;: 18, &#39;name&#39;: &#39;chao&#39;}
+        # # 有序字典
+        # from collections import OrderedDict
+        # d3 = OrderedDict([(&#39;name&#39;,&#39;Jaden&#39;),(&#39;age&#39;,22)])
+        # print(d3) #OrderedDict([(&#39;name&#39;, &#39;Jaden&#39;), (&#39;age&#39;, 22)])
+
+        return Response(se_data) #drf的Response如果返回的是drf序列化之后的数据，那么客户端拿到的是一个有格式的数据，不再是一行显示了</code></pre>
+<p>　　看效果：</p>
+<p>　　　　<img src="./images/DjangoRestFramework，序列化组件、视图组件1.png" alt="img" /></p>
+<h3 id="通过post方法来添加一条数据">2.通过POST方法来添加一条数据：</h3>
+<pre><code><code>from django.shortcuts import render,HttpResponse,redirect
+from django.views import View
+from app01 import models
+from rest_framework.views import APIView
+
+from rest_framework.response import Response
+
+from rest_framework import serializers
+
+class CourseSerializers(serializers.Serializer):
+    title = serializers.CharField(max_length=32)
+    desc = serializers.CharField(max_length=32)
+
+class CourseView(APIView):
+
+    def get(self,request):
+        course_obj_list = models.Course.objects.all()
+        cs = CourseSerializers(course_obj_list, many=True)
+        se_data = cs.data
+        return Response(se_data)
+
+    def post(self,request):
+        # print(request.data) #{&#39;desc&#39;: &#39;java也挺好&#39;, &#39;title&#39;: &#39;java&#39;}
+        #发送过来的数据是不是要进行验证啊，drf的序列化组件还能校验数据
+        cs = CourseSerializers(data=request.data,many=False) #注意必须是data=这种关键字参数,注意，验证单条数据的时候写上many=False参数,而且我们还要序列化这个数据，因为我们要给客户端返回这个数据
+        # print(cs.is_valid()) #True ，如果少数据，得到的是False
+        if cs.is_valid():
+            print(cs.data)
+            models.Course.objects.create(**cs.data)#添加数据
+            return Response(cs.data) #按照post添加数据的api规则，咱们要返回正确的数据
+        else:
+            # 假如客户端发送过来的数据是这样的，少title的数据
+            # {
+            #     &quot;desc&quot;: &quot;java也挺好&quot;
+            # }
+            cs_errors = cs.errors
+            # print(cs_errors) #{&#39;title&#39;: [&#39;This field is required.&#39;]}
+            return Response(cs_errors)
+            # postman上我们看到的效果是下面这样的
+            # {
+            #     &quot;title&quot;: [
+            #         &quot;This field is required.&quot;
+            #     ]
+            # }</code></pre>
+<p>　　然后添加一些数据，好，接下来我们玩一些有关联关系的表</p>
+<pre><code><code>class Author(models.Model): 
+    nid = models.AutoField(primary_key=True)
+    name=models.CharField( max_length=32)
+    age=models.IntegerField()
+
+class AuthorDetail(models.Model):
+
+    nid = models.AutoField(primary_key=True)
+    birthday=models.DateField()
+    telephone=models.BigIntegerField()
+    addr=models.CharField( max_length=64)
+
+class Publish(models.Model):
+    nid = models.AutoField(primary_key=True)
+    name=models.CharField( max_length=32)
+    city=models.CharField( max_length=32)
+    email=models.EmailField()
+
+class Book(models.Model):
+
+    nid = models.AutoField(primary_key=True)
+    title = models.CharField( max_length=32)
+    publishDate=models.DateField()
+    price=models.DecimalField(max_digits=5,decimal_places=2)
+    publish=models.ForeignKey(to=&quot;Publish&quot;,to_field=&quot;nid&quot;,on_delete=models.CASCADE) #多对一到Publish表
+    authors=models.ManyToManyField(to=&#39;Author&#39;,) #多对多到Author表</code></pre>
+<p>　　看序列化代码：　</p>
+<pre><code><code>from django.shortcuts import render,HttpResponse,redirect
+from django.views import View
+from app01 import models
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import serializers
+
+
+class BookSerializers(serializers.Serializer):
+    #我们先序列化写两个字段的数据，别忘了这里面的字段和model表中的字段变量名要一样
+    title = serializers.CharField(max_length=32)
+    price = serializers.DecimalField(max_digits=5, decimal_places=2)
+
+    #一对多的处理
+    # publish = serializers.CharField(max_length=32)  #返回对象
+    publish_email = serializers.CharField(max_length=32, source=&#39;publish.email&#39;)  # source指定返回的多对一的那个publish对象的email数据，并且我们现在找到书籍的email，所以前面的字段名称就可以不和你的publish对应好了，随便取名字
+    publish_name = serializers.CharField(max_length=32, source=&#39;publish.name&#39;)  # source指定返回的多对一的那个publish对象的其他字段数据，可以接着写字段,也就是说关联的所有的字段的数据都可以写在这里进行序列化
+
+    #对多对的处理
+    # authors = serializers.CharField(max_length=32) #bookobj.authors拿到的类似于一个models.Authors.object，打印的时候这是个None
+    # authors = serializers.CharField(max_length=32,source=&quot;authors.all&quot;) #这样写返回的是queryset类型的数据，这样给前端肯定是不行的，所以按照下面的方法写
+    authors = serializers.SerializerMethodField() #序列化方法字段，专门给多对多字段用的，然后下面定义一个方法，方法名称写法是这样的get_字段名,名字必须是这样
+    def get_authors(self,obj): #参数写一个obj，这个obj是一个一个的书籍对象，然后我们通过书籍对象来返回对应的数据
+        # author_list_values = obj.authors.all().values() #返回这样类型的数据也行,那么具体你要返回什么结构的数据，需要和前端人员沟通清楚，然后这里对数据进行加工
+        #假如加工成的数据是这种类型的[ {},{} ],就可以按照下面的逻辑来写，我简单写的，肯定有更好的逻辑来加工这些数据
+        author_list_values = []
+        author_dict = {}
+        author_list = obj.authors.all()
+        for i in author_list:
+            author_dict[&#39;name&#39;] = i.name
+            author_list_values.append(author_dict)
+        return author_list_values
+
+
+class BookView(APIView):
+    def get(self,request):
+        book_obj_list = models.Book.objects.all()
+        s_books = BookSerializers(book_obj_list,many=True)
+        return Response(s_books.data)
+
+    def post(self,request):
+        pass</code></pre>
+<p>　　其实serializer在内部就做了这点事儿，伪代码昂。</p>
+<p>　　　　<img src="./images/DjangoRestFramework，序列化组件、视图组件2.png" alt="img" /></p>
+<p>　　urls.py是这样写的：</p>
+<pre><code><code>urlpatterns = [
+    #url(r&#39;^admin/&#39;, admin.site.urls),
+    #做一些针对书籍表的接口
+    url(r&#39;^books/&#39;, views.BookView.as_view(),),
+
+]</code></pre>
+<p>　　然后看Postman返回的数据：</p>
+<p>　　　　<img src="./images/DjangoRestFramework，序列化组件、视图组件3.png" alt="img" /></p>
+<p>　　那么我们就能够完成各种数据的序列化了，但是你会发现，这样写太累啦，这只是一张表啊，要是上百张表咋整啊，所以还有一个更简单的方式(类似于form和modelform的区别)。</p>
+<p>　　我们使用ModelSerializer，看代码：</p>
+<pre><code><code>#ModelSerializer
+class BookSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=models.Book
+        # fields=[&#39;title&#39;,&#39;price&#39;,&#39;publish&#39;,&#39;authors&#39;]
+        fields = &quot;__all__&quot;
+        # 如果直接写all，你拿到的数据是下面这样的，但是如果人家前端和你要的作者的id和名字，你是不是要处理一下啦
+        # [
+        #     {
+        #         &quot;nid&quot;: 3,
+        #         &quot;title&quot;: &quot;go&quot;,
+        #         &quot;publishDate&quot;: null,
+        #         &quot;price&quot;: &quot;122.00&quot;,
+        #         &quot;publish&quot;: 2,
+        #         &quot;authors&quot;: [
+        #             2,
+        #             1
+        #         ]
+        #     }
+        # ]
+    #那么没办法，只能自己再进行加工处理了，按照之前的方式
+    authors = serializers.SerializerMethodField()
+    def get_authors(self,obj):
+        author_list_values = []
+        author_dict = {}
+        author_list = obj.authors.all()
+        for i in author_list:
+            author_dict[&#39;id&#39;] = i.pk
+            author_dict[&#39;name&#39;] = i.name
+            author_list_values.append(author_dict)
+        return author_list_values #这个数据就会覆盖上面的序列化的authors字段的数据
+    # 那么前端拿到的数据就这样了
+    # [
+    #     {
+    #         &quot;nid&quot;: 3,
+    #         &quot;authors&quot;: [
+    #             {
+    #                 &quot;name&quot;: &quot;chao&quot;,
+    #                 &quot;id&quot;: 1
+    #             },
+    #             {
+    #                 &quot;name&quot;: &quot;chao&quot;,
+    #                 &quot;id&quot;: 1
+    #             }
+    #         ],
+    #         &quot;title&quot;: &quot;go&quot;,
+    #         &quot;publishDate&quot;: null,
+    #         &quot;price&quot;: &quot;122.00&quot;,
+    #         &quot;publish&quot;: 2
+    #     }
+    # ]
+    # 那如果一对多关系的那个publish，前端想要的数据是名字怎么办呢？还是老办法，source
+    # publish_name = serializers.CharField(max_length=32, source=&#39;publish.name&#39;)#但是你会发现序列化之后的数据有个publish:1对应个id值，如果我不想要他怎么办，那么可以起个相同的变量名来覆盖它，比如下面的写法
+    publish = serializers.CharField(max_length=32, source=&#39;publish.name&#39;)
+
+class BookView(APIView):
+    def get(self,request):
+        book_obj_list = models.Book.objects.all()
+        s_books = BookSerializers(book_obj_list,many=True)
+        return Response(s_books.data)
+
+    def post(self,request):
+        pass</code></pre>
+<p>　　上面我们完成了get请求来查看所有的书籍信息，接下来我们玩一个post请求添加一条book数据，直接上代码吧：</p>
+<pre><code><code>class BookSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=models.Book
+        fields = &quot;__all__&quot;
+　　 # 注意先把下面这些注释掉,不然由于get和post请求我们用的都是这个序列化组件，会出现多对多变量冲突的问题，所以一般都将读操作和写操作分成两个序列化组件来写
+    # authors = serializers.SerializerMethodField() #也可以用来处理一对多的关系字段
+    # def get_authors(self,obj):
+    #     author_list_values = []
+    #     author_dict = {}
+    #     author_list = obj.authors.all()
+    #     for i in author_list:
+    #         author_dict[&#39;id&#39;] = i.pk
+    #         author_dict[&#39;name&#39;] = i.name
+    #         author_list_values.append(author_dict)
+    #     return author_list_values
+    # publish = serializers.CharField(max_length=32, source=&#39;publish.name&#39;)
+
+class BookView(APIView):
+    def get(self,request):
+        book_obj_list = models.Book.objects.all()
+        s_books = BookSerializers(book_obj_list,many=True)
+        return Response(s_books.data)
+
+
+    def post(self,request):
+
+        b_serializer = BookSerializers(data=request.data,many=False)
+        if b_serializer.is_valid():
+            print(&#39;xxxx&#39;)
+            b_serializer.save() #因为这个序列化器我们用的ModelSerializer，并且在BookSerializers类中我们指定了序列化的哪个表，所以直接save，它就知道我们要将数据保存到哪张表中,其实这句话执行的就是个create操作。
+            return Response(b_serializer.data) #b_serializer.data这就是个字典数据
+
+        else:
+            return Response(b_serializer.errors)</code></pre>
+<p>　　上面我们完成了GET和POST请求的接口写法，下面我们来完成PUT、DELETE、GET查看单条数据的几个接口。</p>
+<pre><code><code>#一个读序列化组件，一个写序列化组件
+class BookSerializers1(serializers.ModelSerializer):
+    class Meta:
+        model=models.Book
+        fields = &quot;__all__&quot;
+    def create(self, validated_data):
+        print(validated_data)
+        #{&#39;publishDate&#39;: datetime.date(2012, 12, 12), &#39;publish&#39;: &lt;Publish: Publish object&gt;, &#39;authors&#39;: [&lt;Author: Author object&gt;, &lt;Author: Author object&gt;], &#39;title&#39;: &#39;老酒3&#39;, &#39;price&#39;: Decimal(&#39;15.00&#39;)}
+        authors = validated_data.pop(&#39;authors&#39;)
+        obj = models.Book.objects.create(**validated_data)
+        obj.authors.add(*authors)
+        return obj
+
+class BookSerializers2(serializers.ModelSerializer):
+    class Meta:
+        model=models.Book
+        fields = &quot;__all__&quot;
+
+    authors = serializers.SerializerMethodField()
+    def get_authors(self,obj):
+        print(&#39;sssss&#39;)
+        author_list_values = []
+        author_dict = {}
+        author_list = obj.authors.all()
+        for i in author_list:
+            author_dict[&#39;id&#39;] = i.pk
+            author_dict[&#39;name&#39;] = i.name
+            author_list_values.append(author_dict)
+        return author_list_values
+    publish = serializers.CharField(max_length=32, source=&#39;publish.name&#39;)
+
+
+class BookView(APIView):
+    def get(self,request):
+        book_obj_list = models.Book.objects.all()
+        s_books = BookSerializers2(book_obj_list,many=True)
+        return Response(s_books.data)
+
+    def post(self,request):
+        b_serializer = BookSerializers1(data=request.data,many=False)
+        if b_serializer.is_valid():
+            print(&#39;xxxx&#39;)
+            b_serializer.save() 
+            return Response(b_serializer.data) 
+
+        else:
+            return Response(b_serializer.errors)</code></pre>
+<p>　　urls.py内容如下：</p>
+<pre><code><code>from django.conf.urls import url
+from django.contrib import admin
+from app01 import views
+urlpatterns = [
+    url(r&#39;^admin/&#39;, admin.site.urls),
+    # url(r&#39;^courses/&#39;, views.CourseView.as_view()),
+    #做一些针对书籍表的接口
+    #GET和POST接口的url
+    url(r&#39;^books/$&#39;, views.BookView.as_view(),), #别忘了$符号结尾
+
+    #PUT、DELETE、GET请求接口
+    url(r&#39;^books/(\d+)/&#39;, views.SBookView.as_view(),),
+
+]</code></pre>
+<p>　　views.py代码如下：</p>
+<pre><code><code>from django.shortcuts import render,HttpResponse,redirect
+from django.views import View
+from app01 import models
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import serializers
+
+class BookSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=models.Book
+        fields = &quot;__all__&quot;
+
+class BookView(APIView):
+    def get(self,request):
+        &#39;&#39;&#39;
+        查看所有书籍
+        :param request:
+        :return:
+        &#39;&#39;&#39;
+        book_obj_list = models.Book.objects.all()
+        s_books = BookSerializers(book_obj_list,many=True)
+        return Response(s_books.data)
+
+    def post(self,request):
+        &#39;&#39;&#39;
+        添加一条数据
+        :param request:
+        :return:
+        &#39;&#39;&#39;
+        b_serializer = BookSerializers(data=request.data,many=False)
+        if b_serializer.is_valid():
+            b_serializer.save()
+            return Response(b_serializer.data)
+        else:
+            return Response(b_serializer.errors)
+
+#因为更新一条数据，删除一条数据，获取一条数据，都有个单独的参数(获取一条数据的，一般是id，所以我将put、delete、get写到了一个视图类里面，也就是说结合上面那个BookView视图类，完成了我们的那些接口)
+class SBookView(APIView):
+    def get(self,request,id):
+        &#39;&#39;&#39;
+        获取单条数据
+        :param request:
+        :param id:
+        :return:
+        &#39;&#39;&#39;
+        book_obj = models.Book.objects.get(pk=id)#获取这条数据对象
+        #接下来序列化单个model对象，序列化单个对象返回的是一个字典结构 {},序列化多个对象返回的是[{},{}]这种结构
+        book_serializer = BookSerializers(book_obj,many=False)
+        return Response(book_serializer.data)
+
+
+    def put(self,request,id):
+        &#39;&#39;&#39;
+        更新一条数据
+        :param request:request.data更新提交过来的数据
+        :param id:
+        :return:
+        &#39;&#39;&#39;
+        book_obj = models.Book.objects.get(pk=id)
+        b_s = BookSerializers(data=request.data,instance=book_obj,many=False) #别忘了写instance,由于我们使用的ModelSerializer，所以前端提交过来的数据必须是所有字段的数据，当然id字段不用
+        if b_s.is_valid():
+            b_s.save() #翻译成的就是update操作
+            return Response(b_s.data) #接口规范要求咱们要返回更新后的数据
+        else:
+            return Response(b_s.errors)
+
+    def delete(self,request,id):
+        &#39;&#39;&#39;
+        删除一条数据
+        :param request:
+        :param id:
+        :return:
+        &#39;&#39;&#39;
+        book_obj = models.Book.objects.get(pk=id).delete()
+        return Response(&quot;&quot;) #别忘了接口规范说最好返回一个空</code></pre>
+<p>　　好，五个接口写完，咱们的序列化组件就算是讲完了，别忘了看这一节最后的那个坑。</p>
+<p>　　</p>
+<p>　　重写save的create方法</p>
+<pre><code><code>class BookSerializers(serializers.ModelSerializer):
+
+      class Meta:
+          model=Book
+          fields=&quot;__all__&quot;
+          # exclude = [&#39;authors&#39;,]
+          # depth=1
+
+      def create(self, validated_data):
+        
+          authors = validated_data.pop(&#39;authors&#39;)
+          obj = Book.objects.create(**validated_data)
+          obj.authors.add(*authors)
+          return obj</code></pre>
+<p>　　超链接API，Hyperlinked</p>
+<pre><code><code>class BookSerializers(serializers.ModelSerializer):
+      publish= serializers.HyperlinkedIdentityField(
+                     view_name=&#39;publish_detail&#39;,
+                     lookup_field=&quot;publish_id&quot;,
+                     lookup_url_kwarg=&quot;pk&quot;)
+      class Meta:
+          model=Book
+          fields=&quot;__all__&quot;
+          #depth=1
+</code></pre>
+<p>　　serializer的属性和方法：</p>
+<pre><code><code>1.save()
+在调用serializer.save()时，会创建或者更新一个Model实例(调用create()或update()创建)，具体根据序列化类的实现而定，如：
+
+2.create()、update()
+Serializer中的create()和update()方法用于创建生成一个Model实例，在使用Serializer时，如果要保存反序列化后的实例到数据库，则必须要实现这两方法之一，生成的实例则作为save()返回值返回。方法属性validated_data表示校验的传入数据，可以在自己定义的序列化类中重写这两个方法。
+
+3. is_valid()
+当反序列化时，在调用Serializer.save()之前必须要使用is_valid()方法进行校验，如果校验成功返回True，失败则返回False，同时会将错误信息保存到serializer.errors属性中。
+
+4.data
+serializer.data中保存了序列化后的数据。
+
+5.errors
+当serializer.is_valid()进行校验后，如果校验失败，则将错误信息保存到serializer.errors属性中。
+</code></pre>
+<p>　　serializer的Field：</p>
+<pre><code><code>1.CharField
+对应models.CharField,同时如果指定长度，还会负责校验文本长度。
+
+max_length:最大长度；
+min_length:最小长度；
+allow_blank=True:表示允许将空串做为有效值，默认False；
+
+2.EmailField
+对应models.EmailField,验证是否是有效email地址。
+
+3.IntegerField
+对应models.IntegerField,代表整数类型
+
+4.FloatField
+对应models.FloatField,代表浮点数类型
+
+5.DateTimeField
+对应models.DateTimeField,代表时间和日期类型。
+
+format=&#39;YYYY-MM-DD hh:mm&#39;:指定datetime输出格式，默认为DATETIME_FORMAT值。
+需要注意，如果在 ModelSerializer 和HyperlinkedModelSerializer中如果models.DateTimeField带有auto_now=True或者auto_add_now=True，则对应的serializers.DateTimeField中将默认使用属性read_only=True,如果不想使用此行为，需要显示对该字段进行声明：
+
+    class CommentSerializer(serializers.ModelSerializer):
+        created = serializers.DateTimeField()
+     
+        class Meta:
+            model = Comment
+        
+6.FileField
+对应models.FileField，代表一个文件，负责文件校验。
+
+max_length:文件名最大长度；
+allow_empty_file：是否允许为空文件；
+
+7.ImageField
+对应models.ImageField，代表一个图片，负责校验图片格式是否正确。
+
+max_length:图片名最大长度；
+allow_empty_file：是否允许为空文件；
+如果要进行图片处理，推荐安装Pillow: pip install Pillow
+
+8.HiddenField
+这是serializers中特有的Field，它不根据用户提交获取值，而是从默认值或可调用的值中获取其值。一种常见的使用场景就是在Model中存在user_id作为外键，在用户提交时，不允许提交user_id,但user_id在定义Model时又是必须字段，这种情况下就可以使用HiddenField提供一个默认值：
+
+    class LeavingMessageSerializer(serializers.Serializer):
+        user = serializers.HiddenField(
+            default=serializers.CurrentUserDefault()
+        )
+</code></pre>
+<p>　　serializer的公共参数：</p>
+<pre><code><code>所谓公共参数，是指对于所有的serializers.&lt;FieldName&gt;都可以接受的参数。以下是常见的一些公共参数。
+
+1.read_only
+    read_only=True表示该字段为只读字段，即对应字段只用于序列化时(输出)，而在反序列化时(创建对象)不使用该字段。默认值为False。
+
+2.write_only
+    write_only=True表示该字段为只写字段，和read_only相反，即对应字段只用于更新或创建新的Model时，而在序列化时不使用，即不会输出给用户。默认值为False。
+
+3.required
+    required=False表示对应字段在反序列化时是非必需的。在正常情况下，如果反序列化时缺少字段，则会抛出异常。默认值为True。
+
+4.default
+    给字段指定一个默认值。需要注意，如果字段设置了default，则隐式地表示该字段已包含required=False，如果同时指定default和required，则会抛出异常。
+
+5.allow_null
+    allow_null=True表示在序列化时允许None作为有效值。需要注意，如果没有显式使用default参数，则当指定allow_null=True时，在序列化过程中将会默认default=None,但并不会在反序列化时也默认。
+
+6.validators
+    一个应用于传入字段的验证函数列表，如果验证失败，会引发验证错误，否则直接是返回，用于验证字段，如：
+
+    username = serializers.CharField(max_length=16, required=True, label=&#39;用户名&#39;,
+                                    validators=[validators.UniqueValidator(queryset=User.objects.all(),message=&#39;用户已经存在&#39;)])　
+
+7.error_message
+    验证时错误码和错误信息的一个dict，可以指定一些验证字段时的错误信息，如：
+
+    mobile= serializers.CharField(max_length=4, required=True, write_only=True, min_length=4,
+                                 label=&#39;电话&#39;, error_messages={
+                                    &#39;blank&#39;: &#39;请输入验证码&#39;,
+                                    &#39;required&#39;: &#39;该字段必填项&#39;,
+                                    &#39;max_length&#39;: &#39;验证码格式错误&#39;,
+                                    &#39;min_length&#39;: &#39;验证码格式错误&#39;,
+                                })
+7.style
+    一个键值对，用于控制字段如何渲染，最常用于对密码进行密文输入，如：
+
+    password = serializers.CharField(max_length=16, min_length=6, required=True, label=&#39;密码&#39;,
+                                    error_messages={
+                                        &#39;blank&#39;: &#39;请输入密码&#39;,
+                                        &#39;required&#39;: &#39;该字段必填&#39;,
+                                        &#39;max_length&#39;: &#39;密码长度不超过16&#39;,
+                                        &#39;min_length&#39;: &#39;密码长度不小于6&#39;,
+ 
+                                    },
+                                    style={&#39;input_type&#39;: &#39;password&#39;}, write_only=True)　
+9.label
+    一个简短的文本字串，用来描述该字段。
+
+10.help_text
+    一个文本字串，可用作HTML表单字段或其他描述性元素中字段的描述。
+
+11.allow_blank
+    allow_blank=True 可以为空    设置False则不能为空
+
+12.source
+    source=&#39;user.email&#39;(user表的email字段的值给这值)  设置字段值  类似default   通常这个值有外键关联属性可以用source设置
+
+13.validators
+    验证该字段跟  单独的validate很像
+
+    UniqueValidator 单独唯一
+
+    validators=[UniqueValidator(queryset=UserProfile.objects.all())
+
+    UniqueTogetherValidator: 多字段联合唯一，这个时候就不能单独作用于某个字段，我们在Meta中设置。
+
+    validators = [UniqueTogetherValidator(queryset=UserFav.objects.all(),fields=(&#39;user&#39;, &#39;course&#39;),message=&#39;已经收藏&#39;)]
+
+14.error_messages
+    错误消息提示
+
+    error_messages={
+        &quot;min_value&quot;: &quot;商品数量不能小于一&quot;,
+        &quot;required&quot;: &quot;请选择购买数量&quot;
+    })
+7.ModelSerializers
+    ModelSerializers继承于Serializer，相比其父类，ModelSerializer自动实现了以下三个步骤：
+
+    1.根据指定的Model自动检测并生成序列化的字段，不需要提前定义；
+    2.自动为序列化生成校验器；
+    3.自动实现了create()方法和update()方法。
+    使用ModelSerializer方式如下：
+
+    class StudentSerializer(serializers.ModelSerializer):
+        class Meta:
+            # 指定一个Model，自动检测序列化的字段
+            model = StudentSerializer
+            fields = (&#39;id&#39;, &#39;name&#39;, &#39;age&#39;, &#39;birthday&#39;)
+相比于Serializer，可以说是简单了不少，当然，有时根据项目要求，可能也会在ModelSerializer中显示声明字段，这些在后面总结。
+
+model
+该属性指定一个Model类，ModelSerializer会根据提供的Model类自动检测出需要序列化的字段。默认情况下，所有Model类中的字段将会映射到ModelSerializer类中相应的字段。
+</code></pre>
+<p>　　关于同一个序列化组件在做get(获取数据)和post(添加数据)时候的<strong>一些坑</strong>，直接上代码吧(等我再深入研究一下，再给出更好的答案~~)：</p>
+<pre><code><code>class BookSerializers(serializers.ModelSerializer):
+
+    class Meta:
+        model=models.Book
+        fields = &quot;__all__&quot;
+        # 下面这个extra_kwargs暂时忽略
+        # extra_kwargs = {
+        #     # &#39;publish&#39;: {&#39;write_only&#39;: True},  #让publish和authors字段的数据只往数据库里面写，但是查询展示的时候，不显示这两个字段，因为我们下面配置了publish要返回的数据叫做publish_name
+        #     # &#39;authors&#39;: {&#39;write_only&#39;: True}
+        # }    #read_only属性的意思是，这个字段名称的数据只能查看，不保存，如果用户提交的数据中有这个字段的数据，将会被剔除。
+    #在我们的BookSerializers类下面可以重写create和update方法，但是validated_data这个数据是在用户提交完数据过来，并且经过序列化校验之后的数据，序列化校验除了一些required等基础校验之外，还会会根据咱们写的这个序列化组件中设置的字段中有read_only=True属性的字段排除掉，这也是为什么我们在面写多对多和一对多字段时，如果字段名称和model表中多对多或者一对多的字段名称相同，那么用户提交过来的数据中以这个字段命名的数据会被剔除，那么validated_data里面就没有多对多和一对多字段的数据了，那么再执行create方法的时候validated_data.pop(&#39;authors&#39;)这里就会报错，说找不到authors属性。
+    # def create(self, validated_data):
+    #     print(validated_data)
+    #     authors = validated_data.pop(&#39;authors&#39;)
+    #     for i in authors:
+    #         print(i.pk)
+    #     obj = models.Book.objects.create(**validated_data)
+    #     obj.authors.add(*authors)
+    #     return obj
+
+    authors_list = serializers.SerializerMethodField() #注意，当你用这个序列化组件既做查询操作，又做添加数据的操作，那么这个字段的名字不能和你models中多对多字段的名字相同，这里也就不能叫做authors
+    # authors = serializers.SerializerMethodField()
+    # authors_list = A() #报错：{&quot;authors_list&quot;: [&quot;This field is required.&quot;]}，也就是说，如果我们将SerializerMethodField中的read_only改成False，那么在进行字段验证的时候，这个字段就没有被排除，也就是说，必须传给我这个authors_list名字的数据，但是如果我们前端给的数据中添加了这么一个数据authors_list：[1,2]的话，你会发现还是会报错，.is_valid()这里报错了，为什么呢，因为，序列化组件校验的时候，在model表中找不到一个叫做authors_list的字段，所以还是报错，所以，在这里有个办法就是将这个序列化组件中的这个字段改个名字，不能和authors名字一样，并且使用默认配置(也就是read_only=true)
+    # def get_authors_list(self,obj):
+    def get_authors_list(self,obj):
+        author_list_values = []
+        author_list = obj.authors.all()
+        for i in author_list:
+            author_dict = {}
+            author_dict[&#39;id&#39;] = i.pk
+            author_dict[&#39;name&#39;] = i.name
+            author_list_values.append(author_dict)
+        return author_list_values
+    # publish = serializers.CharField(max_length=32, source=&#39;publish.name&#39;,read_only=True) #如果这个字段名字和数据表中外键字段名称相同，并且设置了read_only=True属性，那么当用户提交数据到后端保存的时候，就会报错NOT NULL constraint failed: app01_book.publish_id，1.要么你将这个名字改成别的名字，2.要么去数据库表中将这个字段设置一个null=True,但是第二种方式肯定是不太好的，记住，当你获取数据时，使用这个序列化组件，即便是这个字段的名字和数据表中字段名字相同，也是没有问题的，只有在用户提交数据保存的时候才会有问题，所以最好的解决方式就是加read_only属性，并且改一下字段名字，不要和数据表中这个字段的名字相同
+    publish_name = serializers.CharField(max_length=32, source=&#39;publish.name&#39;,read_only=True)
+</code></pre>
+<h1 id="二-视图组件mixin混合类">二 视图组件(Mixin混合类)</h1>
+<p>　　按照我们上面的序列化组件的视图，接着写，我们上面只说了一个Book表的几个接口操作，但是我们是不是还有其他表呢啊，如果我们将上面的四个表都做一些序列化的接口操作，我们是不是按照下面的方式写啊</p>
+<pre><code><code>from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import *
+from django.shortcuts import HttpResponse
+from django.core import serializers
+
+
+from rest_framework import serializers
+
+
+class BookSerializers(serializers.ModelSerializer):
+      class Meta:
+          model=Book
+          fields=&quot;__all__&quot;
+          #depth=1
+
+
+class PublshSerializers(serializers.ModelSerializer):
+
+      class Meta:
+          model=Publish
+          fields=&quot;__all__&quot;
+          depth=1
+
+
+class BookViewSet(APIView):
+
+    def get(self,request,*args,**kwargs):
+        book_list=Book.objects.all()
+        bs=BookSerializers(book_list,many=True,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+
+    def post(self,request,*args,**kwargs):
+        print(request.data)
+        bs=BookSerializers(data=request.data,many=False)
+        if bs.is_valid():
+            print(bs.validated_data)
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)
+
+
+class BookDetailViewSet(APIView):
+
+    def get(self,request,pk):
+        book_obj=Book.objects.filter(pk=pk).first()
+        bs=BookSerializers(book_obj,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+    def put(self,request,pk):
+        book_obj=Book.objects.filter(pk=pk).first()
+        bs=BookSerializers(book_obj,data=request.data,context={&#39;request&#39;: request})
+        if bs.is_valid():
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)
+
+
+class PublishViewSet(APIView):
+
+    def get(self,request,*args,**kwargs):
+        publish_list=Publish.objects.all()
+        bs=PublshSerializers(publish_list,many=True,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+
+    def post(self,request,*args,**kwargs):
+
+        bs=PublshSerializers(data=request.data,many=False)
+        if bs.is_valid():
+            # print(bs.validated_data)
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)
+
+
+class PublishDetailViewSet(APIView):
+
+    def get(self,request,pk):
+
+        publish_obj=Publish.objects.filter(pk=pk).first()
+        bs=PublshSerializers(publish_obj,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+    def put(self,request,pk):
+        publish_obj=Publish.objects.filter(pk=pk).first()
+        bs=PublshSerializers(publish_obj,data=request.data,context={&#39;request&#39;: request})
+        if bs.is_valid():
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)
+</code></pre>
+<p>　　好，这样，我们看一下面向对象多继承的用法：</p>
+<pre><code><code>class Animal:
+    def __init__(self,name,age):
+        self.name = name
+        self.age = age
+    def eat(self):
+        print(&#39;吃&#39;)
+    def drink(self):
+        print(&#39;喝&#39;)
+    #eat和drink才是动物共有的，下面三个不是共有的，所以直接这么些就不合适了,所以看下面的写法，单独写一些类，其他一部分动物有的，放到一个类里面，在多继承
+    # def eatshit(self):
+    #     print(&#39;吃s&#39;)
+    # def zhiwang(self):
+    #     print(&#39;织网&#39;)
+    # def flying(self):
+    #     print(&#39;飞&#39;)
+
+class Eatshit:
+    def eatshit(self):
+        print(&#39;吃s&#39;)
+
+class Zhiwang:
+    def zhiwang(self):
+        print(&#39;织网&#39;)
+
+class Flying:
+    def zhiwang(self):
+        print(&#39;织网&#39;)
+
+class Jumping:
+    def zhiwang(self):
+        print(&#39;跳&#39;)
+
+class Dog(Animal,Eatshit):pass
+
+class Spider(Animal,Zhiwang):pass
+
+class Bird(Animal,Flying):pass
+
+class Daishu(Animal,Flying,Jumping):pass
+</code></pre>
+<p>　　那好，基于这种继承形式，我们是不是就要考虑了，我们上面对每个表的那几个接口操作，大家的处理数据的逻辑都差不多啊，而且你会发现，这么多表，我每个表的GET、PUT、DELETE、POST操作其实都差不多，基本上就两个地方再发生变化，这里我们称为两个变量。</p>
+<pre><code><code>publish_list=Publish.objects.all()  #表所有的数据
+bs=PublshSerializers(publish_list,many=True,context={&#39;request&#39;: request})  #序列化组件
+</code></pre>
+<p>　　<strong>Mixin混合类</strong></p>
+<p>　　　　关于数据逻辑处理的操作，drf帮我们封装好了几个Mixin类，我们来玩一下就行了，看代码：</p>
+<pre><code><code>from django.shortcuts import render,HttpResponse,redirect
+from django.views import View
+from app01 import models
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import serializers
+
+#将序列化组件都放到一个单独的文件里面，然后引入进来
+from app01.serializer import BookSerializers,PublishSerializers
+from rest_framework import generics
+
+from rest_framework.mixins import ListModelMixin,CreateModelMixin,UpdateModelMixin,DestroyModelMixin,RetrieveModelMixin
+# ListModelMixin 查看所有数据，对应着咱们上面的get查看所有数据的接口
+# CreateModelMixin 添加数据的操作，封装了一个create操作，对应着上面的POST添加数据的几口
+# UpdateModelMixin 更新
+# DestroyModelMixin 销毁(删除)
+# RetrieveModelMixin 获取单条数据
+# 我们自己提炼出，说，每个表的操作基本都是上面的get、post、delete、put操作，所以我们想将这几个方法提炼出来，将来供其他类来继承使用，那么drf帮我们封装好了，就是这几个Minin类
+
+
+class PublishView(ListModelMixin,CreateModelMixin,generics.GenericAPIView):
+    &#39;&#39;&#39;
+        GenericAPIView肯定继承了APIView，因为APIView里面的功能是我们必须的，而这个GenericAPIView是帮我们做衔接用的，把你的APIView的功能和我们的Minin类的功能衔接、调度起来的
+    &#39;&#39;&#39;
+    #继承完了之后，我们需要将我们前面各个表的序列化中提炼的两个不同的变量告诉咱的类，注意，下面的两个变量名就是他们俩，不能改，并且必须给
+    queryset = models.Publish.objects.all()
+    serializer_class = PublishSerializers
+    def get(self,request):
+        &#39;&#39;&#39;
+        分发找到对应的请求方法，就是咱的get方法，而处理数据的逻辑是继承的那个ListModelMixin类里面的list方法做了，所以我们只需要return self.list(request方法就行了，处理数据的逻辑就不要我们自己再写了
+        :param request:
+        :return:
+        &#39;&#39;&#39;
+
+        return self.list(request) #list方法帮我们做了序列化
+
+    #post方法添加一条数据，我们只需要执行一下CreateModelMixin类中的create方法就行了
+    def post(self,request):
+        return self.create(request)
+
+
+class SPublishView(UpdateModelMixin,DestroyModelMixin,RetrieveModelMixin,generics.GenericAPIView):
+　　#下面这两个变量和对应数据是必须给的
+    queryset = models.Publish.objects.all()  
+    serializer_class = PublishSerializers
+
+    # def get(self,request,id):#id就不需要传了，因为人家要求在url中添加的命名分组的pk参数自动来做了
+    def get(self,request, *args, **kwargs): #*args, **kwargs是为了接收url的那些参数的，咱们写的有个pk参数。
+        return self.retrieve(request, *args, **kwargs)
+
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
+</code></pre>
+<p>　　序列化组件的类我们放到了一个单独的文件中，名字叫做serializer.py，内容如下</p>
+<pre><code><code>from app01 import models
+from rest_framework import serializers
+
+class BookSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=models.Book
+        fields = &quot;__all__&quot;
+
+class PublishSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=models.Publish
+        fields = &quot;__all__&quot;
+</code></pre>
+<p>　　urls.py内容如下：</p>
+<pre><code><code>from django.conf.urls import url
+from django.contrib import admin
+from app01 import views
+urlpatterns = [#publish表的接口
+    url(r&#39;^publishs/$&#39;, views.PublishView.as_view(),),
+    # url(r&#39;^publishs/(\d+)/&#39;, views.SPublishView.as_view(),), 
+    #使用UpdateModelMixin，DestroyModelMixin，RetrieveModelMixin这类Mixin类的时候，人家要求必须有个命名分组参数，名字叫做pk，名字可以改，但是先这样用昂
+    url(r&#39;^publishs/(?P&lt;pk&gt;\d+)/&#39;, views.SPublishView.as_view(),),
+
+]
+</code></pre>
+<p>　　玩了这些drf混合类之后，你会发现，处理数据的相同的逻辑部分被省略了，代码简化了不少。</p>
+<p>　　但是你看，我们上面只是写了一个publish表的操作，咱们还有好多其他表呢，他们的操作是不是也是GET、POST、DELETE、PUT等操作啊，所以你想想有没有优化的地方</p>
+<pre><code><code>####################Author表操作##########################
+ListCreateAPIView类就帮我们封装了get和create方法
+class AuthorView(generics.ListCreateAPIView):
+
+    queryset = models.Author.objects.all()
+    serializer_class = AuthorSerializers
+
+#RetrieveUpdateDestroyAPIView这个类封装了put、get、patch、delete方法
+class SAuthorView(generics.RetrieveUpdateDestroyAPIView):
+
+    queryset = models.Author.objects.all()
+    serializer_class = AuthorSerializers
+</code></pre>
+<p>　　然后你再看，还有优化的地方，上面这两个类里面的东西是一样的啊，能不能去重呢，当然可以了，一个类搞定，看写法</p>
+<pre><code><code>#####################再次封装的Author表操作##########################
+from rest_framework.viewsets import ModelViewSet #继承这个模块
+class AuthorView(ModelViewSet):
+    queryset = models.Author.objects.all()
+    serializer_class = AuthorSerializers
+</code></pre>
+<p>　　但是url要改一改了，看url的写法：</p>
+<pre><code><code>#这两个url用的都是上面的一个类url(r&#39;^authors/$&#39;, views.AuthorView.as_view({&quot;get&quot;:&quot;list&quot;,&quot;post&quot;:&quot;create&quot;}),),
+url(r&#39;^authors/(?P&lt;pk&gt;\d+)/&#39;, views.AuthorView.as_view({
+                &#39;get&#39;: &#39;retrieve&#39;,
+                &#39;put&#39;: &#39;update&#39;,
+                &#39;patch&#39;: &#39;partial_update&#39;,
+                &#39;delete&#39;: &#39;destroy&#39;
+            }),),
+</code></pre>
+<p>　　然后大家重启一下自己的程序，通过postman测一下，肯定可以的。</p>
+<p>　　好，那这个东西怎么玩呢？有兴趣的，可以去看看源码~~~</p>
+<p>　　其实源码中最关键的点是这个：</p>
+<pre><code><code>        def view(request, *args, **kwargs):
+            self = cls(**initkwargs)
+            # We also store the mapping of request methods to actions,
+            # so that we can later set the action attribute.
+            # eg. `self.action = &#39;list&#39;` on an incoming GET request.
+            self.action_map = actions
+
+            # Bind methods to actions
+            # This is the bit that&#39;s different to a standard view　　　　　　　#就下面这三句，非常巧妙
+            for method, action in actions.items(): {&#39;get&#39;:&#39;list&#39;,}
+                handler = getattr(self, action) #肯定能找到对应的方法list handler = self.list
+                setattr(self, method, handler)  #self.get = self.list　　　　　　  后面再执行dispatch方法之后，那个handler = getattr(self,request.method.lower()) #找到的是list方法去执行的，因为self.get等于self.list了,然后执行list方法，返回对应的内容
+</code></pre>
+<p>　　咱们上面做的都是数据接口，但是还有逻辑接口，比如登陆，像这种数据接口就直接写个 class Login(APIView):pass这样来搞就行了，封装的越简单，内部逻辑越复杂，自定制来就越复杂，所以关于不同的逻辑，我们就自己单写。</p>
+<pre><code><code>注意1：
+#通过self在继承类之间调用变量，现在是我们通过Dog类继承的Animal类中调用了Running类中的变量,也就是说如果你在某个类中找不到对应的属性，有可能在其他类里面放着了
+class Animal:
+    x=10
+    def foo(self):
+        print(self.x)
+
+class Running:
+    x = 20
+
+#在Animal类中加一个类变量x，然后把下面继承的两个类的顺序发生一下变化，你看看会出现什么情况
+class Dog(Animal,Running):
+# class Dog(Running, Animal):
+    pass
+
+d = Dog() 
+d.foo()  #20
+
+注意2：给函数传一个字典数据进去，到底这个字典给了下面哪个形参。
+def f1(action,**kwargs):
+    print(action) 
+    print(kwargs) 
+
+f1({&#39;name&#39;:&#39;chao&#39;}) #结果：{&#39;name&#39;: &#39;chao&#39;} {}
+# f1(x=1) #报错：TypeError: f1() missing 1 required positional argument: &#39;action&#39;
+f1(1,x=1) #结果： 1  {&#39;x&#39;: 1}
+</code></pre>
+<p>　　然后大家好奇吗，想不想去看看put\get\delete的操作中，url里面的那个pk命名路由，到底为啥叫pk，并且，它自己在内部怎么通过pk值找到对应的那个更新之前的原来的model对象的啊？</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

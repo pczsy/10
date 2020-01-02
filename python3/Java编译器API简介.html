@@ -1,0 +1,190 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Java编译器API简介' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Java编译器API简介</center></div><div class='banquan'>原文出处:本文由博客园博主Absolutely-提供。<br/>
+原文连接:https://www.cnblogs.com/youruike-/p/12053564.html</div><br>
+    <p>今天给大家分享的是Java编译器API简介，文章部分内容摘自【优锐课】学习笔记。</p>
+<h2>Java编译器API</h2>
+<p>Java编译器API是Java模块（称为java.compiler）的一部分。该模块包括语言模型和注释处理，以及编译器API。它定义了Java编程语言和编译器工具的类型和模型声明，可以在执行期间从应用程序代码中调用它们。注释处理有助于访问注释处理器，可以将其视为Java编译器的插件。它使注释处理器和注释处理工具环境之间能够通信。模型，元素和类型包处理Java编程语言的元素，而util包则帮助处理程序元素和类型。</p>
+<h2>编译工具</h2>
+<p>javax.tools包提供了与Java编译器一起使用的接口和类，并且可以在执行期间从程序中调用它。 它提供了一个框架，该框架允许客户端从其自己的应用程序代码定位和运行编译器。它还提供了服务提供者接口（SPI），用于对诊断的结构化访问和用于覆盖文件访问的文件抽象。ToolProvider类提供了编译器API的入口点。此类提供了一些方法来定位编译器的工具提供者。 例如，我们可以轻松地找到系统中安装的编译器支持的Java源版本列表。</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> JavaCompiler compiler =<span style="color: #000000;"> ToolProvider.getSystemJavaCompiler();
+</span><span style="color: #008080;">2</span> <span style="color: #0000ff;">for</span><span style="color: #000000;">(SourceVersion sv:compiler.getSourceVersions()){
+</span><span style="color: #008080;">3</span> <span style="color: #000000;">   System.out.println(sv);
+</span><span style="color: #008080;">4</span> }</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>输出如下（根据系统中安装的版本）。</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">RELEASE_3
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">RELEASE_4
+</span><span style="color: #008080;">3</span> <span style="color: #000000;">RELEASE_5
+</span><span style="color: #008080;">4</span> <span style="color: #000000;">RELEASE_6
+</span><span style="color: #008080;">5</span> <span style="color: #000000;">RELEASE_7
+</span><span style="color: #008080;">6</span> <span style="color: #000000;">RELEASE_8
+</span><span style="color: #008080;">7</span> <span style="color: #000000;">RELEASE_9
+</span><span style="color: #008080;">8</span> <span style="color: #000000;">RELEASE_10
+</span><span style="color: #008080;">9</span> RELEASE_11</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>在这种情况下，ToolProvider会找到默认的编译器。通过使用服务提供者机制，还可以找到替代的编译器或工具。如果某些供应商提供Java编译器，则jar文件将包含文件META-INF / service / javax.tool.JavaCompiler，并且将包含一行：com.vendor.VendorJavaCompiler。我们可以将jar文件放入类路径中，并按以下方式定位它：</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> JavaCompiler vendorJavaCompiler =
+<span style="color: #008080;">2</span>    ServiceLoader.load(JavaCompiler.<span style="color: #0000ff;">class</span>).iterator().next();</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>ServiceProvider是Java的util类之一，用于查找和加载部署在执行环境中的服务提供者。</p>
+<p>找到JavaCompiler后，就可以通过Java源代码执行各种编译诊断任务。为了说明这个想法，让我们首先创建一个简单的类，如下所示：</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> com.mano.jcapidemo;
+</span><span style="color: #008080;">2</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Random;
+</span><span style="color: #008080;">3</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> MyClass {
+</span><span style="color: #008080;">4</span>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> main(String[] args){
+</span><span style="color: #008080;">5</span>       Random r = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Random();
+</span><span style="color: #008080;">6</span>       System.out.println("Today your Lucky Number is:
+<span style="color: #008080;">7</span>          "+r.nextInt(10));
+<span style="color: #008080;">8</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">9</span> }</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>现在，在创建Java源文件之后，我们可以使用名为DiagnosticCollector的诊断收集器类将诊断收集在列表中。</p>
+<p>创建另一个类，从该类中我们将调用编译器来编译上述类MyClass，并将诊断信息报告给该类。换句话说，我们将创建一个应用程序来加载Java源文件，并由Java编译器对其进行编译，并且，如果源代码中有任何错误，请确保将其报告给主机应用程序。</p>
+<div>
+<div class="cnblogs_code">
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> com.mano.jcapidemo;
+</span><span style="color: #008080;"> 2</span>  
+<span style="color: #008080;"> 3</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> com.mano.annotation.CustomAnnotation;
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Set;
+</span><span style="color: #008080;"> 5</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.AbstractProcessor;
+</span><span style="color: #008080;"> 6</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.RoundEnvironment;
+</span><span style="color: #008080;"> 7</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.SupportedAnnotationTypes;
+</span><span style="color: #008080;"> 8</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.SupportedSourceVersion;
+</span><span style="color: #008080;"> 9</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.SourceVersion;
+</span><span style="color: #008080;">10</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.element.Element;
+</span><span style="color: #008080;">11</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.element.ElementKind;
+</span><span style="color: #008080;">12</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.element.TypeElement;
+</span><span style="color: #008080;">13</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.tools.Diagnostic;
+</span><span style="color: #008080;">14</span> @SupportedAnnotationTypes("com.mano.annotation.CustomAnnotation"<span style="color: #000000;">)
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">@SupportedSourceVersion(SourceVersion.RELEASE_10)
+</span><span style="color: #008080;">16</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> CustomAnnotationProcessor <span style="color: #0000ff;">extends</span>
+<span style="color: #008080;">17</span> <span style="color: #000000;">      AbstractProcessor {
+</span><span style="color: #008080;">18</span>    <span style="color: #0000ff;">public</span><span style="color: #000000;"> CustomAnnotationProcessor() {
+</span><span style="color: #008080;">19</span>    }   <span style="color: #0000ff;">public</span> Boolean process(Set&lt;? <span style="color: #0000ff;">extends</span>
+<span style="color: #008080;">20</span>           TypeElement&gt;<span style="color: #000000;"> annotations,
+</span><span style="color: #008080;">21</span> <span style="color: #000000;">          RoundEnvironment roundEnv) {
+</span><span style="color: #008080;">22</span>       <span style="color: #0000ff;">for</span><span style="color: #000000;"> (Element e : roundEnv.getElementsAnnotatedWith
+</span><span style="color: #008080;">23</span>             (CustomAnnotation.<span style="color: #0000ff;">class</span><span style="color: #000000;">)) {
+</span><span style="color: #008080;">24</span>          <span style="color: #0000ff;">if</span> (e.getKind() !=<span style="color: #000000;"> ElementKind.FIELD) {
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">            processingEnv.getMessager().printMessage(
+</span><span style="color: #008080;">26</span> <span style="color: #000000;">               Diagnostic.Kind.WARNING,
+</span><span style="color: #008080;">27</span>                "Not a field"<span style="color: #000000;">, e);
+</span><span style="color: #008080;">28</span>             <span style="color: #0000ff;">continue</span><span style="color: #000000;">;
+</span><span style="color: #008080;">29</span> <span style="color: #000000;">         }
+</span><span style="color: #008080;">30</span> <span style="color: #000000;">      }
+</span><span style="color: #008080;">31</span>       <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">32</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">33</span> }</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>编译器依赖于两种服务：诊断侦听器和文件管理器。如果提供了侦听器，则将诊断信息提供给侦听器；否则，将向侦听器提供诊断信息。否则，诊断将以未指定的格式格式化，并定向到默认的错误输出系统(<em>System.err</em>)。默认情况下，编译器工具与标准文件管理器关联，并且可以与满足其要求的任何其他文件管理器一起正常工作。</p>
+<h2>注释处理器</h2>
+<p>编译过程还包括注释处理器。它执行编译由注释驱动的代码的附加过程。处理过程按一系列轮次进行，其中每个轮次处理其上一轮产生的注释子集。实现注释过程的接口是<em>javax.annotation.processin.Processor</em>。实现类必须提供一个无参数的构造函数，以供工具实例化处理器。处理基础结构应遵循某些协议，例如：</p>
+<ul>
+<li>通过使用处理器类的无参数构造函数实例化注释处理器。</li>
+<li>工具通过传递适当的<em>ProcessingEnvironment</em>instance实例来调用init方法。</li>
+<li>这些工具调用由Processor接口定义的方法，例如<em>getSupportedAnnotationTypes()</em>,&nbsp;<em>getSupportedOptions()</em>, 和<em>getSupportedSourceVersion()</em>。这些方法在每次运行中调用一次，而不是在每个回合中调用一次。</li>
+<li>最后，调用Processor对象上的<em>process ()</em>方法。</li>
+</ul>
+<p>例如，简单的注释可以定义如下：</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> com.mano.jcapidemo;
+</span><span style="color: #008080;">2</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> java.lang.annotation.ElementType;
+</span><span style="color: #008080;">3</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> java.lang.annotation.Target;
+</span><span style="color: #008080;">4</span> <span style="color: #000000;">@Target(ElementType.FIELD)
+</span><span style="color: #008080;">5</span> <span style="color: #0000ff;">public</span>@<span style="color: #0000ff;">interface</span><span style="color: #000000;"> CustomAnnotation {
+</span><span style="color: #008080;">6</span> }</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>一个非常简单的注释处理器，用于警告将注释应用于字段以外的任何其他元素，如下所示：</p>
+<div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">package</span><span style="color: #000000;"> com.mano.jcapidemo;
+</span><span style="color: #008080;"> 2</span>  
+<span style="color: #008080;"> 3</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> com.mano.annotation.CustomAnnotation;
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Set;
+</span><span style="color: #008080;"> 5</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.AbstractProcessor;
+</span><span style="color: #008080;"> 6</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.RoundEnvironment;
+</span><span style="color: #008080;"> 7</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.SupportedAnnotationTypes;
+</span><span style="color: #008080;"> 8</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.annotation.processing.SupportedSourceVersion;
+</span><span style="color: #008080;"> 9</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.SourceVersion;
+</span><span style="color: #008080;">10</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.element.Element;
+</span><span style="color: #008080;">11</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.element.ElementKind;
+</span><span style="color: #008080;">12</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.lang.model.element.TypeElement;
+</span><span style="color: #008080;">13</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> javax.tools.Diagnostic;
+</span><span style="color: #008080;">14</span> @SupportedAnnotationTypes("com.mano.annotation.CustomAnnotation"<span style="color: #000000;">)
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">@SupportedSourceVersion(SourceVersion.RELEASE_10)
+</span><span style="color: #008080;">16</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> CustomAnnotationProcessor <span style="color: #0000ff;">extends</span>
+<span style="color: #008080;">17</span> <span style="color: #000000;">      AbstractProcessor {
+</span><span style="color: #008080;">18</span>    <span style="color: #0000ff;">public</span><span style="color: #000000;"> CustomAnnotationProcessor() {
+</span><span style="color: #008080;">19</span>    }   <span style="color: #0000ff;">public</span> Boolean process(Set&lt;? <span style="color: #0000ff;">extends</span>
+<span style="color: #008080;">20</span>           TypeElement&gt;<span style="color: #000000;"> annotations,
+</span><span style="color: #008080;">21</span> <span style="color: #000000;">          RoundEnvironment roundEnv) {
+</span><span style="color: #008080;">22</span>       <span style="color: #0000ff;">for</span><span style="color: #000000;"> (Element e : roundEnv.getElementsAnnotatedWith
+</span><span style="color: #008080;">23</span>             (CustomAnnotation.<span style="color: #0000ff;">class</span><span style="color: #000000;">)) {
+</span><span style="color: #008080;">24</span>          <span style="color: #0000ff;">if</span> (e.getKind() !=<span style="color: #000000;"> ElementKind.FIELD) {
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">            processingEnv.getMessager().printMessage(
+</span><span style="color: #008080;">26</span> <span style="color: #000000;">               Diagnostic.Kind.WARNING,
+</span><span style="color: #008080;">27</span>                "Not a field"<span style="color: #000000;">, e);
+</span><span style="color: #008080;">28</span>             <span style="color: #0000ff;">continue</span><span style="color: #000000;">;
+</span><span style="color: #008080;">29</span> <span style="color: #000000;">         }
+</span><span style="color: #008080;">30</span> <span style="color: #000000;">      }
+</span><span style="color: #008080;">31</span>       <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">32</span> <span style="color: #000000;">   }
+</span><span style="color: #008080;">33</span> }</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p><em>SupportedAnnotationTypes</em>定义注释处理器将处理哪种类型的注释，<em>SupportedSourceVersion</em>定义其支持的版本。 我们首先扩展<em>AbstractProcessor</em>抽象类，该类允许我们覆盖处理方法。 处理方法内部编写的逻辑完成了所有技巧，这些技巧涉及我们选择设置哪些标准来处理注释。 这最终决定了注释的含义。</p>
+<h2>元素扫描仪</h2>
+<p>元素扫描器在编译过程中对所有语言元素执行分析。它根据访问者模式构建，以根据源版本的发布情况，以默认行为扫描程序元素。例如，ElementScanner9根据源版本RELEASE_9和RELEASE_10进行扫描，而ElementScanner8分别根据源版本RELEASE_8进行扫描。这两个类都可以在<em>javax.lang.model.util</em>package中找到。</p>
+<h2>编译树API Compiler Tree API</h2>
+<p>有时，有必要将整个Java源文件解析为抽象语法树，尤其是为了进行更深入的分析。Java编译器树API遵守该要求，并与<em>javax.lang.model</em>包紧密关联。它以与元素扫描器相同的模式构建，并且以类似的方式工作。密钥类称为<em>TreePathScanner</em>。它访问所有子树节点，并有助于维护到父节点的路径。要访问特定节点，我们可以简单地覆盖相应的<em>visitorXYZ</em>方法。</p>
+<h2>总结</h2>
+<p>Java编译器API从Java应用程序中提供对Java编译器的编程访问。显而易见，此API有更深层的含义，在这里我们只涉及了其中的内容。但是，此快速介绍可能会提供有关在开始使用Java Compiler API时要查找的内容的线索。</p>
+<h2>参考</h2>
+<p>Java API文档</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

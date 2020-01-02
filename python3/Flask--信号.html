@@ -1,0 +1,124 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask--信号' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask--信号</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11783590.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#信号">信号</a><ul>
+        <li><a href="#内置信号">内置信号：</a></li>
+        <li><a href="#使用信号">使用信号：</a></li>
+        <li><a href="#一个流程中的信号触发点了解">一个流程中的信号触发点（了解）</a></li>
+        <li><a href="#自定义信号了解">自定义信号(了解)：</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h2 id="信号">信号</h2>
+<p>Flask框架中的信号基于blinker，其主要就是让开发者可是在flask请求过程中定制一些用户行为</p>
+<p>安装：<code>pip3 install blinker</code></p>
+<h3 id="内置信号">内置信号：</h3>
+<pre><code><code>request_started = _signals.signal(&#39;request-started&#39;)                # 请求到来前执行
+request_finished = _signals.signal(&#39;request-finished&#39;)              # 请求结束后执行
+ 
+before_render_template = _signals.signal(&#39;before-render-template&#39;)  # 模板渲染前执行
+template_rendered = _signals.signal(&#39;template-rendered&#39;)            # 模板渲染后执行
+ 
+got_request_exception = _signals.signal(&#39;got-request-exception&#39;)    # 请求执行出现异常时执行
+ 
+request_tearing_down = _signals.signal(&#39;request-tearing-down&#39;)      # 请求执行完毕后自动执行（无论成功与否）
+appcontext_tearing_down = _signals.signal(&#39;appcontext-tearing-down&#39;)# 应用上下文执行完毕后自动执行（无论成功与否）
+ 
+appcontext_pushed = _signals.signal(&#39;appcontext-pushed&#39;)            # 应用上下文push时执行
+appcontext_popped = _signals.signal(&#39;appcontext-popped&#39;)            # 应用上下文pop时执行
+message_flashed = _signals.signal(&#39;message-flashed&#39;)                # 调用flask在其中添加数据时，自动触发</code></pre>
+<h3 id="使用信号">使用信号：</h3>
+<pre><code><code>from flask import Flask,signals,render_template
+
+app = Flask(__name__)
+
+# 往信号中注册函数
+def func(*args,**kwargs):
+    print(&#39;触发型号&#39;,args,kwargs)
+signals.request_started.connect(func)
+
+# 触发信号： signals.request_started.send()
+@app.before_first_request
+def before_first1(*args,**kwargs):
+    pass
+@app.before_first_request
+def before_first2(*args,**kwargs):
+    pass
+
+@app.before_request
+def before_first3(*args,**kwargs):
+    pass
+
+@app.route(&#39;/&#39;,methods=[&#39;GET&#39;,&quot;POST&quot;])
+def index():
+    print(&#39;视图&#39;)
+    return render_template(&#39;index.html&#39;)
+
+
+if __name__ == &#39;__main__&#39;:
+    app.wsgi_app
+    app.run()</code></pre>
+<h3 id="一个流程中的信号触发点了解">一个流程中的信号触发点（了解）</h3>
+<pre><code><code>&quot;&quot;&quot;
+a. before_first_request
+b. 触发 request_started 信号
+c. before_request
+d. 模板渲染
+    渲染前的信号 before_render_template.send(app, template=template, context=context)
+        rv = template.render(context) # 模板渲染
+    渲染后的信号 template_rendered.send(app, template=template, context=context)
+e. after_request
+f. session.save_session()
+g. 触发 request_finished信号        
+    如果上述过程出错：
+        触发错误处理信号 got_request_exception.send(self, exception=e)
+            
+h. 触发信号 request_tearing_down
+&quot;&quot;&quot;</code></pre>
+<h3 id="自定义信号了解">自定义信号(了解)：</h3>
+<pre><code><code>from flask import Flask, current_app, flash, render_template
+from flask.signals import _signals
+app = Flask(import_name=__name__)
+
+# 自定义信号
+xxxxx = _signals.signal(&#39;xxxxx&#39;)
+ #必须有一个位置参数，去接收他的发送者，
+def func(sender, *args, **kwargs):
+    print(sender)
+# 自定义信号中注册函数
+xxxxx.connect(func)
+@app.route(&quot;/x&quot;)
+def index():
+    # 触发信号，这里的第一是发送者，第二个参数可选的话，必须是键值对
+    xxxxx.send(&#39;123123&#39;, k1=&#39;v1&#39;)
+    return &#39;Index&#39; 
+ 
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

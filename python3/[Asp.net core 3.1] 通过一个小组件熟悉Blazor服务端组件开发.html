@@ -1,0 +1,647 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[Asp.net core 3.1] 通过一个小组件熟悉Blazor服务端组件开发' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[Asp.net core 3.1] 通过一个小组件熟悉Blazor服务端组件开发</center></div><div class='banquan'>原文出处:本文由博客园博主前门后院提供。<br/>
+原文连接:https://www.cnblogs.com/cerl/p/12030355.html</div><br>
+    <p>通过一个小组件，熟悉 Blazor 服务端组件开发。<a href="https://github.com/git-net/NBlazors">github</a></p>
+<h2 id="一环境搭建">一、环境搭建</h2>
+<p>vs2019 16.4, asp.net core 3.1 新建 Blazor 应用，选择 asp.net core 3.1。 根文件夹下新增目录 Components，放置代码。</p>
+<h2 id="二组件需求定义">二、组件需求定义</h2>
+<p>Components 目录下新建一个接口文件(interface)当作文档,加个 using <code>using Microsoft.AspNetCore.Components;</code>。</p>
+<p>先从直观的方面入手。</p>
+<ul>
+<li>类似 html 标签对的组件,样子类似<code>&lt;xxx propA=&quot;aaa&quot; data-propB=&quot;123&quot; ...&gt;其他标签或内容...&lt;/xxx&gt;</code>或<code>&lt;xxx .../&gt;</code>。接口名：INTag.</li>
+<li>需要 Id 和名称，方便区分和调试。<code>string TagId{get;set;} string TagName{get;set;}</code>.</li>
+<li>需要样式支持。加上<code>string Class{get;set;} string Style{get;set;}</code>。</li>
+<li>不常用的属性也提供支持,使用字典。<code>IDictionary&lt;string,object&gt; CustomAttributes { get; set; }</code></li>
+<li>应该提供 js 支持。加上<code>using Microsoft.JSInterop;</code> 属性 <code>IJSRuntime JSRuntime{get;set;}</code> 。</li>
+</ul>
+<p>考虑一下功能方面。</p>
+<ul>
+<li>既然是标签对，那就有可能会嵌套，就会产生层级关系或父子关系。因为只是可能，所以我们新建一个接口，用来提供层级关系处理，IHierarchyComponent。</li>
+<li>需要一个 Parent ，类型就定为 Microsoft.AspNetCore.Components.IComponent.<code>IComponent Parent { get; set; }</code>.</li>
+<li>要能添加子控件，<code>void AddChild(IComponent child);</code>,有加就有减,<code>void RemoveChild(IComponent child);</code>。</li>
+<li>提供一个集合方便遍历，我们已经提供了 Add/Remove,让它只读就好。 <code>IEnumerable&lt;IComponent&gt; Children { get;}</code>。</li>
+<li>一旦有了 Children 集合，我们就需要考虑什么时候从集合里移除组件，让 IHierarchyComponent 实现 IDisposable,保证组件被释放时解开父子/层级关系。</li>
+<li>组件需要处理样式，仅有 Class 和 Style 可能不够，通常还会需要 Skin、Theme 处理，增加一个接口记录一下， <code>public interface ITheme{ string GetClass&lt;TComponent&gt;(TComponent component); }</code>。INTag 增加一个属性 <code>ITheme Theme { get; set; }</code></li>
+</ul>
+<p>INTag:</p>
+<pre><code><code> public interface INTag
+    {
+        string TagId { get; set; }
+        string TagName { get;  }
+        string Class { get; set; }
+        string Style { get; set; }
+        ITheme Theme { get; set; }
+        IJSRuntime JSRuntime { get; set; }
+        IDictionary&lt;string,object&gt; CustomAttributes { get; set; }
+    }</code></pre>
+<p>IHierarchyComponent:</p>
+<pre><code><code> public interface IHierarchyComponent:IDisposable
+    {
+        IComponent Parent { get; set; }
+        IEnumerable&lt;IComponent&gt; Children { get;}
+        void AddChild(IComponent child);
+        void RemoveChild(IComponent child);
+    }</code></pre>
+<p>ITheme</p>
+<pre><code><code> public interface ITheme
+    {
+        string GetClass&lt;TComponent&gt;(TComponent component);
+    }</code></pre>
+<p>组件的基本信息 INTag 有了，需要的话可以支持层级关系 IHierarchyComponent，可以考虑下一些特定功能的处理及类型部分。</p>
+<ul>
+<li>Blazor 组件实现类似 <code>&lt;xxx&gt;....&lt;/xxx&gt;</code>这种可打开的标签对，需要提供一个 <code>RenderFragment 或 RenderFragment&lt;TArgs&gt;</code>属性。RenderFragment 是一个委托函数，带参的明显更灵活些，但是参数类型不好确定，不好确定的类型用泛型。再加一个接口，<code>INTag&lt; TArgs &gt;:INTag</code>, 一个属性 <code>RenderFragment&lt;TArgs&gt; ChildContent { get; set; }</code>.</li>
+<li>组件的主要目的是为了呈现我们的数据，也就是一般说的 xxxModel,Data....,类型不确定，那就加一个泛型。<code>INTag&lt; TArgs ,TModel&gt;:INTag</code>.</li>
+<li>RenderFragment 是一个函数，ChildContent 是一个函数属性，不是方法。在方法内，我们可以使用 this 来访问组件自身引用，但是函数内部其实是没有 this 的。为了更好的使用组件自身，这里增加一个泛型用于指代自身，<code>public interface INTag&lt;TTag, TArgs, TModel&gt;:INTag where TTag: INTag&lt;TTag, TArgs, TModel&gt;</code>。</li>
+</ul>
+<p>INTag[TTag, TArgs, TModel ]</p>
+<pre><code><code> public interface INTag&lt;TTag, TArgs, TModel&gt;:INTag
+        where TTag: INTag&lt;TTag, TArgs, TModel&gt;
+    {
+        /// &lt;summary&gt;
+        /// 标签对之间的内容，&lt;see cref=&quot;TArgs&quot;/&gt; 为参数,ChildContent 为Blazor约定名。
+        /// &lt;/summary&gt;
+        RenderFragment&lt;TArgs&gt; ChildContent { get; set; }
+    }</code></pre>
+<p>回顾一下我们的几个接口。</p>
+<ul>
+<li>INTag:描述了组件的基本信息，即组件的样子。</li>
+<li>IHierarchyComponent 提供了层级处理能力，属于组件的扩展能力。</li>
+<li>ITheme 提供了 Theme 接入能力，也属于组件的扩展能力。</li>
+<li>INTag&lt;TTag, TArgs, TModel&gt; 提供了打开组件的能力，ChildContent 像一个动态模板一样，让我们可以在声明组件时自行决定组件的部分内容和结构。</li>
+<li>所有这些接口最主要的目的其实是为了产生一个合适的 TArgs， 去调用 ChildContent。</li>
+<li>有描述，有能力还有了主要目的，我们就可以去实现 NTag 组件。</li>
+</ul>
+<h2 id="三组件实现">三、组件实现</h2>
+<h3 id="抽象基类-abstractntag">抽象基类 AbstractNTag</h3>
+<p>Components 目录下新增 一个 c#类，AbstractNTag.cs, <code>using Microsoft.AspNetCore.Components;</code> 借助 Blazor 提供的 ComponentBase,实现接口。</p>
+<pre><code><code>public    abstract class AbstractNTag&lt;TTag, TArgs, TModel&gt; : ComponentBase, IHierarchyComponent, INTag&lt;TTag, TArgs, TModel&gt;
+   where TTag: AbstractNTag&lt;TTag, TArgs, TModel&gt;{
+
+}</code></pre>
+<p>调整一下 vs 生成的代码， IHierarchyComponent 使用字段实现一下。</p>
+<p>Children:</p>
+<pre><code><code> List&lt;IComponent&gt; _children = new List&lt;IComponent&gt;();
+
+ public void AddChild(IComponent child)
+        {
+            this._children.Add(child);
+
+        }
+        public void RemoveChild(IComponent child)
+        {
+            this._children.Remove(child);
+        }
+</code></pre>
+<p>Parent,dispose</p>
+<pre><code><code> IComponent _parent;
+public IComponent Parent { get=&gt;_parent; set=&gt;_parent=OnParentChange(_parent,value); }
+ protected virtual IComponent OnParentChange(IComponent oldValue, IComponent newValue)
+        {
+
+            if(oldValue is IHierarchyComponent o) o.RemoveChild(this);
+            if(newValue is IHierarchyComponent n) n.AddChild(this);
+            return newValue;
+        }
+public void Dispose()
+        {
+            this.Parent = null;
+        }
+</code></pre>
+<p>增加对浏览器 console.log 的支持, razor Attribute...,完整的 AbstractNTag.cs</p>
+<pre><code><code>public    abstract class AbstractNTag&lt;TTag, TArgs, TModel&gt; : ComponentBase, IHierarchyComponent, INTag&lt;TTag, TArgs, TModel&gt;
+   where TTag: AbstractNTag&lt;TTag, TArgs, TModel&gt;
+{
+ List&lt;IComponent&gt; _children = new List&lt;IComponent&gt;();
+        IComponent _parent;
+
+        public string TagName =&gt; typeof(TTag).Name;
+        [Inject]public IJSRuntime JSRuntime { get; set; }
+        [Parameter]public RenderFragment&lt;TArgs&gt; ChildContent { get; set; }
+        [Parameter] public string TagId { get; set; }
+
+        [Parameter]public string Class { get; set; }
+        [Parameter]public string Style { get; set; }
+        [Parameter(CaptureUnmatchedValues =true)]public IDictionary&lt;string, object&gt; CustomAttributes { get; set; }
+
+        [CascadingParameter] public IComponent Parent { get=&gt;_parent; set=&gt;_parent=OnParentChange(_parent,value); }
+        [CascadingParameter] public ITheme Theme { get; set; }
+
+         public bool TryGetAttribute(string key, out object value)
+        {
+            value = null;
+            return CustomAttributes?.TryGetValue(key, out value) ?? false;
+        }
+        public IEnumerable&lt;IComponent&gt; Children { get=&gt;_children;}
+
+        protected virtual IComponent OnParentChange(IComponent oldValue, IComponent newValue)
+        {
+                ConsoleLog($&quot;OnParentChange: {newValue}&quot;);
+            if(oldValue is IHierarchyComponent o) o.RemoveChild(this);
+            if(newValue is IHierarchyComponent n) n.AddChild(this);
+            return newValue;
+        }
+
+        protected bool FirstRender = false;
+
+        protected override void OnAfterRender(bool firstRender)
+        {
+            FirstRender = firstRender;
+            base.OnAfterRender(firstRender);
+
+        }
+        public override Task SetParametersAsync(ParameterView parameters)
+        {
+            return base.SetParametersAsync(parameters);
+        }
+
+          int logid = 0;
+        public object ConsoleLog(object msg)
+        {
+            logid++;
+            Task.Run(async ()=&gt; await this.JSRuntime.InvokeVoidAsync(&quot;console.log&quot;, $&quot;{TagName}[{TagId}_{ logid}:{msg}]&quot;));
+            return null;
+        }
+
+
+        public void AddChild(IComponent child)
+        {
+            this._children.Add(child);
+
+        }
+        public void RemoveChild(IComponent child)
+        {
+            this._children.Remove(child);
+        }
+        public void Dispose()
+        {
+            this.Parent = null;
+        }
+}</code></pre>
+<ul>
+<li>Inject 用于注入</li>
+<li>Parameter 支持组件声明的 Razor 语法中直接赋值，&lt;NTag Class=&quot;ssss&quot; .../&gt;;</li>
+<li><code>Parameter(CaptureUnmatchedValues =true)</code> 支持声明时将组件上没定义的属性打包赋值;</li>
+<li><code>CascadingParameter</code> 配合 Blazor 内置组件 <code>&lt;CascadingValue Value=&quot;xxx&quot; &gt;... &lt;NTag /&gt; ...&lt;/CascadingValue&gt;</code>,捕获 Value。处理过程和级联样式表（css）很类似。</li>
+</ul>
+<h3 id="具体类-ntag">具体类 NTag</h3>
+<p>泛型其实就是定义在类型上的函数，<code>TTag,TArgs,TModel</code> 就是 入参，得到的类型就是返回值。因此处理泛型定义的过程，就很类似函数逐渐消参的过程。比如：</p>
+<pre><code><code>func(a,b,c)
+  确定a之后，func(b,c)=&gt;func(1,b,c);
+  确定b之后，func(c)=&gt;func(1,2,c);
+  最终： func()=&gt;func(1,2,3)；
+  执行 func 可以得到一个明确的结果。</code></pre>
+<p>同样的,我们继承 NTag 基类时需要考虑各个泛型参数应该是什么：</p>
+<ul>
+<li>TTag:这个很容易确定，谁继承了基类就是谁。</li>
+<li>TModel: 这个不到最后使用我们是无法确定的，需要保留。</li>
+<li>TArgs: 前面说过，组件的主要目的是为了给 ChildContent 提供参数.从这一目的出发，TTag 和 TModel 的用途之一就是给<code>TArgs</code>提供类型支持,或者说 TArgs 应该包含 TTag 和 TModel。又因为 ChildContent 只有一个参数，因此 TArgs 应该有一定的扩展性，不妨给他一个属性做扩展。 综合一下，TArgs 的大概模样就有了,来个 struct。</li>
+</ul>
+<pre><code><code>public struct RenderArgs&lt;TTag,TModel&gt;
+    {
+        public TTag Tag;
+        public TModel Model;
+        public object Arg;
+
+        public RenderArgs(TTag tag, TModel model, object arg  ) {
+            this.Tag = tag;
+            this.Model = model;
+            this.Arg = arg;
+
+        }
+    }</code></pre>
+<ul>
+<li>RenderArgs 属于常用辅助类型，因此不需要给 TArgs 指定约束。</li>
+</ul>
+<p>Components 目录下新增 Razor 组件，NTag.razor;aspnetcore3.1 组件支持分部类，新增一个 NTag.razor.cs;</p>
+<p>NTag.razor.cs 就是标准的 c#类写法</p>
+<pre><code><code>public partial  class NTag&lt; TModel&gt; :AbstractNTag&lt;NTag&lt;TModel&gt;,RenderArgs&lt;NTag&lt;TModel&gt;,TModel&gt;,TModel&gt;
+    {
+        [Parameter]public TModel Model { get; set; }
+
+        public RenderArgs&lt;NTag&lt;TModel&gt;, TModel&gt; Args(object arg=null)
+        {
+
+            return new RenderArgs&lt;NTag&lt;TModel&gt;, TModel&gt;(this, this.Model, arg);
+        }
+    }</code></pre>
+<p>重写一下 NTag 的 ToString,方便测试</p>
+<pre><code><code>public override string ToString()
+        {
+            return $&quot;{this.TagName}&lt;{typeof(TModel).Name}&gt;[{this.TagId},{Model}]&quot;;
+        }</code></pre>
+<p>NTag.razor</p>
+<pre><code><code>@typeparam TModel
+@inherits AbstractNTag&lt;NTag&lt;TModel&gt;,RenderArgs&lt;NTag&lt;TModel&gt;,TModel&gt;,TModel&gt;//保持和NTag.razor.cs一致
+   @if (this.ChildContent == null)
+        {
+            &lt;div&gt;@this.ToString()&lt;/div&gt;//默认输出，用于测试
+        }
+        else
+        {
+            @this.ChildContent(this.Args());
+        }
+@code {
+
+}</code></pre>
+<p>简单测试一下, 数据就用项目模板自带的 Data 打开项目根目录，找到<code>_Imports.razor</code>,把 using 加进去</p>
+<pre><code><code>@using xxxx.Data
+@using xxxx.Components</code></pre>
+<p>新增 Razor 组件【Test.razor】</p>
+<pre><code><code>未打开的NTag,输出NTag.ToString():
+&lt;NTag TModel=&quot;object&quot; /&gt;
+打开的NTag:
+&lt;NTag Model=&quot;TestData&quot; Context=&quot;args&quot; &gt;
+        &lt;div&gt;NTag内容 @args.Model.Summary; &lt;/div&gt;
+&lt;/NTag&gt;
+
+&lt;NTag Model=&quot;@(new {Name=&quot;匿名对象&quot; })&quot; Context=&quot;args&quot;&gt;
+    &lt;div&gt;匿名Model,使用参数输出【Name】属性: @args.Model.Name&lt;/div&gt;
+&lt;/NTag&gt;
+
+@code{
+WeatherForecast TestData = new WeatherForecast { TemperatureC = 222, Summary = &quot;aaa&quot; };
+}</code></pre>
+<p>转到 Pages/Index.razor, 增加一行<code>&lt;Test /&gt;</code>,F5 。</p>
+<h3 id="应用级联参数-cascadingvaluecascadingparameter">应用级联参数 CascadingValue/CascadingParameter</h3>
+<p>我们的组件中 Theme 和 Parent 被标记为【CascadingParameter】，因此需要通过 CascadingValue 把值传递过来。</p>
+<p>首先，修改一下测试组件,使用嵌套 NTag,描述一个树结构，Model 值指定为树的 Level。</p>
+<pre><code><code> &lt;NTag Model=&quot;0&quot; TagId=&quot;root&quot; Context=&quot;root&quot;&gt;
+        &lt;div&gt;root.Parent:@root.Tag.Parent  &lt;/div&gt;
+        &lt;div&gt;root Theme:@root.Tag.Theme&lt;/div&gt;
+
+        &lt;NTag TagId=&quot;t1&quot; Model=&quot;1&quot; Context=&quot;t1&quot;&gt;
+            &lt;div&gt;t1.Parent：@t1.Tag.Parent  &lt;/div&gt;
+            &lt;div&gt;t1 Theme:@t1.Tag.Theme&lt;/div&gt;
+            &lt;NTag TagId=&quot;t1_1&quot; Model=&quot;2&quot; Context=&quot;t1_1&quot;&gt;
+                &lt;div&gt;t1_1.Parent：@t1_1.Tag.Parent  &lt;/div&gt;
+                &lt;div&gt;t1_1 Theme：@t1_1.Tag.Theme &lt;/div&gt;
+                &lt;NTag TagId=&quot;t1_1_1&quot; Model=&quot;3&quot; Context=&quot;t1_1_1&quot;&gt;
+                    &lt;div&gt;t1_1_1.Parent：@t1_1_1.Tag.Parent &lt;/div&gt;
+                    &lt;div&gt;t1_1_1 Theme：@t1_1_1.Tag.Theme &lt;/div&gt;
+                &lt;/NTag&gt;
+                &lt;NTag TagId=&quot;t1_1_2&quot; Model=&quot;3&quot; Context=&quot;t1_1_2&quot;&gt;
+                    &lt;div&gt;t1_1_2.Parent：@t1_1_2.Tag.Parent&lt;/div&gt;
+                    &lt;div&gt;t1_1_2 Theme：@t1_1_2.Tag.Theme &lt;/div&gt;
+                &lt;/NTag&gt;
+            &lt;/NTag&gt;
+        &lt;/NTag&gt;
+
+    &lt;/NTag&gt;</code></pre>
+<p>1、 Theme:Theme 的特点是共享，无论组件在什么位置，都应该共享同一个 Theme。这类场景，只需要简单的在组件外套一个 CascadingValue。</p>
+<pre><code><code>&lt;CascadingValue Value=&quot;Theme.Default&quot;&gt;
+&lt;NTag  TagId=&quot;root&quot; ......
+&lt;/CascadingValue&gt;
+</code></pre>
+<p>F5 跑起来，结果大致如下：</p>
+<div>root.Parent:  </div>
+<pre><code><code>    &lt;div&gt;root Theme:Theme[blue]&lt;/div&gt; 
+        &lt;div&gt;t1.Parent：  &lt;/div&gt; 
+        &lt;div&gt;t1 Theme:Theme[blue]&lt;/div&gt; 
+            &lt;div&gt;t1_1.Parent：  &lt;/div&gt;
+            &lt;div&gt;t1_1 Theme：Theme[blue] &lt;/div&gt;
+                &lt;div&gt;t1_1_1.Parent： &lt;/div&gt;
+                &lt;div&gt;t1_1_1 Theme：Theme[blue] &lt;/div&gt;
+                &lt;div&gt;t1_1_2.Parent：&lt;/div&gt;
+                &lt;div&gt;t1_1_2 Theme：Theme[blue] &lt;/div&gt;</code></pre>
+<p>2、Parent:Parent 和 Theme 不同，我们希望他和我们组件的声明结构保持一致，这就需要我们在每个 NTag 内部增加一个 CascadingValue，直接写在 Test 组件里过于啰嗦了，让我们调整一下 NTag 代码。打开 NTag.razor,修改一下,Test.razor 不动。</p>
+<pre><code><code>  &lt;CascadingValue Value=&quot;this&quot;&gt;
+        @if (this.ChildContent == null)
+        {
+            &lt;div&gt;@this.ToString()&lt;/div&gt;//默认输出，用于测试
+        }
+        else
+        {
+            @this.ChildContent(this.Args());
+        }
+     &lt;/CascadingValue&gt;</code></pre>
+<p>看一下结果</p>
+<div>root.Parent:  </div>
+<pre><code><code>    &lt;div&gt;root Theme:Theme[blue]&lt;/div&gt;  
+        &lt;div&gt; t1.Parent：NTag`1[root,0]  &lt;/div&gt; 
+        &lt;div&gt;t1 Theme:Theme[blue]&lt;/div&gt;  
+            &lt;div&gt; t1_1.Parent：NTag`1[t1,1]  &lt;/div&gt; 
+            &lt;div&gt; t1_1 Theme：Theme[blue] &lt;/div&gt;  
+                &lt;div&gt; t1_1_1.Parent：NTag`1[t1_1,2] &lt;/div&gt; 
+                &lt;div&gt; t1_1_1 Theme：Theme[blue] &lt;/div&gt;  
+                &lt;div&gt; t1_1_2.Parent：NTag`1[t1_1,2]&lt;/div&gt; 
+                &lt;div&gt; t1_1_2 Theme：Theme[blue] &lt;/div&gt; </code></pre>
+<ul>
+<li>CascadingValue/CascadingParameter 除了可以通过类型匹配之外还可以指定 Name。</li>
+</ul>
+<h3 id="呈现-model">呈现 Model</h3>
+<p>到目前为止，我们的 NTag 主要在处理一些基本功能，比如隐式的父子关系、子内容 ChildContent、参数、泛型。。接下来我们考虑如何把一个 Model 呈现出来。<br/><br />
+对于常见的 Model 对象来说，呈现 Model 其实就是把 Model 上的属性、字段。。。这些成员信息呈现出来，因此我们需要给 NTag 增加一点能力。</p>
+<ul>
+<li>描述成员最直接的想法就是 lambda，model=&gt;model.xxxx，此时我们只需要 Model 就足够了；</li>
+<li>UI 呈现时仅有成员还不够，通常会有格式化需求，比如：{0:xxxx}； 或者带有前后缀： &quot;￥{xxxx}元整&quot;，甚至就是一个常量。。。。此类信息通常应记录在组件上，因此我们需要组件自身。</li>
+<li>呈现时有时还会用到一些环境变量，比如序号/行号这种，因此需要引入一个参数。</li>
+<li>以上需求可以很容易的推导出一个函数类型：Func&lt;TTag, TModel,object,object&gt; ；考虑 TTag 就是组件自身，这里可以简化一下：Func&lt;TModel,object,object&gt;。 主要目的是从 model 上取值，兼顾格式化及环境变量处理，返回结果会直接用于页面呈现输出。</li>
+</ul>
+<p>调整下 NTag 代码，增加一个类型为 Func&lt;TModel,TArg,object&gt; 的 Getter 属性,打上【Parameter】标记。</p>
+<pre><code><code>[Parameter]public Func&lt;TModel,object,object&gt; Getter { get; set; }</code></pre>
+<ul>
+<li>此处也可使用表达式(Expression&lt;Func&lt;TModel,object,object&gt;&gt;)，需要增加一些处理。</li>
+<li>呈现时通常还需要一些文字信息，比如 lable，text 之类， 支持一下；</li>
+</ul>
+<pre><code><code>  [Parameter] public string Text { get; set; }</code></pre>
+<ul>
+<li>UI 呈现的需求难以确定，通常还会有对状态的处理， 这里提供一些辅助功能就可以。</li>
+</ul>
+<p>一个小枚举</p>
+<pre><code><code>   public enum NVisibility
+    {
+        Default,
+        Markup,
+        Hidden
+    }
+</code></pre>
+<p>状态属性和 render 方法,NTag.razor.cs</p>
+<pre><code><code>         [Parameter] public NVisibility TextVisibility { get; set; } = NVisibility.Default;
+        [Parameter] public bool ShowContent { get; set; } = true;
+
+ public RenderFragment RenderText()
+        {
+            if (TextVisibility == NVisibility.Hidden|| string.IsNullOrEmpty(this.Text)) return null;
+            if (TextVisibility == NVisibility.Markup) return (b) =&gt; b.AddContent(0, (MarkupString)Text);
+            return (b) =&gt; b.AddContent(0, Text);
+
+        }
+        public RenderFragment RenderContent(RenderArgs&lt;NTag&lt;TModel&gt;, TModel&gt; args)
+        {
+           return   this.ChildContent?.Invoke(args) ;
+        }
+        public RenderFragment RenderContent(object arg=null)
+        {
+            return this.RenderContent(this.Args(arg));
+        }</code></pre>
+<p>NTag.razor</p>
+<pre><code><code>   &lt;CascadingValue Value=&quot;this&quot;&gt;
+        @RenderText()
+        @if (this.ShowContent)
+        {
+            var render = RenderContent();
+            if (render == null)
+            {
+                &lt;div&gt;@this&lt;/div&gt;//测试用
+            }
+            else
+            {
+                @render//render 是个函数，使用@才能输出，如果不考虑测试代码，可以直接 @RenderContent()
+            }
+
+        }
+    &lt;/CascadingValue&gt;
+</code></pre>
+<p>Test.razor 增加测试代码</p>
+<pre><code><code>7、呈现Model
+&lt;br /&gt;
+value:@@arg.Tag.Getter(arg.Model,null)
+&lt;br /&gt;
+&lt;NTag Text=&quot;日期&quot; Model=&quot;TestData&quot; Getter=&quot;(m,arg)=&gt;m.Date&quot; Context=&quot;arg&quot;&gt;
+    &lt;input type=&quot;datetime&quot; value=&quot;@arg.Tag.Getter(arg.Model,null)&quot; /&gt;
+&lt;/NTag&gt;
+&lt;br /&gt;
+Text中使用Markup：value:@@((DateTime)arg.Tag.Getter(arg.Model, null))
+&lt;br /&gt;
+&lt;label&gt;
+    &lt;NTag Text=&quot;&lt;span style=&#39;color:red;&#39;&gt;日期&lt;/span&gt;&quot; TextVisibility=&quot;NVisibility.Markup&quot; Model=&quot;TestData&quot; Getter=&quot;(m,a)=&gt;m.Date&quot; Context=&quot;arg&quot;&gt;
+        &lt;input type=&quot;datetime&quot; value=&quot;@((DateTime)arg.Tag.Getter(arg.Model,null))&quot; /&gt;
+    &lt;/NTag&gt;
+&lt;/label&gt;
+&lt;br /&gt;
+也可以直接使用childcontent：value:@@arg.Model.Date
+&lt;div&gt;
+    &lt;NTag Model=&quot;TestData&quot; Getter=&quot;(m,a)=&gt;m.Date&quot; Context=&quot;arg&quot;&gt;
+        &lt;label&gt; &lt;span style=&#39;color:red;&#39;&gt;日期&lt;/span&gt; &lt;input type=&quot;datetime&quot; value=&quot;@arg.Model.Date&quot; /&gt;&lt;/label&gt;
+    &lt;/NTag&gt;
+&lt;/div&gt;
+getter 格式化:@@((m,a)=&gt;m.Date.ToString(&quot;yyyy-MM-dd&quot;))
+&lt;div&gt;
+    &lt;NTag Model=&quot;TestData&quot; Getter=&quot;@((m,a)=&gt;m.Date.ToString(&quot;yyyy-MM-dd&quot;))&quot; Context=&quot;arg&quot;&gt;
+        &lt;label&gt; &lt;span style=&#39;color:red;&#39;&gt;日期&lt;/span&gt; &lt;input type=&quot;datetime&quot; value=&quot;@arg.Tag.Getter(arg.Model,null)&quot; /&gt;&lt;/label&gt;
+    &lt;/NTag&gt;
+&lt;/div&gt;
+使用customAttributes ，借助外部方法推断TModel类型
+&lt;div&gt;
+    &lt;NTag type=&quot;datetime&quot;  Getter=&quot;@GetGetter(TestData,(m,a)=&gt;m.Date)&quot; Context=&quot;arg&quot;&gt;
+        &lt;label&gt; &lt;span style=&#39;color:red;&#39;&gt;日期&lt;/span&gt; &lt;input @attributes=&quot;arg.Tag.CustomAttributes&quot;  value=&quot;@arg.Tag.Getter(arg.Model,null)&quot; /&gt;&lt;/label&gt;
+    &lt;/NTag&gt;
+&lt;/div&gt;
+
+@code {
+    WeatherForecast TestData = new WeatherForecast { TemperatureC = 222, Date = DateTime.Now, Summary = &quot;test summary&quot; };
+
+    Func&lt;T, object, object&gt; GetGetter&lt;T&gt;(T model, Func&lt;T, object, object&gt; func) {
+        return (m, a) =&gt; func(model, a);
+    }
+}
+</code></pre>
+<p>考察一下测试代码，我们发现 用作取值的 <code>arg.Tag.Getter(arg.Model,null)</code> 明显有些啰嗦了，调整一下 RenderArgs,让它可以直接取值。</p>
+<pre><code><code> public struct RenderArgs&lt;TTag,TModel&gt;
+    {
+        public TTag Tag;
+        public TModel Model;
+        public object Arg;
+        Func&lt;TModel, object, object&gt; _valueGetter;
+        public object Value =&gt; _valueGetter?.Invoke(Model, Arg);
+        public RenderArgs(TTag tag, TModel model, object arg  , Func&lt;TModel, object, object&gt; valueGetter=null) {
+            this.Tag = tag;
+            this.Model = model;
+            this.Arg = arg;
+            _valueGetter = valueGetter;
+        }
+    }
+//NTag.razor.cs
+ public RenderArgs&lt;NTag&lt;TModel&gt;, TModel&gt; Args(object arg = null)
+        {
+
+            return new RenderArgs&lt;NTag&lt;TModel&gt;, TModel&gt;(this, this.Model, arg,this.Getter);
+        }</code></pre>
+<h3 id="集合table-行列">集合，Table 行列</h3>
+<p>集合的简单处理只需要循环一下。Test.razor</p>
+<pre><code><code>&lt;ul&gt;
+    @foreach (var o in this.Datas)
+    {
+        &lt;NTag Model=&quot;o&quot; Getter=&quot;(m,a)=&gt;m.Summary&quot; Context=&quot;arg&quot;&gt;
+            &lt;li @key=&quot;o&quot;&gt;@arg.Value&lt;/li&gt;
+        &lt;/NTag&gt;
+    }
+&lt;/ul&gt;
+@code {
+
+    IEnumerable&lt;WeatherForecast&gt; Datas = Enumerable.Range(0, 10)
+        .Select(i =&gt; new WeatherForecast { Summary = i + &quot;&quot; });
+
+}</code></pre>
+<p>复杂一点的时候，比如 Table，就需要使用列。</p>
+<ul>
+<li>列有 header：可以使用 NTag.Text;</li>
+<li>列要有单元格模板：NTag.ChildContent;</li>
+<li>行就是所有列模板的呈现集合，行数据即是集合数据源的一项。</li>
+<li>具体到 table 上，thead 定义列，tbody 生成行。</li>
+</ul>
+<p>新增一个组件用于测试:TestTable.razor,试着用 NTag 呈现一个 table。</p>
+<pre><code><code>&lt;NTag TagId=&quot;table&quot; TModel=&quot;WeatherForecast&quot; Context=&quot;tbl&quot;&gt;
+    &lt;table&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;NTag Text=&quot;&lt;th&gt;#&lt;/th&gt;&quot;
+                      TextVisibility=&quot;NVisibility.Markup&quot;
+                      ShowContent=&quot;false&quot;
+                      TModel=&quot;WeatherForecast&quot;
+                      Getter=&quot;(m, a) =&gt;a&quot;
+                      Context=&quot;arg&quot;&gt;
+                    &lt;td&gt;@arg.Value&lt;/td&gt;
+                &lt;/NTag&gt;
+                &lt;NTag Text=&quot;&lt;th&gt;Summary&lt;/th&gt;&quot;
+                      TextVisibility=&quot;NVisibility.Markup&quot;
+                      ShowContent=&quot;false&quot;
+                      TModel=&quot;WeatherForecast&quot;
+                      Getter=&quot;(m, a) =&gt; m.Summary&quot;
+                      Context=&quot;arg&quot;&gt;
+                    &lt;td&gt;@arg.Value&lt;/td&gt;
+                &lt;/NTag&gt;
+                &lt;NTag Text=&quot;&lt;th&gt;Date&lt;/th&gt;&quot;
+                      TextVisibility=&quot;NVisibility.Markup&quot;
+                      ShowContent=&quot;false&quot;
+                      TModel=&quot;WeatherForecast&quot;
+                      Getter=&quot;(m, a) =&gt; m.Date&quot;
+                      Context=&quot;arg&quot;&gt;
+                    &lt;td&gt;@arg.Value&lt;/td&gt;
+                &lt;/NTag&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;CascadingValue Value=&quot;default(object)&quot;&gt;
+                @{ var cols = tbl.Tag.Children;
+                    var i = 0;
+                    tbl.Tag.ConsoleLog(cols.Count());
+                }
+                @foreach (var o in Source)
+                {
+                    &lt;tr @key=&quot;o&quot;&gt;
+                        @foreach (var col in cols)
+                        {
+                            if (col is NTag&lt;WeatherForecast&gt; tag)
+                            {
+                                @tag.RenderContent(tag.Args(o,i ))
+                            }
+                        }
+                    &lt;/tr&gt;
+                    i++;
+                }
+            &lt;/CascadingValue&gt;
+
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+&lt;/NTag&gt;
+
+@code {
+
+    IEnumerable&lt;WeatherForecast&gt; Source = Enumerable.Range(0, 10)
+        .Select(i =&gt; new WeatherForecast { Date=DateTime.Now,Summary=$&quot;data_{i}&quot;, TemperatureC=i });
+
+}</code></pre>
+<ul>
+<li>服务端模板处理时，代码会先于输出执行，直观的说，就是组件在执行时会有层级顺序。所以我们在 tbody 中增加了一个 CascadingValue,推迟一下代码的执行时机。否则，<code>tbl.Tag.Children</code>会为空。</li>
+<li>thead 中的 NTag 作为列定义使用，与最外的 NTag（table）正好形成父子关系。</li>
+<li>观察下 NTag，我们发现有些定义重复了，比如 TModel，单元格<code>&lt;td&gt;@arg.Value&lt;/td&gt;</code>。下面试着简化一些。</li>
+</ul>
+<p>之前测试 Model 呈现的代码中我们说到可以 “借助外部方法推断 TModel 类型”，当时使用了一个 GetGetter 方法，让我们试着在 RenderArg 中增加一个类似方法。</p>
+<p>RenderArgs.cs:</p>
+<pre><code><code>public Func&lt;TModel, object, object&gt; GetGetter(Func&lt;TModel, object, object&gt; func) =&gt; func;</code></pre>
+<ul>
+<li>GetGetter 极简单，不需要任何逻辑，直接返回参数。原理是 RenderArgs 可用时，TModel 必然是确定的。</li>
+</ul>
+<p>用法：</p>
+<pre><code><code>&lt;NTag Text=&quot;&lt;th&gt;#&lt;th&gt;&quot;
+                      TextVisibility=&quot;NVisibility.Markup&quot;
+                      ShowContent=&quot;false&quot;
+                      Getter=&quot;(m, a) =&gt;a&quot;
+                      Context=&quot;arg&quot;&gt;
+                    &lt;td&gt;@arg.Value&lt;/td&gt;</code></pre>
+<p>作为列的 NTag，每列的 ChildContent 其实是一样的，变化的只有 RenderArgs，因此只需要定义一个就足够了。</p>
+<p>NTag.razor.cs 增加一个方法,对于 ChildContent 为 null 的组件我们使用一个默认组件来 render。</p>
+<pre><code><code>public RenderFragment RenderChildren(TModel model, object arg=null)
+        {
+            return (builder) =&gt;
+            {
+                var children = this.Children.OfType&lt;NTag&lt;TModel&gt;&gt;();
+                NTag&lt;TModel&gt; defaultTag = null;
+                foreach (var child in children)
+                {
+                    if (defaultTag == null &amp;&amp; child.ChildContent != null) defaultTag = child;
+                    var render = (child.ChildContent == null ? defaultTag : child);
+                    render.RenderContent(child.Args(model, arg))(builder);
+                }
+            };
+
+        }</code></pre>
+<p>TestTable.razor</p>
+<pre><code><code>&lt;NTag TagId=&quot;table&quot; TModel=&quot;WeatherForecast&quot; Context=&quot;tbl&quot;&gt;
+    &lt;table&gt;
+        &lt;thead&gt;
+            &lt;tr&gt;
+                &lt;NTag Text=&quot;&lt;th &gt;#&lt;/th&gt;&quot;
+                      TextVisibility=&quot;NVisibility.Markup&quot;
+                      ShowContent=&quot;false&quot;
+                      Getter=&quot;tbl.GetGetter((m,a)=&gt;a)&quot;
+                      Context=&quot;arg&quot;&gt;
+                    &lt;td&gt;@arg.Value&lt;/td&gt;
+                &lt;/NTag&gt;
+                &lt;NTag Text=&quot;&lt;th&gt;Summary&lt;/th&gt;&quot;
+                      TextVisibility=&quot;NVisibility.Markup&quot;
+                      ShowContent=&quot;false&quot;
+                      Getter=&quot;tbl.GetGetter((m, a) =&gt; m.Summary)&quot;/&gt;
+                &lt;NTag Text=&quot;&lt;th&gt;Date&lt;/th&gt;&quot;
+                      TextVisibility=&quot;NVisibility.Markup&quot;
+                      ShowContent=&quot;false&quot;
+                      Getter=&quot;tbl.GetGetter((m, a) =&gt; m.Date)&quot;
+                      /&gt;
+            &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+            &lt;CascadingValue Value=&quot;default(object)&quot;&gt;
+                @{
+                    var i = 0;
+                    foreach (var o in Source)
+                    {
+                    &lt;tr @key=&quot;o&quot;&gt;
+                        @tbl.Tag.RenderChildren(o, i++)
+                    &lt;/tr&gt;
+
+                    }
+                    }
+            &lt;/CascadingValue&gt;
+
+        &lt;/tbody&gt;
+    &lt;/table&gt;
+&lt;/NTag&gt;</code></pre>
+<h3 id="结束">结束</h3>
+<ul>
+<li>文中通过 NTag 演示一些组件开发常用技术，因此功能略多了些。</li>
+<li>TArgs 可以视作 js 组件中的 option.</li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

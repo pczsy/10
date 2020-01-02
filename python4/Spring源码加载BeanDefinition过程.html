@@ -1,0 +1,550 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Spring源码加载BeanDefinition过程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Spring源码加载BeanDefinition过程</center></div><div class='banquan'>原文出处:本文由博客园博主陈彦斌提供。<br/>
+原文连接:https://www.cnblogs.com/chenyanbin/p/12054967.html</div><br>
+    <p>　　本文主要讲解Spring加载xml配置文件的方式，跟踪加载BeanDefinition的全过程。</p>
+<h1 style="text-align: center;">源码分析</h1>
+<h2>源码的入口</h2>
+<p><img src="./images/Spring源码加载BeanDefinition过程0.png" alt="" /></p>
+<h2>ClassPathXmlApplicationContext构造函数</h2>
+<p>　　new ClassPathXmlApplicationContext(&ldquo;spring.xml&rdquo;)用于加载CLASSPATH下的Spring配置文件，将配置文件传给构造函数，然后调用类内部的另外一个重载方法。</p>
+<p><img src="./images/Spring源码加载BeanDefinition过程1.png" alt="" /></p>
+<p><img src="./images/Spring源码加载BeanDefinition过程2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>从构造函数中，可以看到一共做了3件事</h2>
+<h3>super(parent)</h3>
+<p>　　super(parent)的作用是为容器设置Bean资源加载器，层层跟踪，可知实际是由其父类AbstractApplicationContext完成设置的，parent为null，setParent(parent)就不继续跟踪了，这里需要注意的是，该类继承了DefaultResourceLoader，所以该类也作为资源加载器</p>
+<p><strong>AbstractApplicationContext.java</strong></p>
+<p><img src="./images/Spring源码加载BeanDefinition过程3.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>跟踪该类this()无参构造函数进去看看</p>
+<p><strong>AbstractApplicationContext.java</strong></p>
+<p><img src="./images/Spring源码加载BeanDefinition过程4.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><strong>AbstractApplicationContext.java</strong></p>
+<p><img src="./images/Spring源码加载BeanDefinition过程5.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><strong>&nbsp;PathMatchingResourcePatternResolver.java</strong></p>
+<p><img src="./images/Spring源码加载BeanDefinition过程6.png" alt="" /></p>
+<h3>setConfigLocations(configLocations)</h3>
+<p>　　设置Bean定义资源的路径，由其父类AbstractRefreshableConfigApplicationContext完成，resolvePath解析路径，一直跟踪到底层是调用PropertyPlaceholderHelper的parseStringValue完成设置的</p>
+<p><img src="./images/Spring源码加载BeanDefinition过程7.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h3>&nbsp;refresh()</h3>
+<p>　　这个就是整个Spring Bean加载的核心里面十二大步，用于刷新整个Spring上下文信息，定义了整个Spring上下文加载的流程。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">@Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> refresh() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeansException, IllegalStateException {
+        </span><span style="color: #0000ff;">synchronized</span> (<span style="color: #0000ff;">this</span><span style="color: #000000;">.startupShutdownMonitor) {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">1、 Prepare this context for refreshing.</span>
+<span style="color: #000000;">            prepareRefresh();
+
+               </span><span style="color: #008000;">//</span><span style="color: #008000;">创建DefaultListableBeanFactory（真正生产和管理bean的容器）
+               </span><span style="color: #008000;">//</span><span style="color: #008000;">加载BeanDefition并注册到BeanDefitionRegistry
+               </span><span style="color: #008000;">//</span><span style="color: #008000;">通过NamespaceHandler解析自定义标签的功能（比如:context标签、aop标签、tx标签）
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">2、 Tell the subclass to refresh the internal bean factory.</span>
+            ConfigurableListableBeanFactory beanFactory =<span style="color: #000000;"> obtainFreshBeanFactory();
+
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">3、 Prepare the bean factory for use in this context.</span>
+<span style="color: #000000;">            prepareBeanFactory(beanFactory);
+
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">4、 Allows post-processing of the bean factory in context subclasses.</span>
+<span style="color: #000000;">                postProcessBeanFactory(beanFactory);
+
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">实例化并调用实现了BeanFactoryPostProcessor接口的Bean
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">比如：PropertyPlaceHolderConfigurer（context:property-placeholer）
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">就是此处被调用的，作用是替换掉BeanDefinition中的占位符（${}）中的内容
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">5、 Invoke factory processors registered as beans in the context.</span>
+<span style="color: #000000;">                invokeBeanFactoryPostProcessors(beanFactory);
+
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">创建并注册BeanPostProcessor到BeanFactory中（Bean的后置处理器）
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">比如：AutowiredAnnotationBeanPostProcessor（实现@Autowired注解功能）
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">      RequiredAnnotationBeanPostProcessor（实现@d注解功能）
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">这些注册的BeanPostProcessor
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">6、 Register bean processors that intercept bean creation.</span>
+<span style="color: #000000;">                registerBeanPostProcessors(beanFactory);
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">7、 Initialize message source for this context.</span>
+<span style="color: #000000;">                initMessageSource();
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">8、 Initialize event multicaster for this context.</span>
+<span style="color: #000000;">                initApplicationEventMulticaster();
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">9、 Initialize other special beans in specific context subclasses.</span>
+<span style="color: #000000;">                onRefresh();
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">10、 Check for listener beans and register them.</span>
+<span style="color: #000000;">                registerListeners();
+
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">创建非懒加载方式的单例Bean实例（未设置属性）
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">填充属性
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">初始化实例（比如调用init-method方法）
+                     </span><span style="color: #008000;">//</span><span style="color: #008000;">调用BeanPostProcessor（后置处理器）对实例bean进行后置处理
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">11、 Instantiate all remaining (non-lazy-init) singletons.</span>
+<span style="color: #000000;">                finishBeanFactoryInitialization(beanFactory);
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;">12、 Last step: publish corresponding event.</span>
+<span style="color: #000000;">                finishRefresh();
+            }
+
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (BeansException ex) {
+                </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (logger.isWarnEnabled()) {
+                    logger.warn(</span>"Exception encountered during context initialization - " +
+                            "cancelling refresh attempt: " +<span style="color: #000000;"> ex);
+                }
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> Destroy already created singletons to avoid dangling resources.</span>
+<span style="color: #000000;">                destroyBeans();
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> Reset 'active' flag.</span>
+<span style="color: #000000;">                cancelRefresh(ex);
+
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> Propagate exception to caller.</span>
+                <span style="color: #0000ff;">throw</span><span style="color: #000000;"> ex;
+            }
+
+            </span><span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> Reset common introspection caches in Spring's core, since we
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> might not ever need metadata for singleton beans anymore...</span>
+<span style="color: #000000;">                resetCommonCaches();
+            }
+        }
+    }</span></pre>
+</div>
+<p>总结：</p>
+<ol>
+<li><span style="color: #ff0000;"><strong>方法加</strong></span>了个<span style="color: #ff0000;"><strong>类锁</strong></span>，<span style="color: #ff0000;"><strong>避免</strong></span>了<span style="color: #ff0000;"><strong>多线程同时刷新Spring上下文</strong></span>。</li>
+<li><span style="color: #ff0000;"><strong>锁</strong></span>的这个<strong><span style="color: #ff0000;">对象</span></strong>为<span style="color: #ff0000;"><strong>this.startupShutdownMonitor</strong></span>，有两个好处<ol>
+<li><span style="color: #ff0000;"><strong>refresh()</strong></span>方法和<span style="color: #ff0000;"><strong>close()</strong></span>方法<span style="color: #ff0000;"><strong>都</strong></span>使<span style="color: #ff0000;"><strong>用</strong></span>了<span style="color: #ff0000;"><strong>this.startupShutdownMonitor</strong></span>，<span style="color: #ff0000;"><strong>保证</strong></span>了<span style="color: #ff0000;"><strong>在调用refresh()</strong></span>方法的时候<span style="color: #ff0000;"><strong>无法使用close()方法</strong></span>，反之亦然，<span style="color: #ff0000;"><strong>避免了冲突</strong></span></li>
+<li>使用<span style="color: #ff0000;"><strong>对象锁可以减少同步的范围</strong></span>，只对不能并发的代码块进行加锁，<span style="color: #ff0000;"><strong>提高</strong></span>了<span style="color: #ff0000;"><strong>整体代码</strong></span>的<span style="color: #ff0000;"><strong>运行效率</strong></span>。</li>
+</ol></li>
+<li><span style="color: #ff0000;"><strong>refresh()</strong></span>函数<span style="color: #ff0000;"><strong>是</strong></span>一个<span style="color: #ff0000;"><strong>模板方法</strong></span>，执行多个方法，而且<span style="color: #ff0000;"><strong>提供</strong></span>了各个<span style="color: #ff0000;"><strong>protected</strong></span>方法(默认实现)，其<span style="color: #ff0000;"><strong>子类可以重写他们</strong></span>。</li>
+<li><strong>模板方法模式</strong>：在一个方法中定义一个算法的骨架，而将一些步骤延迟到子类中。模板方法使得子类(protected方法)可以在不改变算法结构的情况下，重新定义算法中的某些步骤。</li>
+</ol>
+<h2>refresh()核心调用obtainFreshBeanFactory()</h2>
+<p>　　obtainFreshBeanFactory()函数调用，完成了容器初始化的最基础的功能，Bean定义资源的Resource定位、加载解析和注册</p>
+<h3><strong>AbstractApplicationContext.java</strong></h3>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">protected</span><span style="color: #000000;"> ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">使用的委派模式，调用2个抽象方法，定义了obtainFreshBeanFactory的算法骨架，实际的行为交给了子类AbstractRefreshableApplicationContext实现</span>
+<span style="color: #000000;">        refreshBeanFactory();
+        ConfigurableListableBeanFactory beanFactory </span>=<span style="color: #000000;"> getBeanFactory();
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (logger.isDebugEnabled()) {
+            logger.debug(</span>"Bean factory for " + getDisplayName() + ": " +<span style="color: #000000;"> beanFactory);
+        }
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> beanFactory;
+    }</span></pre>
+</div>
+<h3><strong>AbstractRefreshableApplicationContext.java</strong></h3>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * This implementation performs an actual refresh of this context's underlying
+     * bean factory, shutting down the previous bean factory (if any) and
+     * initializing a fresh bean factory for the next phase of the context's lifecycle.
+     </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    @Override
+    </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">void</span> refreshBeanFactory() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeansException {
+         </span><span style="color: #008000;">//</span><span style="color: #008000;">若有容器，销毁容器中的bean，关闭容器，以此保证refresh()之后使用的是新建立起来的IoC容器</span>
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> (hasBeanFactory()) {
+            destroyBeans();
+            closeBeanFactory();
+        }
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">创建IoC容器</span>
+            DefaultListableBeanFactory beanFactory =<span style="color: #000000;"> createBeanFactory();</span>
+<span style="color: #000000;">            beanFactory.setSerializationId(getId());
+            customizeBeanFactory(beanFactory);
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">调用加载bean定义的方法，使用了委派模式，在当前类中定义了抽象的loadBeanDefinitions方法，具体实现交给子类</span>
+<span style="color: #000000;">            loadBeanDefinitions(beanFactory);
+            </span><span style="color: #0000ff;">synchronized</span> (<span style="color: #0000ff;">this</span><span style="color: #000000;">.beanFactoryMonitor) {
+                </span><span style="color: #0000ff;">this</span>.beanFactory =<span style="color: #000000;"> beanFactory;
+            }
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (IOException ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> ApplicationContextException("I/O error parsing bean definition source for " +<span style="color: #000000;"> getDisplayName(), ex);
+        }
+    }st</span></pre>
+</div>
+<p>　　<span style="color: #ff0000;"><strong>在</strong></span>这个<span style="color: #ff0000;"><strong>方法中</strong></span>，<span style="color: #ff0000;"><strong>先判断BeanFactory是否存在</strong></span>，若<span style="color: #ff0000;"><strong>存在</strong></span>，则<span style="color: #ff0000;"><strong>先销毁并关闭BeanFactory</strong></span>接着<span style="color: #ff0000;"><strong>创建DefaultListableBeanFactory</strong></span>，并调用loadBeanDefinitions装在bean使用了委派模式，在<span style="color: #ff0000;"><strong>当前类中</strong></span>只<span style="color: #ff0000;"><strong>定义</strong></span>了<span style="color: #ff0000;"><strong>抽象的loadBeanDefinitions</strong></span>方法，具体的<span style="color: #ff0000;"><strong>实现交给子类AbstractXmlApplicationContext</strong></span></p>
+<h3>AbstractXmlApplicationContext.java</h3>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Loads the bean definitions via an XmlBeanDefinitionReader.
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> org.springframework.beans.factory.xml.XmlBeanDefinitionReader
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #initBeanDefinitionReader
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #loadBeanDefinitions
+     </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    @Override
+    </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span> loadBeanDefinitions(DefaultListableBeanFactory beanFactory) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeansException, IOException {
+        </span><span style="color: #008000;">// </span><span style="color: #008000;">为给定的bean工厂创建一个新的xmlbeanfinitionReader</span>
+        XmlBeanDefinitionReader beanDefinitionReader = <span style="color: #0000ff;">new</span><span style="color: #000000;"> XmlBeanDefinitionReader(beanFactory);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">使用此上下文的bean定义读取器配置
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 资源加载环境</span>
+        beanDefinitionReader.setEnvironment(<span style="color: #0000ff;">this</span><span style="color: #000000;">.getEnvironment());
+        beanDefinitionReader.setResourceLoader(</span><span style="color: #0000ff;">this</span><span style="color: #000000;">);
+        beanDefinitionReader.setEntityResolver(</span><span style="color: #0000ff;">new</span> ResourceEntityResolver(<span style="color: #0000ff;">this</span><span style="color: #000000;">));
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 允许子类提供读取器的自定义初始化，然后继续实际加载bean定义</span>
+<span style="color: #000000;">        initBeanDefinitionReader(beanDefinitionReader);
+        loadBeanDefinitions(beanDefinitionReader);
+    }</span></pre>
+</div>
+<p>看下new XmlBeanDefinitionReader(beanFactory)做了哪些工作，底层初始化了BeanDefinitionRegistry=BeanDefinitionRegistry也就是this.registry = registry</p>
+<p><strong>XmlBeanDefinitionReader.java</strong></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Create new XmlBeanDefinitionReader for the given bean factory.
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> registry the BeanFactory to load bean definitions into,
+     * in the form of a BeanDefinitionRegistry
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span><span style="color: #000000;"> XmlBeanDefinitionReader(BeanDefinitionRegistry registry) {
+        </span><span style="color: #0000ff;">super</span><span style="color: #000000;">(registry);
+    }</span></pre>
+</div>
+<p><strong>AbstractBeanDefinitionReader.java</strong></p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Create a new AbstractBeanDefinitionReader for the given bean factory.
+     * &lt;p&gt;If the passed-in bean factory does not only implement the BeanDefinitionRegistry
+     * interface but also the ResourceLoader interface, it will be used as default
+     * ResourceLoader as well. This will usually be the case for
+     * {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> org.springframework.context.ApplicationContext} implementations.
+     * &lt;p&gt;If given a plain BeanDefinitionRegistry, the default ResourceLoader will be a
+     * {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> org.springframework.core.io.support.PathMatchingResourcePatternResolver}.
+     * &lt;p&gt;If the passed-in bean factory also implements {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> EnvironmentCapable} its
+     * environment will be used by this reader.  Otherwise, the reader will initialize and
+     * use a {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> StandardEnvironment}. All ApplicationContext implementations are
+     * EnvironmentCapable, while normal BeanFactory implementations are not.
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> registry the BeanFactory to load bean definitions into,
+     * in the form of a BeanDefinitionRegistry
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #setResourceLoader
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #setEnvironment
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">protected</span><span style="color: #000000;"> AbstractBeanDefinitionReader(BeanDefinitionRegistry registry) {
+        Assert.notNull(registry, </span>"BeanDefinitionRegistry must not be null"<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">this</span>.registry =<span style="color: #000000;"> registry;
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> Determine ResourceLoader to use.</span>
+        <span style="color: #0000ff;">if</span> (<span style="color: #0000ff;">this</span>.registry <span style="color: #0000ff;">instanceof</span><span style="color: #000000;"> ResourceLoader) {
+            </span><span style="color: #0000ff;">this</span>.resourceLoader = (ResourceLoader) <span style="color: #0000ff;">this</span><span style="color: #000000;">.registry;
+        }
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            </span><span style="color: #0000ff;">this</span>.resourceLoader = <span style="color: #0000ff;">new</span><span style="color: #000000;"> PathMatchingResourcePatternResolver();
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> Inherit Environment if possible</span>
+        <span style="color: #0000ff;">if</span> (<span style="color: #0000ff;">this</span>.registry <span style="color: #0000ff;">instanceof</span><span style="color: #000000;"> EnvironmentCapable) {
+            </span><span style="color: #0000ff;">this</span>.environment = ((EnvironmentCapable) <span style="color: #0000ff;">this</span><span style="color: #000000;">.registry).getEnvironment();
+        }
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            </span><span style="color: #0000ff;">this</span>.environment = <span style="color: #0000ff;">new</span><span style="color: #000000;"> StandardEnvironment();
+        }
+    }</span></pre>
+</div>
+<p>接着看AbstractXmlApplicationContext下的loadBeanDefinitions(DefaultListableBeanFactory beanFactory)方法，看最下面一行的loadBeanDefinitions(beanDefinitionReader)</p>
+<p><img src="./images/Spring源码加载BeanDefinition过程8.png" alt="" /></p>
+<p>&nbsp;</p>
+<h2>&nbsp;AbstractXmlApplicationContext.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Load the bean definitions with the given XmlBeanDefinitionReader.
+     * &lt;p&gt;The lifecycle of the bean factory is handled by the {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> #refreshBeanFactory}
+     * method; hence this method is just supposed to load and/or register bean definitions.
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> reader the XmlBeanDefinitionReader to use
+     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> BeansException in case of bean registration errors
+     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> IOException if the required XML document isn't found
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #refreshBeanFactory
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #getConfigLocations
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #getResources
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #getResourcePatternResolver
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span> loadBeanDefinitions(XmlBeanDefinitionReader reader) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeansException, IOException {
+        Resource[] configResources </span>=<span style="color: #000000;"> getConfigResources();
+        </span><span style="color: #0000ff;">if</span> (configResources != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            reader.loadBeanDefinitions(configResources);
+        }
+        String[] configLocations </span>=<span style="color: #000000;"> getConfigLocations();
+        </span><span style="color: #0000ff;">if</span> (configLocations != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            reader.loadBeanDefinitions(configLocations);
+        }
+    }</span></pre>
+</div>
+<p>接着跟踪第一个reader.loadBeanDefinitions(configResources)</p>
+<h2>AbstractBeanDefinitionReader.java</h2>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span> loadBeanDefinitions(Resource... resources) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeanDefinitionStoreException {
+        Assert.notNull(resources, </span>"Resource array must not be null"<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">int</span> counter = 0<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">for</span><span style="color: #000000;"> (Resource resource : resources) {
+            counter </span>+=<span style="color: #000000;"> loadBeanDefinitions(resource);
+        }
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> counter;
+    }</span></pre>
+</div>
+<p>开始循环加载loadBeanDefinitions，继续跟踪loadBeanDefinitions方法</p>
+<h2>XmlBeanDefinitionReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Load bean definitions from the specified XML file.
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> resource the resource descriptor for the XML file
+     * </span><span style="color: #808080;">@return</span><span style="color: #008000;"> the number of bean definitions found
+     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> BeanDefinitionStoreException in case of loading or parsing errors
+     </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span> loadBeanDefinitions(Resource resource) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeanDefinitionStoreException {
+        </span><span style="color: #0000ff;">return</span> loadBeanDefinitions(<span style="color: #0000ff;">new</span><span style="color: #000000;"> EncodedResource(resource));
+    }</span></pre>
+</div>
+<p>继续跟踪loadBeanDefinitions(new EncodedResource(resource))</p>
+<h2>XmlBeanDefinitionReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Load bean definitions from the specified XML file.
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> encodedResource the resource descriptor for the XML file,
+     * allowing to specify an encoding to use for parsing the file
+     * </span><span style="color: #808080;">@return</span><span style="color: #008000;"> the number of bean definitions found
+     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> BeanDefinitionStoreException in case of loading or parsing errors
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span> loadBeanDefinitions(EncodedResource encodedResource) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeanDefinitionStoreException {
+        Assert.notNull(encodedResource, </span>"EncodedResource must not be null"<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (logger.isInfoEnabled()) {
+            logger.info(</span>"Loading XML bean definitions from " +<span style="color: #000000;"> encodedResource.getResource());
+        }
+
+        Set</span>&lt;EncodedResource&gt; currentResources = <span style="color: #0000ff;">this</span><span style="color: #000000;">.resourcesCurrentlyBeingLoaded.get();
+        </span><span style="color: #0000ff;">if</span> (currentResources == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            currentResources </span>= <span style="color: #0000ff;">new</span> HashSet&lt;&gt;(4<span style="color: #000000;">);
+            </span><span style="color: #0000ff;">this</span><span style="color: #000000;">.resourcesCurrentlyBeingLoaded.set(currentResources);
+        }
+        </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">currentResources.add(encodedResource)) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeanDefinitionStoreException(
+                    </span>"Detected cyclic loading of " + encodedResource + " - check your import definitions!"<span style="color: #000000;">);
+        }
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            InputStream inputStream </span>=<span style="color: #000000;"> encodedResource.getResource().getInputStream();
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                InputSource inputSource </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> InputSource(inputStream);
+                </span><span style="color: #0000ff;">if</span> (encodedResource.getEncoding() != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                    inputSource.setEncoding(encodedResource.getEncoding());
+                }
+                </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> doLoadBeanDefinitions(inputSource, encodedResource.getResource());
+            }
+            </span><span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+                inputStream.close();
+            }
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (IOException ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeanDefinitionStoreException(
+                    </span>"IOException parsing XML document from " +<span style="color: #000000;"> encodedResource.getResource(), ex);
+        }
+        </span><span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+            currentResources.remove(encodedResource);
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (currentResources.isEmpty()) {
+                </span><span style="color: #0000ff;">this</span><span style="color: #000000;">.resourcesCurrentlyBeingLoaded.remove();
+            }
+        }
+    }</span></pre>
+</div>
+<p>利用currentResources.add(encodedResource)用set判断，如果重复加载资源就抛出异常，继续跟踪doLoadBeanDefinitions(inputSource, encodedResource.getResource())</p>
+<h2>XmlBeanDefinitionReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Actually load bean definitions from the specified XML file.
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> inputSource the SAX InputSource to read from
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> resource the resource descriptor for the XML file
+     * </span><span style="color: #808080;">@return</span><span style="color: #008000;"> the number of bean definitions found
+     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> BeanDefinitionStoreException in case of loading or parsing errors
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #doLoadDocument
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #registerBeanDefinitions
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> doLoadBeanDefinitions(InputSource inputSource, Resource resource)
+            </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeanDefinitionStoreException {
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            Document doc </span>=<span style="color: #000000;"> doLoadDocument(inputSource, resource);
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> registerBeanDefinitions(doc, resource);
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (BeanDefinitionStoreException ex) {
+            </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> ex;
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (SAXParseException ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> XmlBeanDefinitionStoreException(resource.getDescription(),
+                    </span>"Line " + ex.getLineNumber() + " in XML document from " + resource + " is invalid"<span style="color: #000000;">, ex);
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (SAXException ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> XmlBeanDefinitionStoreException(resource.getDescription(),
+                    </span>"XML document from " + resource + " is invalid"<span style="color: #000000;">, ex);
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (ParserConfigurationException ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeanDefinitionStoreException(resource.getDescription(),
+                    </span>"Parser configuration exception parsing XML from " +<span style="color: #000000;"> resource, ex);
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (IOException ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeanDefinitionStoreException(resource.getDescription(),
+                    </span>"IOException parsing XML document from " +<span style="color: #000000;"> resource, ex);
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Throwable ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BeanDefinitionStoreException(resource.getDescription(),
+                    </span>"Unexpected exception parsing XML document from " +<span style="color: #000000;"> resource, ex);
+        }
+    }</span></pre>
+</div>
+<p>doLoadDocument(inputSource, resource)将xml解析成org.w3c.dom，具体底层如何实现，自行跟踪，主要看registerBeanDefinitions(doc, resource)</p>
+<h2>XmlBeanDefinitionReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Register the bean definitions contained in the given DOM document.
+     * Called by {</span><span style="color: #808080;">@code</span><span style="color: #008000;"> loadBeanDefinitions}.
+     * &lt;p&gt;Creates a new instance of the parser class and invokes
+     * {</span><span style="color: #808080;">@code</span><span style="color: #008000;"> registerBeanDefinitions} on it.
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> doc the DOM document
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> resource the resource descriptor (for context information)
+     * </span><span style="color: #808080;">@return</span><span style="color: #008000;"> the number of bean definitions found
+     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> BeanDefinitionStoreException in case of parsing errors
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #loadBeanDefinitions
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> #setDocumentReaderClass
+     * </span><span style="color: #808080;">@see</span><span style="color: #008000;"> BeanDefinitionDocumentReader#registerBeanDefinitions
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span> registerBeanDefinitions(Document doc, Resource resource) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> BeanDefinitionStoreException {
+        BeanDefinitionDocumentReader documentReader </span>=<span style="color: #000000;"> createBeanDefinitionDocumentReader();
+        </span><span style="color: #0000ff;">int</span> countBefore =<span style="color: #000000;"> getRegistry().getBeanDefinitionCount();
+        documentReader.registerBeanDefinitions(doc, createReaderContext(resource));
+        </span><span style="color: #0000ff;">return</span> getRegistry().getBeanDefinitionCount() -<span style="color: #000000;"> countBefore;
+    }</span></pre>
+</div>
+<p>继续跟踪documentReader.registerBeanDefinitions(doc, createReaderContext(resource))</p>
+<h2>DefaultBeanDefinitionDocumentReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * This implementation parses bean definitions according to the "spring-beans" XSD
+     * (or DTD, historically).
+     * &lt;p&gt;Opens a DOM Document; then initializes the default settings
+     * specified at the {</span><span style="color: #808080;">@code</span><span style="color: #008000;"> &lt;beans/&gt;} level; then parses the contained bean definitions.
+     </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    @Override
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> registerBeanDefinitions(Document doc, XmlReaderContext readerContext) {
+        </span><span style="color: #0000ff;">this</span>.readerContext =<span style="color: #000000;"> readerContext;
+        logger.debug(</span>"Loading bean definitions"<span style="color: #000000;">);
+        Element root </span>=<span style="color: #000000;"> doc.getDocumentElement();
+        doRegisterBeanDefinitions(root);
+    }</span></pre>
+</div>
+<p>继续跟踪doRegisterBeanDefinitions(root)</p>
+<h2>DefaultBeanDefinitionDocumentReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Register each bean definition within the given root {</span><span style="color: #808080;">@code</span><span style="color: #008000;"> &lt;beans/&gt;} element.
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> doRegisterBeanDefinitions(Element root) {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> Any nested &lt;beans&gt; elements will cause recursion in this method. In
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> order to propagate and preserve &lt;beans&gt; default-* attributes correctly,
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> keep track of the current (parent) delegate, which may be null. Create
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> the new (child) delegate with a reference to the parent for fallback purposes,
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> then ultimately reset this.delegate back to its original (parent) reference.
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> this behavior emulates a stack of delegates without actually necessitating one.</span>
+        BeanDefinitionParserDelegate parent = <span style="color: #0000ff;">this</span><span style="color: #000000;">.delegate;
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">初始化bean默认的解析器BeanDefinitionParserDelegate</span>
+        <span style="color: #0000ff;">this</span>.delegate =<span style="color: #000000;"> createDelegate(getReaderContext(), root, parent);
+
+        </span><span style="color: #0000ff;">if</span> (<span style="color: #0000ff;">this</span><span style="color: #000000;">.delegate.isDefaultNamespace(root)) {
+            String profileSpec </span>=<span style="color: #000000;"> root.getAttribute(PROFILE_ATTRIBUTE);
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (StringUtils.hasText(profileSpec)) {
+                String[] specifiedProfiles </span>=<span style="color: #000000;"> StringUtils.tokenizeToStringArray(
+                        profileSpec, BeanDefinitionParserDelegate.MULTI_VALUE_ATTRIBUTE_DELIMITERS);
+                </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">getReaderContext().getEnvironment().acceptsProfiles(specifiedProfiles)) {
+                    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (logger.isInfoEnabled()) {
+                        logger.info(</span>"Skipped XML bean definition file due to specified profiles [" + profileSpec +
+                                "] not matching: " +<span style="color: #000000;"> getReaderContext().getResource());
+                    }
+                    </span><span style="color: #0000ff;">return</span><span style="color: #000000;">;
+                }
+            }
+        }
+
+        preProcessXml(root);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">解析dom</span>
+        parseBeanDefinitions(root, <span style="color: #0000ff;">this</span><span style="color: #000000;">.delegate);
+        postProcessXml(root);
+
+        </span><span style="color: #0000ff;">this</span>.delegate =<span style="color: #000000;"> parent;
+    }</span></pre>
+</div>
+<p>createDelegate(getReaderContext(), root, parent)初始化bean默认的解析器，BeanDefinitionParserDelegate开始解析dom，前面各有一个预留的空方法，方便以后版本扩展，继续跟踪parseBeanDefinitions(root, this.delegate)</p>
+<h2>DefaultBeanDefinitionDocumentReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Parse the elements at the root level in the document:
+     * "import", "alias", "bean".
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> root the DOM root element of the document
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> parseBeanDefinitions(Element root, BeanDefinitionParserDelegate delegate) {
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (delegate.isDefaultNamespace(root)) {
+            NodeList nl </span>=<span style="color: #000000;"> root.getChildNodes();
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = 0; i &lt; nl.getLength(); i++<span style="color: #000000;">) {
+                Node node </span>=<span style="color: #000000;"> nl.item(i);
+                </span><span style="color: #0000ff;">if</span> (node <span style="color: #0000ff;">instanceof</span><span style="color: #000000;"> Element) {
+                    Element ele </span>=<span style="color: #000000;"> (Element) node;
+                    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (delegate.isDefaultNamespace(ele)) {
+                        parseDefaultElement(ele, delegate);
+                    }
+                    </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                        delegate.parseCustomElement(ele);
+                    }
+                }
+            }
+        }
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            delegate.parseCustomElement(root);
+        }
+    }</span></pre>
+</div>
+<p>获取节点的命名空间，判断是不是spring默认的，是的话就执行parseDefaultElement(ele, delegate)，不是的话，就执行delegate.parseCustomElement(root)，跟踪parseDefaultElement(ele, delegate)</p>
+<h2>DefaultBeanDefinitionDocumentReader.java</h2>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> parseDefaultElement(Element ele, BeanDefinitionParserDelegate delegate) {
+        </span><span style="color: #0000ff;">if</span> (delegate.nodeNameEquals(ele, IMPORT_ELEMENT)) { <span style="color: #008000;">//</span><span style="color: #008000;">import</span>
+<span style="color: #000000;">            importBeanDefinitionResource(ele);
+        }
+        </span><span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (delegate.nodeNameEquals(ele, ALIAS_ELEMENT)) { <span style="color: #008000;">//</span><span style="color: #008000;">alias</span>
+<span style="color: #000000;">            processAliasRegistration(ele);
+        }
+        </span><span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (delegate.nodeNameEquals(ele, BEAN_ELEMENT)) { <span style="color: #008000;">//</span><span style="color: #008000;">bean</span>
+<span style="color: #000000;">            processBeanDefinition(ele, delegate);
+        }
+        </span><span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (delegate.nodeNameEquals(ele, NESTED_BEANS_ELEMENT)) { <span style="color: #008000;">//</span><span style="color: #008000;">beans
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> recurse</span>
+<span style="color: #000000;">            doRegisterBeanDefinitions(ele);
+        }
+    }</span></pre>
+</div>
+<p>标签分别是<span style="color: #ff0000;"><strong>import、alias、bean、beans</strong></span>，至此BeanDefinition加载完成，这就是refresh()方法中的</p>
+<div class="cnblogs_code">
+<pre><code>ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();</pre>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

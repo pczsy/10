@@ -1,0 +1,266 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Salesforce LWC学习(八) Look Up组件实现' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Salesforce LWC学习(八) Look Up组件实现</center></div><div class='banquan'>原文出处:本文由博客园博主zero.zhang提供。<br/>
+原文连接:https://www.cnblogs.com/zero-zyq/p/12076412.html</div><br>
+    <p>本篇参考<a href="https://www.salesforcelwc.in/2019/10/lookup-in-lwc.html">https://www.salesforcelwc.in/2019/10/lookup-in-lwc.html</a>，感谢前人种树。</p>
+<p>我们做lightning的时候经常会遇到Look up 或者MD字段在页面搜索展示的需求，在标准的页面很常见，而且很好看。但是很遗憾的是在自定义组件中还没有现成的标准组件去搞定。下面介绍两种方式去实现展示lookup / MD字段的组件样式。</p>
+<p><img src="./images/Salesforce LWC学习(八) Look Up组件实现0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><strong>&nbsp;一.&nbsp; record-edit-form搭配 lightning-input-field 曲线救国</strong></p>
+<p>标准功能也不是100%的不近人情，还是给出一个workaround的方案去实现，实现的方式为在后台声明一个Lookup / MD的组件，然后使用lightning-input-field去实现。此组件会根据字段的类型去自动转换成其相应的样式进行展示，效果很像classic中的apex:inputField或者lightning aura中的lightning:inputField。使用lightning-record-edit-form来指定某个表的LDS，使用lightning-input-field进行效果展示，然后提交的操作时阻止默认的submit操作并且在event detail中获取到我们选择的Look up/MD对应的ID即可。demo中在Account上新建一个字段Test_User__c，类型为Look up (User).</p>
+<p>&nbsp;testLookUpForLwc.html:使用LDS设置object api name为Account，这样下面就可以通过lightning-input-field针对Account的字段的类型动态展示相关的样式</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lightning-record-edit-form
+        </span><span style="color: #ff0000;">object-api-name</span><span style="color: #0000ff;">='Account'</span><span style="color: #ff0000;">
+        onsubmit</span><span style="color: #0000ff;">={handleSubmit}
+    </span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lightning-input-field </span><span style="color: #ff0000;">field-name</span><span style="color: #0000ff;">="Test_User__c"</span><span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">lightning-input-field</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lightning-button </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="submit"</span><span style="color: #ff0000;"> label</span><span style="color: #0000ff;">="get test user id"</span><span style="color: #ff0000;"> variant</span><span style="color: #0000ff;">="brand"</span><span style="color: #0000ff;">&gt;</span> 
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">lightning-button</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">lightning-record-edit-form</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>testLookUpForLwc.js：针对submit事件首先组织提交免得生成不需要的记录，然后通过event.detail.fields.Test_User__c便可以获取到所选择的Test_User__c的ID。</p>
+<div class="cnblogs_code">
+<pre><code>import { LightningElement,track } from 'lwc'<span style="color: #000000;">;
+
+export </span><span style="color: #0000ff;">default</span><span style="color: #000000;"> class TestLookUpForLwc extends LightningElement {
+    handleSubmit(event) {
+        event.preventDefault();
+        console.log(JSON.stringify(event.detail.fields.Test_User__c));
+    }
+}</span></pre>
+</div>
+<p>结果展示：选择一个用户以后，点击get test user id便可以获取到当前选择的user的id。</p>
+<p><img src="./images/Salesforce LWC学习(八) Look Up组件实现1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><strong>&nbsp;二.自定义组件实现</strong></p>
+<p>&nbsp;上面的方式好是好，但是此种写法没法更改相关的label信息，国内项目可能新创建个字段进行translation也可以实现，后台进行匹配也可以，但是对日项目可能管理严格，所以需要考虑自定义组件实现。自定义组件的实现的原理相对简单，难得是UI的构建，好在前辈有画好的功能直接使用，对上面的链接中的代码进行简单的修改即可使用。</p>
+<p>customLookUpForLwc.html：展示UI，上面是一个lightning-pill / lightning-input，通过isValue来判断当前是输入框还是展示pill，下面是列表。当列表选择以后触发事件父进行处理。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-form-element"</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-form-element__control"</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-combobox_container"</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">id</span><span style="color: #0000ff;">="box"</span><span style="color: #ff0000;"> class</span><span style="color: #0000ff;">={boxClass} </span><span style="color: #ff0000;">aria-expanded</span><span style="color: #0000ff;">="true"</span><span style="color: #ff0000;"> aria-haspopup</span><span style="color: #0000ff;">="listbox"</span><span style="color: #ff0000;"> role</span><span style="color: #0000ff;">="combobox"</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">
+                        {searchLabel}
+                        </span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right"</span><span style="color: #ff0000;"> role</span><span style="color: #0000ff;">="none"</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">template </span><span style="color: #ff0000;">if:true</span><span style="color: #0000ff;">={isValue}</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">id</span><span style="color: #0000ff;">="lookup-pill"</span><span style="color: #ff0000;"> class</span><span style="color: #0000ff;">="slds-pill-container"</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lightning-pill </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="pillSize"</span><span style="color: #ff0000;"> label</span><span style="color: #0000ff;">={valueObj} </span><span style="color: #ff0000;">name</span><span style="color: #0000ff;">={valueObj} </span><span style="color: #ff0000;">onremove</span><span style="color: #0000ff;">={handleRemovePill}</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lightning-icon </span><span style="color: #ff0000;">icon-name</span><span style="color: #0000ff;">={iconName} </span><span style="color: #ff0000;">alternative-text</span><span style="color: #0000ff;">="acc"</span> <span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">lightning-icon</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">lightning-pill</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">template </span><span style="color: #ff0000;">if:false</span><span style="color: #0000ff;">={isValue}</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-p-top_none"</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lightning-input </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">={inputClass} </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="search"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="input"</span><span style="color: #ff0000;"> value</span><span style="color: #0000ff;">={searchTerm}
+                                        </span><span style="color: #ff0000;">onclick</span><span style="color: #0000ff;">={handleClick}  </span><span style="color: #ff0000;">onchange</span><span style="color: #0000ff;">={onChange}
+                                        </span><span style="color: #ff0000;">variant</span><span style="color: #0000ff;">="label-hidden"</span><span style="color: #ff0000;"> autocomplete</span><span style="color: #0000ff;">="off"</span><span style="color: #ff0000;"> placeholder</span><span style="color: #0000ff;">="Search..."</span><span style="color: #ff0000;"> label</span><span style="color: #0000ff;">='account </span><span style="color: #ff0000;">search'</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">lightning-input</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">id</span><span style="color: #0000ff;">="listbox-id-1"</span><span style="color: #ff0000;"> class</span><span style="color: #0000ff;">="slds-dropdown slds-dropdown_length-with-icon-7 slds-dropdown_fluid"</span><span style="color: #ff0000;"> role</span><span style="color: #0000ff;">="listbox"</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">ul </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-listbox slds-listbox_vertical"</span><span style="color: #ff0000;"> role</span><span style="color: #0000ff;">="presentation"</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">template </span><span style="color: #ff0000;">for:each</span><span style="color: #0000ff;">={options} </span><span style="color: #ff0000;">for:item</span><span style="color: #0000ff;">="item"</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">li </span><span style="color: #ff0000;">key</span><span style="color: #0000ff;">={item.Id} </span><span style="color: #ff0000;">onclick</span><span style="color: #0000ff;">={onSelect} </span><span style="color: #ff0000;">data-id</span><span style="color: #0000ff;">={item.Id} </span><span style="color: #ff0000;">role</span><span style="color: #0000ff;">="presentation"</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">span </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-lookup__item-action slds-lookup__item-action--label"</span><span style="color: #ff0000;"> role</span><span style="color: #0000ff;">="option"</span><span style="color: #0000ff;">&gt;</span>
+                                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">lightning-icon </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-icon slds-icon--small slds-icon-text-default"</span><span style="color: #ff0000;"> icon-name</span><span style="color: #0000ff;">={iconName} </span><span style="color: #ff0000;">alternative-text</span><span style="color: #0000ff;">={objName} </span><span style="color: #ff0000;">size</span><span style="color: #0000ff;">="small"</span><span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">lightning-icon</span><span style="color: #0000ff;">&gt;</span>
+                                            <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">span </span><span style="color: #ff0000;">class</span><span style="color: #0000ff;">="slds-truncate"</span><span style="color: #0000ff;">&gt;</span>{item.Name}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">span</span><span style="color: #0000ff;">&gt;</span>
+                                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">span</span><span style="color: #0000ff;">&gt;</span>
+                                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">li</span><span style="color: #0000ff;">&gt;</span>
+                                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span>
+                            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">ul</span><span style="color: #0000ff;">&gt;</span>
+                        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+                    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+                <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+            <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>customLookUpForLwc.js</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">/*</span><span style="color: #008000;"> eslint-disable no-console </span><span style="color: #008000;">*/</span>
+<span style="color: #008000;">/*</span><span style="color: #008000;"> eslint-disable @lwc/lwc/no-async-operation </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+
+import lookUp from </span>'@salesforce/apex/CustomLookUpForLwcController.lookUp'<span style="color: #000000;">;
+import { getObjectInfo } from </span>'lightning/uiObjectInfoApi'<span style="color: #000000;">;
+import { getRecord } from </span>'lightning/uiRecordApi'<span style="color: #000000;">;
+import { api, LightningElement, track, wire } from </span>'lwc'<span style="color: #000000;">;
+
+export </span><span style="color: #0000ff;">default</span><span style="color: #000000;"> class CustomLookUpForLwc extends LightningElement {
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">store object record id</span>
+<span style="color: #000000;">    @api valueId;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">record API name</span>
+<span style="color: #000000;">    @api objName;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">record icon name,see Lightning Design System to choose</span>
+<span style="color: #000000;">    @api iconName;
+
+    @api filter </span>= ''<span style="color: #000000;">;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">unique key used to mark the unique component. several component use this component need to mapping</span>
+<span style="color: #000000;">    @api uniqueKey;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">used to set the field to fetch.eg: ['Account.Name'] means we need to search account name field as filter</span>
+<span style="color: #000000;">    @api fields;
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">search label show in lookup component</span>
+<span style="color: #000000;">    @api searchLabel;
+
+    @track searchTerm;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">record name value</span>
+<span style="color: #000000;">    @track valueObj;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">record href</span>
+<span style="color: #000000;">    @track href;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">fetch result</span>
+<span style="color: #000000;">    @track options;
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">is available value to show in lightning-pill</span>
+    @track isValue = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+
+    @track blurTimeout;
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">css</span>
+    @track boxClass = 'slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click slds-has-focus'<span style="color: #000000;">;
+    @track inputClass </span>= ''<span style="color: #000000;">;
+
+    @wire(lookUp, {searchTerm : </span>'$searchTerm', myObject : '$objName', filter : '$filter'<span style="color: #000000;">})
+    wiredRecords({ error, data }) {
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (data) {
+            </span><span style="color: #0000ff;">this</span>.record =<span style="color: #000000;"> data;
+            </span><span style="color: #0000ff;">this</span>.error =<span style="color: #000000;"> undefined;
+            </span><span style="color: #0000ff;">this</span>.options = <span style="color: #0000ff;">this</span><span style="color: #000000;">.record;
+            console.log(</span>"common this.options", JSON.stringify(<span style="color: #0000ff;">this</span><span style="color: #000000;">.options));
+        } </span><span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span><span style="color: #000000;"> (error) {
+            </span><span style="color: #0000ff;">this</span>.error =<span style="color: #000000;"> error;
+            </span><span style="color: #0000ff;">this</span>.record =<span style="color: #000000;"> undefined;
+            console.log(</span>"wire.error",<span style="color: #0000ff;">this</span><span style="color: #000000;">.error);
+        }
+    }
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">To get preselected or selected record</span>
+    @wire(getRecord, { recordId: '$valueId', fields: '$fields'<span style="color: #000000;"> })
+    wiredOptions({ error, data }) {
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (data) {
+            console.log(</span>'execute1'<span style="color: #000000;">);
+            </span><span style="color: #0000ff;">this</span>.record =<span style="color: #000000;"> data;
+            </span><span style="color: #0000ff;">this</span>.error =<span style="color: #000000;"> undefined;
+            </span><span style="color: #0000ff;">this</span>.valueObj = <span style="color: #0000ff;">this</span><span style="color: #000000;">.record.fields.Name.value;
+            </span><span style="color: #0000ff;">this</span>.href = '/'+<span style="color: #0000ff;">this</span><span style="color: #000000;">.record.id;
+            </span><span style="color: #0000ff;">this</span>.isValue = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+            console.log(</span>"this.href", <span style="color: #0000ff;">this</span><span style="color: #000000;">.href);
+            console.log(</span>"this.record", JSON.stringify(<span style="color: #0000ff;">this</span><span style="color: #000000;">.record));
+        } </span><span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span><span style="color: #000000;"> (error) {
+            console.log(</span>'execute2'<span style="color: #000000;">);
+            </span><span style="color: #0000ff;">this</span>.error =<span style="color: #000000;"> error;
+            </span><span style="color: #0000ff;">this</span>.record =<span style="color: #000000;"> undefined;
+            console.log(</span>"this.error", <span style="color: #0000ff;">this</span><span style="color: #000000;">.error);
+        }
+    }
+
+    handleClick() {
+        console.log(</span>"In handleClick"<span style="color: #000000;">);
+
+        </span><span style="color: #0000ff;">this</span>.searchTerm = ''<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">this</span>.inputClass = 'slds-has-focus'<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">this</span>.boxClass = 'slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click slds-has-focus slds-is-open'<span style="color: #000000;">;
+    }
+
+    onSelect(event) {
+        console.log(</span>"In onSelect"<span style="color: #000000;">);
+        let ele </span>=<span style="color: #000000;"> event.currentTarget;
+        let selectedId </span>=<span style="color: #000000;"> ele.dataset.id;
+        console.log(</span>"selectedId"<span style="color: #000000;">, selectedId);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">As a best practise sending selected value to parent and inreturn parent sends the value to @api valueId</span>
+        let key = <span style="color: #0000ff;">this</span><span style="color: #000000;">.uniqueKey;
+        const valueSelectedEvent </span>= <span style="color: #0000ff;">new</span> CustomEvent('valueselect'<span style="color: #000000;">, {
+            detail: { selectedId, key },
+        });
+        </span><span style="color: #0000ff;">this</span><span style="color: #000000;">.dispatchEvent(valueSelectedEvent);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> if(this.blurTimeout) {</span>
+        <span style="color: #008000;">//</span><span style="color: #008000;">     clearTimeout(this.blurTimeout);</span>
+        <span style="color: #008000;">//</span><span style="color: #008000;"> }</span>
+        console.log(<span style="color: #0000ff;">this</span><span style="color: #000000;">.isValue);
+        </span><span style="color: #0000ff;">this</span>.boxClass = 'slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click slds-has-focus'<span style="color: #000000;">;
+    }
+
+    onChange(event) {
+        console.log(</span>"In onChange"<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">this</span>.searchTerm =<span style="color: #000000;"> event.target.value;
+        console.log(</span>"searchTerm",<span style="color: #0000ff;">this</span><span style="color: #000000;">.searchTerm);
+    }
+
+    handleRemovePill() {
+        console.log(</span>"In handleRemovePill"<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">this</span>.isValue = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+        let selectedId </span>= ''<span style="color: #000000;">;
+        let key </span>= <span style="color: #0000ff;">this</span><span style="color: #000000;">.uniqueKey;
+        const valueSelectedEvent </span>= <span style="color: #0000ff;">new</span> CustomEvent('valueselect'<span style="color: #000000;">, {
+            detail: { selectedId, key },
+        });
+        </span><span style="color: #0000ff;">this</span><span style="color: #000000;">.dispatchEvent(valueSelectedEvent);
+    }
+
+}</span></pre>
+</div>
+<p>testLookUpForLwc.html：引入组件，设置几个必填的参数，其中icon-name赋值可以选择链接中的以下内容进行查找<a href="https://lightningdesignsystem.com/icons/">https://lightningdesignsystem.com/icons/</a>。使用accountId用来获取前台组件传递过来的ID。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">c-custom-look-up-for-lwc
+        </span><span style="color: #ff0000;">unique-key</span><span style="color: #0000ff;">={item.Id} 
+        </span><span style="color: #ff0000;">value-id</span><span style="color: #0000ff;">={accountId} 
+        </span><span style="color: #ff0000;">obj-name</span><span style="color: #0000ff;">="Account"</span><span style="color: #ff0000;"> 
+        icon-name</span><span style="color: #0000ff;">="standard:account"</span><span style="color: #ff0000;"> 
+        search-label</span><span style="color: #0000ff;">="Search Account"</span><span style="color: #ff0000;"> 
+        onvalueselect</span><span style="color: #0000ff;">={handleSelection}</span><span style="color: #0000ff;"><br />        search-label
+        </span><span style="color: #ff0000;">fields</span><span style="color: #0000ff;">={item.fields}</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">c-custom-look-up-for-lwc</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">template</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>testLookUpForLwc.js：handleSelection用来获取accountId</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">import { LightningElement,track } from 'lwc';
+
+export default class TestLookUpForLwc extends LightningElement {
+    @track item = {
+        id:'xxx',
+        fields:['Account.Name']
+    };
+
+    @track accountId;
+
+    handleSelection(event) {
+        console.log(event.detail.selectedId);
+        this.accountId = event.detail.selectedId;
+    }
+
+}</span></pre>
+</div>
+<p><strong>效果展示：</strong></p>
+<p><img src="./images/Salesforce LWC学习(八) Look Up组件实现2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;<strong>总结：</strong>篇中通过两种方式实现lookup功能及样式的实现，如果第一种能搞定强烈推荐使用第一种，因为标准的功能稳定性以及效率会好很多，如果第一种搞定不了可以考虑自定义。lwc不易，且开发且珍惜。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

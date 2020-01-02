@@ -1,0 +1,102 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修IdentityServer4学习笔记汇总(实现传送门在底部)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>IdentityServer4学习笔记汇总(实现传送门在底部)</center></div><div class='banquan'>原文出处:本文由博客园博主她微笑的脸提供。<br/>
+原文连接:https://www.cnblogs.com/linhuiy/p/12084933.html</div><br>
+    <h2 id="前言"><font color=#6495cd><strong>前言</strong></font></h2>
+<p>互联网时代,对信息和资源的保护越发苛刻,在所有应用中授权和认证是必不可少缺少的一部分。如果一个应用没有授权和认证那么这个应用就是不完整或者说不安全的应用。在.Net平台给我们提供了一套完整的授权认证框架,那就是IdentityServer4。它实现了OpenId Connect和OAuth2.0协议的认证授权。<br />
+<img src="./images/IdentityServer4学习笔记汇总(实现传送门在底部)0.png" /></p>
+<h2 id="授权认证"><font color=#6495cd><strong>授权认证</strong></font></h2>
+<p>很多人喜欢把授权和认证混为一谈,但是其实授权(Authorization)和认证(Authentication)是有区别的。<br />
+Authorization(授权) - 侧重点是用户能干嘛,而不关心用户是谁。<br />
+Authentication(认证) - 侧重点是用户是谁,而不是用户能干嘛。</p>
+<h2 id="openid"><font color=#6495cd><strong>OpenId</strong></font></h2>
+<p>OpenID 是一个以用户为中心的数字身份识别框架，是一个以URL为身份标识的分散式身份验证解决方案，它具有开放、分散、自由等特性。<br />
+OpenID相关基本术语：<br />
+用户 - 想要向某个网站表明身份的人。<br />
+标识 - 用户用以标识其身份的URL。<br />
+身份提供者 - 提供OpenID URL注册和验证服务的服务提供者。<br />
+依赖方 - 想要对最终用户的openId进行验证的网站应用。</p>
+<p>举个例子, 我使用QQ(身份提供者)登陆京东(依赖方),我打开京东主页点击QQ登陆并不会要我输入我的QQ账号和密码,会先跳转到QQ授权登陆页面,当你扫码或者密码登陆的时候QQ会返回给京东一个OpenId,京东就会拿着这个OpenId来问QQ你这里是不是有这么一个用户。</p>
+<p>OpenId关注的是Authentication(认证)。</p>
+<h2 id="oauth2"><font color=#6495cd><strong>OAuth2</strong></font></h2>
+<p>OAuth是当下比较流行的授权第三方应用读取用户的资源的机制。OAuth能在不涉及到用户的账号信息的情况下,读取用户的一些资源信息。</p>
+<p>举个例子,每周都会有保洁阿姨来家里打扫,但是保洁阿姨并不知道我家大门的密码,所以每次保洁阿姨在要上门的时候会在app上申请获取一个临时密码,当我收到保洁阿姨的申请后,确认给予临时密码后保洁阿姨就能通过这个密码进入房子啦。</p>
+<p>我就是用户,家,和房间就是我的资源,临时密码是token。阿姨是第三方应用。阿姨申请临时密码需要进入我的家(第三方应用申请读取我的数据),我(用户)收到申请后给予临时密码(用户确认授权读取数据)。阿姨收到临时密码进入房间(获取到相应的token读取数据)。</p>
+<p>但是临时密码(token)还是有很多局限性的,比如时效性(规定时间内使用才有效),局限性(只能开一次门,不能进去我私人房间),我还可以在中途撤销授权,使临时密码(token)无法进去我的房间(无法读取我的数据)。</p>
+<p><img src="./images/IdentityServer4学习笔记汇总(实现传送门在底部)1.png" alt="20191219150933.png" /><br />
+授权过程<br />
+（A）用户打开客户端以后，客户端要求用户给予授权。(阿姨打开某公寓App申请临时密码)<br />
+（B）用户同意给予客户端授权。 (我同意给予临时密码)<br />
+（C）客户端使用上一步获得的授权，向认证服务器申请令牌。 (同意后,向某某公寓后台申请临时密码)<br />
+（D）认证服务器对客户端进行认证以后，确认无误，同意发放令牌。(某某公寓后台确认我同意给予临时密码后,给阿姨发放临时密码)<br />
+（E）客户端使用令牌，向资源服务器申请获取资源。(阿姨使用临时密码来开门)<br />
+（F）资源服务器确认令牌无误，同意向客户端开放资源。(密码锁收到临时密码验证后开门)</p>
+<p>OAuth关注的是Authorization(授权)。</p>
+<h2 id="openid-connect"><font color=#6495cd><strong>OpenId Connect</strong></font></h2>
+<p>OpenID Connect简称OIDC。因为OAuth2是一个授权协议，它无法提供完善的身份认证功能。所以它在OAuth2上构建了一个身份层,是一个基于OAuth2协议的身份认证标准协议。OIDC使用OAuth2的授权来为第三方客户端提供用户的身份认证,并把对应的身份认证信息传递给客户端，且可以适用于各种类型的客户端,并且完全兼容OAuth2，也就是说你搭建了一个OIDC的服务后，也可以当作一个OAuth2的服务来用。</p>
+<h2 id="术语介绍"><font color=#6495cd><strong>术语介绍</strong></font></h2>
+<p><img src="./images/IdentityServer4学习笔记汇总(实现传送门在底部)2.png" alt="WeChatc3ab2822e8decb454e4fd781b82baf98 (1).png" /></p>
+<p>User - 用户。<br />
+Client - 客户端。<br />
+IdentityServer - 授权认证服务器。<br />
+Resources - 需要保护的资源。<br />
+Access Token - 访问令牌,允许用户哪些资源。<br />
+Identity Token - 身份令牌,用户确认用户身份。</p>
+<h2 id="jwt"><font color=#6495cd><strong>JWT</strong></font></h2>
+<p>Json web token (JWT), 是为了在网络应用环境间传递声明而执行的一种基于JSON的开放标准（(RFC 7519).该token被设计为紧凑且安全的，特别适用于分布式站点的单点登录（SSO）场景。JWT的声明一般被用来在身份提供者和服务提供者间传递被认证的用户身份信息，以便于从资源服务器获取资源，也可以增加一些额外的其它业务逻辑所必须的声明信息，该token也可直接被用于认证，也可被加密。<br />
+JWT是由三段字符串拼接而成的,使用 <code>.</code> 分割的。</p>
+<pre><code><code>eyJhbGciOiJSUzI1NiIsImtpZCI6IjIxNmd3ZUVTZTA3d29hSDhpWHAzMUEiLCJ0eXAiOiJhdCtqd3QifQ.eyJuYmYiOjE1NzY2NTYwOTMsImV4cCI6MTU3NjY1OTY5MywiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo1MDAzIiwiYXVkIjoiQXBpX0EiLCJjbGllbnRfaWQiOiJjbGllbnRfYSIsInNjb3BlIjpbIkFwaV9BIl19.kdszQIZFTS8aURbF5lIL1-qFzkJ79plH0seM4TsrTPdZoWakJVTH76-qmRpu6H6eaQt7U10R-Y8fn5N2FFh6XHRuDufEsDL8R2Tv7Cu0qbHKHTi-LgZcU2CxM22RyL6Df7Z0IpG5uEQqJ2LyxHJg3W-D3TgSNXUA8ge87ghGrhLRQ8hywH5gM4EZy9lKO7vMZml1IIfuyXTC8FU-HUn6-ZmvC1mADlAQJv84WHyg7fzzgNXqztvSyXA2p6jJG5FDgAjA9-yWnqJPxlZe7-Qi5Dj67lEF9kSII0tblV8JpxxJTpUvM2iPMLKWw77HDGaZkfAUu9WsbpQv-zWXPBBpbw</code></pre>
+<p>我们通过<a href="https://jwt.io/">jwt.io</a>解析出来。<br />
+<img src="./images/IdentityServer4学习笔记汇总(实现传送门在底部)3.png" alt="20191219162450.png" /></p>
+<h3 id="第一部分hrader">第一部分Hrader</h3>
+<p>alg - 签名算法<br />
+kid - 密钥的Id<br />
+typ - token类型</p>
+<p>这三个参数是最常见的。d</p>
+<h4 id="第二部分payload">第二部分PayLoad</h4>
+<p>nbf - 生效时间<br />
+exp - 过期时间<br />
+iss - 令牌发放者<br />
+chlien_Id - 发放客户端id<br />
+aud - 令牌接收方<br />
+scope - 可访问资源</p>
+<p>在PayLoad中可以放置任何你想要的参数。</p>
+<h3 id="第三部分signature">第三部分Signature</h3>
+<p>Signature 是对前两部分的签名，防止数据篡改。</p>
+<h3 id="jwt的认证过程">JWT的认证过程</h3>
+<p><img src="./images/IdentityServer4学习笔记汇总(实现传送门在底部)4.png" alt="20191223140147.png" /></p>
+<p>1.用户使用账号密码或别的方式登陆<br />
+2.服务器接受到登陆请求后生成一个jwt token<br />
+3.服务器把jwt token返回给客户端<br />
+4.客户端在请求资源在Header中的authorization带上jwt token<br />
+5.服务器对jwt进行验签,验签成功后根据PayLoad中的信息判断认证是否通过<br />
+6.响应客户端结果</p>
+<h2 id="授权方式-后面有实现的传送门"><font color=#6495cd><strong>授权方式-后面有实现的传送门</strong></font></h2>
+<p>Client Credentials - 客户端授权模式。 - <a href="https://www.cnblogs.com/linhuiy/p/12084944.html">实现传送门</a><br />
+Resource Owner Password Credentials - 密码模式。 - <a href="https://www.cnblogs.com/linhuiy/p/12084940.html">实现传送门</a><br />
+Implicit - 授权码简化模式。<br />
+Authorization Code - 授权码模式。</p>
+<h2 id="总结"><font color=#6495cd><strong>总结</strong></font></h2>
+<p>都是自己一边学习IdentityServer4一边写,每种模式后都有实现传的送门,文中如果有神马错误请大佬们在评论区指出。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

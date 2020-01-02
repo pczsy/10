@@ -1,0 +1,199 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修简单易懂带你了解红黑树' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>简单易懂带你了解红黑树</center></div><div class='banquan'>原文出处:本文由博客园博主乐趣是最好的老师提供。<br/>
+原文连接:https://www.cnblogs.com/xisuo/p/12044569.html</div><br>
+    <h2 id="前言">前言</h2>
+<p>上一篇博客介绍了<a href="https://www.cnblogs.com/xisuo/p/11921647.html">[二叉树]</a>.二叉搜索树在树是<strong>平衡</strong>的情况下搜索、插入和删除的效率都很好,但是如果二叉搜索树是<strong>不平衡</strong>的那么它的效率就不那么令人满意了,而红黑树解决了二叉搜索树的这个问题,可以始终保持树是平衡(大致平衡)的.</p>
+<p>阅读前须知:</p>
+<ul>
+<li>如果您对二叉树不太了解,请移步<a href="https://www.cnblogs.com/xisuo/p/11921647.html">[二叉树]</a></li>
+<li>本文用到的评估红黑树效率的方法-- <a href="https://www.cnblogs.com/xisuo/p/11883194.html">大O表示法</a></li>
+<li>由于红黑树的实现代码过于晦涩难懂,所以本篇博客只会通过通俗易懂的语言加上一目了然的图片对红黑树进行讲解</li>
+<li>本文的侧重点是红黑树的插入过程</li>
+<li>假定插入红黑树的值不会重复</li>
+</ul>
+<h2 id="红黑树简介">1. 红黑树简介</h2>
+<p>红黑树是什么? <strong>其实红黑树就是加了一些特殊规则(保持树平衡的规则)的二叉搜索树.</strong></p>
+<p>红黑树的两个特征:</p>
+<ul>
+<li><strong>节点都有颜色</strong></li>
+<li><strong>在删除和插入过程中，保证这些颜色不同排列的规则(红黑规则)</strong></li>
+</ul>
+<p><strong>当插入(或删除)一个节点时,必须遵守红黑规则以保持树是大体平衡的</strong>,红黑规则:</p>
+<ol>
+<li><strong>每个节点不是红色的就是黑色的</strong></li>
+<li><strong>根节点是黑色的</strong></li>
+<li><strong>所有叶子都是黑色(叶子是NIL节点或NULL). (NIL: NIL表示无值，任何变量在没有被赋值之前的值都为NIL)</strong></li>
+<li><strong>红色节点的子节点必须是黑色的(从每个叶子到根的所有路径上不能有两个连续的红色节点),反之不成立</strong></li>
+<li><strong>从根到叶节点或空子节点的每条路径,必须包含相同数目的黑色节点(也可称为黑色高度).</strong></li>
+</ol>
+<p>红黑规则的图解:<br />
+<img src="./images/简单易懂带你了解红黑树0.png" /><br />
+图1</p>
+<p>FBI WARNING: <strong>本文接下来给出的图例中将会省略规则3中的NIL叶节点, 特此强调</strong></p>
+<p>关于规则5空子节点的示例,<strong>可以看到下图中根到叶节点和根到空子节点的高度不一致,违背了规则5</strong>:</p>
+<p><img src="./images/简单易懂带你了解红黑树1.png" /><br />
+图2</p>
+<p><strong>下面是红黑规则的总结,重要结论-&gt;重要结论-&gt;重要结论,红黑规则确保了红黑树的关键特性：从根到叶子的最长的可能路径不多于最短的可能路径的两倍长。结果是这个树大致上是平衡的。</strong>因为操作比如插入、删除和查找某个值的最坏情况时间都要求与树的高度成比例，<strong>这个在高度上的理论上限允许红黑树在最坏情况下都是高效的(如果插入的数据是有序的,红黑树不会出现极端不平衡的情况,会自己修复)，而不同于普通的二叉搜索树</strong>。</p>
+<p><strong>是规则4导致路径上不能有两个连续的红色节点确保了这个结果。最短的可能路径都是黑色节点，最长的可能路径有交替的红色和黑色节点。因为根据规则5所有路径都有相同数目的黑色节点，这就表明了没有路径能多于任何其他路径的两倍长。</strong></p>
+<h2 id="了解插入过程前的一些热身准备">2. 了解插入过程前的一些热身准备</h2>
+<p>在了解红黑树插入一个新节点的时候都做了什么以前,有一些插入过程中用到的概念会在本章节进行讲解,如果你对变色、旋转有所了解,可以跳过本节.</p>
+<p>首先红黑树新插入的节点都是<strong>红色</strong>的,并且红黑树是在插入数据的过程中对树进行平衡修复的,如果感知到违反了红黑规则,程序会进行自我修复以符合红黑规则,<strong>修复方法有且只有两种</strong>:</p>
+<ul>
+<li><strong>改变节点的颜色</strong></li>
+<li><strong>执行旋转操作</strong></li>
+</ul>
+<p>接下来会对一下三个方面做出解释:</p>
+<ul>
+<li><strong>为什么新插入的节点是红色的?</strong></li>
+<li><strong>改变节点的颜色?</strong></li>
+<li><strong>旋转操作?</strong></li>
+</ul>
+<h3 id="新插入的节点都是红色的">2.1 新插入的节点都是红色的</h3>
+<p>为什么新插入的节点都是红色的?不是黑色的?</p>
+<p>主要有两方面原因:</p>
+<ol>
+<li><strong>不会违背规则5,从根到所有叶或空子节点的黑色高度不会改变</strong></li>
+<li><strong>虽然有可能会违背规则4出现两个连续的红色节点,但是只有50%的几率碰上,并且就算碰上了,修复规则4也比修复规则5要简单的多(只需要几次变色和几次旋转就能修复规则4).</strong></li>
+</ol>
+<h3 id="变色">2.2 变色</h3>
+<p>变色..嗯就是变色,红的变成黑的,或者黑的变成红的. 至于什么情况下需要变色,怎么变色,需要具体问题具体分析,看完章节3就晓得了.</p>
+<h3 id="旋转">2.3 旋转</h3>
+<p>树左右两边的节点数量不相同的时候树就是不平衡的了,如果这时候想把树变为平衡的,就需要<strong>旋转</strong>.</p>
+<p>旋转必须一次做两件事:</p>
+<ul>
+<li><strong>使一些节点上升,一些节点下降,帮助树平衡</strong></li>
+<li><strong>保证不破坏二叉搜索树的特征</strong>.</li>
+</ul>
+<p>二叉搜索树的特征: <strong>任何节点的左子节点及其子树的关键字都小于该节点,而它的右子节点及其子树的关键字都大于等于它</strong>.</p>
+<p>关于旋转这个动作的定义: <strong>选择一个节点作为旋转的&quot;顶端&quot;(top),如果做一次右旋,这个&quot;顶端节点&quot;将会向下和向右移动到它的右子节点的位置,它的左子节点将会上移到它原来的位置.</strong></p>
+<p>以关键字值为10的节点为顶端,执行左旋转和右旋转:<br />
+<img src="./images/简单易懂带你了解红黑树2.png" /><br />
+图3</p>
+<p><strong>注意事项: 左旋转必须有右子节点,右旋转必须有左子节点.</strong></p>
+<p>关于旋转有一个情况要注意: <strong>如果旋转的顶端节点有内侧子孙节点,那么执行完旋转操作以后,这个内侧子孙节点要断开与父节点的连接,连接到顶端节点上</strong>.</p>
+<p><img src="./images/简单易懂带你了解红黑树3.png" /><br />
+图4</p>
+<p><strong>如果内侧子孙节点是一颗子树,那么整棵树也一起移动过去.</strong></p>
+<h2 id="插入数据的过程">3. 插入数据的过程</h2>
+<p>准备活动做完了,下面开始正题.</p>
+<p>在红黑树中插入一个新节点的步骤和二叉搜索树有部分是相同的:<strong>从根开始,插入节点的关键字与当前节点的关键字进行比较,如果小往左走,如果大于等于该节点往右走,直到找到一个合适的位置进行插入.</strong></p>
+<p>不同点:</p>
+<ol>
+<li><strong>在向下比较的过程中需要变色</strong></li>
+<li><strong>在向下比较的过程中需要旋转</strong></li>
+<li><strong>插入新节点之后需要旋转</strong></li>
+</ol>
+<p>下面来概述一下红黑树的插入过程: 从根开始比较关键字的值,如果小往左走,如果大于等于该节点往右走(这是相同点),从根往下走的过程中一旦发现有<strong>黑色节点有两个红色子节点</strong>的情况进行变色,变成红色节点有两个黑色节点(这是不同点1),变完色有可能会违背规则4不能出现连续的两个红色节点,这时候需要再次进行旋转和变色(这是不同点2),最后找到合适的位置插入新节点,如果新插入节点的父节点是黑色就结束了,如果是红色又违背了规则4,那么还需要旋转和变色(这是不同点3).</p>
+<p>现在不懂没关系, 3.1、3.2、3.3 三个章节会通过一个完整的示例,详细的讲述红黑树的插入过程.</p>
+<p><img src="./images/简单易懂带你了解红黑树4.png" /><br />
+图5</p>
+<p>我们以往这棵树插入值为19的新节点为例</p>
+<h3 id="在向下比较的过程中需要变色">3.1 在向下比较的过程中需要变色</h3>
+<p><img src="./images/简单易懂带你了解红黑树5.png" /><br />
+图6</p>
+<p>变色原则:</p>
+<ol>
+<li><strong>在向下比较的过程中如果遇到一个黑色节点有两个红色节点,这时候要把它的颜色对调变成一个红色节点两个黑色节点.</strong></li>
+<li><strong>如果这个节点是根节点,那么就都变成黑色节点.</strong></li>
+</ol>
+<p><img src="./images/简单易懂带你了解红黑树6.png" /><br />
+图7</p>
+<p>变色后:<br />
+<img src="./images/简单易懂带你了解红黑树7.png" /><br />
+图8</p>
+<p>至于为什么要变色: <strong>只要应用了变色原则,插入节点后的旋转不会造成树的上方违背红黑原则</strong>.</p>
+<h3 id="在向下比较的过程中需要旋转">3.2 在向下比较的过程中需要旋转</h3>
+<p><strong>变色后出现了连续的红色节点,这时候我们需要进行旋转和变色修复红黑树</strong>,我们声明X、P、G三个节点:</p>
+<ul>
+<li>X是P的子节点</li>
+<li>P是G的子节点</li>
+<li>X是G的子孙节点</li>
+</ul>
+<p><img src="./images/简单易懂带你了解红黑树8.png" /><br />
+图9</p>
+<p>X、P是连续红色节点的情况违背了规则4,<strong>这时候就要看X与G的位置关系了,X与G位置的不同,修复的步骤也不同</strong>:</p>
+<ul>
+<li><strong>X是G外侧红色子孙节点的情况,需要旋转一次,变色两次.</strong></li>
+<li><strong>X是G内侧红色子孙节点的情况,需要旋转两次,变色两次.</strong></li>
+</ul>
+<p>关于外侧子孙节点和内侧子孙节点位置的说明:</p>
+<ol>
+<li>如果P是G的左子节点,如果X是P的左子节点,那么X是G的外侧子孙节点</li>
+<li>如果P是G的左子节点,如果X是P的右子节点,那么X是G的内侧子孙节点</li>
+</ol>
+<p>(如果P是G的右子节点,X是P的右子节点,那么X是G的外侧子孙节点)</p>
+<p>回归正题,X是G外侧红色子孙节点的情况:<br />
+<img src="./images/简单易懂带你了解红黑树9.png" /><br />
+图10</p>
+<p>X是G内侧红色子孙节点的情况:<br />
+<img src="./images/简单易懂带你了解红黑树10.png" /><br />
+图11</p>
+<h3 id="插入新节点之后需要旋转">3.3 插入新节点之后需要旋转</h3>
+<p>终于到最后一步了,<strong>新节点插入后(X),要根据父节点(P)的颜色,和它与祖父节点的位置进行调整</strong>,共有三种情况:</p>
+<ul>
+<li><strong>P是黑色,直接结束</strong></li>
+<li><strong>P是红色,X是G的外侧子孙节点</strong></li>
+<li><strong>P是红色,X是G的内侧子孙节点</strong></li>
+</ul>
+<p>P是红色,X是G的外侧子孙节点:</p>
+<p><img src="./images/简单易懂带你了解红黑树11.png" /><br />
+图12</p>
+<p>P是红色,X是G的内侧子孙节点:</p>
+<p><img src="./images/简单易懂带你了解红黑树12.png" /><br />
+图13</p>
+<p>以上就是红黑树插入一个新节点的完成过程.</p>
+<h2 id="红黑树的效率">4. 红黑树的效率</h2>
+<p>红黑树的效率与二叉搜索树相同都为为O(logN),<strong>红黑树的查找速度和二叉搜索树几乎一样,因为查找过程并没有应用红黑树的特征</strong>.只是额外增加了一些存储红-黑颜色的(boolean变量)存储空间.</p>
+<p><strong>至于插入和删除因为要加入一些变色和旋转,所以要比二叉搜树慢一些,但是效率同样也为O(logN)</strong>.</p>
+<h2 id="红黑树的总结优缺点">5. 红黑树的总结，优缺点</h2>
+<p>优点:</p>
+<ul>
+<li><strong>查找速度和二叉搜索树相同</strong></li>
+<li><strong>如果插入的是有序数据效率不会慢到O(N),这点爆了二叉搜索树</strong></li>
+</ul>
+<p>缺点:</p>
+<ul>
+<li><strong>增、删略慢于二叉搜索树</strong></li>
+<li><strong>代码实现过于复杂...</strong></li>
+</ul>
+<h2 id="实际中的应用">6. 实际中的应用</h2>
+<p>Java中的TreeSet、TreeMap、Java8中的hashmap、Linux内核,<strong>面试官的灵魂拷问</strong>等等很多地方都用到了红黑树.</p>
+<h2 id="最早的平衡树avl树">7. 最早的平衡树AVL树</h2>
+<p>AVL树是最早的平衡树,它是由AV(Adelson-Velskii)和L(Landis)两个发明者名字的缩写命名的.</p>
+<p>AVL树自平衡的方式: 在节点中保存左右子节点的高度,如果高度差大于1就进行自平衡(旋转).</p>
+<p>插入过程:</p>
+<ol>
+<li>插入之后,检查新节点插入点所在的最低子树的根,如果它的子节点的高度相差大于1,执行一次或者两次旋转使他们的高度相等.</li>
+<li>然后算法向上移动,检查上面的节点,必要时均衡高度.这个检测检查所有路径一直向上,直到根为止.</li>
+</ol>
+<p>AVL树的效率:</p>
+<ul>
+<li><strong>查找的时间复杂度为O(logN)</strong></li>
+<li><strong>插入(或删除)由于需要扫描两趟,一次向下插入,一次向上平衡比,所以效率不如红黑树高.</strong></li>
+</ul>
+<p>结论: <strong>AVL树因为插入(或删除)需要扫描两趟所以效率不如红黑树高,也不如红黑树常用,了解即可</strong></p>
+<h2 id="下期预告">8. 下期预告</h2>
+<p>红黑树的知识总结就到这里了,下一篇博客会更新2-3-4树、B-树(不是B减树是横杠)、B+树的知识,还有红黑树、二叉树与这些树的对比等内容,敬请期待.</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,123 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask容器化部署原理与实现' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask容器化部署原理与实现</center></div><div class='banquan'>原文出处:本文由博客园博主Yabea提供。<br/>
+原文连接:https://www.cnblogs.com/ybjourney/p/12014120.html</div><br>
+    <p>本文将介绍Flask的部署方案：Flask + Nginx + uWSGI，并使用docker进行容器化部署，部署的实例来源 <a href="https://zhuanlan.zhihu.com/p/52490564">Flask开发初探</a>，操作系统为ubuntu。</p>
+<p><strong>Flask系列文章</strong>：</p>
+<ol>
+<li><a href="https://www.cnblogs.com/ybjourney/p/10125532.html">Flask开发初探</a></li>
+<li><a href="https://www.cnblogs.com/ybjourney/p/12004002.html">WSGI到底是什么</a></li>
+<li><a href="https://www.cnblogs.com/ybjourney/p/11717347.html">Flask源码分析一：服务启动</a></li>
+<li><a href="https://www.cnblogs.com/ybjourney/p/11789983.html">Flask路由内部实现原理</a></li>
+</ol>
+<h2 id="部署方案">部署方案</h2>
+<p>在开发时，我们使用flask run命令启动的开发服务器是werkzeug提供的，但是这种方式目的是为了开发，不能很好的扩展，不适合生产部署。生产部署，我们需要一个更强健，性能更高的WSGI服务器（关于WSGI，可参考<a href="https://zhuanlan.zhihu.com/p/95942024">WSGI到底是什么</a> ，常用的服务器有：uWSGI、Gunicorn等，本文以uWSGI举例。</p>
+<p>像uWSGI这类WSGI服务器内置了Web服务器，所以我们不需要web服务器也可以与客户端交换数据，处理请求和响应，但是内置的web服务器不够强健，一般情况下都会使用一个常规的web服务器运行在前端，为WSGI服务器提供反向代理，web服务器选择Nginx，Nginx会把外部的请求转发给uWSGI处理，接收到响应后再返回给客户端，这样做的好处有：</p>
+<ol>
+<li>提高静态文件的效率，因为Nginx处理静态文件的速度非常快</li>
+<li>提升系统安全性，避免直接暴露WSGI服务器</li>
+<li>提升程序处理能力，通过设置反向代理，配置负载均衡可以实现。</li>
+</ol>
+<h3 id="uwsgi配置">uWSGI配置</h3>
+<p>在使用uwsgi部署flask应用时，一定要记得将app.run()方法放在<code>if __name__ == '__main__':</code> 内部或者单独文件内，这样就可以保证其不会被调用，从而不会启动本地服务器。</p>
+<p>uwsgi是一个服务器，使用前一定要安装：</p>
+<pre><code><code>pip install uwsgi</code></pre>
+<p>配置文件：</p>
+<pre class="uwsgi"><code>socket=/tmp/app.sock
+chmod-socket=666
+pidfile=/etc/nginx/uwsgi.pid
+chdir=/home/**/mygithub/learn_flask/app
+master=true
+wsgi-file=serve.py
+http=127.0.0.1:8005
+callable=app
+processes=8
+threads=4
+lazy-apps=true</code></pre>
+<p>对所配置的参数进行说明：</p>
+<ul>
+<li>callable：Flask项目的实例名称</li>
+<li>module：可调用对象的名称</li>
+<li>processes：开启多少个子进程处理请求。</li>
+<li>threads：每个进程的线程数</li>
+</ul>
+<p>更多参数详情可见：<a href="https://uwsgi-docs-zh.readthedocs.io/zh_CN/latest/Options.html">uwsgi中文文档</a></p>
+<p>在命令行中启动uwsgi服务器：</p>
+<pre><code><code>uwsgi --ini uwsgi.ini</code></pre>
+<p>在浏览器中输入 <code>http://127.0.0.1:8005</code>，可以验证服务启动。</p>
+<h3 id="nginx配置">nginx配置</h3>
+<p>安装nginx：</p>
+<pre><code><code>apt-get install nginx</code></pre>
+<p>启动nginx:</p>
+<pre><code><code>service nginx start</code></pre>
+<p>重启</p>
+<pre><code><code>service nginx restart</code></pre>
+<p>nginx配置：</p>
+<pre class="nginx"><code>server{
+    listen  8080;
+    server_name localhost;
+    
+    access_log /var/log/nginx/app_access.log;
+    error_log /var/log/nginx/app_error.log;
+    
+    location / {
+        include uwsgi_params;
+        uwsgi_pass unix:/tmp/app.sock
+    }
+}</code></pre>
+<p>nginx配置文件nginx.conf通过include引用了conf.d和site_enabled这两个文件夹中的配置文件，所以我们可将配置文件放在这两个路径任意一处。</p>
+<p>重启nginx和uwsgi，在浏览器中输入 <code>http://127.0.0.1:8088</code>，可以验证服务启动。</p>
+<p>这样，就完成基础的nginx+uwsgi完成了Flask的部署。</p>
+<h2 id="容器化部署">容器化部署</h2>
+<p>接下来，介绍使用docker进行容器化部署。</p>
+<h3 id="docker配置">docker配置</h3>
+<p>建议了解docker基本操作，首先，创建Dockerfile:</p>
+<pre class="dockerfile"><code>FROM ubuntu:16.04
+
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime &amp;&amp; echo &quot;Asia/Shanghai&quot; &gt; /etc/timezone
+RUN apt update &amp;&amp; apt install -y iputils-ping python3 python3-pip python3-tk libffi-dev libssl-dev
+RUN apt install -y nginx &amp;&amp; pip3 install uwsgi
+
+ADD [&#39;./&#39;, &quot;/app&quot;]
+ADD [&#39;./build&#39;, &quot;/app&quot;]
+WORKDIR /app
+
+RUN pip3 install -r requirements.txt
+
+RUN chmod + x start_script.sh
+CMD [&#39;/start_script.sh&#39;]</code></pre>
+<p>注意：</p>
+<ol>
+<li>该镜像的基础镜像为ubuntu:16.04，可自行docker pull</li>
+<li>编写服务启动脚本start_script.sh</li>
+</ol>
+<pre class="shell"><code>ln -s /app/nginx.conf /etc/nginx/conf.d/
+nginx &amp;&amp; uwsgi --ini uwsgi.ini
+
+python3 serve.py</code></pre>
+<p>使用命令：</p>
+<pre><code><code>docker build -t image .</code></pre>
+<p>以上，就完成了一个镜像打包，接下来就是docker容器的常规化操作。另外，推荐使用k8s对docker容器进行编排管理，这里不做介绍。</p>
+<p>代码可参照：<a href="https://github.com/Yabea/learn_flask">my github</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

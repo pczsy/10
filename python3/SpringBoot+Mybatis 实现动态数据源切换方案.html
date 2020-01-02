@@ -1,0 +1,238 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修SpringBoot+Mybatis 实现动态数据源切换方案' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>SpringBoot+Mybatis 实现动态数据源切换方案</center></div><div class='banquan'>原文出处:本文由博客园博主经典鸡翅提供。<br/>
+原文连接:https://www.cnblogs.com/jichi/p/12013001.html</div><br>
+    <h3 id="背景">背景</h3>
+<p>最近让我做一个大数据的系统，分析了一下，麻烦的地方就是多数据源切换抽取数据。考虑到可以跨服务器跨数据库抽数，再整理数据，就配置了这个动态数据源的解决方案。在此分享给大家。</p>
+<h3 id="实现方案">实现方案</h3>
+<h4 id="数据库配置文件">数据库配置文件</h4>
+<p>我们项目使用的是yml形式的配置文件，采用的是hikari的数据库连接池。第一步我们自然是配置多个数据库源头。<br />
+我们找到spring的datasource，在下方配置三个数据源。</p>
+<pre><code><code>spring:
+  application:
+    name: dynamicDatasource
+  datasource:
+    test1:
+      driver-class-name: com.mysql.jdbc.Driver
+      url: jdbc:mysql://127.0.0.1:3306/test1?serverTimezone=GMT%2B8&amp;characterEncoding=utf-8&amp;useSSL=false
+      username: root
+      password: 123456
+    test2:
+      driver-class-name: com.mysql.jdbc.Driver
+      url: jdbc:mysql://127.0.0.1:3306/test2?serverTimezone=GMT%2B8&amp;characterEncoding=utf-8&amp;useSSL=false
+      username: root
+      password: 123456
+    test3:
+      driver-class-name: com.mysql.jdbc.Driver
+      url: jdbc:mysql://127.0.0.1:3306/test3?serverTimezone=GMT%2B8&amp;characterEncoding=utf-8&amp;useSSL=false
+      username: root
+      password: 123456
+    hikari:
+      leak-detection-threshold: 2000</code></pre>
+<h4 id="定义数据源实体类">定义数据源实体类</h4>
+<p>我们可以建立个datasourceBean文件夹专门管理数据源的实体类。<br />
+我们这里要建立三个实体类。分别对应test1，test2，test3</p>
+<pre><code><code>@Configuration
+public class Test1DataSourceBean {
+
+    @Value(&quot;${spring.datasource.test1.driver-class-name}&quot;)
+    private String test1Driver;
+
+    @Value(&quot;${spring.datasource.test1.url}&quot;)
+    private String test1Url;
+
+    @Value(&quot;${spring.datasource.test1.username}&quot;)
+    private String test1Username;
+
+    @Value(&quot;${spring.datasource.test1.password}&quot;)
+    private String test1Password;
+
+    @Bean(name=&quot;test1DataSource&quot;)
+    public DataSource test1DataSource() throws Exception{
+        HikariDataSource dataSource = new HikariDataSource();
+        dataSource.setDriverClassName(test1Driver);
+        dataSource.setJdbcUrl(test1Url);
+        dataSource.setUsername(test1Username);
+        dataSource.setPassword(test1Password);
+        return dataSource;
+    }
+}</code></pre>
+<pre><code><code>@Configuration
+public class Test2DataSourceBean {
+
+    @Value(&quot;${spring.datasource.test2.driver-class-name}&quot;)
+    private String test2Driver;
+
+    @Value(&quot;${spring.datasource.test2.url}&quot;)
+    private String test2Url;
+
+    @Value(&quot;${spring.datasource.test2.username}&quot;)
+    private String test2Username;
+
+    @Value(&quot;${spring.datasource.test2.password}&quot;)
+    private String test2Password;
+
+    @Bean(name=&quot;test2DataSource&quot;)
+    public DataSource test2DataSource() throws Exception{
+        HikariDataSource dataSource = new HikariDataSource();
+        dataSource.setDriverClassName(test2Driver);
+        dataSource.setJdbcUrl(test2Url);
+        dataSource.setUsername(test2Username);
+        dataSource.setPassword(test2Password);
+        return dataSource;
+    }
+}</code></pre>
+<pre><code><code>@Configuration
+public class Test3DataSourceBean {
+
+    @Value(&quot;${spring.datasource.test3.driver-class-name}&quot;)
+    private String test3Driver;
+
+    @Value(&quot;${spring.datasource.test3.url}&quot;)
+    private String test3Url;
+
+    @Value(&quot;${spring.datasource.test3.username}&quot;)
+    private String test3Username;
+
+    @Value(&quot;${spring.datasource.test3.password}&quot;)
+    private String test3Password;
+
+    @Bean(name=&quot;test3DataSource&quot;)
+    public DataSource test3DataSource() throws Exception{
+        HikariDataSource dataSource = new HikariDataSource();
+        dataSource.setDriverClassName(test3Driver);
+        dataSource.setJdbcUrl(test3Url);
+        dataSource.setUsername(test3Username);
+        dataSource.setPassword(test3Password);
+        return dataSource;
+    }
+}</code></pre>
+<h4 id="定义一个枚举类管理数据源">定义一个枚举类管理数据源</h4>
+<pre><code><code>public enum DatabaseType {
+
+    test1(&quot;test1&quot;, &quot;test1&quot;),
+    test2(&quot;test2&quot;, &quot;test2&quot;),
+    test3(&quot;test3&quot;,&quot;test3&quot;);
+
+    private String name;
+    private String value;
+
+    DatabaseType(String name, String value){
+        this.name = name;
+        this.value = value;
+    }
+
+    public String getName(){
+        return name;
+    }
+
+    public String getValue(){
+        return value;
+    }
+}</code></pre>
+<h4 id="定义一个线程安全的数据源容器">定义一个线程安全的数据源容器</h4>
+<pre><code><code>public class DatabaseContextHolder {
+
+    private static final ThreadLocal&lt;DatabaseType&gt; contextHolder = new ThreadLocal&lt;&gt;();
+
+    public static void setDatabaseType(DatabaseType type){
+        contextHolder.set(type);
+    }
+
+    public static DatabaseType getDatabaseType(){
+        return contextHolder.get();
+    }
+}</code></pre>
+<h4 id="定义动态数据源">定义动态数据源</h4>
+<pre><code><code>public class DynamicDataSource extends AbstractRoutingDataSource{
+
+    protected Object determineCurrentLookupKey() {
+        return DatabaseContextHolder.getDatabaseType();
+    }
+}</code></pre>
+<h4 id="mybatis配置类">mybatis配置类</h4>
+<p>网上的很多文章配置出来都会产生数据源循环依赖的问题，这里解决了这个问题。</p>
+<pre><code><code>@Configuration
+@MapperScan(basePackages=&quot;cn.test.jichi&quot;, sqlSessionFactoryRef=&quot;sessionFactory&quot;)
+public class MybatisConfig {
+
+    /**
+     *  @Description:设置动态数据源
+     */
+    @Bean(name=&quot;dynamicDataSource&quot;)
+    @Primary
+    public DynamicDataSource DataSource(
+            @Qualifier(&quot;test1DataSource&quot;) DataSource test1DataSource,
+            @Qualifier(&quot;test2DataSource&quot;) DataSource test2DataSource,
+            @Qualifier(&quot;test3DataSource&quot;) DataSource test3DataSource){
+        Map&lt;Object, Object&gt; targetDataSource = new HashMap&lt;&gt;();
+        targetDataSource.put(DatabaseType.test1, test1DataSource);
+        targetDataSource.put(DatabaseType.test2, test2DataSource);
+        targetDataSource.put(DatabaseType.test3, test3DataSource);
+        DynamicDataSource dataSource = new DynamicDataSource();
+        dataSource.setTargetDataSources(targetDataSource);
+        dataSource.setDefaultTargetDataSource(test1DataSource);
+        return dataSource;
+    }
+
+    /**
+     *  @Description:根据动态数据源创建sessionFactory
+     */
+    @Bean(name=&quot;sessionFactory&quot;)
+    public SqlSessionFactory sessionFactory(
+            @Qualifier(&quot;test1DataSource&quot;) DataSource test1DataSource,
+            @Qualifier(&quot;test2DataSource&quot;) DataSource test2DataSource,
+            @Qualifier(&quot;test3DataSource&quot;) DataSource test3DataSource) throws Exception{
+        SqlSessionFactoryBean sessionFactoryBean = new SqlSessionFactoryBean();
+        //构造方法，解决动态数据源循环依赖问题。
+        sessionFactoryBean.setDataSource(this.DataSource(test1DataSource,test2DataSource, test3DataSource));
+        return sessionFactoryBean.getObject();
+    }
+}</code></pre>
+<h4 id="提供一个示例">提供一个示例</h4>
+<pre><code><code>    public void testDymnaicDatasource(){
+        //不切换数据源默认是自己的。
+        System.out.println(&quot;-----默认数据源&quot;);
+        DemoEntity totalCount = demoMapper.getTotalCount();
+        String nameCount1 = totalCount.getNameCount();
+        String ageCount2 = totalCount.getAgeCount();
+        System.out.println(&quot;nameCount:&quot;+nameCount1);
+        System.out.println(&quot;ageCount:&quot;+ageCount2);
+        //数据源切换为branch
+        System.out.println(&quot;-----数据源为test2&quot;);
+        DynamicDataSourceUtils.chooseBranchDataSource();
+        Integer nameCount = demoMapper.getNameCount();
+        Integer ageCount = demoMapper.getAgeCount();
+        System.out.println(&quot;nameCount:&quot;+nameCount);
+        System.out.println(&quot;ageCount:&quot;+ageCount);
+        //数据源为basic
+        System.out.println(&quot;-----数据源为test3&quot;);
+        DynamicDataSourceUtils.chooseBasicDataSource();
+        Integer ageCount1 = demoMapper.getAgeCount();
+        System.out.println(&quot;ageCount:&quot;+ageCount1);
+
+    }</code></pre>
+<h3 id="总结">总结</h3>
+<p>至此实现了多数据源的动态切换。可以在同一个方法里面进行操作多个数据源。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

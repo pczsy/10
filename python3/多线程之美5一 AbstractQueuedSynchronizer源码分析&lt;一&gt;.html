@@ -1,0 +1,398 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;</center></div><div class='banquan'>原文出处:本文由博客园博主夕阳下飞奔的猪提供。<br/>
+原文连接:https://www.cnblogs.com/flydashpig/p/12076475.html</div><br>
+    <p>AQS的源码分析 <一></p>
+<p>目录结构</p>
+<p>1、什么是CAS ?</p>
+<p>2、同步器类结构</p>
+<p>3、CLH同步队列</p>
+<p>4、AQS中静态内部类Node</p>
+<p>5、方法分析</p>
+<p>​ 5.1、acquire(int arg )</p>
+<p>​ 5.2、release(int arg) 释放锁</p>
+<p>6、总结</p>
+<h1 id="前言">前言</h1>
+<p>在多线程环境下，我们一般会对临界区资源（共享资源）进行加锁,释放锁，保证同一时刻最多只有一个线程（独占模式），就如去公共厕所里，在使用一个小房间时会加锁避免自己在使用的时候，别人突然闯进来一样，引起不必要的麻烦，在使用完后，再打开锁，其他人才可使用；还有生产者消费者模型中，线程之间要同步，需要等待和通知机制，来协调线程合作。那么这些是这么实现的？如可重入锁ReentrantLock, 读写锁ReadWriteLock, 信号量 Semaphore, 计数器CountDownLatch，这些都会涉及线程之间的协调同步，那么会有一个抽象的结构，将这些需要共用的功能抽离出来，统一来满足要求吗？我们一起来看看AbstractQueuedSynchronizer 这个抽象类，如何来实现这些功能和其设计的巧妙, 我们能看到Doug lea 大佬在很多地方使用的循环CAS操作(自旋锁)。</p>
+<h1 id="什么是cas">1、什么是CAS ?</h1>
+<p>CAS 即 compare and swap 比较并交换， 涉及到三个参数，内存值V, 预期值A, 要修改的新值B, 拿着预期值A与内存值V比较，相等则符合预期，将内存值V更新为B, 否则不相等，不能更新V;</p>
+<p>比如我想去果篮拿1个苹果，我预期篮子是5个，而果篮中实际有2个，被其他人早已偷偷吃了几个我还不知道！于是我的期望值5与果篮值实际2不符，那么我就不能更新篮子的苹果数量了。这和数据库中乐观锁机制一样。后面我想用一篇文章单独总结一下CAS, 如它存在的ABA问题以及加上版本号来解决ABA问题， 还有用CAS实现自旋锁等。</p>
+<h1 id="同步器类结构">2、同步器类结构</h1>
+<pre><code><code>public abstract class AbstractQueuedSynchronizer  extends AbstractOwnableSynchronizer</code></pre>
+<p>AbstractQueuedSynchronizer （以后简称AQS）是一个抽象类，定义了一些通用功能以及子类需要根据自身特性重写实现的方法，有两个内部类 Node和ConditionObject, 以及2个链表结构的队列，一个是双向链表的同步队列，用来存放尝试获取锁，却未获取到锁需等待的线程，另一个是单向链表的条件队列，用来存放某些线程已经获取到锁了，为了等待某些事件（如IO事件,mq消息等）主动放弃锁挂起等待条件的线程。</p>
+<p>这里主要分析2个方法，分别是独占式获取锁 acquire, 释放锁release。</p>
+<pre><code><code>// 独占模式 EXCLUSIVE
+acquire(int arg)
+release(int arg)
+// 共享模式 SHARED
+acquireShared(int arg)
+releaseShared(int arg)</code></pre>
+<h1 id="clh同步队列">3、CLH同步队列</h1>
+<p>AQS 内部持有一个双向链表的队列（CLH队列，也称线程同步队列，用来存储尝试获取锁，未获取到等待的线程），AQS 持有head, tail节点，以及资源同步状态state 属性, 来表示有限的锁资源占用情况。</p>
+<p><strong>注：</strong>Head节点是一个空节点，是不关联线程的，因为Head节点表示当前已经占用资源在使用的线程，该线程已经不需要等待锁，在同步队列中作占位作用，它只是一个标志节点，其他线程才是对锁资源有需求，在队列中等待的，慢慢看来，后面代码会更有理解。</p>
+<p>双向链表结构如下图：<br />
+<img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;0.png" /></p>
+<pre><code><code>public abstract class AbstractQueuedSynchronizer
+    extends AbstractOwnableSynchronizer
+    implements java.io.Serializable {
+    /**
+     * 等待队列中的头节点，懒初始化，如果头节点存在，表示当前正在占用锁资源的线程。                
+     *
+     */
+    private transient volatile Node head;
+
+    /**
+     * 等待队列中尾节点
+     */
+    private transient volatile Node tail;
+
+    /**
+     * 同步状态,在独占模式下 state=0,表示锁空闲，可获取,state =1,则表示被其他线程占用，需等待
+     * 就如火车上的厕所，绿灯表示可用，红灯表示里面有人，需要等待
+     */
+    private volatile int state;</code></pre>
+<h1 id="aqs中静态内部类node">4、AQS中静态内部类Node</h1>
+<p>CLH双向链表中每个node 中有关联的线程，节点状态信息，以及节点的前后指针，每个属性有volatile修饰，可保证多线程之间的可见性。</p>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;1.png" /></p>
+<pre><code><code>static final class Node {
+    // 获取锁的模式分为独占式和共享式
+        static final Node SHARED = new Node();
+       
+       //独占式
+        static final Node EXCLUSIVE = null;
+   
+  // 以下是节点在等待队列中的5种状态，初始为0，即waitStatus的值
+
+        static final int CANCELLED =  1;
+  
+        static final int SIGNAL    = -1;
+
+        static final int CONDITION = -2;
+  
+        static final int PROPAGATE = -3;
+
+// 以下4个属性分别用volatile修饰，保证多线程之间可见性
+ 
+ //节点的状态
+        volatile int waitStatus;
+   //前置节点
+        volatile Node prev;
+  // 后置节点
+        volatile Node next;
+ // 节点关联的线程
+        volatile Thread thread;</code></pre>
+<p>Node中在队列中的等待状态 waitStatus,初始为0，还有以下4种状态和其含义：</p>
+<ul>
+<li>SIGNAL: waitStatus= -1,表示当前节点线程在使用完同步资源，释放资源后，需要去唤醒后面的一个节点中的线程。</li>
+<li>CANCELLED：waitStatus= 1，节点在循环尝试获取锁资源失败，被中断了，就不再需要再在队列中等待资源了，需要执行节点出队操作，将该节点移出该队列。就如一群小伙伴都在排队等待领取免费的辣条呢，都要排到小名了， 突然被妈妈叫着回去吃饭了，被强行中断了，那就要移出队列，让给其他人了哦。</li>
+<li>PROPAGATE：waitStatus= -3, 该状态是共享模式下，如CountDownLatch等实现同步时，可有多个线程同时获取锁资源，在独占模式下，锁资源有限，只有1个，一次最多有一个线程获取到锁资源，共享模式下，锁资源可有多个，可有多个线程同时获取到锁，如果锁资源数量可足够下一个节点中线程使用，会继续唤醒下一个。</li>
+<li>CONDITION：waitStatus= -2，表示在Condition条件等待队列中。</li>
+</ul>
+<h1 id="方法分析">5、方法分析</h1>
+<h2 id="acquireint-arg">5.1、acquire(int arg )</h2>
+<p>锁资源只有1个，同一时刻最多只有一个线程可获取到锁，独占式获取锁，其他未获取到锁的线程需在同步队列中等待。</p>
+<pre><code><code> public final void acquire(int arg) {
+        if (!tryAcquire(arg) &amp;&amp;
+            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+          //如果在等待过程中，线程被标记中断了，响应中断
+            selfInterrupt();
+    }</code></pre>
+<p>变形为：</p>
+<pre><code><code> public final void acquire(int arg) {
+      boolean ta = tryAcquire(arg)
+      if(!ta) {
+        Node  aw = addWaiter(Node.EXCLUSIVE);
+        boolean isInterrupt = acquireQueued(aw,arg);
+        if(isInterrupt) {
+          //如果在等待过程中，线程被标记中断了，响应中断
+            selfInterrupt();
+        }
+      }
+ }</code></pre>
+<p>1) tryAcquire(arg)： 尝试去获取锁资源，具体怎样获取锁由每个子类实现，AQS不做处理，统一抛出 throw new UnsupportedOperationException() 异常；</p>
+<p>2) addWaiter(Node.EXCLUSIVE)：如果尝试获取锁失败，将该线程封装到一个新node节点中,添加到等待队列中</p>
+<p>3) acquireQueued(node, arg) ：如果在head节点后，再次尝试去获取锁，可能占用锁的线程已经释放资源了，如果再次获取失败，在队列中寻找到安全位置（告知前置节点，使用完资源唤醒一下自己）后，则在队列中挂起，等待被唤醒，返回布尔类型，<strong>表示线程是否被中断</strong>。</p>
+<p>下面来分别查看以上3个方法的源码：</p>
+<p>1）tryAcquire() 是尝试去获取锁，需要每个具体实现类去实现，默认抛出异常</p>
+<pre><code><code> protected boolean tryAcquire(int arg) {
+    //抛出不支持操作异常
+        throw new UnsupportedOperationException();
+    }</code></pre>
+<p>来看看 ReentrantLock 是怎样实现 tryAcquire() 去获取锁的，ReentrantLock 有公平方式和非公平两种方式，这里简单看看非公平方式的实现细节。</p>
+<pre><code><code>protected final boolean tryAcquire(int acquires) {
+            return nonfairTryAcquire(acquires);
+        }</code></pre>
+<p>内部调用nonfairTryAcquire 方法,代码如下：</p>
+<pre><code><code>  final boolean nonfairTryAcquire(int acquires) {
+          //1,获取当前线程对象
+            final Thread current = Thread.currentThread();
+          //2,获取同步状态state
+            int c = getState();
+         //3, c为0表示锁可用，cas更新为1,compareAndSetState内部有unsafe类 调用本地方法（native修饰）执行原子更新操作，多个线程同时进来更新，只会有一个更新成功。更新成功就设置当前线程对象，用来标识当前线程拥有锁了，是有主的，其他线程在我没释放锁之前不可占用，也是用来支持可重入的。
+            if (c == 0) {
+                if (compareAndSetState(0, acquires)) {
+                    setExclusiveOwnerThread(current);
+                    return true;
+                }
+            }
+            else if (current == getExclusiveOwnerThread()) {
+              //4,如果当前线程等于当前已获取锁线程，可重入，同步状态 +1,返回true,允许再次获取锁
+                int nextc = c + acquires;
+                if (nextc &lt; 0) // overflow
+                    throw new Error(&quot;Maximum lock count exceeded&quot;);
+                setState(nextc);
+                return true;
+            }
+            return false;
+        }</code></pre>
+<p><strong>可重入锁</strong> : 指线程在获取锁资源后，再次去获取同步锁，是允许再次获得的，不然存在产生死锁的风险，由上可知ReentrantLock 是支持可重入的，可重入多次，每重入一次 state +1，那么重入n 次，也需要释放n次（同理，每释放一次，state -1 ），不然state 无法恢复到到空闲状态0，导致其他线程无法获取到锁。</p>
+<p>2）addWaiter(Node mode)，将当前线程封装为一个节点，添加到等待队列中。该方法分为2步操作，第一步利用CAS快速将节点入队，如果能入队成功，则返回，否则第二步执行 enq() 方法。</p>
+<p>为什么？</p>
+<p>为了执行效率和安全性两方面考虑，因在多线程环境下，同一时间可能并发执行多个线程，如果此时有2个线程都在执行入队操作，就有可能其中一个线程执行CAS 失败，他引用 的tail节点已经被更新，需要重新获取新的，此时就需要执行enq() 循环轮询去获取最新的tail节点执行入队操作，直到成功。</p>
+<p>如图所示：</p>
+<p>线程A在刚获取到pred = tail后，cpu调度切换到线程B，线程B此时也执行入队操作，入队成功，队列长度+1, tail更新，此时cpu调度 线程A，线程A再执行 compareAndSetTail(pred, node) 操作就会失败。</p>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;2.png" /></p>
+<p>快速添加到队尾失败了，有两种情况，</p>
+<p>1.是tail节点 为空，队列为空，那么需要初始化队列，添加一个空的head节点，表示当前已经获取锁资源，正在执行的线程。</p>
+<p>2.是在cas添加到队尾后面时，有其他线程也在操作，抢先入队成功，导致自己获取的tail节点不是最新的，那就轮询获取最新的tail执行更新。</p>
+<p>流程图如下：</p>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;3.png" /></p>
+<p>addWaiter(Node mode) 代码如下：</p>
+<pre><code><code>    private Node addWaiter(Node mode) {
+      /*1，创建 node节点,节点信息保存线程及模式
+       * Node.EXCLUSIVE for exclusive 独占模式
+       * Node.SHARED for shared 共享模式
+       */
+        Node node = new Node(Thread.currentThread(), mode);
+        // Try the fast path of enq; backup to full enq on failure
+        Node pred = tail;
+        if (pred != null) {
+            node.prev = pred;
+  //2,如果队尾节点不为空，尝试将节点添加到 tail后面，建立双向链接 
+            if (compareAndSetTail(pred, node)) {
+                pred.next = node;
+                return node;
+            }
+        }
+      //3,如果队尾节点为空，或者cas添加节点失败
+        enq(node);
+        return node;
+    }</code></pre>
+<p>enq（node） 节点入队操作，for无限循环尝试去添加节点到队尾，直至成功。</p>
+<pre><code><code>private Node enq(final Node node) {
+    for (;;) {
+      //每新的一次循环，获取的是最新的tail，因tail节点是volatile修饰的，多线程之间内存可见，每次更新都会被刷新到内存
+        Node t = tail;
+        if (t == null) { // Must initialize
+           //1，head节点是一个 node对象，但是没有绑定线程，表示当前已经获取到锁资源，正在执行的线程，此时首尾相同，会再次走一遍循环，添加当前节点到head节点后面
+            if (compareAndSetHead(new Node()))
+                tail = head;
+        } else {
+          //2,轮询去设置节点到队尾
+            node.prev = t;
+            if (compareAndSetTail(t, node)) {
+                t.next = node;
+                return t;
+            }
+        }
+    }
+}</code></pre>
+<p>boolean acquireQueued(final Node node, int arg) 返回线程是否被中断</p>
+<p>在上一步方法将节点添加到同步队列后，执行该方法的目的是：</p>
+<p>如果node的前置节点是head, 再次尝试一次获取锁资源，如果已经被释放了，那(线程)就去获取锁执行。如果不是头节点或者尝试获取锁资源失败，那就在队列找个位置挂起等待了 。</p>
+<p>此时需要找一个安全点，确保前面的有效节点（没被取消的节点）的线程执行后，能够通知唤醒自己，当前节点线程才安心挂起等待。</p>
+<p>流程图如下：</p>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;4.png" /></p>
+<p>源代码如下：</p>
+<pre><code><code>  final boolean acquireQueued(final Node node, int arg) {
+        //默认是失败
+        boolean failed = true;
+        try {
+          //默认是没有被中断
+            boolean interrupted = false;
+          //无限循环
+            for (;;) {
+                final Node p = node.predecessor();
+               //1，如果前置节点是head节点，再去尝试获取锁，如果获取成功了，则将自己更新为head，此时当前线程可以执行了。
+                if (p == head &amp;&amp; tryAcquire(arg)) {
+                    setHead(node);
+                    p.next = null; // help GC
+                    failed = false;
+                   // 此时返回 false，没被中断
+                    return interrupted;
+                }
+             //2,1失败或前置不是head,那么要定位一个有效的位置去阻塞等待，前面有些节点可能是被取消的，需要跳过这些节点，清除出队列，shouldParkAfterFailedAcquire就是来做这个事
+                if (shouldParkAfterFailedAcquire(p, node) &amp;&amp; parkAndCheckInterrupt())
+                  //3,标记中断标记，返回被中断过 
+                    interrupted = true;
+            }
+        } finally {
+          // 4,正常情况下是一直会进行for循环，当跳出该循环，即出现异常，如被标记了中断，去调用阻塞，抛出中断异常,此时没有在队列中找到安全位置，因此将该节点移出队列
+            if (failed)
+                cancelAcquire(node);
+        }
+    }</code></pre>
+<p><strong>shouldParkAfterFailedAcquire</strong> 在失败获取锁资源后，寻找可以安全挂起的位置</p>
+<p>如果前置节点被取消，一直向前找到节点 ws&lt;=0 为止,注意蓝色箭头，指向的前后指针还在，但是node1对象已经没有被引用，下次gc会被回收，则出队。</p>
+<p>流程图如下：</p>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;5.png" /></p>
+<pre><code><code>private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
+        int ws = pred.waitStatus;
+        if (ws == Node.SIGNAL)
+       //1,前置节点已经是signal，在它释放资源后，会通知唤醒队列中下一个线程，所以当前位置就是安全阻塞等待点
+            return true;
+        if (ws &gt; 0) {
+          // ws&gt; 0，前置节点被取消
+            do {
+                node.prev = pred = pred.prev;
+            } while (pred.waitStatus &gt; 0);
+      // 2,ws&gt;0,那么就继续往前找，直到找到一个节点没被取消的,跳过了那些被取消的节点，这些节点后面会被GC   
+            pred.next = node;
+        } else {
+          //3，尝试将前置节点 状态更新为signal,ws= -1, 进行下一次轮询
+            compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
+        }
+        return false;
+    }</code></pre>
+<p>在找到安全位置后，挂起当前线程，等待被唤醒，如果下次被唤醒，首先检查一下自己是被前置节点唤醒 还是被中断唤醒的</p>
+<pre><code><code> private final boolean parkAndCheckInterrupt() {
+      // 挂起当前线程
+        LockSupport.park(this);
+       //当被唤醒，返回是否被中断标记位
+        return Thread.interrupted();
+    }</code></pre>
+<p>最后finally中，线程被中断，出现异常，取消节点；cancelAcquire(Node node) 将该节点移出等待队列，线程都被中断了，就不再</p>
+<p>需要去等待锁资源了。</p>
+<p>出队有三种情况:</p>
+<ul>
+<li>1, 节点在队尾 ,等于tail</li>
+</ul>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;6.png" /></p>
+<ul>
+<li>2, 节点在中间位置，既不在head后面，也不是tail</li>
+</ul>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;7.png" /></p>
+<p><strong>注：</strong> 我理解这里最终实现是要达到第3步的效果，但是在cancelAcquire方法里并没有更新第2步蓝色箭头的前置指针，而是留给了其他线程在获取锁资源时，执行shouldParkAfterFailedAcquire方法查找安全位置挂起来实现的，这时 node 将没有再被引用，因此会被GC。</p>
+<ul>
+<li><p>3, 被取消节点在head的后面，第二个节点</p>
+<p>这里唯一做的就是去唤醒 node 的后继节点（如果为没被取消的节点），如果后继节点为空或者ws =1,那么就在队列从后向前遍历去唤醒一个有效节点，这个节点醒来做的事情是尝试去获取锁，并且将排在它队列前连续被取消的节点出队。所以这里更新节点的前后指针操作还是交给其他线程来做的，在 shouldParkAfterFailedAcquire方法实现的。</p>
+<p><img src="./images/多线程之美5一 AbstractQueuedSynchronizer源码分析&lt;一&gt;8.png" /></p>
+<p>源代码如下：</p></li>
+</ul>
+<pre><code><code>    private void cancelAcquire(Node node) {
+        // Ignore if node doesn&#39;t exist
+        if (node == null)
+            return;
+       //1,将节点与线程解绑
+        node.thread = null;
+       
+       //2,跳过前面所有被取消的节点
+        // Skip cancelled predecessors
+        Node pred = node.prev;
+        while (pred.waitStatus &gt; 0)
+            node.prev = pred = pred.prev;
+       //3,获取前置节点后一个位置节点，不一定是 node,有可能是跳过的被取消的节点，留作cas更新用
+        Node predNext = pred.next;
+        //4,将当前节点状态改为取消 ws =1
+        node.waitStatus = Node.CANCELLED;
+
+       //5,第一种情况：尾节点，将node前置节点更新为tail,并断开前置节点的next后置指针，node将无引用，被gc
+        if (node == tail &amp;&amp; compareAndSetTail(node, pred)) {
+            compareAndSetNext(pred, predNext, null);
+        } else {
+          
+            int ws;
+          // 第三种情况：node在中间位置，要做的就是让node前置节点 pred的next指针指向node后的没被取消的节点，跳过node
+            if (pred != head &amp;&amp;
+                ((ws = pred.waitStatus) == Node.SIGNAL ||
+                 (ws &lt;= 0 &amp;&amp; compareAndSetWaitStatus(pred, ws, Node.SIGNAL))) &amp;&amp;
+                pred.thread != null) {
+                Node next = node.next;
+                if (next != null &amp;&amp; next.waitStatus &lt;= 0)
+                    compareAndSetNext(pred, predNext, next);
+            } else {
+              // 第二种情况，在head后面，那么要需向node后找没被取消节点，让head跳过node指向他，并唤醒该节点的线程。
+                unparkSuccessor(node);
+            }
+
+            node.next = node; // help GC
+        }
+    }</code></pre>
+<p>唤醒后继者，该方法在release 方法也被执行，在线程使用完资源后，去唤醒下一个等待该资源的线程去执行。</p>
+<pre><code><code> private void unparkSuccessor(Node node) {
+        int ws = node.waitStatus;
+        if (ws &lt; 0)
+            compareAndSetWaitStatus(node, ws, 0);
+      // 状态置为0,初始状态，也不让她通知下一个节点，此时节点应该是取消状态1，是大于0的，为啥还需再判断一次？，这个方法不只这里用，释放资源release也用，正常ws =-1,所以更新状态为0
+
+       //首先判断node后置节点，如果不行，再从尾向前遍历去找一个没被取消的节点 去唤醒其线程
+        Node s = node.next;
+        if (s == null || s.waitStatus &gt; 0) {
+            s = null;
+            for (Node t = tail; t != null &amp;&amp; t != node; t = t.prev)
+                if (t.waitStatus &lt;= 0)
+                    s = t;
+        }
+        if (s != null)
+            LockSupport.unpark(s.thread);
+    }</code></pre>
+<h2 id="releaseint-arg-释放锁">5.2、release(int arg) 释放锁</h2>
+<pre><code><code>  public final boolean release(int arg) {
+     //1,释放资源前提是已经获取到
+        if (tryRelease(arg)) {
+            Node h = head;
+            if (h != null &amp;&amp; h.waitStatus != 0)
+              //2，head的waitStatus在独占模式应该是signal =-1
+              // 唤醒下一个节点，代码如上
+                unparkSuccessor(h);
+            return true;
+        }
+        return false;
+    }</code></pre>
+<p>同样，tryRelease() 与 tryAcquire() 一样，尝试释放锁，AQS都未具体实现，抛出异常，留个子类具体去实现。</p>
+<p>AQS中代码：</p>
+<pre><code><code>  protected boolean tryRelease(int arg) {
+        throw new UnsupportedOperationException();
+    }</code></pre>
+<p>这里还是看一下ReentrantLock 的具体实现</p>
+<pre><code><code>  protected final boolean tryRelease(int releases) {
+      //1,在没有可重入情况下，state =1, releases =1, 此时 c应该 =0 
+            int c = getState() - releases;
+       //2,判断当前释放锁线程是否等于拿到锁的线程，不等就抛出异常
+            if (Thread.currentThread() != getExclusiveOwnerThread())
+                throw new IllegalMonitorStateException();
+            boolean free = false;
+      //3,可见只有c=0,情况才可成功释放锁
+            if (c == 0) {
+                free = true;
+                setExclusiveOwnerThread(null);
+            }
+            setState(c);
+            return free;
+        }</code></pre>
+<p><strong>注：</strong>因ReentrantLock可重入的锁，由上代码可见，只有在 state=0的情况，才可成功释放锁，常见错误场景：在使用ReentrantLock lock n次，却没有unlock相应的n次，导致没有成功释放锁。</p>
+<h1 id="总结">6、总结</h1>
+<p>1、 AQS的CLH队列的 pre指针可保证可靠性，next是保证不了的，看上面的代码分析，在遍历队列时，会向前遍历来查找安全点。</p>
+<p>2、Condition 队列与 CLH同步队列两者的区别，同步队列中的所有线程是在等待获取锁的，Condition条件队列是某些之前已经获取到锁，因为要等待某个事件（如IO事件)或者与某个线程同步（等待另一线程执行结果），主动调用await方法，主动释放锁后，将该线程放入条件队列中的，所以在条件队列中线程不是等待获取锁，而是在等某个条件，下一篇我会来分析AQS的重要机制- 等待通知，靠其内部类ConditionObject实现，await和 signal来阻塞与 通知机制，可替代传统Object类提供的wait和 notify功能，而AQS可有多个条件来分类，比之应用更加灵活。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

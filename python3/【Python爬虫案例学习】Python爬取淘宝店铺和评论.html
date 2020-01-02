@@ -1,0 +1,157 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【Python爬虫案例学习】Python爬取淘宝店铺和评论' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【Python爬虫案例学习】Python爬取淘宝店铺和评论</center></div><div class='banquan'>原文出处:本文由博客园博主嗨学编程提供。<br/>
+原文连接:https://www.cnblogs.com/Pythonmiss/p/11298086.html</div><br>
+    <h3 id="安装开发需要的一些库">安装开发需要的一些库</h3>
+<p>(1) 安装mysql 的驱动：在Windows上按win+r输入cmd打开命令行，输入命令pip install pymysql，回车即可。</p>
+<p>(2) 安装自动化测试的驱动selenium：在命令行中输入pip install selenium回车。</p>
+<p>(3) 安装标签解析库pyquery: 在命令行中输入pip install pyquery回车。</p>
+<p>(4) Anaconda指的是一个开源的Python发行版本，其包含了conda、Python等180多个科学包及其依赖项，下载anaconda，安装后配置环境变量，在path中添加E:\Anaconda3\anaconda\Library\bin，重启电脑使环境变量生效，安装jieba库，在命令行中输入pip install jieba回车。</p>
+<p>(5) 下载ChromeDriver，官方网址为：<a href="http://chromedriver.storage.googleapis.com/" class="uri">http://chromedriver.storage.googleapis.com/</a></p>
+<p>index.html，并将chromedriver.exe放在Python安装目录的Scripts文件夹下。</p>
+<h3 id="实现">实现</h3>
+<ul>
+<li>爬取数据的实现主要是用到了Pyquery、selenium库，以下代码主要实现了对淘宝的检索、翻页和对数据的提取。</li>
+</ul>
+<pre><code><code>&#39;&#39;&#39;
+遇到不懂的问题？Python学习交流群：821460695满足你的需求，资料都已经上传群文件，可以自行下载！
+&#39;&#39;&#39;
+# 设置网站最大响应时间
+wait=WebDriverWait(driver,50)
+class TaoBaoSearch:
+# 初始化，默认搜索为None，创建数据库连接
+    def __init__(self,search=None):
+        self.name=search
+        self.mysql=to.Data_oper()
+# 对淘宝网的搜索
+    def search(self):
+# 设置源网站，这里设置淘宝网站为源网站
+        driver.get(&quot;https://www.taobao.com/&quot;)#J_TSearchForm &gt; div.search-button &gt; button
+# “q”为淘宝首页输入框的标签，这里定位到该输入框，并设置要搜索商品的名字
+        imput=driver.find_element_by_id(&quot;q&quot;)
+        imput.send_keys(self.name)
+# wait.until()该方法的作用是加载出来搜索结果总页数之后开始往下执行
+        pageText=wait.until(EC.presence_of_element_located((By.CSS_SELECTOR,&quot;#mainsrp-pager &gt; div &gt; div &gt; div &gt; div.total&quot;)))
+        total=re.search(&quot;\d+&quot;,pageText.text)
+# 该方法返回搜索结果的总页数
+        return total.group(0)
+# 提取出相应的数据
+    def parseHtml(self):
+        html=driver.page_source#获取网页源代码
+        doc=qp(html)
+# 得到到class为m-itemlist下面的class是.items .item的div
+        iteams=doc(&quot;.m-itemlist .items .item&quot;).items()
+# 根据标签选择器提取出需要的数据
+        for item in iteams:
+            # src=item(&quot;.pic .img&quot;).attr(&quot;src&quot;)
+            src=item(&quot;.row .J_ClickStat&quot;).attr(&quot;href&quot;)  # 该店铺的链接
+            person=item(&quot;.row .deal-cnt&quot;).text()    #购买该商品的人数
+            title=item(&quot;.row .J_ClickStat&quot;).text().split(&quot;\n&quot;)  # 标题
+            shop=item(&quot;.row .shopname&quot;).text()  # 商品
+            location=item(&quot;.row .location&quot;).text()  # 地区
+       # 将提取到的数据放到数组中保存起来
+            data=[]
+            data.append(str(title[0].strip()))
+            data.append(str(shop.strip()))
+            data.append(str(location.strip()))
+       # 剔除无用字
+            data.append(str(person[:-3].strip()))
+            data.append(str(src).strip())
+# 调用mysql.insert_data()方法将提取到的数据插入到数据库中
+            self.mysql.insert_data(data)
+#  对网页进行翻页的方法
+    def nextpage(self,pagenumber):
+# 定位到翻页的按钮前的输入框，也就是对其进行跳转
+        pageInput=driver.find_element_by_css_selector(&quot;#mainsrp-pager &gt; div &gt; div &gt; div &gt; div.form &gt; input&quot;)
+        pageInput.clear()
+        pageInput.send_keys(pagenumber)
+# 定位到跳转按钮，对其进行翻页
+        pageButton=driver.find_element_by_css_selector(&quot;#mainsrp-pager &gt; div &gt; div &gt; div &gt; div.form &gt; span.btn.J_Submit&quot;)
+        pageButton.click()
+        wait.until(EC.text_to_be_present_in_element((By.CSS_SELECTOR,&quot;#mainsrp-pager &gt; div &gt; div &gt; div &gt; ul &gt; li.item.active &gt; span&quot;),str(pagenumber)))
+        self.parseHtml()
+# 定义主函数，调用上面的的方法
+    def main(self):
+        total=int(self.search())
+        for i in range(2,total):
+            self.nextpage(i)
+        self.mysql.close()</code></pre>
+<p>以下代码是一个排序的算法，其主要作用是在界面上显示多少行数据，主要思路为：根据用户输入的数字创建一个数组，读取数据库中得到数据，分离出来购买人数并转换成int类型，将数据每次添加一个到数组中，当数组的长度等于用户想要显示最大行数时，对其数组中的数据从大到小进行排序，接下来，每当读取一个数据之后，就对数组中最小的那个进行比较，如果比起小，就跳过，否则，对该数据进行插入操作，并删除之前最小的那个数据，最后数组中保存的就是购买人数最多的前n条数据。</p>
+<p>主要代码如下：</p>
+<pre><code><code>&#39;&#39;&#39;
+遇到不懂的问题？Python学习交流群：821460695满足你的需求，资料都已经上传群文件，可以自行下载！
+&#39;&#39;&#39;
+#对数据进行排序，data为购买人数
+def shot_data(self,data,i=10):    # i为用户想要显示的最大行数，默认为10行
+    top=[]
+    if i&gt;len(data):
+        i=len(data)
+    for x in data:
+        if len(top)&lt;i:     # 控制数组的长度，另其大小等于i
+            top.append(x)
+            if len(top)==i:
+                top.sort(reverse=True)        # 数组内的数据进行排序
+        else:
+            l=len(top)
+            y=len(top)
+            t=1
+            if x&gt;top[l-1]:    # 判断其数值是否大于数组内的最小值
+                while x&gt;top[l-t] and y&gt;0:    # 控制循环条件
+                    t+=1
+                    y-=1
+                if y!=0:    # y的值若是==0，那么该数值就是最大值
+                    for c in range(1,t):
+                        top[l-c]=top[l-c-1]
+                    top[l-t+1]=x
+                else:
+                   for c in range(1,t):
+                       top[l-c]=top[l-c-1]
+                   top[0]=x
+    return top    # 返回装有最大的前i个数的数组</code></pre>
+<p>以下代码是对评论进行关键词的提取，用到了jieba库中的一些方法。<br />
+主要代码如下：</p>
+<pre><code><code>def dis_an(self):
+# 清空显示界面
+    self.txtMess.delete(1.0,END)
+    t=to.Data_oper()
+# 得到数据库中的存储信息
+    test=t.dis_only_discuss()
+# 定义字符串adg，v
+    adg=&quot;&quot;
+    v=&quot;&quot;
+# 对评论进行分割并标注词性
+    word=psg.cut(test)
+# w为词意，f为词性
+    for w,f in word:
+    # 判断词性是否为形容词
+        if f.startswith(&#39;a&#39;):
+            print(w)
+            adg=adg+&quot;,&quot;+w
+    # 判断词性是否为动词
+        elif f.startswith(&#39;v&#39;):
+            v=v+&quot;,&quot;+w
+    # 根据该词的权重提取出前5个词
+tags=jieba.analyse.extract_tags(adg,topK=5)
+    tags1=jieba.analyse.extract_tags(v,topK=5)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,203 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Golang 在电商即时通讯服务建设中的实践' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Golang 在电商即时通讯服务建设中的实践</center></div><div class='banquan'>原文出处:本文由博客园博主马蜂窝技术提供。<br/>
+原文连接:https://www.cnblogs.com/mfwtech/p/12048365.html</div><br>
+    <blockquote>
+<p><em>马蜂窝技术原创文章，更多干货请搜索公众号：mfwtech</em></p>
+</blockquote>
+<p>​即时通讯（IM）功能对于电商平台来说非常重要，特别是旅游电商。</p>
+<p>从商品复杂性来看，一个旅游商品可能会包括用户在未来一段时间的衣、食、住、行等方方面面；从消费金额来看，往往单次消费额度较大；对目的地的陌生、在行程中可能的问题，这些因素使用户在购买前、中、后都存在和商家沟通的强烈需求。可以说，一个好用的 IM 可以在一定程度上对企业电商业务的 GMV 起到促进作用。</p>
+<p>本文我们将结合马蜂窝旅游电商 IM 服务的发展历程，重点介绍基于 Go 的 IM 重构，希望可以给有相似问题的朋友一些借鉴。</p>
+<h6>&nbsp;</h6>
+<h1>Part.1 技术背景和问题</h1>
+<p>与广义上的即时通讯不同，电商各业务线有其特有业务逻辑，如客服聊天系统的客人分配逻辑、敏感词检测逻辑等，这些往往要耦合进通信流程中。随着接入业务线越来越多，即时通讯服务冗余度会越来越高。同时整个消息链路追溯复杂，服务稳定性很受业务逻辑的影响。</p>
+<p>之前我们 IM 应用中的消息推送主要基于轮询技术，消息轮询模块的长连接请求是通过 php-fpm 挂载在阻塞队列上实现。当请求量较大时，如果不能及时释放 php-fpm 进程，对服务器的性能消耗很大。</p>
+<p>为了解决这个问题，我们曾用 OpenResty+Lua 的方式进行改造，利用 Lua 协程的方式将整体的 polling 的能力从 PHP 转交到 Lua 处理，释放一部 PHP 的压力。这种方式虽然能提升一部分性能，但 PHP-Lua 的混合异构模式，使系统在使用、升级、调试和维护上都很麻烦，通用性也较差，很多业务场景下还是要依赖 PHP 接口，优化效果并不明显。</p>
+<p>为了解决以上问题，我们决定结合电商 IM 的特定背景对 IM 服务进行重构，核心是实现业务逻辑和即时通讯服务的分离。</p>
+<p>&nbsp;</p>
+<h1>Part.2&nbsp;基于Go的双层分布式IM架构</h1>
+<h2>2.1 实现目标</h2>
+<h4><strong>1. 业务解耦</strong></h4>
+<p>将业务逻辑与通信流程剥离，使 IM 服务架构更加清晰，实现与电商 IM 业务逻辑的完全分离，保证服务稳定性。</p>
+<h4><strong>2. 接入方式灵活</strong></h4>
+<p>之前新业务接入时，需要在业务服务器上配置 OpenResty 环境及 Lua 协程代码，非常不便，IM 服务的通用性也很差。考虑到现有业务的实际情况，我们希望 IM 系统可以提供 HTTP 和 WebSocket 两种接入方式，供业务方根据不同的场景来灵活使用。</p>
+<p>比如已经接入且运行良好的电商定制化团队的待办系统、定制游抢单系统、投诉系统等下行相关的系统等，这些业务没有明显的高并发需求，可以通过 HTTP 方式迅速接入，不需要熟悉稍显复杂的 WebSocket 协议，进而降低不必要的研发成本。</p>
+<h4><strong>3. 架可扩展</strong></h4>
+<p>为了应对业务的持续增长给系统性能带来的挑战，我们考虑用分布式架构来设计即时通讯服务，使系统具有持续扩展及提升的能力。</p>
+<h2>2.2 语言选择</h2>
+<p>目前，马蜂窝技术体系主要包括 PHP，Java，Golang，技术栈比较丰富，使业务做选型时可以根据问题场景选择更合适的工具和语言。</p>
+<p>结合 IM 具体应用场景，我们选择 Go 的原因包括：</p>
+<h4><strong>1. 性能</strong></h4>
+<p>在性能上，尤其是针对网络通信等 IO 密集型应用场景。Go 系统的性能更接近 C/C++。</p>
+<h4><strong>2. 开发效率</strong></h4>
+<p>Go 使用起来简单，代码编写效率高，上手也很快，尤其是对于有一定 C++ 基础的开发者，一周就能上手写代码了。</p>
+<h2>2.3 架构设计</h2>
+<p>整体架构图如下：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践0.png" alt="" width="1676" height="1216" data-cke-saved-src="./images/Golang 在电商即时通讯服务建设中的实践0.png" /></p>
+<p>&nbsp;</p>
+<blockquote>
+<p><em>名词解释：</em></p>
+<ul>
+<li>
+<p>客户：一般指购买商品的用户</p>
+</li>
+<li>
+<p>商家：提供服务的供应商，商家会有客服人员，提供给客户一个在线咨询的作用</p>
+</li>
+<li>
+<p>分发模块：即 Dispatcher，提供消息分发的给指定的工作模块的桥接作用</p>
+</li>
+<li>
+<p>工作模块：即 Worker 服务器，用来提供 WebSocket 服务，是真正工作的一个模块。</p>
+</li>
+</ul>
+</blockquote>
+<p><strong>架构分层：</strong></p>
+<ul>
+<li>
+<p><strong>展示层</strong>：提供 HTTP 和 WebSocket 两种接入方式。</p>
+</li>
+<li>
+<p><strong>业务层</strong>：负责初始化消息线和业务逻辑处理。如果客户端以 HTTP 方式接入，会以 JSON 格式把消息发送给业务服务器进行消息解码、客服分配、敏感词过滤，然后下发到消息分发模块准备下一步的转换；通过 WebSocket 接入的业务则不需要消息分发，直接以 WebSocket 方式发送至消息处理模块中。</p>
+</li>
+<li>
+<p><strong>服务层</strong>：由消息分发和消息处理这两层组成，分别以分布式的方式部署多个 Dispatcher 和 Worker 节点。Dispatcher 负责检索出接收者所在的服务器位置，将消息以 RPC 的方式发送到合适的 Worker 上，再由消息处理模块通过 WebSocket 把消息推送给客户端。</p>
+</li>
+<li>
+<p><strong>数据层</strong>：Redis 集群，记录用户身份、连接信息、客户端平台（移动端、网页端、桌面端）等组成的唯一 Key。</p>
+</li>
+</ul>
+<h2>2.4 服务流程</h2>
+<h4><strong>步骤一</strong></h4>
+<p>如上图右侧所示，用户客户端与消息处理模块建立 WebSocket 长连接。通过负载均衡算法，使客户端连接到合适的服务器（消息处理模块的某个 Worker）。连接成功后，记录用户连接信息，包括用户角色（客人或商家）、客户端平台（移动端、网页端、桌面端）等组成唯一 Key，记录到 Redis 集群。</p>
+<h4><strong>步骤二</strong></h4>
+<p>如图左侧所示，当购买商品的用户要给管家发消息的时候，先通过 HTTP 请求把消息发给业务服务器，业务服务端对消息进行业务逻辑处理。</p>
+<p>(1) 该步骤本身是一个 HTTP 请求，所以可以接入各种不同开发语言的客户端。通过 JSON 格式把消息发送给业务服务器，业务服务器先把消息解码，然后拿到这个用户要发送给哪个商家的客服的。</p>
+<p>(2) 如果这个购买者之前没有聊过天，则在业务服务器逻辑里需要有一个分配客服的过程，即建立购买者和商家的客服之间的连接关系。拿到这个客服的 ID，用来做业务消息下发；如果之前已经聊过天，则略过此环节。</p>
+<p>(3) 在业务服务器，消息会异步入数据库。保证消息不会丢失。</p>
+<h4><strong>步骤三</strong></h4>
+<p>业务服务端以 HTTP 请求把消息发送到消息分发模块。这里分发模块的作用是进行中转，最终使服务端的消息下发给指定的商家。</p>
+<h4><strong>步骤四</strong></h4>
+<p>基于 Redis 集群中的用户连接信息，消息分发模块将消息转发到目标用户连接的 WebSocket 服务器（消息处理模块中的某一个 Worker）</p>
+<p>(1) 分发模块通过 RPC 方式把消息转发到目标用户连接的 Worker，RPC 的方式性能更快，而且传输的数据也少，从而节约了服务器的成本。</p>
+<p>(2) 消息透传 Worker 的时候，多种策略保障消息一定会下发到 Worker。</p>
+<h4><strong>步骤五</strong></h4>
+<p>消息处理模块将消息通过 WebSocket 协议推送到客户端：</p>
+<p>(1) 在投递的时候，接收者要有一个 ACK(应答) 信息来回馈给 Worker 服务器，告诉 Worker 服务器，下发的消息接收者已经收到了。</p>
+<p>(2) 如果接收者没有发送这个 ACK 来告诉 Worker 服务器，Worker 服务器会在一定的时间内来重新把这个信息发送给消息接收者。</p>
+<p>(3) 如果投递的信息已经发送给客户端，客户端也收到了，但是因为网络抖动，没有把 ACK 信息发送给服务器，那服务器会重复投递给客户端，这时候客户端就通过投递过来的消息 ID 来去重展示。</p>
+<p>以上步骤的数据流转大致如图所：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践1.png" alt="" /></p>
+<h1>2.5&nbsp;系统完整性设计</h1>
+<h3><strong>2.5.1 可靠性</strong></h3>
+<h4><strong>（1）消息不丢失</strong></h4>
+<p>为了避免消息丢失，我们设置了超时重传机制。服务端会在推送给客户端消息后，等待客户端的 ACK，如果客户端没有返回 ACK，服务端会尝试多次推送。</p>
+<p>目前默认 18s 为超时时间，重传 3 次不成功，断开连接，重新连接服务器。重新连接后，采用拉取历史消息的机制来保证消息完整。</p>
+<h4><strong>（2）多端消息同步</strong></h4>
+<p>客户端现有 PC 浏览器、Windows 客户端、H5、iOS/Android，系统允许用户多端同时在线，且同一端可以多个状态，这就需要保证多端、多用户、多状态的消息是同步的。</p>
+<p>我们用到了 Redis 的 Hash 存储，将用户信息、唯一连接对应值 、连接标识、客户端 IP、服务器标识、角色、渠道等记录下来，这样通过 key(uid) 就能找到一个用户在多个端的连接，通过 key+field 能定位到一条连接。</p>
+<h3><strong>2.5.2 可用性</strong></h3>
+<p>上文我们已经说过，因为是双层设计，就涉及到两个 Server 间的通信，同进程内通信用 Channel，非同进程用消息队列或者 RPC。综合性能和对服务器资源利用，我们最终选择 RPC 的方式进行 Server 间通信。在对基于 Go 的 RPC 进行选行时，我们比较了以下比较主流的技术方案：&nbsp;</p>
+<ul>
+<li>
+<p>Go STDRPC：Go 标准库的 RPC，性能最优，但是没有治理</p>
+</li>
+<li>
+<p>RPCX：性能优势 2*GRPC + 服务治理</p>
+</li>
+<li>
+<p>GRPC：跨语言，但性能没有 RPCX 好</p>
+</li>
+<li>
+<p>TarsGo：跨语言，性能 5*GRPC，缺点是框架较大，整合起来费劲</p>
+</li>
+<li>
+<p>Dubbo-Go：性能稍逊一筹, 比较适合 Go 和 Java 间通信场景使用</p>
+</li>
+</ul>
+<p>最后我们选择了 RPCX，因为性能也很好，也有服务的治理。</p>
+<p>两个进程之间同样需要通信，这里用到的是 ETCD 实现服务注册发现机制。</p>
+<p>当我们新增一个 Worker，如果没有注册中心，就要用到配置文件来管理这些配置信息，这挺麻烦的。而且你新增一个后，需要分发模块立刻发现，不能有延迟。</p>
+<p>如果有新的服务，分发模块希望能快速感知到新的服务。利用 Key 的续租机制，如果在一定时间内，没有监听到 Key 有续租动作，则认为这个服务已经挂掉，就会把该服务摘除。</p>
+<p>在进行注册中心的选型时，我们主要调研了 ETCD，ZK，Consul，三者的压测结果参考如下：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践3.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>结果显示，ETCD 的性能是最好的。另外，ETCD 背靠阿里巴巴，而且属于 Go 生态，我们公司内部的 K8S 集群也在使用。</p>
+<p>综合考量后，我们选择使用 ETCD 作为服务注册和发现组件。并且我们使用的是 ETCD&nbsp;的集群模式，如果一台服务器出现故障，集群其他的服务器仍能正常提供服务。</p>
+<p>通过保证服务和进程间的正常通讯，及 ETCD 集群模式的设计，保证了 IM 服务整体具有极高的可用性。</p>
+<h3><strong>2.5.3 扩展性</strong></h3>
+<p>消息分发模块和消息处理模块都能进行水平扩展。当整体服务负载高时，可以通过增加节点来分担压力，保证消息即时性和服务稳定性。</p>
+<h3><strong>2.5.4 安全性</strong></h3>
+<p>处于安全性考虑，我们设置了黑名单机制，可以对单一 uid 或者 ip 进行限制。比如在同一个 uid 下，如果一段时间内建立的连接次数超过设定的阈值，则认为这个 uid 可能存在风险，暂停服务。如果暂停服务期间该 uid 继续发送请求，则限制服务的时间相应延长。</p>
+<h2>2.6 性能优化和踩过的坑</h2>
+<h3><strong>2.6.1 性能优化</strong></h3>
+<h4><strong>(1) JSON 编解码</strong></h4>
+<p>开始我们使用官方的 JSON 编解码工具，但由于对性能方面的追求，改为使用滴滴开源的 Json-iterator，使在兼容原生 Golang 的 JSON 编解码工具的同时，效率上有比较明显的提升。以下是压测对比的参考图：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践4.png" alt="" /></p>
+<h4><strong>(2) time.After&nbsp;&nbsp;</strong></h4>
+<p>在压测的时候，我们发现内存占用很高，于是使用 Go Tool PProf 分析 Golang 函数内存申请情况，发现有不断创建 time.After 定时器的问题，定位到是心跳协程里面。</p>
+<p>原来代码如下：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践5.png" alt="" /></p>
+<p>优化后的代码为：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践6.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>优化点在于 for 循环里不要使用 select + time.After 的组合。</p>
+<h4><strong>(3) Map 的使用</strong></h4>
+<p>在保存连接信息的时候会用到 Map。因为之前做 TCP Socket 的项目的时候就遇到过一个坑，即 Map 在协程下是不安全的。当多个协程同时对一个 Map 进行读写时，会抛出致命错误：fetal error:concurrent map read and map write，有了这个经验后，我们这里用的是 sync.Map</p>
+<h3>2.6.2 踩坑经验</h3>
+<h4><strong>(1) 协程异常</strong></h4>
+<p>基于对开发成本和服务稳定性等问题的考虑，我们的 WebSocket 服务基于 Gorilla/WebSocket 框架开发。其中遇到一个问题，就是当读协程发生异常退出时，写协程并没有感知到，结果就是导致读协程已经退出但是写协程还在运行，直到触发异常之后才退出。这样虽然从表面上看不影响业务逻辑，但是浪费后端资源。在编码时应该注意要在读协程退出后主动通知写协程，这样一个小的优化可以这在高并发下能节省很多资源。</p>
+<h4><strong>(2) 心跳设计</strong></h4>
+<p>举个例子，之前我们在闲时心跳功能的开发中走了一些弯路。最初在服务器端的心跳发送是定时心跳，但后来在实际业务场景中使用时发现，设计成服务器读空闲时心跳更好。因为用户都在聊天呢，发一个心跳帧，浪费感情也浪费带宽资源。</p>
+<p>这时候，建议大家在业务开发过程中如果代码写不下去就暂时不要写了，先结合业务需求用文字梳理下逻辑，可能会发现之后再进行会更顺利。</p>
+<h4><strong>(3) 每天分割日志</strong></h4>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践7.png" alt="" /></p>
+<p>日志模块在起初调研的时候基于性能考虑，确定使用 Uber 开源的 ZAP 库，而且满足业务日志记录的要求。日志库选型很重要，选不好也是影响系统性能和稳定性的。ZAP 的优点包括：</p>
+<ul>
+<li>
+<p>显示代码行号这个需求，ZAP 支持而 Logrus 不支持，这个属于提效的。行号展示对于定位问题很重要。</p>
+</li>
+<li>
+<p>ZAP 相对于 Logrus 更为高效，体现在写 JSON 格式日志时，没有使用反射，而是用内建的 json encoder，通过明确的类型调用，直接拼接字符串，最小化性能开销。</p>
+</li>
+</ul>
+<p><strong>小坑：</strong></p>
+<p>每天写一个日志文件的功能，目前 ZAP 不支持，需要自己写代码支持，或者请求系统部支持。</p>
+<p>&nbsp;</p>
+<h1>Part.3&nbsp;性能表现</h1>
+<h4><strong>压测 1:</strong></h4>
+<p>上线生产环境并和业务方对接以及压测，目前定制业务已接通整个流程，写了一个 Client。模拟定期发心跳帧，然后利用 Docker 环境。开启了 50 个容器，每个容器模拟并发起 2 万个连接。这样就是百万连接打到单机的 Server 上。单机内存占用 30G 左右。</p>
+<h4><strong>压测 2：</strong></h4>
+<p>同时并发 3000、4000、5000 连接，以及调整发送频率，分别对应上行：60万、80 万、100 万、200 万， 一个 6k 左右的日志结构体。</p>
+<p>其中有一半是心跳包 另一半是日志结构体。在不同的压力下的下行延迟数据如下：</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/Golang 在电商即时通讯服务建设中的实践8.png" alt="" /></p>
+<p><strong>结论：</strong>随着上行的并发变大，延迟控制在 24-66 毫秒之间。所以对于下行业务属于轻微延迟。另外针对 60 万 5k 上行的同时，用另一个脚本模拟开启 50 个协程并发下行 1k 的数据体，延迟是比没有并发下行的时候是有所提高的，延迟提高了 40ms 左右。</p>
+<p>&nbsp;</p>
+<h1>Part.4 总结</h1>
+<p>基于 Go 重构的 IM 服务在 WebSocket 的基础上，将业务层设计为配有消息分发模块和消息处理模块的双层架构模式，使业务逻辑的处理前置，保证了即时通讯服务的纯粹性和稳定性；同时消息分发模块的 HTTP 服务方便多种编程语言快速对接，使各业务线能迅速接入即时通讯服务。</p>
+<p>最后，我还想为 Go 摇旗呐喊一下。很多人都知道马蜂窝技术体系主要是基于 PHP，有一些核心业务也在向 Java 迁移。与此同时，Go 也在越来越多的项目中发挥作用。现在，云原生理念已经逐渐成为主流趋势之一，我们可以看到在很多构建云原生应用所需要的核心项目中，Go 都是主要的开发语言，比如 Kubernetes，Docker，Istio，ETCD，Prometheus 等，包括第三代开源分布式数据库 TiDB。</p>
+<p>所以我们可以把 Go 称为云原生时代的母语。「云原生时代，是开发者最好的时代」，在这股浪潮下，我们越早走进 Go，就可能越早在这个新时代抢占关键赛道。希望更多小伙伴和我们一起，加入到 Go 的开发和学习阵营中来，拓宽自己的技能图谱，拥抱云原生。</p>
+<p><strong>本文作者：Anti Walker，马蜂窝旅游网电商交易基础平台研发工程师。</strong><img src="./images/Golang 在电商即时通讯服务建设中的实践9.png" alt="" width="1875" height="835" data-cke-saved-src="./images/Golang 在电商即时通讯服务建设中的实践9.png" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

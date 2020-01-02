@@ -1,0 +1,350 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修浅谈Redis面试热点之工程架构篇[1]' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>浅谈Redis面试热点之工程架构篇[1]</center></div><div class='banquan'>原文出处:本文由博客园博主后端技术指南针提供。<br/>
+原文连接:https://www.cnblogs.com/backnullptr/p/12053335.html</div><br>
+    <p><span style="font-size: 18px;"><strong>前言</strong></span></p>
+<p>前面用两篇文章大致介绍了Redis热点面试中的底层实现相关的问题，感兴趣的可以回顾一下：<br /><a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s%3F__biz%3DMzI1MzYzMTI2Ng%3D%3D%26mid%3D2247484120%26idx%3D1%26sn%3D2536d36812b46594712a9dab65918398%26scene%3D21%23wechat_redirect" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">【决战西二旗】|Redis面试热点之底层实现篇</a><br /><a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s%3F__biz%3DMzI1MzYzMTI2Ng%3D%3D%26mid%3D2247484120%26idx%3D1%26sn%3D2536d36812b46594712a9dab65918398%26scene%3D21%23wechat_redirect" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">【决战西二旗】|Redis面试热点之底层实现篇(续)</a></p>
+<p>接下来我们继续来一起研究下Redis<strong>工程架构</strong>相关的问题，这部分内容出现的概率相对大一些，因为并不是所有人都会去研究源码，如果面试一味问源码那么可能注定是一场尬聊。</p>
+<p>面试时在不要求候选人对Redis非常熟练的前提下，工程问题将是<strong>不二之选</strong>，工程问题相对较多，因此本号将分几篇学习完，今天先来一起学习第一篇。</p>
+<p>通过本文你将了解到以下内容：<br /><strong>1.Redis的内存回收详解</strong><br /><strong>2.Redis的持久化机制</strong></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px; color: #ff0000;"><strong>Q1:了解Redis的内存回收吗？讲讲你的理解</strong></span></p>
+<h3>1.1 为什么要回收内存？</h3>
+<p>Redis作为内存型数据库，如果单纯的只进不出早晚就撑爆了，事实上很多把Redis当做主存储DB用的家伙们早晚会尝到这个苦果，当然除非你家厂子确实不差钱，数T级别的内存都毛毛雨，或者数据增长一定程度之后不再增长的场景，就另当别论了。</p>
+<p>对于我们这种把节约成本当做KPI的普通厂子，还是把Redis当缓存用比较符合家里的经济条件，所以这么看面试官的问题还算是比较贴合实际，比起那些手撕RBTree好一些，如果问题刚好在你知识射程范围内，先给面试官点个赞再说！</p>
+<p>为了让Redis服务安全稳定的运行，让使用内存保持在一定的阈值内是非常有必要的，因此我们就需要删除该删除的，清理该清理的，把内存留给需要的键值对，试想一条大河需要设置几个警戒水位来确保不决堤不枯竭，Redis也是一样的，只不过Redis只关心决堤即可，来一张图：</p>
+<p>
+<img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/浅谈Redis面试热点之工程架构篇[1]0.png" alt="" width="623" data-caption="" data-size="normal" data-rawwidth="623" data-rawheight="326" data-original="https://pic2.zhimg.com/v2-335513061f7208210334ef66bfea4f65_r.jpg" data-actualsrc="https://pic2.zhimg.com/v2-335513061f7208210334ef66bfea4f65_b.jpg" data-lazy-status="ok" /></p>
+<p>图中设定机器内存为128GB，占用64GB算是比较安全的水平，如果内存接近80%也就是100GB左右，那么认为Redis目前承载能力已经比较大了，具体的比例可以根据公司和个人的业务经验来确定。</p>
+<p>笔者只是想表达出于安全和稳定的考虑，不要觉得128GB的内存就意味着存储128GB的数据，都是要<strong>打折</strong>的。</p>
+<h3>1.2 内存从哪里回收？</h3>
+<p>Redis占用的内存是分为两部分：存储键值对消耗和本身运行消耗。显然后者我们无法回收，因此只能从键值对下手了，键值对可以分为几种：<strong>带过期的、不带过期的、热点数据、冷数据</strong>。对于带过期的键值是需要删除的，如果删除了所有的过期键值对之后内存仍然不足怎么办？那只能把部分数据给踢掉了。</p>
+<p><strong>人生无处不取舍</strong>，这个让笔者脑海浮现了《泰坦尼克》，邮轮撞到了冰山顷刻间海水涌入，面临数量不足的救生艇，人们做出了抉择：让女士和孩童先走，绅士们选择留下，海上逃生场景如图：</p>
+<p>&nbsp;</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/浅谈Redis面试热点之工程架构篇[1]1.png" alt="" width="667" data-caption="" data-size="normal" data-rawwidth="667" data-rawheight="335" data-original="https://pic3.zhimg.com/v2-d640a73bedf882eca5a2929185254852_r.jpg" data-actualsrc="https://pic3.zhimg.com/v2-d640a73bedf882eca5a2929185254852_b.jpg" data-lazy-status="ok" /></p>
+<p><img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/浅谈Redis面试热点之工程架构篇[1]2.png" alt="" width="702" data-caption="" data-size="normal" data-rawwidth="702" data-rawheight="265" data-original="https://pic1.zhimg.com/v2-43d699b6fde0a91732702a7b610bc35c_r.jpg" data-actualsrc="https://pic1.zhimg.com/v2-43d699b6fde0a91732702a7b610bc35c_b.jpg" data-lazy-status="ok" /></p>
+<h3>1.3 如何实施过期键值对的删除？</h3>
+<p>要实施对键值对的删除我们需要明白如下几点：</p>
+<ul>
+<li>带过期超时的键值对<strong>存储</strong>在哪里？</li>
+<li>如何判断带超时的键值对是否可以被<strong>删除</strong>了？</li>
+<li>删除<strong>机制</strong>有哪些以及如何<strong>选择</strong>？</li>
+
+</ul>
+<h3>1.3.1 键值对的存储</h3>
+<p>老规矩来到github看下源码，src/server.h中给的redisDb结构体给出了答案：</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code>typedef <span style="color: #0000ff;">struct</span><span style="color: #000000;"> redisDb {
+    dict </span>*dict;                 <span style="color: #008000;">/*</span><span style="color: #008000;"> The keyspace for this DB </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    dict </span>*expires;              <span style="color: #008000;">/*</span><span style="color: #008000;"> Timeout of keys with a timeout set </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    dict </span>*blocking_keys;        <span style="color: #008000;">/*</span><span style="color: #008000;"> Keys with clients waiting for data (BLPOP)</span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    dict </span>*ready_keys;           <span style="color: #008000;">/*</span><span style="color: #008000;"> Blocked keys that received a PUSH </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    dict </span>*watched_keys;         <span style="color: #008000;">/*</span><span style="color: #008000;"> WATCHED keys for MULTI/EXEC CAS </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">int</span> id;                     <span style="color: #008000;">/*</span><span style="color: #008000;"> Database ID </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">long</span> <span style="color: #0000ff;">long</span> avg_ttl;          <span style="color: #008000;">/*</span><span style="color: #008000;"> Average TTL, just for stats </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    unsigned </span><span style="color: #0000ff;">long</span> expires_cursor; <span style="color: #008000;">/*</span><span style="color: #008000;"> Cursor of the active expire cycle. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    list </span>*defrag_later;         <span style="color: #008000;">/*</span><span style="color: #008000;"> List of key names to attempt to defrag one by one, gradually. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+} redisDb;</span></pre>
+</div>
+</div>
+<p>Redis本质上就是一个大的key-value，key就是字符串，value有是几种对象：字符串、列表、有序列表、集合、哈希等，这些key-value都是<strong>存储在redisDb的dict中</strong>的，来看下黄健宏画的一张非常赞的图：</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/浅谈Redis面试热点之工程架构篇[1]3.png" alt="" width="683" height="319" data-caption="" data-size="normal" data-rawwidth="906" data-rawheight="423" data-original="https://pic4.zhimg.com/v2-83572059d2a3aeae2d5f2a69860e5d57_r.jpg" data-actualsrc="https://pic4.zhimg.com/v2-83572059d2a3aeae2d5f2a69860e5d57_b.jpg" data-lazy-status="ok" /></p>
+<p>看到这里，对于删除机制又清晰了一步，我们只要把redisDb中dict中的目标key-value删掉就行，不过貌似没有这么简单，Redis对于过期键值对肯定有自己的组织规则，让我们继续研究吧！</p>
+<p>redisDb的expires成员的类型也是dict，和键值对是一样的，本质上expires是dict的子集，<strong>expires保存的是所有带过期的键值对</strong>，称之为<strong>过期字典</strong>吧，它才是我们研究的重点。</p>
+<p>对于键，我们可以设置绝对和相对过期时间、以及查看剩余时间：</p>
+<ul>
+<li>使用EXPIRE和PEXPIRE来实现键值对的秒级和毫秒级生存时间设定，这是相对时长的过期设置</li>
+<li>使用EXPIREAT和EXPIREAT来实现键值对在某个秒级和毫秒级时间戳时进行过期删除，属于绝对过期设置</li>
+<li>通过TTL和PTTL来查看带有生存时间的键值对的剩余过期时间</li>
+</ul>
+<p>上述三组命令在设计缓存时用处比较大，有心的读者可以留意。</p>
+<p>过期字典expires和键值对空间dict存储的内容并不完全一样，过期字典expires的key是指向Redis<strong>对应对象的指针</strong>，其value是long long型的unix时间戳，前面的EXPIRE和PEXPIRE相对时长最终也会转换为时间戳，来看下过期字典expires的结构，笔者画了个图：</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/浅谈Redis面试热点之工程架构篇[1]4.png" alt="" width="609" data-caption="" data-size="normal" data-rawwidth="609" data-rawheight="674" data-original="https://pic2.zhimg.com/v2-17acadbfcfbef25a6f25fd551d8eacd1_r.jpg" data-actualsrc="https://pic2.zhimg.com/v2-17acadbfcfbef25a6f25fd551d8eacd1_b.jpg" data-lazy-status="ok" /></p>
+<h3>1.3.2 键值对的过期删除判断</h3>
+<p>判断键是否过期可删除，需要先查过期字典是否存在该值，如果存在则进一步判断过期时间戳和当前时间戳的相对大小，做出删除判断，简单的流程如图：</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/浅谈Redis面试热点之工程架构篇[1]5.png" alt="" width="422" data-caption="" data-size="normal" data-rawwidth="422" data-rawheight="678" data-original="https://pic3.zhimg.com/v2-4d30fb4a8e36e3d548bccff092570316_r.jpg" data-actualsrc="https://pic3.zhimg.com/v2-4d30fb4a8e36e3d548bccff092570316_b.jpg" data-lazy-status="ok" /></p>
+<h3>1.3.3 键值对的删除策略</h3>
+<p>经过前面的几个环节，我们知道了Redis的两种存储位置：键空间和过期字典，以及过期字典expires的结构、判断是否过期的方法，那么该<strong>如何实施删除</strong>呢？</p>
+<p>先抛开Redis来想一下可能的几种删除策略：</p>
+<ul>
+<li>定时删除：在设置键的过期时间的同时，创建定时器，让定时器在键过期时间到来时，即刻执行键值对的删除；</li>
+<li>定期删除：每隔特定的时间对数据库进行一次扫描，检测并删除其中的过期键值对；</li>
+<li>惰性删除：键值对过期暂时不进行删除，至于删除的时机与键值对的使用有关，当获取键时先查看其是否过期，过期就删除，否则就保留；</li>
+</ul>
+<p>在上述的三种策略中<strong>定时删除和定期删除属于不同时间粒度的主动删除</strong>，<strong>惰性删除属于被动删除</strong>。</p>
+<p>三种策略都有各自的优缺点：</p>
+<p>定时删除对内存使用率有优势，但是对CPU不友好，惰性删除对内存不友好，如果某些键值对一直不被使用，那么会造成一定量的内存浪费，定期删除是定时删除和惰性删除的折中。</p>
+<p>Reids采用的是惰性删除和定时删除的结合，一般来说可以借助<strong>最小堆</strong>来实现定时器，不过Redis的设计考虑到时间事件的有限种类和数量，使用了<strong>无序链表存储时间事件</strong>，这样如果在此基础上实现定时删除，就意味着O(N)遍历获取最近需要删除的数据。</p>
+<p>但是我觉得antirez如果非要使用定时删除，那么他肯定不会使用原来的无序链表机制，<strong>所以个人认为已存在的无序链表不能作为Redis不使用定时删除的根本理由</strong>，<strong>冒昧猜测唯一可能的是antirez觉得没有必要使用定时删除</strong>。</p>
+<p><img class="origin_image zh-lightbox-thumb lazy" style="display: block; margin-left: auto; margin-right: auto;" src="./images/浅谈Redis面试热点之工程架构篇[1]6.png" alt="" width="490" data-caption="" data-size="normal" data-rawwidth="490" data-rawheight="210" data-original="https://pic1.zhimg.com/v2-6c28bdd3eb3d6bd75095e510c0e0ce58_r.jpg" data-actualsrc="https://pic1.zhimg.com/v2-6c28bdd3eb3d6bd75095e510c0e0ce58_b.jpg" data-lazy-status="ok" /></p>
+<p class="ztext-empty-paragraph">&nbsp;</p>
+<h3>1.3.4 定期删除的实现细节</h3>
+<p>定期删除听着很简单，但是如何控制执行的<strong>频率和时长</strong>呢？</p>
+<p>试想一下如果执行频率太少就退化为惰性删除了，如果执行时间太长又和定时删除类似了，想想还确实是个难题！并且执行定期删除的时机也需要考虑，所以我们继续来看看Redis是如何实现定期删除的吧！笔者在src/expire.c文件中找到了activeExpireCycle函数，定期删除就是由此函数实现的，在代码中antirez做了比较详尽的注释，不过都是英文的，试着读了一下<strong>模模糊糊弄个大概</strong>，<strong>所以学习英文并阅读外文资料是很重要的学习途径</strong>。</p>
+<p>先贴一下代码，核心部分算上注释大约210行，具体看下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">#define</span> ACTIVE_EXPIRE_CYCLE_KEYS_PER_LOOP 20 /* Keys for each DB loop. */
+<span style="color: #0000ff;">#define</span> ACTIVE_EXPIRE_CYCLE_FAST_DURATION 1000 /* Microseconds. */
+<span style="color: #0000ff;">#define</span> ACTIVE_EXPIRE_CYCLE_SLOW_TIME_PERC 25 /* Max % of CPU to use. */
+<span style="color: #0000ff;">#define</span> ACTIVE_EXPIRE_CYCLE_ACCEPTABLE_STALE 10 /* % of stale keys after which<span style="color: #000000;">
+                                                   we </span><span style="color: #0000ff;">do</span> extra efforts. */
+
+<span style="color: #0000ff;">void</span> activeExpireCycle(<span style="color: #0000ff;">int</span><span style="color: #000000;"> type) {
+    </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Adjust the running parameters according to the configured expire
+     * effort. The default effort is 1, and the maximum configurable effort
+     * is 10. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    unsigned </span><span style="color: #0000ff;">long</span><span style="color: #000000;">
+    effort </span>= server.active_expire_effort-<span style="color: #800080;">1</span>, <span style="color: #008000;">/*</span><span style="color: #008000;"> Rescale from 0 to 9. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    config_keys_per_loop </span>= ACTIVE_EXPIRE_CYCLE_KEYS_PER_LOOP +<span style="color: #000000;">
+                           ACTIVE_EXPIRE_CYCLE_KEYS_PER_LOOP</span>/<span style="color: #800080;">4</span>*<span style="color: #000000;">effort,
+    config_cycle_fast_duration </span>= ACTIVE_EXPIRE_CYCLE_FAST_DURATION +<span style="color: #000000;">
+                                 ACTIVE_EXPIRE_CYCLE_FAST_DURATION</span>/<span style="color: #800080;">4</span>*<span style="color: #000000;">effort,
+    config_cycle_slow_time_perc </span>= ACTIVE_EXPIRE_CYCLE_SLOW_TIME_PERC +
+                                  <span style="color: #800080;">2</span>*<span style="color: #000000;">effort,
+    config_cycle_acceptable_stale </span>= ACTIVE_EXPIRE_CYCLE_ACCEPTABLE_STALE-<span style="color: #000000;">
+                                    effort;
+
+    </span><span style="color: #008000;">/*</span><span style="color: #008000;"> This function has some global state in order to continue the work
+     * incrementally across calls. </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">static</span> unsigned <span style="color: #0000ff;">int</span> current_db = <span style="color: #800080;">0</span>; <span style="color: #008000;">/*</span><span style="color: #008000;"> Last DB tested. </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">int</span> timelimit_exit = <span style="color: #800080;">0</span>;      <span style="color: #008000;">/*</span><span style="color: #008000;"> Time limit hit in previous call? </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">long</span> <span style="color: #0000ff;">long</span> last_fast_cycle = <span style="color: #800080;">0</span>; <span style="color: #008000;">/*</span><span style="color: #008000;"> When last fast cycle ran. </span><span style="color: #008000;">*/</span>
+
+    <span style="color: #0000ff;">int</span> j, iteration = <span style="color: #800080;">0</span><span style="color: #000000;">;
+    </span><span style="color: #0000ff;">int</span> dbs_per_call =<span style="color: #000000;"> CRON_DBS_PER_CALL;
+    </span><span style="color: #0000ff;">long</span> <span style="color: #0000ff;">long</span> start =<span style="color: #000000;"> ustime(), timelimit, elapsed;
+
+    </span><span style="color: #008000;">/*</span><span style="color: #008000;"> When clients are paused the dataset should be static not just from the
+     * POV of clients not being able to write, but also from the POV of
+     * expires and evictions of keys not being performed. </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">if</span> (clientsArePaused()) <span style="color: #0000ff;">return</span><span style="color: #000000;">;
+
+    </span><span style="color: #0000ff;">if</span> (type ==<span style="color: #000000;"> ACTIVE_EXPIRE_CYCLE_FAST) {
+        </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Don't start a fast cycle if the previous cycle did not exit
+         * for time limit, unless the percentage of estimated stale keys is
+         * too high. Also never repeat a fast cycle for the same period
+         * as the fast cycle total duration itself. </span><span style="color: #008000;">*/</span>
+        <span style="color: #0000ff;">if</span> (!timelimit_exit &amp;&amp;<span style="color: #000000;">
+            server.stat_expired_stale_perc </span>&lt;<span style="color: #000000;"> config_cycle_acceptable_stale)
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;">;
+
+        </span><span style="color: #0000ff;">if</span> (start &lt; last_fast_cycle + (<span style="color: #0000ff;">long</span> <span style="color: #0000ff;">long</span>)config_cycle_fast_duration*<span style="color: #800080;">2</span><span style="color: #000000;">)
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;">;
+
+        last_fast_cycle </span>=<span style="color: #000000;"> start;
+    }
+
+    </span><span style="color: #008000;">/*</span><span style="color: #008000;"> We usually should test CRON_DBS_PER_CALL per iteration, with
+     * two exceptions:
+     *
+     * 1) Don't test more DBs than we have.
+     * 2) If last time we hit the time limit, we want to scan all DBs
+     * in this iteration, as there is work to do in some DB and we don't want
+     * expired keys to use memory for too much time. </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">if</span> (dbs_per_call &gt; server.dbnum ||<span style="color: #000000;"> timelimit_exit)
+        dbs_per_call </span>=<span style="color: #000000;"> server.dbnum;
+
+    </span><span style="color: #008000;">/*</span><span style="color: #008000;"> We can use at max 'config_cycle_slow_time_perc' percentage of CPU
+     * time per iteration. Since this function gets called with a frequency of
+     * server.hz times per second, the following is the max amount of
+     * microseconds we can spend in this function. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    timelimit </span>= config_cycle_slow_time_perc*<span style="color: #800080;">1000000</span>/server.hz/<span style="color: #800080;">100</span><span style="color: #000000;">;
+    timelimit_exit </span>= <span style="color: #800080;">0</span><span style="color: #000000;">;
+    </span><span style="color: #0000ff;">if</span> (timelimit &lt;= <span style="color: #800080;">0</span>) timelimit = <span style="color: #800080;">1</span><span style="color: #000000;">;
+
+    </span><span style="color: #0000ff;">if</span> (type ==<span style="color: #000000;"> ACTIVE_EXPIRE_CYCLE_FAST)
+        timelimit </span>= config_cycle_fast_duration; <span style="color: #008000;">/*</span><span style="color: #008000;"> in microseconds. </span><span style="color: #008000;">*/</span>
+
+    <span style="color: #008000;">/*</span><span style="color: #008000;"> Accumulate some global stats as we expire keys, to have some idea
+     * about the number of keys that are already logically expired, but still
+     * existing inside the database. </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">long</span> total_sampled = <span style="color: #800080;">0</span><span style="color: #000000;">;
+    </span><span style="color: #0000ff;">long</span> total_expired = <span style="color: #800080;">0</span><span style="color: #000000;">;
+
+    </span><span style="color: #0000ff;">for</span> (j = <span style="color: #800080;">0</span>; j &lt; dbs_per_call &amp;&amp; timelimit_exit == <span style="color: #800080;">0</span>; j++<span style="color: #000000;">) {
+        </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Expired and checked in a single loop. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+        unsigned </span><span style="color: #0000ff;">long</span><span style="color: #000000;"> expired, sampled;
+
+        redisDb </span>*db = server.db+(current_db %<span style="color: #000000;"> server.dbnum);
+
+        </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Increment the DB now so we are sure if we run out of time
+         * in the current DB we'll restart from the next. This allows to
+         * distribute the time evenly across DBs. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+        current_db</span>++<span style="color: #000000;">;
+
+        </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Continue to expire if at the end of the cycle more than 25%
+         * of the keys were expired. </span><span style="color: #008000;">*/</span>
+        <span style="color: #0000ff;">do</span><span style="color: #000000;"> {
+            unsigned </span><span style="color: #0000ff;">long</span><span style="color: #000000;"> num, slots;
+            </span><span style="color: #0000ff;">long</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> now, ttl_sum;
+            </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> ttl_samples;
+            iteration</span>++<span style="color: #000000;">;
+
+            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> If there is nothing to expire try next DB ASAP. </span><span style="color: #008000;">*/</span>
+            <span style="color: #0000ff;">if</span> ((num = dictSize(db-&gt;expires)) == <span style="color: #800080;">0</span><span style="color: #000000;">) {
+                db</span>-&gt;avg_ttl = <span style="color: #800080;">0</span><span style="color: #000000;">;
+                </span><span style="color: #0000ff;">break</span><span style="color: #000000;">;
+            }
+            slots </span>= dictSlots(db-&gt;<span style="color: #000000;">expires);
+            now </span>=<span style="color: #000000;"> mstime();
+
+            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> When there are less than 1% filled slots, sampling the key
+             * space is expensive, so stop here waiting for better times...
+             * The dictionary will be resized asap. </span><span style="color: #008000;">*/</span>
+            <span style="color: #0000ff;">if</span> (num &amp;&amp; slots &gt; DICT_HT_INITIAL_SIZE &amp;&amp;<span style="color: #000000;">
+                (num</span>*<span style="color: #800080;">100</span>/slots &lt; <span style="color: #800080;">1</span>)) <span style="color: #0000ff;">break</span><span style="color: #000000;">;
+
+            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> The main collection cycle. Sample random keys among keys
+             * with an expire set, checking for expired ones. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+            expired </span>= <span style="color: #800080;">0</span><span style="color: #000000;">;
+            sampled </span>= <span style="color: #800080;">0</span><span style="color: #000000;">;
+            ttl_sum </span>= <span style="color: #800080;">0</span><span style="color: #000000;">;
+            ttl_samples </span>= <span style="color: #800080;">0</span><span style="color: #000000;">;
+
+            </span><span style="color: #0000ff;">if</span> (num &gt;<span style="color: #000000;"> config_keys_per_loop)
+                num </span>=<span style="color: #000000;"> config_keys_per_loop;
+
+            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Here we access the low level representation of the hash table
+             * for speed concerns: this makes this code coupled with dict.c,
+             * but it hardly changed in ten years.
+             *
+             * Note that certain places of the hash table may be empty,
+             * so we want also a stop condition about the number of
+             * buckets that we scanned. However scanning for free buckets
+             * is very fast: we are in the cache line scanning a sequential
+             * array of NULL pointers, so we can scan a lot more buckets
+             * than keys in the same time. </span><span style="color: #008000;">*/</span>
+            <span style="color: #0000ff;">long</span> max_buckets = num*<span style="color: #800080;">20</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">long</span> checked_buckets = <span style="color: #800080;">0</span><span style="color: #000000;">;
+
+            </span><span style="color: #0000ff;">while</span> (sampled &lt; num &amp;&amp; checked_buckets &lt;<span style="color: #000000;"> max_buckets) {
+                </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> table = <span style="color: #800080;">0</span>; table &lt; <span style="color: #800080;">2</span>; table++<span style="color: #000000;">) {
+                    </span><span style="color: #0000ff;">if</span> (table == <span style="color: #800080;">1</span> &amp;&amp; !dictIsRehashing(db-&gt;expires)) <span style="color: #0000ff;">break</span><span style="color: #000000;">;
+
+                    unsigned </span><span style="color: #0000ff;">long</span> idx = db-&gt;<span style="color: #000000;">expires_cursor;
+                    idx </span>&amp;= db-&gt;expires-&gt;<span style="color: #000000;">ht[table].sizemask;
+                    dictEntry </span>*de = db-&gt;expires-&gt;<span style="color: #000000;">ht[table].table[idx];
+                    </span><span style="color: #0000ff;">long</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> ttl;
+
+                    </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Scan the current bucket of the current table. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+                    checked_buckets</span>++<span style="color: #000000;">;
+                    </span><span style="color: #0000ff;">while</span><span style="color: #000000;">(de) {
+                        </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Get the next entry now since this entry may get
+                         * deleted. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+                        dictEntry </span>*e =<span style="color: #000000;"> de;
+                        de </span>= de-&gt;<span style="color: #000000;">next;
+
+                        ttl </span>= dictGetSignedIntegerVal(e)-<span style="color: #000000;">now;
+                        </span><span style="color: #0000ff;">if</span> (activeExpireCycleTryExpire(db,e,now)) expired++<span style="color: #000000;">;
+                        </span><span style="color: #0000ff;">if</span> (ttl &gt; <span style="color: #800080;">0</span><span style="color: #000000;">) {
+                            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> We want the average TTL of keys yet
+                             * not expired. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+                            ttl_sum </span>+=<span style="color: #000000;"> ttl;
+                            ttl_samples</span>++<span style="color: #000000;">;
+                        }
+                        sampled</span>++<span style="color: #000000;">;
+                    }
+                }
+                db</span>-&gt;expires_cursor++<span style="color: #000000;">;
+            }
+            total_expired </span>+=<span style="color: #000000;"> expired;
+            total_sampled </span>+=<span style="color: #000000;"> sampled;
+
+            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Update the average TTL stats for this database. </span><span style="color: #008000;">*/</span>
+            <span style="color: #0000ff;">if</span><span style="color: #000000;"> (ttl_samples) {
+                </span><span style="color: #0000ff;">long</span> <span style="color: #0000ff;">long</span> avg_ttl = ttl_sum/<span style="color: #000000;">ttl_samples;
+
+                </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Do a simple running average with a few samples.
+                 * We just use the current estimate with a weight of 2%
+                 * and the previous estimate with a weight of 98%. </span><span style="color: #008000;">*/</span>
+                <span style="color: #0000ff;">if</span> (db-&gt;avg_ttl == <span style="color: #800080;">0</span>) db-&gt;avg_ttl =<span style="color: #000000;"> avg_ttl;
+                db</span>-&gt;avg_ttl = (db-&gt;avg_ttl/<span style="color: #800080;">50</span>)*<span style="color: #800080;">49</span> + (avg_ttl/<span style="color: #800080;">50</span><span style="color: #000000;">);
+            }
+
+            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> We can't block forever here even if there are many keys to
+             * expire. So after a given amount of milliseconds return to the
+             * caller waiting for the other active expire cycle. </span><span style="color: #008000;">*/</span>
+            <span style="color: #0000ff;">if</span> ((iteration &amp; <span style="color: #800080;">0xf</span>) == <span style="color: #800080;">0</span>) { <span style="color: #008000;">/*</span><span style="color: #008000;"> check once every 16 iterations. </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+                elapsed </span>= ustime()-<span style="color: #000000;">start;
+                </span><span style="color: #0000ff;">if</span> (elapsed &gt;<span style="color: #000000;"> timelimit) {
+                    timelimit_exit </span>= <span style="color: #800080;">1</span><span style="color: #000000;">;
+                    server.stat_expired_time_cap_reached_count</span>++<span style="color: #000000;">;
+                    </span><span style="color: #0000ff;">break</span><span style="color: #000000;">;
+                }
+            }
+            </span><span style="color: #008000;">/*</span><span style="color: #008000;"> We don't repeat the cycle for the current database if there are
+             * an acceptable amount of stale keys (logically expired but yet
+             * not reclained). </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+        } </span><span style="color: #0000ff;">while</span> ((expired*<span style="color: #800080;">100</span>/sampled) &gt;<span style="color: #000000;"> config_cycle_acceptable_stale);
+    }
+
+    elapsed </span>= ustime()-<span style="color: #000000;">start;
+    server.stat_expire_cycle_time_used </span>+=<span style="color: #000000;"> elapsed;
+    latencyAddSampleIfNeeded(</span><span style="color: #800000;">"</span><span style="color: #800000;">expire-cycle</span><span style="color: #800000;">"</span>,elapsed/<span style="color: #800080;">1000</span><span style="color: #000000;">);
+
+    </span><span style="color: #008000;">/*</span><span style="color: #008000;"> Update our estimate of keys existing but yet to be expired.
+     * Running average with this sample accounting for 5%. </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">double</span><span style="color: #000000;"> current_perc;
+    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (total_sampled) {
+        current_perc </span>= (<span style="color: #0000ff;">double</span>)total_expired/<span style="color: #000000;">total_sampled;
+    } </span><span style="color: #0000ff;">else</span><span style="color: #000000;">
+        current_perc </span>= <span style="color: #800080;">0</span><span style="color: #000000;">;
+    server.stat_expired_stale_perc </span>= (current_perc*<span style="color: #800080;">0.05</span>)+<span style="color: #000000;">
+                                     (server.stat_expired_stale_perc</span>*<span style="color: #800080;">0.95</span><span style="color: #000000;">);
+}</span></pre>
+</div>
+<p>说实话这个代码细节比较多，由于笔者对Redis源码了解不多，只能做个模糊版本的解读，所以难免有问题，还是建议有条件的读者自行前往源码区阅读，抛砖引玉看下笔者的模糊版本：</p>
+<ul>
+<li>该算法是个自适应的过程，当过期的key比较少时那么就花费很少的cpu时间来处理，如果过期的key很多就采用激进的方式来处理，避免大量的内存消耗，可以理解为判断过期键多就多跑几次，少则少跑几次；</li>
+<li>由于Redis中有很多数据库db，该算法会逐个扫描，本次结束时继续向后面的db扫描，是个闭环的过程；</li>
+<li>定期删除有快速循环和慢速循环两种模式，主要采用慢速循环模式，其循环频率主要取决于server.hz，通常设置为10，也就是每秒执行10次慢循环定期删除，执行过程中如果耗时超过25%的CPU时间就停止；</li>
+<li>慢速循环的执行时间相对较长，会出现超时问题，快速循环模式的执行时间不超过1ms，也就是执行时间更短，但是执行的次数更多，在执行过程中发现某个db中抽样的key中过期key占比低于25%则跳过；</li>
+</ul>
+<p>主体意思：<strong>定期删除是个自适应的闭环并且概率化的抽样扫描过程，过程中都有执行时间和cpu时间的限制，如果触发阈值就停止，可以说是尽量在不影响对客户端的响应下润物细无声地进行的。</strong></p>
+<p><span style="font-size: 16px;"><strong>1.3.5 DEL删除键值对</strong></span></p>
+<p>在Redis4.0之前执行del操作时如果key-value很大，那么可能导致阻塞，在新版本中引入了BIO线程以及一些新的命令，实现了del的延时懒删除，最后会有BIO线程来实现内存的清理回收。</p>
+<p>之前写过一篇4.0版本的LazyFree相关的文章，可以看下<a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s%3F__biz%3DMzI1MzYzMTI2Ng%3D%3D%26mid%3D2247483717%26idx%3D1%26sn%3Ddfa5cafa7695f2d0dfb8bc51b414d46b%26scene%3D21%23wechat_redirect" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">浅析Redis 4.0新特性之LazyFree</a></p>
+<h3>1.4 内存淘汰机制</h3>
+<p>为了保证Redis的安全稳定运行，设置了一个max-memory的阈值，那么当内存用量到达阈值，新写入的键值对无法写入，此时就需要内存淘汰机制，在Redis的配置中有几种淘汰策略可以选择，详细如下：</p>
+<ul>
+<li>noeviction: 当内存不足以容纳新写入数据时，新写入操作会报错；</li>
+<li>allkeys-lru：当内存不足以容纳新写入数据时，在键空间中移除最近最少使用的 key；</li>
+<li>allkeys-random：当内存不足以容纳新写入数据时，在键空间中随机移除某个 key；</li>
+<li>volatile-lru：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，移除最近最少使用的 key；</li>
+<li>volatile-random：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，随机移除某个 key；</li>
+<li>volatile-ttl：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，有更早过期时间的 key 优先移除；</li>
+</ul>
+<p>后三种策略都是针对过期字典的处理，但是在过期字典为空时会noeviction一样返回写入失败，毫无策略地随机删除也不太可取，所以一般选择第二种allkeys-lru基于LRU策略进行淘汰。</p>
+<p>个人认为antirez一向都是工程化思维，善于使用概率化设计来做近似实现，LRU算法也不例外，Redis中实现了近似LRU算法，并且经过几个版本的迭代效果已经比较接近理论LRU算法的效果了，这个也是个不错的内容，由于篇幅限制，本文计划后续单独讲LRU算法时再进行详细讨论。</p>
+<h3>1.5 过期键删除和内存淘汰的关系</h3>
+<p>过期健删除策略强调的是对过期健的操作，如果有健过期而内存足够，Redis不会使用内存淘汰机制来腾退空间，这时会优先使用过期健删除策略删除过期健。</p>
+<p>内存淘汰机制强调的是对内存数据的淘汰操作，当内存不足时，即使有的健没有到达过期时间或者根本没有设置过期也要根据一定的策略来删除一部分，腾退空间保证新数据的写入。</p>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px; color: #ff0000;"><strong>Q2:讲讲你对Redis持久化机制的理解。</strong></span></p>
+<p>个人认为Redis持久化既是数据库本身的亮点，也是面试的热点，主要考察的方向包括：RDB机制原理、AOF机制原理、各自的优缺点、工程上的对于RDB和AOF的取舍、新版本Redis混合持久化策略等，如能把握要点，持久化问题就过关了。</p>
+<p>之前写过一篇持久化的文章：<a class=" wrap external" href="https://link.zhihu.com/?target=https%3A//mp.weixin.qq.com/s%3F__biz%3DMzI1MzYzMTI2Ng%3D%3D%26mid%3D2247483700%26idx%3D1%26sn%3Da935b0320f9daaa3d0102c8a6095fad7%26scene%3D21%23wechat_redirect" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043">理解Redis持久化</a>,基本上也涵盖了上面的几个点，可以看一下。</p>
+<h3>巨人的肩膀</h3>
+<p><a class=" external" href="https://link.zhihu.com/?target=https%3A//www.hoohack.me/2019/06/24/redis-expire-strategy" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043"><span class="invisible">https://www.<span class="visible">hoohack.me/2019/06/24/r<span class="invisible">edis-expire-strategy</span></span></span></a></p>
+<p><a class=" external" href="https://link.zhihu.com/?target=https%3A//redisbook.readthedocs.io/en/latest/internal/db.html" rel="nofollow noreferrer" target="_blank" data-za-detail-view-id="1043"><span class="invisible">https://<span class="visible">redisbook.readthedocs.io<span class="invisible">/en/latest/internal/db.html</span></span></span></a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

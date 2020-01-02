@@ -1,0 +1,203 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python--io多路复用之select实现' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python--io多路复用之select实现</center></div><div class='banquan'>原文出处:本文由博客园博主梦想一步登天提供。<br/>
+原文连接:https://www.cnblogs.com/june-L/p/11762515.html</div><br>
+    <p><span style="font-size: 18px;"> 1、I/O多路复用指：通过一种机制，可以监视多个描述符，一旦某个描述符就绪（一般是读就绪或者写就绪），能够通知程序进行相应的读写操作。</span><br /><span style="font-size: 18px;">	2、I/O多路复用避免阻塞在io上，原本为多进程或多线程来接收多个连接的消息变为单进程或单线程保存多个socket的状态后轮询处理。</span><br />	<br /><span style="font-size: 18px;">select</span><br /><span style="font-size: 18px;">select是通过系统调用来监视一组由多个文件描述符组成的数组，通过调用select()返回结果，数组中就绪的文件描述符会被内核标记出来，然后进程就可以获得这些文件描述符，然后进行相应的读写操作</span></p>
+<p><span style="font-size: 18px;">select的实际执行过程如下：</span></p>
+<p><span style="font-size: 18px;">1、select需要提供要监控的数组，然后由用户态拷贝到内核态。</span></p>
+<p><span style="font-size: 18px;">2、内核态线性循环监控数组，每次都需要遍历整个数组。</span></p>
+<p><span style="font-size: 18px;">3、内核发现文件描述符状态符合操作结果，将其返回。</span></p>
+<p><span style="font-size: 18px;">所以对于我们监控的socket都要设置为非阻塞的，只有这样才能保证不会被阻塞。</span></p>
+<p><span style="font-size: 18px;">优点</span><br /><span style="font-size: 18px;">基本各个平台都支持</span></p>
+<p><span style="font-size: 18px;">缺点</span><br /><span style="font-size: 18px;">1、每次调用select，都需要把fd集合由用户态拷贝到内核态，在fd多的时候开销会很大</span></p>
+<p><span style="font-size: 18px;">2、单个进程能够监控的fd数量存在最大限制，因为其使用的数据结构是数组。</span></p>
+<p><span style="font-size: 18px;">3、每次select都是线性遍历整个数组，当fd很大的时候，遍历的开销也很大</span></p>
+<p><span style="font-size: 18px;">python使用select</span></p>
+<p><span style="font-size: 18px;">语法：r_list, w_list, e_list = select.select( rlist, wlist, errlist [,timeout] )</span></p>
+<p><span style="font-size: 18px;">说明详解：</span></p>
+<p><span style="font-size: 18px;">rlist,wlist和errlist均是waitable object； 都是文件描述符,就是一个整数，或者一个拥有返回文件描述符的函数fileno()的对象。</span></p>
+<p><span style="font-size: 18px;">rlist: 等待读就绪的文件描述符数组</span></p>
+<p><span style="font-size: 18px;">wlist: 等待写就绪的文件描述符数组</span></p>
+<p><span style="font-size: 18px;">errlist: 等待异常的数组</span></p>
+<p><span style="font-size: 18px;">在linux下这三个列表可以是空列表，但是在windows上不行</span></p>
+<p><span style="font-size: 18px;">当rlist数组中的文件描述符发生可读时（调用accept或者read函数），则获取文件描述符并添加到r数组中。</span></p>
+<p><span style="font-size: 18px;">当wlist数组中的文件描述符发生可写时，则获取文件描述符添加到w数组中</span></p>
+<p><span style="font-size: 18px;">当errlist数组中的文件描述符发生错误时，将会将文件描述符添加到e队列中</span></p>
+<p><span style="font-size: 18px;">当超时时间没有设置时，如果监听的文件描述符没有任何变化，将会一直阻塞到发生变化为止</span></p>
+<p><span style="font-size: 18px;">当超时时间设置为1时，如果监听的描述符没有变化，则select会阻塞1秒，之后返回三个空列表。 如果由变化，则直接执行并返回。</span></p>
+<p><br /><span style="font-size: 18px;">一、基于select实现的IO多路复用的基础实例：</span></p>
+<p><span style="font-size: 18px;">io_server.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+<span style="color: #008080;"> 3</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 4</span> <span style="color: #800000;">IO多路复用服务器端
+</span><span style="color: #008080;"> 5</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 6</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #008080;"> 7</span> 
+<span style="color: #008080;"> 8</span> sk1 =<span style="color: #000000;"> socket.socket()
+</span><span style="color: #008080;"> 9</span> sk1.bind((<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8001<span style="color: #000000;">))
+</span><span style="color: #008080;">10</span> sk1.listen(5<span style="color: #000000;">)
+</span><span style="color: #008080;">11</span> 
+<span style="color: #008080;">12</span> sk2 =<span style="color: #000000;"> socket.socket()
+</span><span style="color: #008080;">13</span> sk2.bind((<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8002<span style="color: #000000;">))
+</span><span style="color: #008080;">14</span> sk2.listen(5<span style="color: #000000;">)
+</span><span style="color: #008080;">15</span> 
+<span style="color: #008080;">16</span> sk3 =<span style="color: #000000;"> socket.socket()
+</span><span style="color: #008080;">17</span> sk3.bind((<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8003<span style="color: #000000;">))
+</span><span style="color: #008080;">18</span> sk3.listen(5<span style="color: #000000;">)
+</span><span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span> inputs =<span style="color: #000000;"> [sk1, sk2, sk3]
+</span><span style="color: #008080;">21</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> select
+</span><span style="color: #008080;">22</span> 
+<span style="color: #008080;">23</span> <span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+</span><span style="color: #008080;">24</span>     <span style="color: #008000;">#</span><span style="color: #008000;">[sk1, sk2, sk3],select内部启动监听sk1, sk2, sk3三个对象，一旦某个句柄发生变化</span>
+<span style="color: #008080;">25</span>     <span style="color: #008000;">#</span><span style="color: #008000;">如果有人用sk1</span>
+<span style="color: #008080;">26</span>     <span style="color: #008000;">#</span><span style="color: #008000;">r_list = [sk1, sk2, sk3]</span>
+<span style="color: #008080;">27</span>     r_list, w_list, e_list = select.select(inputs, [], [], 1<span style="color: #000000;">)
+</span><span style="color: #008080;">28</span>     <span style="color: #0000ff;">print</span><span style="color: #000000;">(r_list)
+</span><span style="color: #008080;">29</span>     <span style="color: #0000ff;">for</span> sk <span style="color: #0000ff;">in</span><span style="color: #000000;"> r_list:
+</span><span style="color: #008080;">30</span>         <span style="color: #008000;">#</span><span style="color: #008000;">每一个连接对象</span>
+<span style="color: #008080;">31</span>         conn, address =<span style="color: #000000;"> sk.accept()
+</span><span style="color: #008080;">32</span>         conn.sendall(bytes(<span style="color: #800000;">'</span><span style="color: #800000;">Hello</span><span style="color: #800000;">'</span>, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+</span><span style="color: #008080;">33</span>         conn.close()<br /><br /></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">io_client.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+<span style="color: #008080;"> 3</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 4</span> <span style="color: #800000;">客户端1，请求8001端口
+</span><span style="color: #008080;"> 5</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 6</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #008080;"> 7</span> 
+<span style="color: #008080;"> 8</span> ck =<span style="color: #000000;"> socket.socket()
+</span><span style="color: #008080;"> 9</span> ck.connect((<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8001<span style="color: #000000;">))
+</span><span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span> content = str(ck.recv(1024), encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">12</span> <span style="color: #0000ff;">print</span>(content)</pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">二、IO多路复用服务器端升级改造后的代码实现</span></p>
+<p><span style="font-size: 18px;">io_server2.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+<span style="color: #008080;"> 3</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 4</span> <span style="color: #800000;">IO多路复用服务器端升级改造
+</span><span style="color: #008080;"> 5</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #008080;"> 8</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> select
+</span><span style="color: #008080;"> 9</span> 
+<span style="color: #008080;">10</span> sk =<span style="color: #000000;"> socket.socket()
+</span><span style="color: #008080;">11</span> 
+<span style="color: #008080;">12</span> sk.bind((<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8001<span style="color: #000000;">))
+</span><span style="color: #008080;">13</span> <span style="color: #000000;">sk.listen()
+</span><span style="color: #008080;">14</span> 
+<span style="color: #008080;">15</span> inputs =<span style="color: #000000;"> [sk,]
+</span><span style="color: #008080;">16</span> <span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+</span><span style="color: #008080;">17</span>     r_list, w_list, e_list = select.select(inputs, [], [], 1<span style="color: #000000;">)
+</span><span style="color: #008080;">18</span>     <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">正在监听的socket对象：%d</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> len(inputs))
+</span><span style="color: #008080;">19</span>     <span style="color: #0000ff;">for</span> sk_or_conn <span style="color: #0000ff;">in</span><span style="color: #000000;"> r_list:
+</span><span style="color: #008080;">20</span>         <span style="color: #008000;">#</span><span style="color: #008000;">每一个连接对象</span>
+<span style="color: #008080;">21</span>         <span style="color: #0000ff;">if</span> sk_or_conn ==<span style="color: #000000;"> sk:
+</span><span style="color: #008080;">22</span>             <span style="color: #008000;">#</span><span style="color: #008000;">表示有新用户来连接</span>
+<span style="color: #008080;">23</span>             conn, address =<span style="color: #000000;"> sk.accept()
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">            inputs.append(conn)
+</span><span style="color: #008080;">25</span>         <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">26</span>             <span style="color: #008000;">#</span><span style="color: #008000;">有老用户发消息了</span>
+<span style="color: #008080;">27</span>             <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;">28</span>                 data_bytes = sk_or_conn.recv(1024<span style="color: #000000;">)
+</span><span style="color: #008080;">29</span>             <span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as ex:
+</span><span style="color: #008080;">30</span>                 <span style="color: #008000;">#</span><span style="color: #008000;">如果有用户终断连接，则移除句柄</span>
+<span style="color: #008080;">31</span> <span style="color: #000000;">                inputs.remove(sk_or_conn)
+</span><span style="color: #008080;">32</span>             <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">33</span>                 <span style="color: #008000;">#</span><span style="color: #008000;">用户正常发送信息</span>
+<span style="color: #008080;">34</span>                 data_str = str(data_bytes, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">35</span>                 sk_or_conn.sendall(bytes(data_str + <span style="color: #800000;">'</span><span style="color: #800000;">好</span><span style="color: #800000;">'</span>, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+</span><span style="color: #008080;">36</span> 
+<span style="color: #008080;">37</span>     <span style="color: #0000ff;">for</span> sk <span style="color: #0000ff;">in</span><span style="color: #000000;"> e_list:
+</span><span style="color: #008080;">38</span>         inputs.remove(sk)</pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 18px;">三、IO多路复用服务器端升级改造，读、写分离</span></p>
+<p><span style="font-size: 18px;">io_server3.py</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;">!/usr/bin/env python</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding:utf-8 -*-</span>
+<span style="color: #008080;"> 3</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 4</span> <span style="color: #800000;">IO多路复用服务器端升级改造，读、写分离
+</span><span style="color: #008080;"> 5</span> <span style="color: #800000;">"""</span>
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #008080;"> 8</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> select
+</span><span style="color: #008080;"> 9</span> 
+<span style="color: #008080;">10</span> sk =<span style="color: #000000;"> socket.socket()
+</span><span style="color: #008080;">11</span> sk.bind((<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8001<span style="color: #000000;">))
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">sk.listen()
+</span><span style="color: #008080;">13</span> 
+<span style="color: #008080;">14</span> inputs =<span style="color: #000000;"> [sk,]
+</span><span style="color: #008080;">15</span> outputs =<span style="color: #000000;"> []
+</span><span style="color: #008080;">16</span> message_dict =<span style="color: #000000;"> {}
+</span><span style="color: #008080;">17</span> 
+<span style="color: #008080;">18</span> <span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+</span><span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span>     r_list, w_list, e_list = select.select(inputs, outputs, inputs, 1<span style="color: #000000;">)
+</span><span style="color: #008080;">21</span> 
+<span style="color: #008080;">22</span>     <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">正在监听的socket对象：%d</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> len(inputs))
+</span><span style="color: #008080;">23</span>     <span style="color: #0000ff;">for</span> sk_or_conn <span style="color: #0000ff;">in</span><span style="color: #000000;"> r_list:
+</span><span style="color: #008080;">24</span>         <span style="color: #008000;">#</span><span style="color: #008000;">每一个连接对象</span>
+<span style="color: #008080;">25</span>         <span style="color: #0000ff;">if</span> sk_or_conn ==<span style="color: #000000;"> sk:
+</span><span style="color: #008080;">26</span>             <span style="color: #008000;">#</span><span style="color: #008000;">表示有新用户来连接</span>
+<span style="color: #008080;">27</span>             conn, address =<span style="color: #000000;"> sk.accept()
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">            inputs.append(conn)
+</span><span style="color: #008080;">29</span>             <span style="color: #008000;">#</span><span style="color: #008000;">将连接的用户添加到字典中</span>
+<span style="color: #008080;">30</span>             message_dict[conn] =<span style="color: #000000;"> []
+</span><span style="color: #008080;">31</span>         <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">32</span>             <span style="color: #008000;">#</span><span style="color: #008000;">有老用户发消息了</span>
+<span style="color: #008080;">33</span>             <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;">34</span>                 data_bytes = sk_or_conn.recv(1024<span style="color: #000000;">)
+</span><span style="color: #008080;">35</span>             <span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as ex:
+</span><span style="color: #008080;">36</span>                 <span style="color: #008000;">#</span><span style="color: #008000;">如果有用户终断连接，则移除句柄</span>
+<span style="color: #008080;">37</span> <span style="color: #000000;">                inputs.remove(sk_or_conn)
+</span><span style="color: #008080;">38</span>             <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">39</span>                 <span style="color: #008000;">#</span><span style="color: #008000;"> 用户正常发送信息</span>
+<span style="color: #008080;">40</span>                 data_str = str(data_bytes, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">41</span>                 message_dict[sk_or_conn].append(data_str)  <span style="color: #008000;">#</span><span style="color: #008000;">将用户发送过来的信息存在在字典中</span>
+<span style="color: #008080;">42</span>                 <span style="color: #008000;">#</span><span style="color: #008000;"> sk_or_conn.sendall(bytes(data_str + '好', encoding='utf-8'))</span>
+<span style="color: #008080;">43</span> <span style="color: #000000;">                outputs.append(sk_or_conn)
+</span><span style="color: #008080;">44</span> 
+<span style="color: #008080;">45</span>     <span style="color: #008000;">#</span><span style="color: #008000;">写操作</span>
+<span style="color: #008080;">46</span>     <span style="color: #0000ff;">for</span> sk_out <span style="color: #0000ff;">in</span><span style="color: #000000;"> w_list:
+</span><span style="color: #008080;">47</span>         recv_data = message_dict[sk_out][0]  <span style="color: #008000;">#</span><span style="color: #008000;">从字典中获取信息数据</span>
+<span style="color: #008080;">48</span>         <span style="color: #0000ff;">del</span> message_dict[sk_out][0]  <span style="color: #008000;">#</span><span style="color: #008000;">获取数据后，清空字典，等待存储下次的数据</span>
+<span style="color: #008080;">49</span>         sk_out.sendall(bytes(recv_data + <span style="color: #800000;">'</span><span style="color: #800000;">好</span><span style="color: #800000;">'</span>, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+</span><span style="color: #008080;">50</span> <span style="color: #000000;">        outputs.remove(sk_out)
+</span><span style="color: #008080;">51</span> 
+<span style="color: #008080;">52</span>     <span style="color: #0000ff;">for</span> sk <span style="color: #0000ff;">in</span><span style="color: #000000;"> e_list:
+</span><span style="color: #008080;">53</span>         inputs.remove(sk)</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

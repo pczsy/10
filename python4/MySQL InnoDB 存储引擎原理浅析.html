@@ -1,0 +1,222 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修MySQL InnoDB 存储引擎原理浅析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>MySQL InnoDB 存储引擎原理浅析</center></div><div class='banquan'>原文出处:本文由博客园博主mikevictor提供。<br/>
+原文连接:https://www.cnblogs.com/mikevictor07/p/12013507.html</div><br>
+    <p><span style="font-size: 12px;">版权说明：&nbsp;本文章版权归本人及博客园共同所有，转载请标明原文出处(&nbsp;<a href="https://www.cnblogs.com/mikevictor07/p/12013507.html">https://www.cnblogs.com/mikevictor07/p/12013507.html</a>&nbsp;)，以下内容为个人理解，仅供参考。</span></p>
+<p>&nbsp;</p>
+<p><strong><span style="font-size: 12px;">前言：</span></strong></p>
+<p><span style="font-size: 12px;">本文主要基于MySQL 5.6以后版本编写，多数知识来着书籍《MySQL技术内幕++InnoDB存储引擎》，本文章仅记录个人认为比较重要的部分，有兴趣的可以花点时间读原书。</span></p>
+<p><span style="font-size: 12px;">今年的多数学习知识只写在笔记里，较为零散，最近稍有时间整理出来，分享进步。&nbsp;&nbsp;</span></p>
+<p>&nbsp;</p>
+<p><span class="lake-fontsize-14"><strong>一、MySQL体系结构</strong></span></p>
+<p><span class="lake-selected" data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fjpeg%2F467414%2F1571576657191-20fd1463-193e-44ab-93db-f8dca66b981c.jpeg%22%2C%22originWidth%22%3A800%2C%22originHeight%22%3A520%2C%22size%22%3A0%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22style%22%3A%22none%22%2C%22search%22%3A%22%22%2C%22width%22%3A800%2C%22height%22%3A520%7D"><img class="image lake-drag-image" src="./images/MySQL InnoDB 存储引擎原理浅析0.png" alt="" data-role="image" data-raw-src="./images/MySQL InnoDB 存储引擎原理浅析0.png" /></span></p>
+<p>主要包含以下几部分：</p>
+<p>1、管理服务于工具组件。</p>
+<p>2、连接池与鉴权。</p>
+<p>3、SQL接口。</p>
+<p>4、查询分析器。</p>
+<p>5、优化器组件。</p>
+<p>6、缓存与缓冲区。</p>
+<p>7、各式的插件式存储引擎。</p>
+<p>8、物理文件。</p>
+<p>其中存储引擎是基于表，而非数据库。</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">二、InnoDB体系结构</span></strong></p>
+<p><span class="lake-selected" data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1571580783103-0e4badb6-2feb-4a7b-9450-d52f44ffed21.png%22%2C%22originWidth%22%3A700%2C%22originHeight%22%3A538%2C%22size%22%3A0%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22style%22%3A%22none%22%2C%22search%22%3A%22%22%2C%22width%22%3A700%2C%22height%22%3A538%7D"><img class="image lake-drag-image" src="./images/MySQL InnoDB 存储引擎原理浅析1.png" alt="" width="584" height="449" data-role="image" data-raw-src="./images/MySQL InnoDB 存储引擎原理浅析1.png" /></span></p>
+<p>&nbsp;</p>
+<p>InnoDB引擎包含几个重要部分:</p>
+<p><span class="lake-fontsize-12"><strong>1、后台进程：</strong></span></p>
+<p>&nbsp; &nbsp; 1.1 Master Thread：核心线程，负责缓冲池的数据异步入盘，包括脏页刷新、合并插入缓冲、undo页回收等。</p>
+<p>&nbsp; &nbsp; 1.2 IO Thread：包括read thread 和writer thread，使用show variables like '%innodb_%io_thread%';查看。</p>
+<p>&nbsp; &nbsp; 1.3 Purge Thread：回收事务提交后不再需要的undo log，通过show variables like '%innodb_purge_threads%'; 查看。</p>
+<p>&nbsp; &nbsp; 1.4 Page clear thread：脏页的刷新操作，从master thread分离出来。</p>
+<p>&nbsp;</p>
+<p><span class="lake-fontsize-12"><strong>2、内存池</strong></span></p>
+<p>&nbsp; &nbsp;<strong> 2.1 缓冲池</strong></p>
+<p>InnoDB将记录按页的形式进行管理，对于页的修改先修改缓冲池中的页，后以一定频率进行刷新到磁盘中（checkpoint）。在数据库的页读取操作时，将也缓存到缓冲池中，下一次如读取相同的页，则无需从磁盘中加载。缓存池大小通过innodb_buffer_pool_size配置。</p>
+<p><span class="lake-selected" data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1571583713156-7b4304d4-45c2-40ae-9efc-8b6f22b8a1c1.png%22%2C%22originWidth%22%3A897%2C%22originHeight%22%3A391%2C%22name%22%3A%22image.png%22%2C%22size%22%3A90958%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22style%22%3A%22none%22%2C%22search%22%3A%22%22%2C%22width%22%3A584%2C%22height%22%3A255%7D"><img class="image lake-drag-image" title="image.png" src="./images/MySQL InnoDB 存储引擎原理浅析2.png" alt="image.png" width="530" height="231" data-role="image" data-raw-src="./images/MySQL InnoDB 存储引擎原理浅析2.png" /></span></p>
+<p>从上图来看，主要包括索引页、数据页、undo页、insert buffer、adaptive hash index、数据字典等，其中索引页和数据页占用多数内存。</p>
+<p>&nbsp; &nbsp; 配置innodb_pool_buffer_instances将缓冲池分割为多个实例，减少内部竞争(比如锁)。</p>
+<p>&nbsp;</p>
+<p>&nbsp; &nbsp; <strong>2.2 LRU list、free list、flush list</strong></p>
+<p>&nbsp; &nbsp; 默认的缓冲页大小是16KB，使用LRU算法进行管理，新从磁盘加载的页默认加到LRU列表的midpoint处（尾端算起37%位置处）。通过<strong>show engine innodb status</strong>输出如下（部分）：</p>
+<p>-------------------</p>
+<p>Buffer pool size &nbsp; 512&nbsp; 【缓冲池内存512*16K】</p>
+<p>Free buffers &nbsp; &nbsp; &nbsp; 256</p>
+<p>Database pages &nbsp; &nbsp; 256&nbsp; 【LRU列表占用页】</p>
+<p>Old database pages 0</p>
+<p>Modified db pages &nbsp;0</p>
+<p>Pending reads &nbsp; &nbsp; &nbsp;0</p>
+<p>Pending writes: LRU 0, <strong>flush list 0</strong>, single page 0</p>
+<p>Pages made young 0, not young 0</p>
+<p>0.00 youngs/s, 0.00 non-youngs/s</p>
+<p>Pages read 255, created 40, written 67</p>
+<p>0.16 reads/s, 0.06 creates/s, 0.37 writes/s</p>
+<p>Buffer pool hit rate <strong>943 / 1000 【</strong>缓冲池命中率大于95%则良好<strong>】</strong>, young-making rate 0 / 1000 not 0 / 1000</p>
+<p><strong>LRU len: 256, unzip_LRU len: 0 【</strong>LRU列表中的页可被压缩分为1K/2K/4K/8K之类的页<strong>】</strong></p>
+<p>------------------</p>
+<p>LRU列表中的页被修改后变为dirty page，此时缓冲池中的页和磁盘不一致，通过checkpoint刷回磁盘，其中Flush list即为dirty page列表。</p>
+<p>&nbsp;</p>
+<p>&nbsp; &nbsp; <strong>2.3 Redo log buffer</strong></p>
+<p>&nbsp; &nbsp; InnoDB将重做日志首先刷入缓冲区中，后续以每秒一次刷新到日志文件中，通过show variables like 'innodb_log_buffer_size'; 查看，需要保证mysql每秒事务量应该小于此大小，通常可以配置8-32MB。以下情况会刷新缓冲区到磁盘的重做日志文件中：</p>
+<p>&nbsp; &nbsp; 1、Master thread每秒刷新。</p>
+<p>&nbsp; &nbsp; 2、每个事务提交。</p>
+<p>&nbsp; &nbsp; 3、缓冲区空间小于1/2（如果缓冲区过小则导致频繁的磁盘刷新，降低性能）。</p>
+<p>&nbsp; &nbsp;&nbsp;</p>
+<p>&nbsp; &nbsp; 2<strong>.4&nbsp;innodb</strong><strong><span class="lake-fontsize-10">_</span></strong><strong>additonal</strong><strong><span class="lake-fontsize-10">_mem_</span></strong><strong>pool</strong><strong><span class="lake-fontsize-10">_</span></strong><strong>size</strong></p>
+<p><strong>&nbsp; &nbsp;</strong> 如果申请了很大的buffer pool，此参数应该相应增加，存储了LRU、锁等信息。</p>
+<p>&nbsp;</p>
+<p><span class="lake-fontsize-12"><strong>3、checkpoint</strong></span></p>
+<p>&nbsp; &nbsp; 每次执行update、delete等语句更改记录时，缓冲池中的页与磁盘不一致，但是缓冲池的页不能频繁刷新到磁盘中（频率过大性能低），因此增加了write ahead log策略，当事务提交时先写重做日志，再修改内存页。当发生宕机时通过重做日志来恢复。checkpint解决以下问题：</p>
+<p>&nbsp; &nbsp; （1）减少重做日志大小，缩减数据恢复时间。</p>
+<p>&nbsp; &nbsp; （2）缓冲池不够用时将脏页刷回磁盘。</p>
+<p>&nbsp; &nbsp; （3）重做日志不可用时将脏页刷回磁盘（如写满）。</p>
+<p>&nbsp;show variables like 'innodb_max_dirty_pages_pct'; (默认75%)来控制inndodb强制进行checkpoint。</p>
+<p>&nbsp;</p>
+<p>若每个重做日志大小为1G，定了了两个总共2G，则：</p>
+<p>&nbsp; &nbsp; <strong>asyn_water_mark = 75 % * 重做日志总大小。</strong></p>
+<p><strong>&nbsp; &nbsp; syn_water_mark = 90 % * 重做日志总大小。</strong></p>
+<p>&nbsp; &nbsp; （1）当checkpoint_age &lt;&nbsp;<strong>asyn_water_mark</strong>时则不需要刷新脏页回盘。</p>
+<p>&nbsp; &nbsp; （2）当<strong>syn_water_mark &lt;&nbsp;</strong>checkpoint_age &lt;&nbsp;<strong>syn_water_mark </strong>时触发ASYNC FLUSH<strong>。</strong></p>
+<p><strong>&nbsp; &nbsp; </strong>（3）当checkpoint_age&gt;<strong>syn_water_mark</strong>触发sync flush，此情况很少发生，一般出现在大量load data或bulk insert时。</p>
+<p>&nbsp;</p>
+<p><span class="lake-fontsize-12"><strong>4、InnoDB关键特性</strong></span></p>
+<p>关键特性包括：</p>
+<p>(1) Insert buffer.</p>
+<p>(2) double write.</p>
+<p>(3) adaptive hash index.</p>
+<p>(4) Async IO.</p>
+<p>(5)Flush neighbor page.</p>
+<p>&nbsp;</p>
+<p><strong>4.1&nbsp; Insert buffer</strong></p>
+<p>若插入按照聚集索引primary key插入，页中的行记录按照primary存放，一般情况下不需要读取另一个页记录，插入速度很快（如果使用UUID或者指定的ID插入而非自增类型则可能导致非连续插入导致性能下降，由B+树特性决定）。如果按照非聚集索引插入就很有可能存在大量的离散插入，insert buffer对于非聚集索引的插入和更新操作进行一定频率的合并操作，再merge到真正的索引页中。使用insert buffer需满足条件：</p>
+<p>&nbsp; &nbsp; （1）索引为辅助索引。</p>
+<p>&nbsp; &nbsp; （2）索引非唯一。（唯一索引需要从查找索引页中的唯一性，可能导致离散读取）</p>
+<p>&nbsp;</p>
+<p><strong>4.2 Double write</strong></p>
+<p>Doubel write保证了页的可靠性，Redo log是记录对页(16K)的物理操作，若innodb将页写回表时写了一部分(如4K)出现宕机，则物理页将会损坏无法通过redolog恢复。所以在apply重做日志前，将缓冲池中的脏页通过memcpy到doublewrite buffer中，再将doublewrite buffer页分两次每次1MB刷入共享表空间的磁盘文件中（磁盘连续，开销较小），完成doublewrite buffer的页写入后再写入各个表空间的表中。</p>
+<p><span class="lake-selected" data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1571622056598-4df46340-365c-46e8-bafa-7f6f08162fc0.png%22%2C%22originWidth%22%3A603%2C%22originHeight%22%3A406%2C%22name%22%3A%22image.png%22%2C%22size%22%3A38132%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22style%22%3A%22none%22%2C%22search%22%3A%22%22%2C%22width%22%3A370%2C%22height%22%3A249%7D"><img class="image lake-drag-image" title="image.png" src="./images/MySQL InnoDB 存储引擎原理浅析3.png" alt="image.png" width="394" height="265" data-role="image" data-raw-src="./images/MySQL InnoDB 存储引擎原理浅析3.png" /></span></p>
+<p>&nbsp;</p>
+<p>当写入页时发生系统崩溃，恢复过程中，innodb从共享表空间的doublewrite找到该页的副本，并将其恢复到表空间文件中，再apply重做日志。</p>
+<p>&nbsp;</p>
+<p><strong>4.3 Adaptive hash index</strong></p>
+<p>&nbsp; &nbsp; Innodb根据访问频率对热点页建立哈希索引，AHI的要求是对页面的访问模式必须一样，如连续使用where a='xxx' 访问了100次。建立热点哈希后读取速度可能能提升两倍，辅助索引连接性能提升5倍。</p>
+<p>通过show engine innodb status\G;查看hash searches/s, 表示使用自适应哈希，对于范围查找则不能使用。</p>
+<p>&nbsp;</p>
+<p><strong>4.4 Async IO</strong></p>
+<p>&nbsp; &nbsp; 用户执行一次扫描如果需要查询多个索引页，可能会执行多个IO操作，AIO可同时发起多个IO请求，系统自动将这些IO请求合并（如请求数据页[1，2]、[2,3]则可合并为从1开始连续扫描3个页）提高读取性能。</p>
+<p>&nbsp;</p>
+<p><strong>4.5 刷新临近页</strong></p>
+<p>InnoDB提供刷新临近页功能：当刷新一脏页时，同时检测所在区(extent)的所有页，如果有脏页则一并刷新，好处则是通过AIO特性合并写IO请求，缺点则是有些页不怎么脏也好被刷新，而且频繁的更改那些不怎么脏的页又很快变成脏页，造成频繁刷新。对于固态磁盘则考虑关闭此功能（将innodb_flush_neighbors设置为0）。</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-12">5、InnoDB的启动、关闭与恢复</span></strong></p>
+<p><strong>5.1&nbsp;innodb_fast_shutdown</strong></p>
+<p>该值影响数据库正常关闭时的行为，取值可以为0/1/2（默认为1）：</p>
+<p>【为0时】：关闭过程中需要完成所有的full purge好merge insert buffer，并将所有的脏页刷新回磁盘，这个过程可能需要一定的时间，如果是升级InnoDB则必须将此参数调整为0再关闭数据库。</p>
+<p>【为1时(默认)】：不需要full purge和merge insert buffer，但会将缓冲池中的脏页写回磁盘。</p>
+<p>【为2时】：不需要full purge和merge insert buffer，也不会将缓冲池中的脏页写回磁盘，而是将日志写入日志文件中，后续启动时recovery。</p>
+<p>&nbsp;</p>
+<p><strong>5.2&nbsp;innodb_force_recovery</strong></p>
+<p>参数innodb_force_recovery直接影响InnoDB的恢复情况。</p>
+<p>默认值为0：进行所有的恢复操作，当不能进行有效恢复（如数据页corrupt）则将错误写入错误日志中。</p>
+<p>&nbsp;</p>
+<p>某些情况下不需要完整的恢复造成，则可定制恢复策略，有以下几种：</p>
+<ul>
+<li>1（SRV_FORCE_IGNORE_CORRUPT）：忽略检查到的corrupt页。</li>
+<li>2（SRV_FORCE_NO_BACKGROUND）：阻止Master Thread线程运行，如果master thread需要进行full purge操作，这样会导致crash。</li>
+<li>3（SRV_FORACE_NO_TRX_UNDO）:不进行事务的回滚操作。</li>
+<li>4（SRV_FORCE_NO_IBUF_MERGE）:不进行插入缓冲区的合并操作。</li>
+<li>5（SRV_FORCE_NO_UNDO_LOG_SCAN）:不查看undo log，这样未提交的事务被视为已提交。</li>
+<li>6（SRV_FORCE_NO_LOG_REDO）:不进行redo操作。</li>
+</ul>
+<p>&nbsp;</p>
+<p>在设置了innodb_force_recovery大于0后可对表进行select/create/drop操作，但不能进行insert update和delete等DML。如有大事务未提交，并且发生了宕机，恢复过程缓慢，不需要进行事务回滚则将参数设置为3以加快启动过程。</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">三、文件</span></strong></p>
+<p><strong>3.1 二进制日志</strong></p>
+<p>&nbsp; &nbsp; 二进制日志记录MySQL的变更操作(不包含查询)，如果数据的影响行数为0也会记录。主要用于数据的恢复、复制、审计等场景。通过log-bin参数配置binlog的文件名。影响二进制日志记录的行为有：</p>
+<p>(1) max_binglog_size</p>
+<p>(2) binlog_cache_size</p>
+<p>(3) sync_binlog</p>
+<p>(4) binlog-to-db</p>
+<p>(5) binlog-ignore-db</p>
+<p>(6) log-slave-update</p>
+<p>(7) binlog_format</p>
+<p>&nbsp;</p>
+<p>max_binglog_size指定单个日志文件最大值，超过则产生新文件，默认为1G。</p>
+<p>binlog_cache_size默认为32K，记录未提交的事务，当提交事务后会写入二进制日志文件中，该参数是基于会话的，不宜设置过大，通过以下命令检查是否cache不够导致使用到了磁盘(binlog_cache_disk_use)，单位为次数：</p>
+<p>$ show variables like 'binlog_cache_size';</p>
+<p>$ show global status like 'binlog_cache%'; （该命令显示的单位为次数）</p>
+<p>如果显示的binlog_cache_disk_use次数较多，则考虑要增加binlog_cache_size大小。</p>
+<p>&nbsp;</p>
+<p><strong>sync_binlog</strong>表示每写多少次缓冲就同步到磁盘，通过设置参数为1则代表同步的方式写磁盘，但即使将该参数设置为1，还有一种异常场景：假设事务发出commit前，由于sync_binlog设置为1会立即写盘，但实际上还没提交事务就宕机，下次重启前由于没有commit动作事务将会被回滚，但二进制日志记录了该事务又不能被回滚，该异常场景通过设置<strong>innodb_support_xa</strong>为1来解决，保证了二进制日志与InnoDB存储赢钱数据文件的同步。</p>
+<p>&nbsp;</p>
+<p><strong>3.2 InnoDB存储引擎文件</strong></p>
+<p><strong>3.2.1 表空间文件</strong></p>
+<p>&nbsp; &nbsp; 默认共享表空间为ibatat1，可通过设定innodb_data_file_path=/db/ibdata1:2000M; /dir2/db/ibdata2:2000M:autoextend 指定多个共享表空间文件(用于均衡磁盘负载)，通过设置autoextend用完自动增长，该文件不会缩小（即使删除记录），只能通过导出数据后，再删除该文件后重启再导入才能缩小此文件占用的空间。</p>
+<p>一般情况下开启参数innodb_file_per_table=ON来开个独立表空间，每个表都有自己的表空间，以：表名.idb 命名，在清空表会后自动释放此单独的表空间。</p>
+<p>独立的表空间仅存储该表的数据、索引、插入缓冲BITMAP等信息，其余的信息还是放在默认表空间中。</p>
+<p>&nbsp;</p>
+<p><strong>3.2.2 重做日志文件(Redo log file)</strong></p>
+<p>&nbsp; &nbsp; MySQL默认初始化ib_logfile0、ib_logfile1两个重做日志文件，一个用完切换到另一个，影响参数如下：</p>
+<p>(1) innodb_log_file_size : 每个redo log文件大小。</p>
+<p>innodb_log_files_in_group : 文件组中的文件数量，默认为2.</p>
+<p>innodb_mirrored_log_groups : 镜像文件组数量，默认为1，如果磁盘已做高可用阵列，则用默认的1即可，不再需要再做日志镜像。</p>
+<p>innodb_log_group_home_dir : 日志文件路径，默认在数据文件路径下。</p>
+<p>&nbsp;</p>
+<p>Redo log设置不易过大，多大则重启需要恢复时间很长，也不宜过小，过小则导致频繁发生async checkpoint，需要刷脏页回磁盘，影响性能。一般的应用设置为1G即可。</p>
+<p>&nbsp;</p>
+<p>InnoDB中重做日志是记录每个page的物理更改情况，而二进制文件是仅在事务提交前提交(即只写磁盘一次)，在事务进行过程中，却不断有redo entry写入到重做日志文件中。两者是由差别的。</p>
+<p>参数innodb_flush_log_at_trx_commit影响重做日志的刷写动作，有以下值：</p>
+<p>【0】事务提交时并不写，而是等待主线程每秒刷写一次。</p>
+<p>【1】默认值，表示执行事务commit时同步写到磁盘，提供最大的安全性，也是最慢的方式。</p>
+<p>【2】异步写磁盘，先写到系统缓存，交给系统写到磁盘。</p>
+<p>&nbsp;</p>
+<p><strong><span class="lake-fontsize-14">四、表</span></strong></p>
+<p>&nbsp; &nbsp; 表空间由segment、extend、page组成，其中page是InnoDB磁盘管理的最小单位(默认大小为16K)。如下图：</p>
+<p><span class="lake-selected" data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1576421090881-d46a141f-695b-4ebe-8027-19b687d859db.png%22%2C%22originWidth%22%3A864%2C%22originHeight%22%3A621%2C%22name%22%3A%22image.png%22%2C%22size%22%3A205965%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22ocrLocations%22%3A%5B%7B%22x%22%3A109.799995%2C%22y%22%3A1.8%2C%22width%22%3A98.99999500000001%2C%22height%22%3A19.799998%2C%22text%22%3A%22Tablespace%22%7D%2C%7B%22x%22%3A547.19995%2C%22y%22%3A2.6999998%2C%22width%22%3A82.80005000000006%2C%22height%22%3A18.8999982%2C%22text%22%3A%22Segmcnt%22%7D%2C%7B%22x%22%3A670.49994%2C%22y%22%3A53.999996%2C%22width%22%3A59.40001999999993%2C%22height%22%3A19.799998999999993%2C%22text%22%3A%22Extent%22%7D%2C%7B%22x%22%3A508.49997%2C%22y%22%3A54.899998%2C%22width%22%3A60.300029999999936%2C%22height%22%3A17.99999600000001%2C%22text%22%3A%22Extent%22%7D%2C%7B%22x%22%3A41.399998%2C%22y%22%3A81.899994%2C%22width%22%3A171.899992%2C%22height%22%3A19.800005999999996%2C%22text%22%3A%22Leafnodesegment%22%7D%2C%7B%22x%22%3A509.39996%2C%22y%22%3A116.99999%2C%22width%22%3A59.40003999999993%2C%22height%22%3A17.099999999999994%2C%22text%22%3A%22Extent%22%7D%2C%7B%22x%22%3A669.6%2C%22y%22%3A116.99999%2C%22width%22%3A61.19999999999993%2C%22height%22%3A17.099999999999994%2C%22text%22%3A%22Extent%22%7D%2C%7B%22x%22%3A41.399998%2C%22y%22%3A135%2C%22width%22%3A217.799982%2C%22height%22%3A19.799990000000008%2C%22text%22%3A%22Non-Leafnodesegment%22%7D%2C%7B%22x%22%3A39.6%2C%22y%22%3A197.99998%2C%22width%22%3A166.49999%2C%22height%22%3A20.700019999999995%2C%22text%22%3A%22Rollbacksegment%22%7D%2C%7B%22x%22%3A651.6%2C%22y%22%3A197.99998%2C%22width%22%3A60.29995999999994%2C%22height%22%3A18%2C%22text%22%3A%22Extent%22%7D%2C%7B%22x%22%3A353.69998%2C%22y%22%3A255.59999%2C%22width%22%3A45.900000000000034%2C%22height%22%3A18.90001000000001%2C%22text%22%3A%22Page%22%7D%2C%7B%22x%22%3A32.399998%2C%22y%22%3A292.5%2C%22width%22%3A43.200002%2C%22height%22%3A18%2C%22text%22%3A%22Row%22%7D%2C%7B%22x%22%3A413.99997%2C%22y%22%3A322.19998%2C%22width%22%3A45%2C%22height%22%3A18.900000000000034%2C%22text%22%3A%22Row%22%7D%2C%7B%22x%22%3A329.4%2C%22y%22%3A323.09998%2C%22width%22%3A43.19998000000004%2C%22height%22%3A17.099999999999966%2C%22text%22%3A%22RoW%22%7D%2C%7B%22x%22%3A44.1%2C%22y%22%3A354.59998%2C%22width%22%3A54.899989999999995%2C%22height%22%3A18.899990000000003%2C%22text%22%3A%22Trxid%22%7D%2C%7B%22x%22%3A329.4%2C%22y%22%3A379.8%2C%22width%22%3A43.19998000000004%2C%22height%22%3A17.099999999999966%2C%22text%22%3A%22Row%22%7D%2C%7B%22x%22%3A414.9%2C%22y%22%3A380.69998%2C%22width%22%3A42.299980000000005%2C%22height%22%3A17.10002000000003%2C%22text%22%3A%22Row%22%7D%2C%7B%22x%22%3A44.1%2C%22y%22%3A413.09998%2C%22width%22%3A107.1%2C%22height%22%3A18%2C%22text%22%3A%22RollPointer%22%7D%2C%7B%22x%22%3A328.49997%2C%22y%22%3A437.4%2C%22width%22%3A43.20000999999996%2C%22height%22%3A17.09997000000004%2C%22text%22%3A%22Row%22%7D%2C%7B%22x%22%3A42.3%2C%22y%22%3A464.39996%2C%22width%22%3A107.99999000000001%2C%22height%22%3A19.80001999999996%2C%22text%22%3A%22RollPointer%22%7D%2C%7B%22x%22%3A205.2%2C%22y%22%3A519.3%2C%22width%22%3A48.59999000000002%2C%22height%22%3A19.800000000000068%2C%22text%22%3A%22Coln%22%7D%2C%7B%22x%22%3A43.199997%2C%22y%22%3A520.19995%2C%22width%22%3A43.199997%2C%22height%22%3A18%2C%22text%22%3A%22Coll%22%7D%2C%7B%22x%22%3A261.9%2C%22y%22%3A588.6%2C%22width%22%3A236.69998000000004%2C%22height%22%3A23.399999999999977%2C%22text%22%3A%22%E5%9B%BE4-1InnoDB%E9%80%BB%E8%BE%91%E5%AD%98%22%7D%5D%2C%22style%22%3A%22none%22%2C%22search%22%3A%22Tablespace%20Segmcnt%20Extent%20Extent%20Leafnodesegment%20Extent%20Extent%20Non-Leafnodesegment%20Rollbacksegment%20Extent%20Page%20Row%20Row%20RoW%20Trxid%20Row%20Row%20RollPointer%20Row%20RollPointer%20Coln%20Coll%20%E5%9B%BE4-1InnoDB%E9%80%BB%E8%BE%91%E5%AD%98%22%2C%22width%22%3A439%2C%22height%22%3A316%7D"><img class="image lake-drag-image" title="image.png" src="./images/MySQL InnoDB 存储引擎原理浅析4.png" alt="image.png" width="494" height="355" data-role="image" data-raw-src="./images/MySQL InnoDB 存储引擎原理浅析4.png" /></span></p>
+<p>&nbsp;</p>
+<p>如果启用了innodb_file_per_table参数，每张表的表空间只存放数据、所以和插入缓冲bitmap页，其他的数据如undo信息、插入缓冲、double write buffer等还是存放在共享表空间中。</p>
+<p>&nbsp;</p>
+<p><strong>4.1 Segment (段)</strong></p>
+<p>&nbsp; &nbsp;&nbsp;</p>
+<p>常见的segment有数据段、索引段、回滚段等， 数据段为B+树的叶子节点(Leaf node segment)、索引段为B+树的非叶子节点(Non-leaf node segment)。如下图：</p>
+<p><span class="lake-selected" data-card-type="inline" data-lake-card="image" data-card-value="data:%7B%22src%22%3A%22https%3A%2F%2Fcdn.nlark.com%2Fyuque%2F0%2F2019%2Fpng%2F467414%2F1576422177098-c46db210-5de4-45d7-b39f-eb3ede371ba1.png%22%2C%22originWidth%22%3A1041%2C%22originHeight%22%3A472%2C%22size%22%3A0%2C%22display%22%3A%22inline%22%2C%22align%22%3A%22left%22%2C%22linkTarget%22%3A%22_blank%22%2C%22status%22%3A%22done%22%2C%22style%22%3A%22none%22%2C%22search%22%3A%22%22%2C%22width%22%3A601%2C%22height%22%3A272%7D"><img class="image lake-drag-image" src="./images/MySQL InnoDB 存储引擎原理浅析5.png" alt="" width="600" height="272" data-role="image" data-raw-src="./images/MySQL InnoDB 存储引擎原理浅析5.png" /></span></p>
+<p>&nbsp;</p>
+<p><strong>4.2 Extend (区)</strong></p>
+<p>&nbsp; &nbsp; 每个区大小固定为1MB，为保证区中page的连续性通常InnoDB会一次从磁盘中申请4-5个区。在默认page的大小为16KB的情况下，一个区则由64个连续的page。</p>
+<p>&nbsp; &nbsp; InnoDB 1.2.x版本增加参数innodb_page_size参数指定page的大小，但区的大小不会改变。 当启用了innodb_file_per_table参数后创建的表大小默认是96KB，而不是立即是1MB，是由于每个段开始先使用32个页大小的fragment page(碎片页)来存放数据，对于一些小表可节省磁盘空间。</p>
+<p>&nbsp;</p>
+<p><strong>4.3 Page (页)</strong></p>
+<p>&nbsp; &nbsp; 每个page默认大小为16K， InnoDB 1.2.x版本增加参数innodb_page_size参数指定page的大小，设置完成后表中所有page大小都固定，除非重新dump再imports数据，否则不能再修改page大小。page类型有：</p>
+<p>(1) B-tree node - 数据页</p>
+<p>(2) undo log page</p>
+<p>(3) system page</p>
+<p>(4) transaction system page<br />(5) insert buffer bitmap</p>
+<p>(6) insert buffer free list</p>
+<p>(7) uncompressed BLOB page</p>
+<p>(8) compressed BLOB page</p>
+<p>&nbsp;</p>
+<p>// 本文后续待继续完善书籍中的其他重要知识点 //</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

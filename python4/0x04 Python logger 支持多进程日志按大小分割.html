@@ -1,0 +1,107 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修0x04 Python logger 支持多进程日志按大小分割' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>0x04 Python logger 支持多进程日志按大小分割</center></div><div class='banquan'>原文出处:本文由博客园博主ZJiQi提供。<br/>
+原文连接:https://www.cnblogs.com/ZJiQi/p/11578895.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#支持多进程日志按大小分割">支持多进程日志按大小分割</a><ul>
+        <li><a href="#多进程日志大小分割handler配置实例">多进程日志大小分割handler配置实例</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="支持多进程日志按大小分割">支持多进程日志按大小分割</h1>
+<blockquote>
+<p>由于python内置模块logging.handlers.RotatingFileHandler是不支持多进程下日志分割的，存在进程间竞争同一文件。在网上找到了支持多进程的日志分割方案。<br />
+参考 <a href="https://www.kawabangga.com/posts/3382">中文博客</a><br />
+参考 <a href="https://github.com/di/mrfh">英文mrfh</a></p>
+</blockquote>
+<h2 id="多进程日志大小分割handler配置实例">多进程日志大小分割handler配置实例</h2>
+<ol>
+<li>安装mrfh模块<br />
+<code>pip install mrfh</code></li>
+<li>由于mrfh用到了fcntl模块，只有linux才有所以在win下是不可用的</li>
+<li>下面是一个日志配置的实例，在file_size_rotate_hd中就用到了mrfh提供的handler。</li>
+</ol>
+<pre><code><code> LOGGER_CONFIG_DICT = {
+        &#39;version&#39;: 1,
+        &#39;disable_existing_loggers&#39;: False,
+        &#39;formatters&#39;: {
+            &#39;detailed_fmt&#39;: {
+                &#39;class&#39;: &#39;logging.Formatter&#39;,
+                &#39;format&#39;: &#39;%(asctime)s %(created)s %(levelname)-6s %(name)-15s %(processName)s:%(threadName)s %(message)s&#39;
+                #  human-readable  timestamp levelname logger_name  processname threadname  message
+            },
+            &#39;simple_fmt&#39;: {
+                &#39;class&#39;: &#39;logging.Formatter&#39;,
+                &#39;format&#39;: &#39;%(asctime)s %(levelname)-8s %(name)-15s %(message)s&#39;
+                #  human-readable  levelname logger_name message
+            },
+            &#39;portal_fmt&#39;: {
+                &#39;class&#39;: &#39;logging.Formatter&#39;,
+                # &#39;datefmt&#39;: &#39;%Y-%m-%d %H:%M:%S,uuu&#39;,  # 实际默认格式就是这个
+                &#39;format&#39;: &#39;%(asctime)s %(levelname)-8s %(name)-15s  %(processName)-10s %(message)s&#39;
+            },
+            &#39;system_fmt&#39;: {
+                &#39;class&#39;: &#39;logging.Formatter&#39;,
+                &#39;format&#39;: &#39;%(asctime)s %(name)-15s %(levelname)-8s %(processName)-10s %(message)s&#39;
+            },
+        },
+        &#39;handlers&#39;: {
+            &#39;file_size_rotate_hd&#39;: {
+                #&#39;class&#39;: &#39;logging.handlers.RotatingFileHandler&#39;,
+                &#39;class&#39;: &#39;mrfh.MultiprocessRotatingFileHandler&#39;,  # 这里就是用到mrfh了。
+                &#39;filename&#39;: &#39;./logs/portal.log&#39;,
+                &#39;mode&#39;: &#39;a&#39;,
+                &#39;maxBytes&#39;: 1024 * 1024 * 500,
+                &#39;backupCount&#39;: 50,
+                &#39;formatter&#39;: &#39;portal_fmt&#39;
+            },
+            &#39;errors_hd&#39;: {
+                &#39;class&#39;: &#39;logging.FileHandler&#39;,
+                &#39;filename&#39;: &#39;./logs/errors.log&#39;,
+                &#39;formatter&#39;: &#39;detailed_fmt&#39;,
+                &#39;level&#39;: &#39;ERROR&#39;  # 只会错误40及以上的日志
+            },
+            &#39;system_hd&#39;: {
+                &#39;class&#39;: &#39;logging.FileHandler&#39;,
+                &#39;filename&#39;: &#39;./logs/system.log&#39;,
+                &#39;formatter&#39;: &#39;simple_fmt&#39;
+            }
+        },
+        &#39;loggers&#39;: {
+            &#39;selfservices&#39;: {
+                &#39;level&#39;: &#39;INFO&#39;,
+                &#39;propagate&#39;: False,
+                &#39;handlers&#39;: [&#39;file_size_rotate_hd&#39;, &#39;errors_hd&#39;]
+                # &#39;handlers&#39;: [&#39;time_rotate_file_hd&#39;, &#39;file_size_rotate_hd&#39;, &#39;errors_hd&#39;]
+            },
+        },
+        &#39;root&#39;: {
+            &#39;level&#39;: &#39;DEBUG&#39;,
+            &#39;handlers&#39;: [&#39;system_hd&#39;, &#39;errors_hd&#39;]
+        },
+    }</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

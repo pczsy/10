@@ -1,0 +1,99 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修聊聊redis实际运用及骚操作' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>聊聊redis实际运用及骚操作</center></div><div class='banquan'>原文出处:本文由博客园博主孙悟猪提供。<br/>
+原文连接:https://www.cnblogs.com/DanielYao/p/12097212.html</div><br>
+    <div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 18px;">前言</span></strong></div>
+<p class="ql-long-12319783"><span class="ql-author-12319783">聊起 redis 咱们大部分后端猿应该都不陌生，或多或少都用过。甚至大部分前端猿都知道。</span></p>
+<p class="ql-long-12319783"><strong><span class="ql-author-12319783">数据结构： string、 hash、 list、 set (无序集合)、 setsorted(有序集合)，</span></strong></p>
+<p class="ql-long-12319783"><strong><span class="ql-author-12319783">运维方面 ： 持久化，主从复制，集群，故障恢复 ，</span></strong></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">园子里已经由大佬科普过了，<a class="ql-link ql-author-12319783" href="https://redis.io/" rel="noopener noreferrer nofollow" target="_blank">官方</a><span class="ql-author-12319783">文档也能查到， 这里就不细说 redis的&ldquo;发展起家史&rdquo;。</span></span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">咱们今天就聊聊<span class="ql-author-12319783">redis的缓存应用场景<span class="ql-author-12319783">（不推荐用redis做分布式锁），redis常见操作(击穿，雪崩，缓存数据量过大等)，常见问题及处理方式。怎么用到咱们项目中，提升产品体验。结合我实际项目来解释这里面得思路。（saas,企业级应用）</span></span></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p class="ql-long-12319783"><span class="ql-author-12319783"><img src="./images/聊聊redis实际运用及骚操作0.png" alt="" width="338" height="auto" /></span></p>
+<p>&nbsp;</p>
+<div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 16px;">类型</span></strong></div>
+<div class="ql-long-12319783" data-header="2">&nbsp;</div>
+<div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 16px;">　　</span></strong><span class="ql-author-12319783" style="color: #ff0000;">公共缓存&nbsp;</span></div>
+<p><span class="ql-author-12319783">　　　　<span class="ql-author-12319783"><span class="ql-author-12319783"><strong>数据极少变动</strong>：可使用本机内存缓存，单例模式。(如预制分类、城市、配置，首页布局等)</span></span></span></p>
+<p><span class="ql-author-12319783"><span class="ql-author-12319783"><span class="ql-author-12319783">　　　　</span></span></span><span class="ql-author-12319783"><strong>数据会有变动</strong>：加载慢，但是用户经常点击的数据，可使用分布式缓存。(如热点数据，评论，项目工作讨论)</span></p>
+<p>　<span style="color: #ff0000;">　用户相关缓存</span></p>
+<p>　　　　跟登陆账户相关，集群化部署需要使用分布式缓存<br />　　　　用户登陆后的首屏数据，如，常用统计，分类权限菜单，待办事项，工作台等</p>
+<div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 16px;">加载方式</span></strong></div>
+<div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 16px;">　　</span></strong><span class="ql-author-12319783"><span style="color: #ff0000;">预加载</span>：系统初始化即加载数据进入缓存（比如相关静态数据）</span></div>
+<p class="ql-long-12319783">&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;<span class="ql-author-12319783"><span style="color: #ff0000;">延迟加载</span>：有请求才做缓存，无请求则不进行缓存（动态数据）</span></p>
+<div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 16px;">时间设置</span></strong></div>
+<div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 16px;">　&nbsp; &nbsp;</span></strong><span class="ql-author-12319783">不过期</span></div>
+<div class="ql-long-12319783" data-header="2"><span class="ql-author-12319783">　　</span><span class="ql-author-12319783">固定过期时间（几小时，哪一天）</span></div>
+<div class="ql-long-12319783" data-header="2"><span class="ql-author-12319783">　　非固定过期时间（做过期时间的更新，获取redis数据时同步更新缓存时间， 如下流程图示意）</span></div>
+<p class="ql-long-12319783"><span class="ql-author-12319783"><img src="./images/聊聊redis实际运用及骚操作1.png" alt="" width="2372" height="auto" /></span></p>
+<div class="ql-long-12319783" data-header="2"><span style="font-size: 16px;"><strong><span class="ql-author-12319783">失效带来的问题</span></strong></span></div>
+<div class="ql-long-12319783" data-header="2">
+<p>　　<span style="color: #ff0000;">穿透</span><br />		　　　　大量无效的Key访问，数据并不存在<br />		　　　　解决：Key做验证过滤；无数据也进行缓存（空对象，非null）<br />	　　<span style="color: #ff0000;">击穿</span><br />		　　　　1个Key失效，但这个Key有大量并发请求，特别是公共缓存<br />		　　　　解决：失效时间点设置在非高峰时间段；主动做缓存更新（过期之前操作），而不是清理在重建<br />	　　<span style="color: #ff0000;">雪崩</span><br />		　　　　大量key设置了相似过期时间（前后几分钟），导致数据库请求瞬间增加。或者缓存服务器挂了<br />		　　　　解决：大量Key不要设置相同时间点过期或者过期时间比较接近，可以进行相对时间设置</p>
+
+</div>
+<div class="ql-long-12319783" data-header="2"><strong><span class="ql-author-12319783" style="font-size: 16px;">项目使用思考</span></strong></div>
+<p class="ql-long-12319783"><span class="ql-author-12319783">&nbsp;　　下面结合我自己项目，各位看官可酌情参考，骚操作开始</span></p>
+<div class="ql-long-12319783" data-header="3"><strong><span class="ql-author-12319783" style="font-size: 15px;">反向操作</span></strong></div>
+<div class="ql-long-12319783" data-header="3"><strong><span class="ql-author-12319783" style="font-size: 15px;">　　</span></strong><span class="ql-author-12319783" style="color: #ff0000;">缓存部分数据</span></div>
+<p class="ql-long-12319783 ql-text-indent-1 ql-indent-1"><span class="ql-author-12319783">　　　　有些数据太多，如果一直都是全部缓存，可能会带来一些问题，内存会爆掉，我们可以缓存部分数据， 比如id（id和权限有关，通过权限去取链路太长，而权限的变更不频繁）</span></p>
+<p class="ql-text-indent-1 ql-indent-1">&nbsp;　　<span class="ql-author-12319783" style="color: #ff0000;">让实体无数据被缓存。数据可被缓存，但引起该缓存失效点众多难以全部覆盖&nbsp;</span></p>
+<p class="ql-long-12319783 ql-indent-2"><span class="ql-author-12319783">　　　　让数据持续有效，提升缓存命中率</span></p>
+<p class="ql-long-12319783 ql-indent-2"><span class="ql-author-12319783">　　　　当Get数据有缓存之时，重置缓存有效时间</span></p>
+<p class="ql-long-12319783 ql-indent-2"><span class="ql-author-12319783">　　　　利用队列、事件总线、发布订阅、任务管理等进行异步缓存预处理</span></p>
+<p class="ql-long-12319783 ql-indent-2"><span class="ql-author-12319783">　　</span><span class="ql-author-12319783" style="color: #ff0000;">设置缓存版本时间，进行对比（适用于主从关系的数据）</span></p>
+<p class="ql-long-12319783 ql-indent-1"><span class="ql-author-12319783">　　　　什么意思呢，清理缓存的地方太多，无法覆盖，我们可以设置版本缓存时间。让相关缓存和这个缓存版本时间进行对比 属性缓存时间&gt; 缓存版本时间=有效</span></p>
+<p class="ql-long-12319783 ql-text-indent-1 ql-indent-1"><span class="ql-author-12319783">　　　（举个例子）一个项目下由多个工单, 工单设置了缓存，如果项目的基础信息修改，没法及时清理所有工单的缓存（其实这样也不科学,可能导致连接数过高）可以为这个项目设置缓存的时间，获取工单信息的时候如果工单的缓存的时间大于项目缓存的时间。有　　&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;效直接返回数据，如果无效，则获取DB更新相关缓存即可</span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783" style="color: #ff0000;">这反手一波波操作很骚，咱们说下正常操作（其实也不算骚，反过来思考）</span></p>
+<p>&nbsp;</p>
+<p class="ql-long-12319783"><span class="ql-author-12319783"><img src="./images/聊聊redis实际运用及骚操作2.png" alt="" width="344px" height="215px" /></span></p>
+<div class="ql-long-12319783" data-header="3"><strong><span class="ql-author-12319783" style="font-size: 15px;">正常操作</span></strong></div>
+<div class="ql-long-12319783" data-header="3"><strong><span class="ql-author-12319783" style="font-size: 15px;">　　</span></strong><span class="ql-author-12319783">常用数据加入缓存</span></div>
+<div class="ql-long-12319783" data-header="3"><span class="ql-author-12319783">　　</span><span class="ql-author-12319783">请求数量庞大的请求加入缓存</span></div>
+<div class="ql-long-12319783" data-header="3"><span class="ql-author-12319783">　　</span><span class="ql-author-12319783">查询较慢（通常是数据量基数庞大）的请求加入缓存</span></div>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　举个例子，像下列基本都可以做缓存(根据自己的业务来，也可不做，一种方案)</span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　　　</span><span class="ql-author-12319783">首页列表（或常用列表）</span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　　　</span><span class="ql-author-12319783">置顶内容标题</span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　　　</span><span class="ql-author-12319783">未读计数(也可用消息队列）</span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　　　</span><span class="ql-author-12319783">常用协作目标联系人搜索</span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　　　</span><span class="ql-author-12319783">常用统计周视图日程</span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　　　首屏数据</span><span class="ql-author-12319783"><br /></span></p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">　　　　</span><span class="ql-author-12319783">统计</span></p>
+<div class="ql-long-12319783" data-header="3"><strong><span class="ql-author-12319783" style="font-size: 15px;">整体操作</span></strong></div>
+<div class="ql-long-12319783" data-header="3"><strong><span class="ql-author-12319783" style="font-size: 15px;">　　</span></strong><span class="ql-author-12319783">数据完整的置入缓存</span></div>
+<div class="ql-long-12319783" data-header="3"><span class="ql-author-12319783">　　</span><span class="ql-author-12319783">用户信息　　</span></div>
+<div class="ql-long-12319783" data-header="3"><span class="ql-author-12319783">　　</span><span class="ql-author-12319783">权限信息　</span></div>
+<div class="ql-long-12319783" data-header="3"><span class="ql-author-12319783">　　缓存组</span></div>
+<div class="ql-long-12319783" data-header="3"><span class="ql-author-12319783">　　　　</span><span class="ql-author-12319783">让具备缓存失效关联关系的可将关键置入缓存组，失效则同时进行失效，关系可存放于内存或者Redis支持结构里面</span></div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p class="ql-long-12319783"><span class="ql-author-12319783"><img src="./images/聊聊redis实际运用及骚操作3.png" alt="" width="435px" height="auto" /></span></p>
+<div data-header="2">&nbsp;</div>
+<p class="ql-long-12319783"><span class="ql-author-12319783">善用redis,合理利用二级缓存，合理利用Redis所支持的结构，以提升项目整体性能，<span class="ql-author-12319783">redis虽好，不可&rdquo;贪杯&ldquo;，否则影响稳定性就得不偿失了（<span style="color: #ff0000;">redis只是一个方面，还可以分表，分库，数据库拆分，kafka，ElasticSearch，Solr等，技术都是手段，提供给用户好的体验,解决问题才是最重要的<span style="color: #000000;">）</span></span></span></span></p>
+<p>&nbsp;</p>
+<p class="ql-long-12319783"><span class="ql-author-12319783">谢谢！</span></p>
+<p>&nbsp;<img src="./images/聊聊redis实际运用及骚操作4.png" alt="" width="375px" height="246px" /></p>
+<p>&nbsp;</p>
+<p class="ql-long-12319783"><strong class="ql-author-12319783">如果您觉得阅读本文对您有帮助，请点一下&ldquo;</strong><strong class="ql-size-10 ql-author-12319783">推荐</strong><strong class="ql-author-12319783">&rdquo;按钮，您的&ldquo;</strong><strong class="ql-size-10 ql-author-12319783">推荐</strong><strong class="ql-author-12319783">&rdquo;将是我最大的写作动力！</strong></p>
+<p class="ql-long-12319783"><strong class="ql-author-12319783">本文版权归作者和博客园共有，来源网址：</strong><a class="ql-link ql-size-10 ql-author-12319783" href="https://www.cnblogs.com/DanielYao/" rel="noopener noreferrer nofollow" target="_blank"><strong>https://www.cnblogs.com/DanielYao/</strong></a><strong class="ql-author-12319783">欢迎各位转载，但是</strong><span style="color: #ff0000;"><strong class="ql-author-12319783">未经作者本人同意，转载文章之后必须在文章页面明显位置给出作者和原文连接，否则保留追究法律责任的权利</strong><strong class="ql-author-12319783">。</strong></span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

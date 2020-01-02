@@ -1,0 +1,382 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修drf框架中jwt认证,以及自定义jwt认证' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>drf框架中jwt认证,以及自定义jwt认证</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11494174.html</div><br>
+    <h1 id="drf框架中jwt">drf框架中jwt</h1>
+<h2 id="一.模块的安装">一.模块的安装</h2>
+<p><code>官方</code>:<a href="http://getblimp.github.io/django-rest-framework-jwt/" class="uri">http://getblimp.github.io/django-rest-framework-jwt/</a></p>
+<p>他是个第三方的开源项目</p>
+<p><code>安装</code>:<code>pip install djangorestframework-jwt</code></p>
+<p>使用<code>自带</code>设定好的jwt</p>
+<pre><code><code>from django.urls import path
+from rest_framework_jwt.views import obtain_jwt_token
+urlpatterns = [
+    path(&#39;login/&#39;, obtain_jwt_token),
+]
+&#39;&#39;&#39;
+path(&#39;login/&#39;, obtain_jwt_token)其实相当于path(&#39;login/&#39;, ObtainJSONWebToken.as_view())
+因为我们之间进源码可以看到
+obtain_jwt_token = ObtainJSONWebToken.as_view()     #获得
+refresh_jwt_token = RefreshJSONWebToken.as_view()   #刷新
+verify_jwt_token = VerifyJSONWebToken.as_view()     #验证
+&#39;&#39;&#39;</code></pre>
+<p>测试接口：post请求</p>
+<pre><code><code>&quot;&quot;&quot;
+postman发生post请求
+
+接口：http://api.luffy.cn:8000/user/login/
+
+数据：
+{
+    &quot;username&quot;:&quot;admin&quot;,
+    &quot;password&quot;:&quot;admin&quot;
+}
+&quot;&quot;&quot;</code></pre>
+<h2 id="二.工作原理">二.工作原理</h2>
+<pre><code><code>&quot;&quot;&quot;
+jwt：json web tokens 采用json格式在web上传输的 认证字符串
+
+jwt字符串：头.载荷.签名
+
+头：公司基本信息、项目组基本信息、常规加密算法名
+载荷：用户信息、过期时间
+签名：头、载荷、秘钥
+
+{头信息字典，采用base64加密算法}.{载荷信息字典，采用base64加密(base64编码)}.{头加密串、载荷加密串、服务器秘钥，采用hs256加密算法}
+
+base64是可逆的
+hash256是不可逆加密
+我们一般只会将账号信息,过期时间放载荷里面,一般把密码什么重要信息丢签名里面
+&quot;&quot;&quot;</code></pre>
+<h2 id="三.三大认证">三.三大认证</h2>
+<h3 id="authentication账号认证">authentication(账号认证)</h3>
+<pre><code><code>&quot;&quot;&quot;
+系统：session认证
+rest_framework.authentication.SessionAuthentication
+ajax请求通过认证：
+cookie中要携带 sessionid、csrftoken，请求头中要携带 x-csrftoken
+
+第三方：jwt认证 
+rest_framework_jwt.authentication.JSONWebTokenAuthentication
+ajax请求通过认证：
+请求头中要携带 authorization，值为 jwt空格token
+
+自定义：基于jwt、其它
+1）自定义认证类，继承BaseAuthentication(或其子类)，重写authenticate
+2）authenticate中完成
+    拿到认证标识 auth
+    反解析出用户 user
+    前两步操作失败 返回None =&gt; 游客
+    前两步操作成功 返回user，auth =&gt; 登录用户
+    注：如果在某个分支抛出异常，直接定义失败 =&gt; 非法用户
+&quot;&quot;&quot;</code></pre>
+<h3 id="permission权限认证">permission(权限认证)</h3>
+<pre><code><code>&quot;&quot;&quot;
+系统：
+1）AllowAny：允许所有用户，校验方法直接返回True
+2）IsAuthenticated：只允许登录用户
+    必须request.user和request.user.is_authenticated都通过
+3）IsAuthenticatedOrReadOnly：游客只读，登录用户无限制
+    get、option、head 请求无限制
+    前台请求必须校验 request.user和request.user.is_authenticated
+4）IsAdminUser：是否是后台用户
+    校验 request.user和request.user.is_staff    is_staff(可以登录后台管理系统的用户)
+    
+
+自定义：基于auth的Group与Permission表
+1）自定义权限类，继承BasePermission，重写has_permission
+2）has_permission中完成
+    拿到登录用户 user &lt;= request.user
+    校验user的分组或是权限
+    前两步操作失败 返回False =&gt; 无权限
+    前两步操作成功 返回True =&gt; 有权限
+&quot;&quot;&quot;</code></pre>
+<h3 id="throttle访问频率">throttle(访问频率)</h3>
+<pre><code><code>&quot;&quot;&quot;
+系统：
+1）AnonRateThrottle：对同一IP游客的限制
+2）UserRateThrottle：对同一IP登录用户的限制
+必须在settings.py中
+&#39;DEFAULT_THROTTLE_RATES&#39;: {
+    &#39;user&#39;: &#39;10/min&#39;,  # 登录的用户一分钟可以访问10次
+    &#39;anon&#39;: &#39;3/min&#39;,  # 游客一分钟可以访问3次
+}
+在视图类中：
+class TempAPIView(APIView):
+    ...
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
+    
+    
+
+自定义：基于auth的Group与Permission表
+1）自定义频率类，继承SimpleRateThrottle，重写get_cache_key，明确scope
+    SimpleRateThrottle已经帮我们实现了 allow_request、wait
+2）scope与settings.py的DEFAULT_THROTTLE_RATES配合使用
+3）get_cache_key中完成
+    拿到限制信息 ident &lt;= request中获取
+    没有限制信息 返回None =&gt; 不限制
+    有限制信息 返回限制信息字符串 =&gt; 有限制
+&quot;&quot;&quot;</code></pre>
+<h2 id="四.自定义认证基于jwt">四.自定义认证,基于jwt</h2>
+<p><code>其实就是在jwt的源码基础上进行相关的修改</code></p>
+<p>最简单的修改</p>
+<pre><code><code>from rest_framework.exceptions import AuthenticationFailed
+import jwt
+from rest_framework_jwt.authentication import BaseJSONWebTokenAuthentication
+from rest_framework_jwt.authentication import jwt_decode_handler
+
+from rest_framework.authentication import BaseAuthentication
+def authenticate(self, request):
+    auth = 从request中得到
+    user = 从auth中得到
+    if not user:
+        return None
+    return user, auth</code></pre>
+<p><code>如果我们自定制了一个权限我们进行全局设置必须自己在setting把这个函数加进去</code></p>
+<pre><code><code>REST_FRAMEWORK = {
+&#39;DEFAULT_AUTHENTICATION_CLASSES&#39;: [
+        # django默认session校验：校验规则 游客 及 登录用户
+        # &#39;rest_framework.authentication.SessionAuthentication&#39;,
+        # &#39;rest_framework.authentication.BasicAuthentication&#39;,
+        # &#39;rest_framework_jwt.authentication.JSONWebTokenAuthentication&#39;,
+],
+}</code></pre>
+<p><code>我们做局部设置就在我们自定义的类中添加</code></p>
+<pre><code><code>authentication_classes = [我们自定义认证函数的对象]</code></pre>
+<h2 id="五.自定义权限相关">五.自定义权限相关</h2>
+<p><code>也是改源码</code></p>
+<pre><code><code>&quot;&quot;&quot;
+系统：
+1）AllowAny：允许所有用户，校验方法直接返回True
+2）IsAuthenticated：只允许登录用户
+    必须request.user和request.user.is_authenticated都通过
+3）IsAuthenticatedOrReadOnly：游客只读，登录用户无限制
+    get、option、head 请求无限制
+    前台请求必须校验 request.user和request.user.is_authenticated
+4）IsAdminUser：是否是后台用户
+    校验 request.user和request.user.is_staff    is_staff(可以登录后台管理系统的用户)
+    
+
+自定义：基于auth的Group与Permission表
+1）自定义权限类，继承BasePermission，重写has_permission
+2）has_permission中完成
+    拿到登录用户 user &lt;= request.user
+    校验user的分组或是权限
+    前两步操作失败 返回False =&gt; 无权限
+    前两步操作成功 返回True =&gt; 有权限
+&quot;&quot;&quot;</code></pre>
+<pre><code><code>#根据用户分组信息设置相关权限
+from rest_framework.permissions import BasePermission
+
+class AdminPermission(BasePermission):
+    # 继承BasePermission，重写has_permission
+    def has_permission(self, request, view):
+        # 有权限，返回True
+        # 无权限，返回False
+        user = request.user
+        if not user:
+            return False
+        # 用户是 管理员 分组 (管理员分组是Group表中的一条自定义记录)
+        if not user.groups.filter(name=&#39;管理员&#39;):
+            return False
+        # 登录的用户必须是自定义管理员分组成员
+        return True</code></pre>
+<p><code>如果我们自定制了一个权限全局设置我们必须自己在setting把这个函数加进去</code></p>
+<p>自定义类的路径<code>api.authentications.JWTAuthentication</code></p>
+<pre><code><code>#自定义一个权限
+
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+import jwt
+from rest_framework_jwt.authentication import BaseJSONWebTokenAuthentication
+from rest_framework_jwt.authentication import jwt_decode_handler
+
+class JWTAuthentication(BaseJSONWebTokenAuthentication):
+    # 自定义认证类，重写authenticate方法
+    def authenticate(self, request):
+        # 认证通过，返回user，auth
+        # 认证失败，返回None
+        auth = request.META.get(&#39;HTTP_AUTH&#39;)  # 前台用auth携带token
+        if not auth:
+            return None
+
+        try:
+            payload = jwt_decode_handler(auth)
+
+        # 出现jwt解析异常，直接抛出异常，代表非法用户，也可以返回None，作为游客处理
+        except jwt.ExpiredSignature:
+            raise AuthenticationFailed(&#39;token已过期&#39;)
+        except:
+            raise AuthenticationFailed(&#39;token非法&#39;)
+
+        user = self.authenticate_credentials(payload)
+        return (user, auth)</code></pre>
+<pre><code><code>REST_FRAMEWORK = {
+        &#39;DEFAULT_AUTHENTICATION_CLASSES&#39;: [
+        # &#39;我们自定义权限函数的路径&#39;,
+        &#39;api.authentications.JWTAuthentication&#39;,
+    ],
+&#39;DEFAULT_PERMISSION_CLASSES&#39;: [
+    # &#39;rest_framework.permissions.AllowAny&#39;,
+    # 全局配置：一站式网站（所有操作都需要登录后才能访问）
+    # &#39;rest_framework.permissions.IsAuthenticated&#39;,
+
+],
+}</code></pre>
+<p><code>我们做局部设置就在我们自定义的类中添加</code></p>
+<pre><code><code>permission_classes = [我们自定义认证函数的对象]</code></pre>
+<h2 id="六.自定义访问次数设置">六.自定义访问次数设置</h2>
+<pre><code><code>&quot;&quot;&quot;
+系统：
+1）AnonRateThrottle：对同一IP游客的限制
+2）UserRateThrottle：对同一IP登录用户的限制
+必须在settings.py中
+REST_FRAMEWORK = {
+&#39;DEFAULT_THROTTLE_RATES&#39;: {
+    &#39;user&#39;: &#39;10/min&#39;,  # 登录的用户一分钟可以访问10次
+    &#39;anon&#39;: &#39;3/min&#39;,  # 游客一分钟可以访问3次
+}
+}
+在视图类中：
+class TempAPIView(APIView):
+    ...
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
+
+自定义：基于auth的Group与Permission表
+1）自定义频率类，继承SimpleRateThrottle，重写get_cache_key，明确scope
+    SimpleRateThrottle已经帮我们实现了 allow_request、wait
+2）scope与settings.py的DEFAULT_THROTTLE_RATES配合使用
+3）get_cache_key中完成
+    拿到限制信息 ident &lt;= request中获取
+    没有限制信息 返回None =&gt; 不限制
+    有限制信息 返回限制信息字符串 =&gt; 有限制
+&quot;&quot;&quot;</code></pre>
+<p>自定义频率类：一分钟一个手机号只允许访问一次接口</p>
+<pre><code><code>from rest_framework.throttling import SimpleRateThrottle
+
+class ThreeMinRateThrottle(SimpleRateThrottle):
+    scope = &#39;sms&#39;
+    def get_cache_key(self, request, view):
+        # 对手机号频率限制
+        ident = request.data.get(&#39;mobile&#39;)
+        if not ident:  # 为发现限制条件，返回None代表不进行频率限制
+            return None
+        return self.cache_format % {
+            &#39;scope&#39;: self.scope,
+            &#39;ident&#39;: ident
+        }
+# settings.py 
+REST_FRAMEWORK = {
+&#39;DEFAULT_THROTTLE_RATES&#39;: {
+    &#39;user&#39;: &#39;10/min&#39;,  # 登录的用户一分钟可以访问10次 如果是
+    &#39;anon&#39;: &#39;3/min&#39;,  # 游客一分钟可以访问3次
+    &#39;sms&#39;: &#39;1/min&#39;,  #是我们自定义的,默认只提供user以及anon
+}
+}</code></pre>
+<pre><code><code>在视图层
+class UserListAPIView(ListAPIView):
+    throttle_classes = [我们自定义的方法路径]</code></pre>
+<p>源码里关于时间的一段代码</p>
+<pre><code><code>    def parse_rate(self, rate):
+        &quot;&quot;&quot;
+        Given the request rate string, return a two tuple of:
+        &lt;allowed number of requests&gt;, &lt;period of time in seconds&gt;
+        &quot;&quot;&quot;
+        if rate is None:
+            return (None, None)
+        num, period = rate.split(&#39;/&#39;)
+        num_requests = int(num)
+        duration = {&#39;s&#39;: 1, &#39;m&#39;: 60, &#39;h&#39;: 3600, &#39;d&#39;: 86400}[period[0]]
+        return (num_requests, duration)</code></pre>
+<p><code>这里我们可以看出来是先/进行字符串切分然后取第一个字母</code>所有我们这边不一定用min代表分,只要开头是m即可</p>
+<h2 id="七.全局设置有效时间以及jwt的名称">七.全局设置有效时间以及jwt的名称</h2>
+<pre><code><code>import datetime
+JWT_AUTH = {
+    &#39;JWT_EXPIRATION_DELTA&#39;: datetime.timedelta(seconds=30000),#d到期时间
+    &#39;JWT_AUTH_HEADER_PREFIX&#39;: &#39;TOKEN&#39;,  #我们传参数的时候开头自定义内容,注意点这里必须与下面的token中以宫格隔开
+}</code></pre>
+<p><code>源码中为</code></p>
+<pre><code><code>USER_SETTINGS = getattr(settings, &#39;JWT_AUTH&#39;, None)  #他是通过JWT_AUTH这个名字
+......
+&#39;JWT_EXPIRATION_DELTA&#39;: datetime.timedelta(seconds=300),
+&#39;JWT_AUTH_HEADER_PREFIX&#39;: &#39;JWT&#39;,  系统默认以jwt开头</code></pre>
+<h2 id="八.关于jwt自定制获取token">八.关于jwt自定制获取token</h2>
+<p><code>源码在rest_framework_jwt.seriallizers.py中</code>JSONWebTokenSerializer类</p>
+<pre><code><code>payload = jwt_payload_handler(user)
+
+return {
+    &#39;token&#39;: jwt_encode_handler(payload),
+    &#39;user&#39;: user
+}</code></pre>
+<p>我们如果自定义有几个关键点把握就好了一个是<code>jwt_payload_handler</code>的方法</p>
+<p>一个是 user对象</p>
+<p>所有如果我们要在登入的时候抛出token</p>
+<pre><code><code>import re
+from utils.response import APIResponse
+from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
+class LoginJWTAPIView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+    def post(self, request, *args, **kwargs):
+        # username可能携带的不止是用户名，可能还是用户的其它唯一标识 手机号 邮箱
+        username = request.data.get(&#39;username&#39;)
+        password = request.data.get(&#39;password&#39;)
+
+        # 如果username匹配上手机号正则 =&gt; 可能是手机登录
+        if re.match(r&#39;1[3-9][0-9]{9}&#39;, username):
+            try:
+                # 手动通过 user 签发 jwt-token
+                user = models.User.objects.get(mobile=username)
+            except:
+                return APIResponse(1, &#39;该手机未注册&#39;)
+
+        # 邮箱登录 等
+
+        # 账号登录
+        else:
+            try:
+                # 手动通过 user 签发 jwt-token
+                user = models.User.objects.get(username=username)
+            except:
+                return APIResponse(1, &#39;该账号未注册&#39;)
+
+        # 获得用户后，校验密码并签发token
+        if not user.check_password(password):
+            return APIResponse(1, &#39;密码错误&#39;)
+        payload = jwt_payload_handler(user)
+        token = jwt_encode_handler(payload)
+        return APIResponse(0, &#39;ok&#39;, results={
+            &#39;username&#39;: user.username,
+            &#39;mobile&#39;: user.mobile,
+            &#39;token&#39;: token
+        })</code></pre>
+<h2 id="九.有效期设置">九.有效期设置</h2>
+<pre><code><code># settings.py 
+# jwt配置
+import datetime
+JWT_AUTH = {
+    &#39;JWT_EXPIRATION_DELTA&#39;: datetime.timedelta(seconds=30000),
+    &#39;JWT_AUTH_HEADER_PREFIX&#39;: &#39;TOKEN&#39;,
+}</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

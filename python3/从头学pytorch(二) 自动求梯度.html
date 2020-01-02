@@ -1,0 +1,180 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修从头学pytorch(二) 自动求梯度' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>从头学pytorch(二) 自动求梯度</center></div><div class='banquan'>原文出处:本文由博客园博主core!提供。<br/>
+原文连接:https://www.cnblogs.com/sdu20112013/p/12046594.html</div><br>
+    <p>PyTorch提供的autograd包能够根据输⼊和前向传播过程⾃动构建计算图，并执⾏反向传播。</p>
+<h2 id="tensor">Tensor</h2>
+<p>Tensor的几个重要属性或方法</p>
+<ul>
+<li>.requires_grad 设为true的话,tensor将开始追踪在其上的所有操作</li>
+<li>.backward()完成梯度计算</li>
+<li>.grad属性 计算的梯度累积到.grad属性</li>
+<li>.detach()解除对一个tensor上操作的追踪,或者用with torch.no_grad()将不想被追踪的操作代码块包裹起来.</li>
+<li>.grad_fn属性 该属性即创建Tensor的Function类的类型,即该Tensor是由什么运算得来的</li>
+</ul>
+<p>几个例子具体地解释一下:</p>
+<pre><code><code>import torch
+x = torch.ones(2, 2, requires_grad=True)
+print(x)
+print(x.grad_fn)
+
+y = x+2
+print(y)
+print(y.grad_fn)
+
+z = y*y*3
+out=z.mean()
+print(z,out)</code></pre>
+<p>输出</p>
+<pre><code><code>tensor([[1., 1.],
+        [1., 1.]], requires_grad=True)
+None
+tensor([[3., 3.],
+        [3., 3.]], grad_fn=&lt;AddBackward&gt;)
+&lt;AddBackward object at 0x0000018752434B70&gt;
+
+
+tensor([[27., 27.],
+        [27., 27.]], grad_fn=&lt;MulBackward&gt;) tensor(27., grad_fn=&lt;MeanBackward1&gt;)</code></pre>
+<p>y由加法得到,所以y.grad_fn=<AddBackward>,x直接创建,其x.grad_fn=None. x这种直接创建的又称为叶子节点.</p>
+<pre><code><code>print(x.is_leaf, y.is_leaf) # True False</code></pre>
+<p>可以用.requires_grad_()来用in-place的方式改变requires_grad属性.</p>
+<pre><code><code>a = torch.randn(2, 2) # 缺失情况下默认 requires_grad = False
+a = ((a * 3) / (a - 1))
+print(a.requires_grad) # False
+a.requires_grad_(True)
+print(a.requires_grad) # True
+b = (a * a).sum()
+print(b.grad_fn)</code></pre>
+<p>输出</p>
+<pre><code><code>False
+True
+&lt;SumBackward0 object at 0x0000018752434D30&gt;</code></pre>
+<h2 id="梯度">梯度</h2>
+<p><strong>所计算的梯度都是结果变量关于创建变量的梯度。</strong><br />
+比如对:</p>
+<pre><code><code>x = torch.ones(2, 2, requires_grad=True)
+print(x)
+print(x.grad_fn)
+
+y = x+2
+print(y)
+print(y.grad_fn)
+
+z = y*3
+z.backward(torch.ones_like(z))
+print(y.grad) #None  
+print(x.grad)</code></pre>
+<p>输出</p>
+<pre><code><code>None
+tensor([[3., 3.],
+        [3., 3.]])</code></pre>
+<p>上述代码相当于创建了一个动态图,其中x是我们创建的变量,y和z都是因为x的改变会改变的结果变量. 所以在这个动态图里能够求的梯度只有<span class="math inline">\(\frac{\partial{z}}{\partial{x}}\)</span>,<span class="math inline">\(\frac{\partial{y}}{\partial{x}}\)</span></p>
+<p><strong>为什么l.backward(gradient)需要传入一个和l同样形状的gradient?</strong><br />
+对于l.backward()而言,当l是标量时,可以不传参,相当于l.backward(torch.tensor(1.))<br />
+当l不是标量时,需要传入一个和l同shape的gradient。</p>
+<blockquote>
+<p>假设 x 经过一番计算得到 y，那么 y.backward(w) 求的不是 y 对 x 的导数，而是 l = torch.sum(y*w) 对 x 的导数。w 可以视为 y 的各分量的权重，也可以视为遥远的损失函数 l 对 y 的偏导数（这正是函数说明文档的含义）。特别地，若 y 为标量，w 取默认值 1.0，才是按照我们通常理解的那样，求 y 对 x 的导数</p>
+</blockquote>
+<p>简单地说就是,张量对张量没法求导,所以我们需要人为地定义一个w,把一个非标量的Tensor通过torch.sum(y*w)的形式转换成标量。我们自己定义的这个w的不同,当然最后得到的梯度就不同.通常定义为全1.也就是认为Tensor y中的每一个变量的重要性是等同的.</p>
+<p>另一个角度的理解就是,y是一个tensor,是一个向量,有N个标量,这每一个标量都与x有关。对这N个标量我们需要赋以不同的权重,以显示y中每一个标量受到x影响的程度.</p>
+<p>比如对</p>
+<pre><code><code>import torch
+x = torch.ones(2, 2, requires_grad=True)
+print(x)
+print(x.grad_fn)
+
+y = x+2
+print(y)
+print(y.grad_fn)
+
+z = y*3
+print(z.shape)
+w1=torch.Tensor([[1,2],[1,2]])
+z.backward([w1])
+print(x.grad)
+
+x.grad.data.zero_()
+w2=torch.Tensor([[1,1],[1,1]])
+z.backward([w2])
+print(x.grad)</code></pre>
+<p>输出</p>
+<pre><code><code>tensor([[1., 1.],
+        [1., 1.]], requires_grad=True)
+None
+tensor([[3., 3.],
+        [3., 3.]], grad_fn=&lt;AddBackward&gt;)
+&lt;AddBackward object at 0x00000187524A6828&gt;
+torch.Size([2, 2])
+tensor([[3., 6.],
+        [3., 6.]])
+tensor([[3., 3.],
+        [3., 3.]])</code></pre>
+<p>对w1和w2而言,z.backward()以后x.grad是不同的。<br />
+<strong>注意:梯度是累加的,所以第二次计算之前我们做了清零的操作:x.grad.data.zero_()</strong></p>
+<p>可以参考:<br />
+<a href="https://zhuanlan.zhihu.com/p/29923090" class="uri">https://zhuanlan.zhihu.com/p/29923090</a><br />
+<a href="https://www.cnblogs.com/zhouyang209117/p/11023160.html" class="uri">https://www.cnblogs.com/zhouyang209117/p/11023160.html</a></p>
+<p>再来看看中断梯度追踪的例子：</p>
+<pre><code><code>x = torch.tensor(1.0, requires_grad=True)
+y1 = x ** 2 
+with torch.no_grad():
+    y2 = x ** 3
+y3 = y1 + y2
+    
+print(x.requires_grad)
+print(y1, y1.requires_grad) # True
+print(y2, y2.requires_grad) # False
+print(y3, y3.requires_grad) # True</code></pre>
+<p>输出：</p>
+<pre><code><code>True
+tensor(1., grad_fn=&lt;PowBackward0&gt;) True
+tensor(1.) False
+tensor(2., grad_fn=&lt;ThAddBackward&gt;) True</code></pre>
+<p>反向传播,求梯度</p>
+<pre><code><code>y3.backward()
+print(x.grad)</code></pre>
+<p>输出：</p>
+<pre><code><code>tensor(2.)</code></pre>
+<p>为什么是2呢？$ y_3 = y_1 + y_2 = x^2 + x^3$，当 <span class="math inline">\(x=1\)</span> 时 <span class="math inline">\(\frac {dy_3} {dx}\)</span> 不应该是5吗？事实上，由于 <span class="math inline">\(y_2\)</span> 的定义是被<code>torch.no_grad():</code>包裹的，所以与 <span class="math inline">\(y_2\)</span> 有关的梯度是不会回传的，只有与 <span class="math inline">\(y_1\)</span> 有关的梯度才会回传，即 <span class="math inline">\(x^2\)</span> 对 <span class="math inline">\(x\)</span> 的梯度。</p>
+<p>上面提到，<code>y2.requires_grad=False</code>，所以不能调用 <code>y2.backward()</code>，会报错：</p>
+<pre><code><code>RuntimeError: element 0 of tensors does not require grad and does not have a grad_fn</code></pre>
+<p>此外，如果我们想要修改<code>tensor</code>的数值，但是又不希望被<code>autograd</code>记录（即不会影响反向传播），那么我么可以对<code>tensor.data</code>进行操作。</p>
+<pre class="python"><code>x = torch.ones(1,requires_grad=True)
+
+print(x.data) # 还是一个tensor
+print(x.data.requires_grad) # 但是已经是独立于计算图之外
+
+y = 2 * x
+x.data *= 100 # 只改变了值，不会记录在计算图，所以不会影响梯度传播
+
+y.backward()
+print(x) # 更改data的值也会影响tensor的值
+print(x.grad)</code></pre>
+<p>输出：</p>
+<pre><code><code>tensor([1.])
+False
+tensor([100.], requires_grad=True)
+tensor([2.])</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

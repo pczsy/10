@@ -1,0 +1,103 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修在Windows系统中构建还原ASP.NET Core 源码' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>在Windows系统中构建还原ASP.NET Core 源码</center></div><div class='banquan'>原文出处:本文由博客园博主张子浩提供。<br/>
+原文连接:https://www.cnblogs.com/ZaraNet/p/12001261.html</div><br>
+    <p>　　大家好，这几天试着从Github上拉取AspNetCore的源码，尝试着通过Visual Studio 打开，但是并不尽人意。我们需要去构建我们拉去的源代码，这样才可以通过VisualStudio可还原的项目。毕竟AspNetCore是一个巨型的项目集。</p>
+<h2>先决条件</h2>
+<p>　　在Windows中构建AspNetCore源码的要求有以下硬件需求。</p>
+<blockquote>
+<ul>
+<li><span>Windows 10版本1803或更高版本</span></li>
+<li><span>至少10 GB的磁盘空间和良好的网络（我们的构建脚本下载了很多工具和依赖项）</span></li>
+<li><span><span>Visual Studio 2019 （因为所需C++某些运行库，就算你的Windows中有先决条件的Visual Studio ，你有时也不会勾选C++等运行库，所以我们还是要运行下，大概四个多G）</span></span>
+<ul>
+<li><span><span>要安装所需的确切组件，请运行</span></span><span class="pl-k">.<span class="pl-k">/eng<span class="pl-k">/scripts<span class="pl-k">/InstallVisualStudio.ps1</span></span></span></span>
+<div class="highlight highlight-source-powershell">
+<div class="cnblogs_code">
+<pre><code>PS<span class="pl-k">&gt; .<span class="pl-k">/eng<span class="pl-k">/scripts<span class="pl-k">/InstallVisualStudio.ps1</span></span></span></span></pre>
+</div>
+</div>
+</li>
+</ul>
+</li>
+<li><span>Git 工具</span></li>
+<li><span><span>NodeJS。</span><span>LTS版本10.14.2或更高版本</span></span><a href="https://nodejs.org/" rel="nofollow">https://nodejs.org</a></li>
+<li><span><span>Java Development Kit 11或更高版本。</span><span>要么：</span></span>
+<ul>
+<li><span>OpenJDK&nbsp;</span><a href="https://jdk.java.net/" rel="nofollow">https://jdk.java.net/</a></li>
+<li><span>甲骨文的JDK&nbsp;</span><a href="https://www.oracle.com/technetwork/java/javase/downloads/index.html" rel="nofollow">https://www.oracle.com/technetwork/java/javase/downloads/index.html</a></li>
+<li><span>要安装此回购协议只能使用的JDK版本，请运行</span><a href="https://github.com/aspnet/AspNetCore/blob/master/eng/scripts/InstallJdk.ps1">eng / scripts / InstallJdk.ps1</a>
+<div class="highlight highlight-source-powershell">
+<div class="cnblogs_code">
+<pre><code>./eng/scripts/InstallJdk.ps1</pre>
+</div>
+</div>
+</li>
+</ul>
+</li>
+<li><span><span>Chrome-基于硒的测试需要安装一个版本的Chrome。</span><span>从[&nbsp;</span></span><a href="https://www.google.com/chrome" rel="nofollow">https://www.google.com/chrome</a><span><span>&nbsp;]&nbsp;</span><span>下载并安装它</span></span></li>
+</ul>
+</blockquote>
+<h2>拉取代码</h2>
+<p><span>ASP.NET Core使用git子模块来包含其他一些项目的源代码。</span></p>
+<p><span>对于项目的新副本，运行：</span></p>
+<div class="cnblogs_code">
+<pre><code>git clone --recursive https:<span style="color: #008000;">//</span><span style="color: #008000;">github.com/aspnet/AspNetCore</span></pre>
+</div>
+<p><span>如果第一次没有通过，则可以再更新，再&nbsp;<span class="cnblogs_code">.\restore.cmd</span>&nbsp;：</span></p>
+<div class="cnblogs_code">
+<pre><code>git submodule update --init --recursive</pre>
+</div>
+<p>为了挑选你想要的版本，您必须选择迭代，否则将会是最新的版本，所以必须切换并创建一个分支。</p>
+<div class="cnblogs_code">
+<pre><code>git checkout (要使用的版本)v3.<span style="color: #800080;">1.0</span> -b test</pre>
+</div>
+<h2>还原代码</h2>
+<p>在Github拉取代码之后，您需要执行以下操作，这将下载所需的工具并还原整个存储库一次。</p>
+<div class="cnblogs_code">
+<pre><code>.\restore.cmd</pre>
+</div>
+<p>这个时候，您应该可以通过Visual Studio 或者 Vs Code 打开您想打开的项目了，但是打开之后会发现，缺少很多本身项目所需的依赖库。</p>
+<h2>构建代码</h2>
+<p>构建代码的前提是您的还原代码通过了。否则则会直接构建失败，这里的Windows命令行如下：</p>
+<div class="cnblogs_code">
+<pre><code>.\build.cmd</pre>
+</div>
+<p>该操作会耽误您的一点时间，考虑到一般的计算机，差不多会用到十分钟多一点，当然这是在您网络良好的情况下。</p>
+<h2>通过Visual Studio 享受美食</h2>
+<p><img src="./images/在Windows系统中构建还原ASP.NET Core 源码0.png" alt="" /></p>
+<h2>&nbsp;一些问题</h2>
+<p>&nbsp;　　像NodeJs 和 Java JDK 一定要装好，最好在PowerShell执行以上操作。</p>
+<h3>问题一：</h3>
+<p>　　PowelShell出现&nbsp;<span class="cnblogs_code">无法加载文件 ******.ps1，因为在此系统中禁止执行脚本。有关详细信息，请参阅 <span style="color: #800000;">"</span><span style="color: #800000;">get-help about_signing</span><span style="color: #800000;">"</span>。</span>&nbsp;，请在powershell中执行&nbsp;&nbsp;<span class="cnblogs_code"><span style="color: #0000ff;">set</span>-ExecutionPolicy RemoteSigned</span>&nbsp;.</p>
+<h3>问题二：</h3>
+<p>　　如果找不到SDK,请<span><span>启动Visual Studio，转到&ldquo;&nbsp;</span></span><em><span><span>工具&rdquo;&gt;&ldquo;选项&rdquo;，</span></span></em><span><span>然后</span><span>在&ldquo;&nbsp;</span><em><span>环境&rdquo;&gt;&ldquo;预览功能&rdquo;</span></em><span>下</span><span>选中&ldquo;&nbsp;</span></span><em><span><span>使用.NET Core SDK的</span></span></em><em><span><span>预览&rdquo;</span></span></em><span><span>。</span></span></p>
+<p><span><span>最后希望大家顺利还原并构建源代码！~<br /></span></span></p>
+<h2><span><span>更多资料</span></span></h2>
+<blockquote>
+<p><span><span>　　<a href="https://github.com/aspnet/AspNetCore/blob/master/docs/BuildFromSource.md">https://github.com/aspnet/AspNetCore/blob/master/docs/BuildFromSource.md</a></span></span></p>
+
+
+
+</blockquote>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,94 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修爬虫篇-python爬虫中多线程的使用' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>爬虫篇-python爬虫中多线程的使用</center></div><div class='banquan'>原文出处:本文由博客园博主记住我忘记我提供。<br/>
+原文连接:https://www.cnblogs.com/nmsghgnv/p/11571712.html</div><br>
+    <h2 id="wiz_toc_0">queue介绍</h2>
+<ul>
+<li>queue是python的标准库，俗称队列.可以直接import引用,在python2.x中,模块名为Queue。python3直接queue即可</li>
+<li>
+<p>在python中，多个线程之间的数据是共享的，多个线程进行数据交换的时候，不能够保证数据的安全性和一致性，所以当多个线程需要进行数据交换的时候，队列就出现了，队列可以完美解决线程间的数据交换，保证线程间数据的安全性和一致性。</p>
+</li>
+</ul>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">多线程实战栗子（糗百）</span><span style="color: #008000;">
+#</span><span style="color: #008000;">用一个队列Queue对象，</span><span style="color: #008000;">
+#</span><span style="color: #008000;">先产生所有url，put进队列；</span><span style="color: #008000;">
+#</span><span style="color: #008000;">开启多线程，把queue队列作为参数传入</span><span style="color: #008000;">
+#</span><span style="color: #008000;">主函数中读取url</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> requests
+</span><span style="color: #0000ff;">from</span> queue <span style="color: #0000ff;">import</span><span style="color: #000000;"> Queue
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> re,os,threading,time
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 构造所有ip地址并添加进queue队列</span>
+headers =<span style="color: #000000;"> {
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">User-Agent</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36</span><span style="color: #800000;">'</span><span style="color: #000000;">
+}
+urlQueue </span>=<span style="color: #000000;"> Queue()
+[urlQueue.put(</span><span style="color: #800000;">'</span><span style="color: #800000;">http://www.qiumeimei.com/image/page/{}</span><span style="color: #800000;">'</span>.format(i)) <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(1,14<span style="color: #000000;">)]
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_image(urlQueue):
+
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 不阻塞的读取队列数据</span>
+            url =<span style="color: #000000;"> urlQueue.get_nowait()
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> i = urlQueue.qsize()</span>
+        <span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+            </span><span style="color: #0000ff;">break</span>
+        <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Current Thread Name %s, Url: %s </span><span style="color: #800000;">'</span> %<span style="color: #000000;"> (threading.currentThread().name, url))
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+            res </span>= requests.get(url, headers=<span style="color: #000000;">headers)
+            url_infos </span>= re.findall(<span style="color: #800000;">'</span><span style="color: #800000;">data-lazy-src="(.*?)"</span><span style="color: #800000;">'</span><span style="color: #000000;">, res.text, re.S)
+            </span><span style="color: #0000ff;">for</span> url_info <span style="color: #0000ff;">in</span><span style="color: #000000;"> url_infos:
+                </span><span style="color: #0000ff;">if</span> os.path.exists(img_path + url_info[-20<span style="color: #000000;">:]):
+                    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">图片已存在</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                    image </span>= requests.get(url_info, headers=<span style="color: #000000;">headers)
+                    with open(img_path </span>+ url_info[-20:], <span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as fp:
+                        time.sleep(</span>1<span style="color: #000000;">)
+                        fp.write(image.content)
+                    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">正在下载:</span><span style="color: #800000;">'</span> +<span style="color: #000000;"> url_info)
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> Exception as e:
+            </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(e)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    startTime </span>=<span style="color: #000000;"> time.time()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 定义图片存储路径</span>
+    img_path = <span style="color: #800000;">'</span><span style="color: #800000;">./img/</span><span style="color: #800000;">'</span>
+    <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> os.path.exists(img_path):
+        os.mkdir(img_path)
+    threads </span>=<span style="color: #000000;"> []
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 可以调节线程数， 进而控制抓取速度</span>
+    threadNum = 4
+    <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(0, threadNum):
+        t </span>= threading.Thread(target=get_image, args=<span style="color: #000000;">(urlQueue,))
+        threads.append(t)
+    </span><span style="color: #0000ff;">for</span> t <span style="color: #0000ff;">in</span><span style="color: #000000;"> threads:
+        t.start()
+    </span><span style="color: #0000ff;">for</span> t <span style="color: #0000ff;">in</span><span style="color: #000000;"> threads:
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 多线程多join的情况下，依次执行各线程的join方法, 这样可以确保主线程最后退出， 且各个线程间没有阻塞</span>
+<span style="color: #000000;">        t.join()
+    endTime </span>=<span style="color: #000000;"> time.time()
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Done, Time cost: %s </span><span style="color: #800000;">'</span> % (endTime - startTime))</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,674 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Gradle 使用教程之 Task 详解' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Gradle 使用教程之 Task 详解</center></div><div class='banquan'>原文出处:本文由博客园博主huansky提供。<br/>
+原文连接:https://www.cnblogs.com/huansky/p/12064630.html</div><br>
+    <div>
+<p>最近打算学习下 gradle 在 Android 中的使用，结果百度出来的文章都是介绍性文章，没啥干货。后来找到 gradle 官网教程，自己对着撸。</p>
+<h1 style="background-color: #33cccc;">Gradle 概述：</h1>
+<p>Gradle 是一个基于 Apache Ant 和 Apache Maven 概念的项目自动化构建工具。它使用一种基于 Groovy 的特定领域语言来声明项目设置，而不是传统的 XML。Gradle 就是工程的管理，帮我们做了依赖、打包、部署、发布、各种渠道的差异管理等工作。</p>
+<h3 style="background-color: #33ffff;">Gradle优势：</h3>
+<ol>
+<li>
+<p>一款最新的，功能最强大的构建工具，用它逼格更高</p>
+</li>
+<li>
+<p>使用程序代替传统的XML配置，项目构建更灵活</p>
+</li>
+<li>
+<p>丰富的第三方插件，让你随心所欲使用</p>
+</li>
+<li>
+<p>Maven、Ant能做的，Gradle都能做，但是Gradle能做的，Maven、Ant不一定能做。</p>
+</li>
+</ol>Groovy 是一种基于JVM的敏捷开发语言，结合了Python、Ruby和Smalltalk的许多强大的特性。Groovy可以与Java完美结合，而且可以使用Java所有的库，在语法上支持动态类型、闭包等新一代语言特性，无缝集成所有已经存在的Java类库，既支持面向对象编程也支持面向过程编程</div>
+<div>
+<h3 style="background-color: #33ffff;">Groovy 优势：</h3>
+<ol>
+<li>一种更加敏捷的编程语言</li>
+<li>入门非常的容易，且功能非常的强大</li>
+<li>既可以作为编程语言也可以作为脚本语言</li>
+</ol></div>
+<p>刚开始的时候，我对 Gradle 和 Groovy 傻傻分不清楚，以为都是一种语言。后来才懂了，gradle 是一个构建工具，使用的语言是&nbsp;Groovy。</p>
+<h2 style="background-color: #33ccff;">准备工作：</h2>
+<p>下面进入实战。</p>
+<p>首先为了使用 gradle，大家可以在&nbsp; Android studio 新建一个 Android 工程。使用其他 IDE 或者需要配置的环境的朋友，可以自己百度相关文章。</p>
+<p><span style="color: #ff0000;"><strong>文章示例基于&nbsp; Gradle 5.1.1 构建的。</strong>&nbsp;</span></p>
+<h1 style="background-color: #33cccc;">&nbsp;Task&nbsp;</h1>
+<div class="paragraph">
+<p>Gradle 中的所有内容都基于两个基本概念：项目和任务。</p>
+</div>
+<div class="paragraph">
+<p>每个 Gradle 构建都由一个或多个项目组成。项目代表什么取决于您在 Gradle 中所做的事情。例如，一个项目可能代表一个 JAR 库或一个 Web 应用程序。它可能表示从其他项目产生的 JAR 组装而成的发行版 ZIP。项目不一定代表要构建的事物。它可能表示要完成的事情，例如将应用程序部署到暂存或生产环境。暂时不要担心这似乎还不清楚。Gradle 的按惯例构建支持为项目的定义添加了更具体的定义。</p>
+</div>
+<div class="paragraph">
+<p>每个项目由一个或多个任务组成。任务代表构建执行的一些原子工作。这可能是编译某些类，创建 JAR，生成 Javadoc 或将一些存档发布到存储库。</p>
+</div>
+<div class="paragraph">
+<p>现在，将研究在一个项目中构建一些简单的任务。后面的章节将介绍处理多个项目，以及有关处理项目和任务的更多信息。</p>
+<h2 style="background-color: #33ccff;"><span style="font-size: 18pt;">Hello world&nbsp;</span></h2>
+<div class="paragraph multi-language-text lang-groovy">
+<p>同样，也是先从 hello world 入门。您可以使用以下&nbsp;<code>gradle&nbsp;</code>命令运行 Gradle 构建。该&nbsp;<code>gradle&nbsp;</code>命令在当前目录中查找名为&nbsp;<code>build.gradle&nbsp;</code>的文件。这个&nbsp;<code>build.gradle&nbsp;</code>文件称为构建脚本，尽管严格来说，它是一个构建配置脚本，我们将在后面看到。构建脚本定义项目及其任务。</p>
+</div>
+<div class="paragraph multi-language-text lang-groovy">
+<p>要尝试此操作，请创建以下名为的构建脚本&nbsp;<code>build.gradle</code>。</p>
+</div>
+<div class="exampleblock">
+<div class="title"><span>例子1. 第一个构建脚本，在 android 项目中找到 build.gradle，在里面添加以下代码：</span></div>
+<div class="title">
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> build.gradle</span>
+<span style="color: #000000;">task hello {
+    doLast {
+        println </span>'Hello world!'<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p><span>在项目的移至包含的目录并使用以下命令执行构建脚本<span style="font-family: monospace;">：</span></span></p>
+<div class="cnblogs_code">
+<pre><code>./gradlew -q hello <span style="color: #008000;">// Android 用户在根目录使用 <span style="color: #ff0000;"><strong>./gradlew</strong></span></span></pre>
+<pre><code>gradle -q hello  <span style="color: #008000;">// </span><span style="color: #008000;">非 Android 用户使用 gradle</span></pre>
+</div>
+<p><span><span>使用&nbsp;</span></span><code>-q&nbsp;</code><span><span>命令行选项运行。</span><span>这将取消 Gradle 的日志消息，因此仅显示任务的输出。</span><span>这样可以使示例输出更加清晰。</span><span>如果不想，则不需要使用此选项。</span></span></p>
+<p><span><span>后面直接将执行构建脚本的命令放在注释前，不在单行作为展示了。</span></span></p>
+<h2 id="sec:defining_tasks" style="background-color: #33ccff;">定义任务</h2>
+<p><span><span>在这里，</span></span><span><span>你将看到了如何使用字符串作为任务名称来定义任务</span><span>。</span><span>此样式有一些变体，您可能需要在某些情况下使用。</span></span></p>
+<div class="cnblogs_code">
+<pre><code>task('hello'<span style="color: #000000;">) {
+    doLast {
+        println </span>"hello"<span style="color: #000000;">
+    }
+}
+
+task(</span>'copy'<span style="color: #000000;">, type: Copy) {
+    from(file(</span>'srcDir'<span style="color: #000000;">))
+    into(buildDir)
+}</span></pre>
+</div>
+<p>上面创建了两个任务分别是 hello 和 copy。有一种定义任务的替代语法，您可能更喜欢使用：</p>
+<div class="cnblogs_code">
+<pre><code>tasks.create('hello'<span style="color: #000000;">) {
+    doLast {
+        println </span>"hello"<span style="color: #000000;">
+    }
+}
+
+tasks.create(</span>'copy'<span style="color: #000000;">, Copy) {
+    from(file(</span>'srcDir'<span style="color: #000000;">))
+    into(buildDir)
+}</span></pre>
+</div>
+<p>上面同样创建了两个任务分别是 hello 和 copy。&nbsp;最后，Groovy 和 Kotlin DSL 有特定于语言的语法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> Using Groovy dynamic keywords</span>
+<span style="color: #000000;">
+task(hello) {
+    doLast {
+        println </span>"hello"<span style="color: #000000;">
+    }
+}
+
+task(copy, type: Copy) {
+    from(file(</span>'srcDir'<span style="color: #000000;">))
+    into(buildDir)
+}</span></pre>
+</div>
+<h2 style="background-color: #33ccff;"><span><span>采用代码构建脚本</span></span></h2>
+<div class="paragraph">
+<p><span><span>Gradle 的构建脚本为您提供了 Groovy 和 Kotlin 的全部功能。</span><span>作为一个开胃菜，看看这个：</span></span>在Gradle的任务中使用 Groovy 或 Kotlin ：</p>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"><span style="color: #008000;">// <code>gradle -q upper</code></span><br />task upper {
+    doLast {
+        String someString </span>= 'mY_nAmE'<span style="color: #000000;">
+        println </span>"Original: $someString"<span style="color: #000000;">
+        println </span>"Upper case: ${someString.toUpperCase()}"<span style="color: #000000;">
+    }
+}<br /></span></pre>
+<pre class="prettyprint highlight prettyprinted"><code class="language-groovy" data-lang="groovy"><span class="pln"><span style="color: #008000;">// <code>gradle -q count</code></span><br />task count <span class="pun">{<span class="pln">
+    doLast <span class="pun">{<span class="pln">
+        <span class="lit">4.times<span class="pln"> <span class="pun">{<span class="pln"> <span class="kwd">print<span class="pln"> <span class="str">"$it "<span class="pln"> <span class="pun">}<span class="pln">
+    <span class="pun">}<span class="pln">
+<span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></code></pre>
+<pre><code><span style="color: #000000;">&nbsp;</span></pre>
+</div>
+<h2 style="background-color: #33ccff;">任务之间的依赖</h2>
+<p>任务之间可以具有依赖性，关键字&nbsp;<code class="language-groovy" data-lang="groovy"><span class="pln">dependsOn ：</span></code></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q intro</span>
+<span style="color: #000000;">task hello {
+    doLast {
+        println </span>'Hello world!'<span style="color: #000000;">
+    }
+}
+task intro {
+    dependsOn hello
+    doLast {
+        println </span>"I'm Gradle"<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p>上面的依赖是依赖的任务先声明，然后再进行依赖，还有一种依赖是懒惰性依赖，被依赖的任务可以后面再声明，但是如果不声明的会报错：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q taskX </span>
+<span style="color: #000000;">task taskX {
+    dependsOn </span>'taskY'<span style="color: #000000;">
+    doLast {
+        println </span>'taskX'<span style="color: #000000;">
+    }
+}
+task taskY {
+    doLast {
+        println </span>'taskY'<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p>任务&nbsp;taskX 依赖的任务&nbsp;taskY 是后声明的。</p>
+<p><span><span>您可以通过多种方式定义任务的依赖关系。</span><span>在&ldquo;&nbsp;</span></span><a href="https://docs.gradle.org/5.1.1/userguide/tutorial_using_tasks.html#sec:task_dependencies"><span><span>任务依赖项&rdquo;中</span></span></a><span><span>，介绍了使用任务名称定义依赖项。</span><span>任务名称可以引用与该任务在同一项目中的任务，也可以引用其他项目中的任务。</span><span>要引用另一个项目中的任务，请在任务名称前添加其所属项目的路径。</span><span>以下是添加从&nbsp;</span></span><code>projectA:taskX&nbsp;</code><span><span>到</span><span>的依赖的示例&nbsp;</span></span><code>projectB:taskY</code><span><span>：</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;"><code>// gradle -q taskX</code></span><br />project('projectA'<span style="color: #000000;">) {
+    task taskX {
+        dependsOn </span>':projectB:taskY'<span style="color: #000000;">
+        doLast {
+            println </span>'taskX'<span style="color: #000000;">
+        }
+    }
+}
+
+project(</span>'projectB'<span style="color: #000000;">) {
+    task taskY {
+        doLast {
+            println </span>'taskY'<span style="color: #000000;">
+        }
+    }
+}</span></pre>
+</div>
+<p>此处的&nbsp;projectA，projectB 要改成你项目中的名字，简单来说，就是不同层级的任务也是可以相互依赖的。</p>
+</div>
+<div class="title">
+<h2 id="sec:dynamic_tasks" style="background-color: #33ccff;">动态任务</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span><span>Groovy 或 Kotlin 的功能可用于定义任务以外的其他功能。</span><span>例如，您也可以使用它来动态创建任务。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q task1</span>
+4.times { counter -&gt;<span style="color: #000000;">
+    task </span>"task$counter"<span style="color: #000000;"> {
+        doLast {
+            println </span>"I'm task number $counter"<span style="color: #000000;">
+        }
+    }
+}</span></pre>
+</div>
+<p>&nbsp;上述创建了 4 个 task，分别是 task0，task1，task2，task3。</p>
+</div>
+</div>
+</div>
+<h2 class="title" style="background-color: #33ccff;">操作已创建的任务</h2>
+<p><span><span>任务创建后，就可以通过&nbsp;</span></span>API<em><span><span>&nbsp;</span></span></em><span><span>对其进行访问</span><span>。</span><span>例如，您可以在运行时为任务动态添加依赖项。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q task0</span>
+4.times { counter -&gt;<span style="color: #000000;">
+    task </span>"task$counter"<span style="color: #000000;"> {
+        doLast {
+            println </span>"I'm task number $counter"<span style="color: #000000;">
+        }
+    }
+}
+task0.dependsOn task2, task3</span></pre>
+</div>
+<p>或者，您可以将行为添加到现有任务。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"><span style="color: #008000;"><code>// gradle -q hello</code></span><br />task hello {
+    doLast {
+        println </span>'Hello Earth'<span style="color: #000000;">
+    }
+}
+hello.doFirst {
+    println </span>'Hello Venus'<span style="color: #000000;">
+}
+hello.configure {
+    doLast {
+        println </span>'Hello Mars'<span style="color: #000000;">
+    }
+}
+hello.configure {
+    doLast {
+        println </span>'Hello Jupiter'<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p>调用&nbsp;<code>doFirst&nbsp;</code>和&nbsp;<code>doLast&nbsp;</code>可以执行多次。他们将操作添加到任务操作列表的开头或结尾。执行任务时，将按顺序执行操作列表中的操作。</p>
+<h2 id="sec:shortcut_notations" style="background-color: #33ccff;">Groovy DSL快捷方式符号</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span>访问</span><em>现有</em><span><span>任务</span><span>有一种方便的表示法</span><span>。</span><span>每个任务都可以作为构建脚本的属性来使用：</span></span></p>
+</div>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q hello</span>
+<span style="color: #000000;">task hello {
+    doLast {
+        println </span>'Hello world!'<span style="color: #000000;">
+    }
+}
+hello.doLast {
+    println </span>"Greetings from the $hello.name task."<span style="color: #000000;">
+}</span></pre>
+</div>
+<p><span><span>例子中，通过获取任务的名字可以知道这个是来自于 task hello 的任务所做的事。这样可以提高代码的可读性，尤其是在使用插件提供的任务（例如</span></span><code>compile</code><span><span>任务）时。</span></span></p>
+<h2 id="sec:extra_task_properties" style="background-color: #33ccff;">额外任务属性</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span><span>您可以将自己的属性添加到任务上。</span><span>要添加名为的属性&nbsp;</span></span><code>myProperty</code><span>，并为&nbsp;</span><code>ext.myProperty 设置</code><span><span>初始值。就</span><span>可以像预定义的任务属性一样读取和设置属性。</span></span></p>
+</div>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q printTaskProperties</span>
+<span style="color: #000000;">task myTask {
+    ext.myProperty </span>= "myValue"<span style="color: #000000;">
+}
+
+task printTaskProperties {
+    doLast {
+        println myTask.myProperty
+    }
+}</span></pre>
+</div>
+<h2 id="sec:default_tasks" style="background-color: #33ccff;">默认任务</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span>如果未指定其他任务，则Gradle允许您定义一个或多个默认任务。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q</span>
+defaultTasks 'clean', 'run'<span style="color: #000000;">
+
+task clean {
+    doLast {
+        println </span>'Default Cleaning!'<span style="color: #000000;">
+    }
+}
+
+task run {
+    doLast {
+        println </span>'Default Running!'<span style="color: #000000;">
+    }
+}
+
+task other {
+    doLast {
+        println </span>"I'm not a default task!"<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p><span><span>这等效于运行&nbsp;</span></span><code>gradle clean run</code><span><span>。</span><span>在多项目构建中，每个子项目都可以有其自己的特定默认任务。</span><span>如果子项目未指定默认任务，则使用父项目的默认任务（如果已定义）</span></span></p>
+</div>
+</div>
+<h2 id="configure-by-dag" style="background-color: #33ccff;">通过DAG进行配置</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span>正如我们稍后将详细描述的（请参阅&nbsp;</span><a href="https://docs.gradle.org/5.1.1/userguide/build_lifecycle.html#build_lifecycle">Build Lifecycle</a><span><span>），Gradle具有配置阶段和执行阶段。</span><span>在配置阶段之后，Gradle 知道应该执行的所有任务。</span><span>Gradle 为您提供了一个利用此信息的机会。</span><span>一个用例是检查发布任务是否在要执行的任务中。</span><span>以此为基础，您可以为某些变量分配不同的值。</span></span></p>
+</div>
+<div class="paragraph">
+<p><span>在以下示例中，</span><code>distribution&nbsp;</code><span>和&nbsp;</span><code>release&nbsp;</code><span>任务的执行导致&nbsp;</span><code>version&nbsp;</code><span><span>变量的</span><span>值不同</span><span>。</span></span></p>
+</div>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q distribution
+</span><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q release</span>
+<span style="color: #000000;">task distribution {
+    doLast {
+        println </span>"We build the zip with version=$version"<span style="color: #000000;">
+    }
+}
+
+task release {
+    dependsOn </span>'distribution'<span style="color: #000000;">
+    doLast {
+        println </span>'We release now'<span style="color: #000000;">
+    }
+}
+
+gradle.taskGraph.whenReady { taskGraph </span>-&gt;
+    <span style="color: #0000ff;">if</span> (taskGraph.hasTask(":release"<span style="color: #000000;">)) {
+        version </span>= '1.0'<span style="color: #000000;">
+    } </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+        version </span>= '1.0-SNAPSHOT'<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<p>可以发现，此处，执行不同的 task 具有不同结果。</p>
+<h2 id="sec:build_script_external_dependencies" style="background-color: #33ccff;">构建脚本的外部依赖关系</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span><span>如果构建脚本需要使用外部库，则可以将它们添加到构建脚本本身中的脚本的类路径中。</span><span>您可以使用&nbsp;</span></span><code>buildscript()&nbsp;</code><span><span>方法</span><span>执行此操作</span><span>，并传入一个声明构建脚本类路径的块。</span></span></p>
+</div>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: </span>'commons-codec', name: 'commons-codec', version: '1.2'<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<div class="paragraph">
+<p><span>&nbsp;</span><code>buildscript()</code><span><span>方法中的代码块将构成</span><span>&nbsp;</span></span><span><span><a href="https://docs.gradle.org/5.1.1/javadoc/org/gradle/api/initialization/dsl/ScriptHandler.html">ScriptHandler</a>&nbsp;</span></span><span><span>实例。</span><span>您可以通过向&nbsp;</span></span><code>classpath&nbsp;</code><span><span>配置</span><span>添加依赖项来声明构建脚本类路径</span><span>。</span><span>这与您声明 Java 编译类路径的方式相同。</span><span>您可以使用</span><span>除项目依赖项以外的</span><span>任何&nbsp;</span></span><a href="https://docs.gradle.org/5.1.1/userguide/dependency_types.html#dependency_types">依赖项类型</a><span>。</span></p>
+</div>
+<div class="paragraph">
+<p><span><span>声明了构建脚本类路径后，就可以像在该类路径上的任何其他类一样使用构建脚本中的类。</span><span>以下示例将添加到前面的示例中，并使用构建脚本类路径中的类。</span></span></p>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;"><span style="color: #008000;">// <code>gradle -q encode</code></span><br />import</span><span style="color: #000000;"> org.apache.commons.codec.binary.Base64
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath group: </span>'commons-codec', name: 'commons-codec', version: '1.2'<span style="color: #000000;">
+    }
+}
+
+task encode {
+    doLast {
+        def </span><span style="color: #0000ff;">byte</span>[] encodedString = <span style="color: #0000ff;">new</span> Base64().encode('hello world\n'<span style="color: #000000;">.getBytes())
+        println </span><span style="color: #0000ff;">new</span><span style="color: #000000;"> String(encodedString)
+    }
+}</span></pre>
+</div>
+<p>这里先是添加了依赖项，然后再创建了一个任务，引用了依赖项中的类来实现对字符串的加密。</p>
+<h2 style="background-color: #33ccff;">访问任务的属性</h2>
+<p><span>您通常需要找到在构建文件中定义的任务，例如，对其进行配置或将其用于依赖项。</span><span>有很多方法可以做到这一点。</span><span>首先，就像定义任务一样，Groovy和Kotlin DSL具有特定于语言的语法</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">task hello
+task copy(type: Copy)
+
+</span><span style="color: #008000;">//</span><span style="color: #008000;"> Access tasks using Groovy dynamic properties on Project</span>
+<span style="color: #000000;">
+println hello.name
+println project.hello.name
+
+println copy.destinationDir
+println project.copy.destinationDir</span></pre>
+</div>
+<p><span><span>任务也可以通过&nbsp;</span></span><code>tasks&nbsp;</code><span><span>集合获得。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">task hello
+task copy(type: Copy)
+
+println tasks.hello.name
+println tasks.named(</span>'hello'<span style="color: #000000;">).get().name
+
+println tasks.copy.destinationDir
+println tasks.named(</span>'copy').get().destinationDir</pre>
+</div>
+<p>您可以使用&nbsp;<code>tasks.getByPath()&nbsp;</code>方法使用任务的路径从任何项目访问任务。您可以&nbsp;<code>getByPath()&nbsp;</code>使用任务名称，相对路径或绝对路径来调用该方法。</p>
+<div class="cnblogs_code">
+<pre><code>project(':projectA'<span style="color: #000000;">) {
+    task hello
+}
+
+task hello
+
+println tasks.getByPath(</span>'hello'<span style="color: #000000;">).path
+println tasks.getByPath(</span>':hello'<span style="color: #000000;">).path
+println tasks.getByPath(</span>'projectA:hello'<span style="color: #000000;">).path
+println tasks.getByPath(</span>':projectA:hello').path</pre>
+</div>
+</div>
+<h2 id="sec:passing_arguments_to_a_task_constructor" style="background-color: #33ccff;">将参数传递给任务构造函数</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span>与&nbsp;</span><code>Task&nbsp;</code><span><span>在创建后</span><span>配置</span><span>变量</span><span>的可变属性相反</span><span>，您可以将参数值传递给&nbsp;</span></span><code>Task&nbsp;</code><span><span>类的构造函数。</span><span>为了将值传递给&nbsp;</span></span><code>Task&nbsp;</code><span>构造函数，您必须使用注释相关的构造函数&nbsp;</span><code>@javax.inject.Inject</code><span>。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span> CustomTask <span style="color: #0000ff;">extends</span><span style="color: #000000;"> DefaultTask {
+    </span><span style="color: #0000ff;">final</span><span style="color: #000000;"> String message
+    </span><span style="color: #0000ff;">final</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> number
+
+    @Inject
+    CustomTask(String message, </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> number) {
+        </span><span style="color: #0000ff;">this</span>.message =<span style="color: #000000;"> message
+        </span><span style="color: #0000ff;">this</span>.number =<span style="color: #000000;"> number
+    }
+}</span></pre>
+</div>
+<div class="paragraph">
+<p><span>然后，您可以创建一个任务，并在参数列表的末尾传递构造函数参数。</span></p>
+<div class="cnblogs_code">
+<pre><code>tasks.create('myTask', CustomTask, 'hello', 42<span style="color: #000000;">)
+task myTask(type: CustomTask, constructorArgs: [</span>'hello', 42])</pre>
+</div>
+<p>上述两种方法都可以。在所有情况下，作为构造函数参数传递的值都必须为非 null。如果您尝试传递一个&nbsp;<code>null&nbsp;</code>值，Gradle 将抛出一个&nbsp;<code>NullPointerException&nbsp;</code>指示，指出哪个运行时值是&nbsp;<code>null</code>。</p>
+<h2 id="sec:adding_a_description_to_a_task" style="background-color: #33ccff;"><a class="link" href="https://docs.gradle.org/5.1.1/userguide/more_about_tasks.html#sec:adding_a_description_to_a_task">向任务添加描述</a></h2>
+<div class="paragraph">
+<p><span><span>您可以在任务中添加描述。</span><span>执行 gradle tasks 时将显示此描述</span></span><span>。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle tasks</span>
+<span style="color: #000000;">task copy(type: Copy) {
+   description </span>'Copies the resource directory to the target directory.'<span style="color: #000000;">
+   from </span>'resources'<span style="color: #000000;">
+   into </span>'target'<span style="color: #000000;">
+   include(</span>'**/*.txt', '**/*.xml', '**/*.properties'<span style="color: #000000;">)
+}</span></pre>
+</div>
+<h2 id="sec:replacing_tasks" style="background-color: #33ccff;">更换任务</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span><span>有时您想替换任务。</span><span>例如，如果要将 Java 插件添加的任务与其他类型的自定义任务交换。</span><span>您可以使用以下方法实现此目的：</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q copy</span>
+<span style="color: #000000;">task copy(type: Copy)
+
+task copy(overwrite: </span><span style="color: #0000ff;">true</span><span style="color: #000000;">) {
+    doLast {
+        println(</span>'I am the new one.'<span style="color: #000000;">)
+    }
+}</span></pre>
+</div>
+<p><span><span>定义新任务时，必须将&nbsp;</span></span><code>overwrite&nbsp;</code><span><span>属性</span><span>设置</span><span>为 true。</span><span>否则，Gradle 会引发异常，说该名称的任务已经存在。</span></span></p>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<h2 id="sec:skipping_tasks" style="background-color: #33ccff;">跳过任务</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span>Gradle 提供了多种方法来跳过任务的执行。</span></p>
+</div>
+<div class="sect2">
+<h3 id="sec:using_a_predicate" style="background-color: #33ffff;">使用谓词</h3>
+<div class="paragraph">
+<p><span>您可以使用该&nbsp;</span><code>onlyIf()&nbsp;</code><span><span>方法将谓词附加到任务。</span><span>仅当谓词评估为 true 时，才执行任务的动作。</span><span>您将谓词实现为闭包。</span><span>闭包作为参数传递给任务，如果任务应执行，则应返回 true；如果应跳过任务，则应返回 false。</span><span>在即将执行任务之前就对谓词进行评估。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"><span style="color: #008000;">// <code>gradle hello -PskipHello</code></span><br />task hello {
+    doLast {
+        println </span>'hello world'<span style="color: #000000;">
+    }
+}
+
+hello.onlyIf { </span>!project.hasProperty('skipHello') }</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<h3 id="sec:using_stopexecutionexception" style="background-color: #33ffff;">使用StopExecutionException</h3>
+<div class="paragraph">
+<p><span>如果不能用谓词来表示跳过任务的逻辑，则可以使用&nbsp;</span><span><span>StopExecutionException</span></span><span><span>。</span><span>如果某个动作引发了此异常，则将跳过该动作的进一步执行以及该任务的任何后续动作的执行。</span><span>构建继续执行下一个任务。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q myTask</span>
+<span style="color: #000000;">task compile {
+    doLast {
+        println </span>'We are doing the compile.'<span style="color: #000000;">
+    }
+}
+
+compile.doFirst {
+    </span><span style="color: #008000;">//</span><span style="color: #008000;"> Here you would put arbitrary conditions in real life.
+    </span><span style="color: #008000;">//</span><span style="color: #008000;"> But this is used in an integration test so we want defined behavior.</span>
+    <span style="color: #0000ff;">if</span> (<span style="color: #0000ff;">true</span>) { <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> StopExecutionException() }
+}
+task myTask {
+    dependsOn(</span>'compile'<span style="color: #000000;">)
+    doLast {
+        println </span>'I am not affected'<span style="color: #000000;">
+    }
+}</span></pre>
+</div>
+<h3 id="sec:enabling_and_disabling_tasks" style="background-color: #33ffff;">启用和禁用任务</h3>
+<div class="paragraph">
+<p><span>每个任务都有一个&nbsp;</span><code>enabled&nbsp;</code><span><span>默认为</span><span>的</span><span>标志&nbsp;</span></span><code>true</code><span><span>。</span><span>将其设置为&nbsp;</span></span><code>false&nbsp;</code><span><span>阻止执行任何任务动作。</span><span>禁用的任务将标记为&ldquo;跳过&rdquo;。</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">task disableMe {
+    doLast {
+        println </span>'This should not be printed if the task is disabled.'<span style="color: #000000;">
+    }
+}
+disableMe.enabled </span>= <span style="color: #0000ff;">false</span></pre>
+</div>
+<h3 id="sec:task_timeouts" style="background-color: #33ffff;">任务超时</h3>
+<div class="paragraph">
+<p><span>每个任务都有一个&nbsp;</span><code>timeout&nbsp;</code><span><span>可用于限制其执行时间</span><span>的</span><span>属性。</span><span>当任务达到超时时，其任务执行线程将被中断。</span><span>该任务将被标记为失败。</span><span>终结器任务仍将运行。</span><span>如果&nbsp;</span></span><code>--continue&nbsp;</code><span><span>使用，其他任务可以在此之后继续运行。</span><span>不响应中断的任务无法超时。</span><span>Gradle 的所有内置任务均会及时响应超时</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">task hangingTask() {
+    doLast {
+        Thread.sleep(</span>100000<span style="color: #000000;">)
+    }
+    timeout </span>= Duration.ofMillis(500<span style="color: #000000;">)
+}</span></pre>
+</div>
+<h2 id="sec:task_rules" style="background-color: #33ccff;">任务规则</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span><span>有时您想执行一个任务，该任务的行为取决于较大或无限数量的参数值范围。</span><span>提供此类任务的一种非常好的表达方式是任务规则：</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q pingServer1</span>
+tasks.addRule("Pattern: ping&lt;ID&gt;") { String taskName -&gt;
+    <span style="color: #0000ff;">if</span> (taskName.startsWith("ping"<span style="color: #000000;">)) {
+        task(taskName) {
+            doLast {
+                println </span>"Pinging: " + (taskName - 'ping'<span style="color: #000000;">)
+            }
+        }
+    }
+}</span></pre>
+</div>
+<div class="paragraph">
+<p><span><span>规则不仅在从命令行调用任务时使用。</span><span>您还可以在基于规则的任务上创建 dependsOn 关系：</span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q <code>groupPing</code></span>
+tasks.addRule("Pattern: ping&lt;ID&gt;") { String taskName -&gt;
+    <span style="color: #0000ff;">if</span> (taskName.startsWith("ping"<span style="color: #000000;">)) {
+        task(taskName) {
+            doLast {
+                println </span>"Pinging: " + (taskName - 'ping'<span style="color: #000000;">)
+            }
+        }
+    }
+}
+
+task groupPing {
+    dependsOn pingServer1, pingServer2
+}</span></pre>
+</div>
+<p><span><span>如果运行&ldquo;&nbsp;</span></span><code>gradle -q tasks</code><span><span>&rdquo;，将找不到名为&ldquo;&nbsp;</span></span><code>pingServer1</code><span><span>&rdquo;或&ldquo;&nbsp;</span></span><code>pingServer2</code><span><span>&rdquo;&nbsp;</span><span>的任务</span><span>，但是此脚本正在根据运行这些任务的请求执行逻辑。</span></span></p>
+<h2 id="sec:finalizer_tasks" style="background-color: #33ccff;">Finalizer tasks</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><span>当计划运行终结任务时，Finalizer tasks 会自动添加到任务图中。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"><span style="color: #008000;">// <code>gradle -q taskX</code></span><br />task taskX {
+    doLast {
+        println </span>'taskX'<span style="color: #000000;">
+    }
+}
+task taskY {
+    doLast {
+        println </span>'taskY'<span style="color: #000000;">
+    }
+}
+
+taskX.finalizedBy taskY</span></pre>
+</div>
+<p>即使终结任务失败，也将执行 Finalizer tasks。</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;"> gradle -q taskX</span>
+<span style="color: #000000;">task taskX {
+    doLast {
+        println </span>'taskX'
+        <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> RuntimeException()
+    }
+}
+task taskY {
+    doLast {
+        println </span>'taskY'<span style="color: #000000;">
+    }
+}
+
+taskX.finalizedBy taskY</span>&nbsp;</pre>
+</div>
+</div>
+</div>
+</div>
+<p>运行结果：</p>
+<div class="cnblogs_code">
+<pre><code>Output of gradle -<span style="color: #000000;">q taskX
+</span>&gt; gradle -<span style="color: #000000;">q taskX
+taskX
+taskY
+
+FAILURE: Build failed with an exception.
+
+</span>*<span style="color: #000000;"> Where:
+Build file </span>'/home/user/gradle/samples/groovy/build.gradle' line: 4
+
+*<span style="color: #000000;"> What went wrong:
+Execution failed </span><span style="color: #0000ff;">for</span> task ':taskX'<span style="color: #000000;">.
+</span>&gt;<span style="color: #000000;"> java.lang.RuntimeException (no error message)
+
+</span>*<span style="color: #000000;"> Try:
+Run with </span>--stacktrace option to get the stack trace. Run with --info or --debug option to get more log output. Run with --<span style="color: #000000;">scan to get full insights.
+
+</span>* Get more help at https:<span style="color: #008000;">//</span><span style="color: #008000;">help.gradle.org</span>
+<span style="color: #000000;">
+BUILD FAILED in 0s</span></pre>
+</div>
+<div class="paragraph">
+<p><span><span>在构建创建无论构建失败还是成功都必须清除的资源的情况下，终结器任务很有用。</span><span>这种资源的一个示例是一个Web容器，它在集成测试任务之前启动，并且即使某些测试失败，也应始终将其关闭。</span></span></p>
+</div>
+<div class="paragraph">
+<p><span>要指定终结器任务，请使用&nbsp;</span><span><span><a href="https://docs.gradle.org/5.1.1/dsl/org.gradle.api.Task.html#org.gradle.api.Task:finalizedBy(java.lang.Object[])">Task.finalizedBy（java.lang.Object ...）</a>&nbsp;</span></span><span><span>方法。</span><span>此方法接受Task实例，任务名称或&nbsp;</span></span><span><span><a href="https://docs.gradle.org/5.1.1/dsl/org.gradle.api.Task.html#org.gradle.api.Task:dependsOn(java.lang.Object[])">Task.dependsOn（java.lang.Object&hellip;）</a>&nbsp;</span></span><span><span>接受的任何其他输入</span><span>。</span></span></p>
+</div>
+<p>到此，关于 task 的讲解到这里就结束了。</p>
+</div>
+</div>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

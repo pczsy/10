@@ -1,0 +1,237 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修WebMagic 实现爬虫入门教程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>WebMagic 实现爬虫入门教程</center></div><div class='banquan'>原文出处:本文由博客园博主云天提供。<br/>
+原文连接:https://www.cnblogs.com/tqlin/p/12010898.html</div><br>
+    <p>本示例实现某电影网站最新片源名称列表及详情页下载地址的抓取。</p>
+<p>webmagic是一个开源的Java垂直爬虫框架，目标是简化爬虫的开发流程，让开发者专注于逻辑功能的开发。</p>
+<h2 id="webmagic-特点">WebMagic 特点：</h2>
+<ul>
+<li><p>完全模块化的设计，强大的可扩展性。</p></li>
+<li><p>核心简单但是涵盖爬虫的全部流程，灵活而强大，也是学习爬虫入门的好材料。</p></li>
+<li><p>提供丰富的抽取页面API。</p></li>
+<li><p>无配置，但是可通过POJO+注解形式实现一个爬虫。</p></li>
+<li><p>支持多线程。</p></li>
+<li><p>支持分布式。</p></li>
+<li><p>支持爬取js动态渲染的页面。</p></li>
+<li><p>无框架依赖，可以灵活的嵌入到项目中去。</p></li>
+</ul>
+<h2 id="示例">示例</h2>
+<p>本示例实现：https://www.dytt8.net/html/gndy/dyzz/list_23_1.html 电影网站最新片源名称及详情页影片下载链接内容的抓取。</p>
+<h3 id="配置maven依赖">配置Maven依赖</h3>
+<p>pom.xml配置，这里因为日志文件和spring boot冲突了，所以移除webmagic的日志依赖 log4j12</p>
+<pre><code><code>&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;project xmlns=&quot;http://maven.apache.org/POM/4.0.0&quot; xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot;
+         xsi:schemaLocation=&quot;http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd&quot;&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+    &lt;parent&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-starter-parent&lt;/artifactId&gt;
+        &lt;version&gt;2.1.9.RELEASE&lt;/version&gt;
+        &lt;relativePath/&gt; &lt;!-- lookup parent from repository --&gt;
+    &lt;/parent&gt;
+    &lt;groupId&gt;com.easy&lt;/groupId&gt;
+    &lt;artifactId&gt;webmagic&lt;/artifactId&gt;
+    &lt;version&gt;0.0.1&lt;/version&gt;
+    &lt;name&gt;webmagic&lt;/name&gt;
+    &lt;description&gt;Demo project for Spring Boot&lt;/description&gt;
+
+    &lt;properties&gt;
+        &lt;java.version&gt;1.8&lt;/java.version&gt;
+        &lt;encoding&gt;UTF-8&lt;/encoding&gt;
+        &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;
+        &lt;project.reporting.outputEncoding&gt;UTF-8&lt;/project.reporting.outputEncoding&gt;
+    &lt;/properties&gt;
+
+    &lt;dependencies&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;us.codecraft&lt;/groupId&gt;
+            &lt;artifactId&gt;webmagic-core&lt;/artifactId&gt;
+            &lt;version&gt;0.7.3&lt;/version&gt;
+            &lt;exclusions&gt;
+                &lt;exclusion&gt;
+                    &lt;groupId&gt;org.slf4j&lt;/groupId&gt;
+                    &lt;artifactId&gt;slf4j-log4j12&lt;/artifactId&gt;
+                &lt;/exclusion&gt;
+            &lt;/exclusions&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;us.codecraft&lt;/groupId&gt;
+            &lt;artifactId&gt;webmagic-extension&lt;/artifactId&gt;
+            &lt;version&gt;0.7.3&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+            &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+            &lt;scope&gt;compile&lt;/scope&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;build&gt;
+        &lt;plugins&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+                &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;
+                &lt;configuration&gt;
+                    &lt;source&gt;1.8&lt;/source&gt;
+                    &lt;target&gt;1.8&lt;/target&gt;
+                &lt;/configuration&gt;
+            &lt;/plugin&gt;
+        &lt;/plugins&gt;
+    &lt;/build&gt;
+
+&lt;/project&gt;
+</code></pre>
+<h3 id="创建列表及详情页解析类">创建列表及详情页解析类</h3>
+<p>PageProcessor负责解析页面，抽取有用信息，以及发现新的链接。WebMagic使用Jsoup作为HTML解析工具，并基于其开发了解析XPath的工具Xsoup。</p>
+<p>ListPageProcesser.java 实现影片名称列表获取</p>
+<pre class="java"><code>package com.easy.webmagic.controller;
+
+import us.codecraft.webmagic.Page;
+import us.codecraft.webmagic.Site;
+import us.codecraft.webmagic.processor.PageProcessor;
+
+public class ListPageProcesser implements PageProcessor {
+    private Site site = Site.me().setDomain(&quot;127.0.0.1&quot;);
+
+    @Override
+    public void process(Page page) {
+        page.putField(&quot;title&quot;, page.getHtml().xpath(&quot;//a[@class=&#39;ulink&#39;]&quot;).all().toString());
+    }
+
+    @Override
+    public Site getSite() {
+        return site;
+    }
+}</code></pre>
+<p>DetailPageProcesser.java 实现详情页影片下载地址获取</p>
+<pre class="java"><code>package com.easy.webmagic.controller;
+
+import us.codecraft.webmagic.Page;
+import us.codecraft.webmagic.Site;
+import us.codecraft.webmagic.processor.PageProcessor;
+
+public class DetailPageProcesser implements PageProcessor {
+    private Site site = Site.me().setDomain(&quot;127.0.0.1&quot;);
+
+    @Override
+    public void process(Page page) {
+        page.putField(&quot;download&quot;, page.getHtml().xpath(&quot;//*[@id=\&quot;Zoom\&quot;]/span/table/tbody/tr/td/a&quot;).toString());
+    }
+
+    @Override
+    public Site getSite() {
+        return site;
+    }
+}
+</code></pre>
+<h3 id="使用pipeline处理抓取结果">使用Pipeline处理抓取结果</h3>
+<p>Pipeline负责抽取结果的处理，包括计算、持久化到文件、数据库等。WebMagic默认提供了“输出到控制台”和“保存到文件”两种结果处理方案。</p>
+<p>Pipeline定义了结果保存的方式，如果你要保存到指定数据库，则需要编写对应的Pipeline。对于一类需求一般只需编写一个Pipeline。</p>
+<p>这里不做任何处理，直接把抓包到的结果在控制台输出</p>
+<p>MyPipeline.java</p>
+<pre class="java"><code>package com.easy.webmagic.controller;
+
+import lombok.extern.slf4j.Slf4j;
+import us.codecraft.webmagic.ResultItems;
+import us.codecraft.webmagic.Task;
+import us.codecraft.webmagic.pipeline.Pipeline;
+
+import java.util.Map;
+
+@Slf4j
+public class MyPipeline implements Pipeline {
+    @Override
+    public void process(ResultItems resultItems, Task task) {
+        log.info(&quot;get page: &quot; + resultItems.getRequest().getUrl());
+        for (Map.Entry&lt;String, Object&gt; entry : resultItems.getAll().entrySet()) {
+            log.info(entry.getKey() + &quot;:\t&quot; + entry.getValue());
+        }
+    }
+}</code></pre>
+<h3 id="启动抓包入口">启动抓包入口</h3>
+<p>Main.java</p>
+<pre class="java"><code>package com.easy.webmagic.controller;
+
+import us.codecraft.webmagic.Spider;
+
+public class Main {
+    public static void main(String[] args) {
+        //获取影片标题和页面链接
+        Spider.create(new ListPageProcesser()).addUrl(&quot;https://www.dytt8.net/html/gndy/dyzz/list_23_1.html&quot;)
+                .addPipeline(new MyPipeline()).thread(1).run();
+
+        //获取指定详情页面的影片下载地址
+        Spider.create(new DetailPageProcesser()).addUrl(&quot;https://www.dytt8.net/html/gndy/dyzz/20191204/59453.html&quot;)
+                .addPipeline(new MyPipeline()).thread(1).run();
+    }
+}</code></pre>
+<h2 id="运行示例">运行示例</h2>
+<p>启动运行Main.java，观察控制台</p>
+<p>影片第一页标题列表</p>
+<pre class="cfml"><code>14:06:28.704 [pool-1-thread-1] INFO com.easy.webmagic.controller.MyPipeline - get page: https://www.dytt8.net/html/gndy/dyzz/list_23_1.html
+14:06:28.704 [pool-1-thread-1] INFO com.easy.webmagic.controller.MyPipeline - title:    [&lt;a href=&quot;/html/gndy/dyzz/20191204/59453.html&quot; class=&quot;ulink&quot;&gt;2019年剧情《中国机长》HD国语中英双字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191201/59437.html&quot; class=&quot;ulink&quot;&gt;2019年动画喜剧《雪人奇缘》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191201/59435.html&quot; class=&quot;ulink&quot;&gt;2019年喜剧《伯纳黛特你去了哪》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191129/59431.html&quot; class=&quot;ulink&quot;&gt;2019年高分剧情《爱尔兰人/爱尔兰杀手》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191129/59429.html&quot; class=&quot;ulink&quot;&gt;2019年剧情《唐顿庄园电影版》BD中英双字[修正字幕]&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191129/59428.html&quot; class=&quot;ulink&quot;&gt;2018年悬疑动作《雪暴》BD国语中字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191128/59427.html&quot; class=&quot;ulink&quot;&gt;2019年剧情惊悚《官方机密》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191127/59425.html&quot; class=&quot;ulink&quot;&gt;2019年高分剧情《少年的你》HD国语中字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191126/59424.html&quot; class=&quot;ulink&quot;&gt;2019年剧情冒险《攀登者》HD国语中英双字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191126/59423.html&quot; class=&quot;ulink&quot;&gt;2019年剧情《金翅雀》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191125/59422.html&quot; class=&quot;ulink&quot;&gt;2019年高分获奖《好莱坞往事》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191125/59421.html&quot; class=&quot;ulink&quot;&gt;2018年动画冒险《猫与桃花源》BD国粤双语中字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191124/59418.html&quot; class=&quot;ulink&quot;&gt;2019年恐怖《准备好了没/弑婚游戏》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191124/59417.html&quot; class=&quot;ulink&quot;&gt;2019年剧情悬疑《双魂》BD国粤双语中字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191122/59409.html&quot; class=&quot;ulink&quot;&gt;2019年科幻动作《双子杀手》HD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191122/59408.html&quot; class=&quot;ulink&quot;&gt;2019年奇幻《天堂山/天堂山�f》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191121/59407.html&quot; class=&quot;ulink&quot;&gt;2019年恐怖《小丑回魂2》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191117/59403.html&quot; class=&quot;ulink&quot;&gt;2019年高分动画《克劳斯：圣诞节的秘密》BD国英西三语双字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191116/59400.html&quot; class=&quot;ulink&quot;&gt;2019年动作《天使陷落》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191115/59399.html&quot; class=&quot;ulink&quot;&gt;2019年悬疑惊悚《犯罪现场》HD国粤双语中字&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191115/59398.html&quot; class=&quot;ulink&quot;&gt;2019年高分剧情《别告诉她》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191114/59393.html&quot; class=&quot;ulink&quot;&gt;2019年动作《原始恐惧》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191114/59392.html&quot; class=&quot;ulink&quot;&gt;2019年剧情《婚礼之后》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191113/59387.html&quot; class=&quot;ulink&quot;&gt;2019年动作战争《危机：龙潭之战》BD中英双字幕&lt;/a&gt;, &lt;a href=&quot;/html/gndy/dyzz/20191113/59386.html&quot; class=&quot;ulink&quot;&gt;2019年犯罪动作《沉默的证人》BD国粤双语中字&lt;/a&gt;]</code></pre>
+<p>详情页影片下载地址</p>
+<pre class="cfml"><code>14:06:34.365 [pool-2-thread-1] INFO com.easy.webmagic.controller.MyPipeline - get page: https://www.dytt8.net/html/gndy/dyzz/20191204/59453.html
+14:06:34.365 [pool-2-thread-1] INFO com.easy.webmagic.controller.MyPipeline - download: &lt;a href=&quot;ftp://ygdy8:ygdy8@yg45.dydytt.net:4233/阳光电影www.ygdy8.com.中国机长.HD.1080p.国语中英双字.mkv&quot;&gt;ftp://ygdy8:ygdy8@yg45.dydytt.net:4233/阳光电影www.ygdy8.com.中国机长.HD.1080p.国语中英双字.mkv&lt;/a&gt;</code></pre>
+<p>表示成功抓取到数据，然后做你想做的事情了。</p>
+<h2 id="爬虫进阶">爬虫进阶</h2>
+<h3 id="使用selectable抽取元素">使用Selectable抽取元素</h3>
+<p>Selectable相关的抽取元素链式API是WebMagic的一个核心功能。使用Selectable接口，你可以直接完成页面元素的链式抽取，也无需去关心抽取的细节。</p>
+<h3 id="爬虫的配置启动和终止">爬虫的配置、启动和终止</h3>
+<p>Spider是爬虫启动的入口。在启动爬虫之前，我们需要使用一个PageProcessor创建一个Spider对象，然后使用run()进行启动。同时Spider的其他组件（Downloader、Scheduler、Pipeline）都可以通过set方法来进行设置。</p>
+<h3 id="jsoup和xsoup">Jsoup和Xsoup</h3>
+<p>WebMagic的抽取主要用到了Jsoup和我自己开发的工具Xsoup。</p>
+<h3 id="爬虫的监控">爬虫的监控</h3>
+<p>利用这个功能，你可以查看爬虫的执行情况——已经下载了多少页面、还有多少页面、启动了多少线程等信息。该功能通过JMX实现，你可以使用Jconsole等JMX工具查看本地或者远程的爬虫信息。</p>
+<h3 id="配置代理">配置代理</h3>
+<p>ProxyProvider有一个默认实现：SimpleProxyProvider。它是一个基于简单Round-Robin的、没有失败检查的ProxyProvider。可以配置任意个候选代理，每次会按顺序挑选一个代理使用。它适合用在自己搭建的比较稳定的代理的场景。</p>
+<h3 id="处理非http-get请求">处理非HTTP GET请求</h3>
+<p>采用在Request对象上添加Method和requestBody来实现。例如:</p>
+<pre class="java"><code>Request request = new Request(&quot;http://xxx/path&quot;);
+request.setMethod(HttpConstant.Method.POST);
+request.setRequestBody(HttpRequestBody.json(&quot;{&#39;id&#39;:1}&quot;,&quot;utf-8&quot;));</code></pre>
+<h3 id="使用注解编写爬虫">使用注解编写爬虫</h3>
+<p>WebMagic支持使用独有的注解风格编写一个爬虫，引入webmagic-extension包即可使用此功能。</p>
+<p>在注解模式下，使用一个简单对象加上注解，可以用极少的代码量就完成一个爬虫的编写。对于简单的爬虫，这样写既简单又容易理解，并且管理起来也很方便。</p>
+<h2 id="资料">资料</h2>
+<ul>
+<li><a href="https://github.com/smltq/spring-boot-demo/blob/master/webmagic">WebMagic 爬虫入门示例源码</a></li>
+<li><p><a href="https://github.com/code4craft/webmagic/blob/master/README-zh.md">WebMagic GitHub</a></p>
+<blockquote>
+<p><a href="https://github.com/smltq/spring-boot-demo">Spring Boot、Cloud 学习项目</a></p>
+</blockquote></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

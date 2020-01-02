@@ -1,0 +1,623 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python多进程详解' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python多进程详解</center></div><div class='banquan'>原文出处:本文由博客园博主luyuze95提供。<br/>
+原文连接:https://www.cnblogs.com/luyuze95/p/11266951.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#python多进程">python多进程</a><ul>
+        <li><a href="#序.multiprocessing">序.multiprocessing</a></li>
+        <li><a href="#一process">一、Process</a><ul>
+        <li><a href="#process介绍">process介绍</a></li>
+        <li><a href="#例1.1创建函数并将其作为单个进程">例1.1：创建函数并将其作为单个进程</a></li>
+        <li><a href="#例1.2创建函数并将其作为多个进程">例1.2：创建函数并将其作为多个进程</a></li>
+        <li><a href="#例1.3将进程定义为类">例1.3：将进程定义为类</a></li>
+        <li><a href="#例1.4daemon程序对比结果">例1.4：daemon程序对比结果</a></li>
+        </ul></li>
+        <li><a href="#二lock">二、Lock</a></li>
+        <li><a href="#三semaphore">三、Semaphore</a></li>
+        <li><a href="#四event">四、Event</a></li>
+        <li><a href="#五queue">五、Queue</a></li>
+        <li><a href="#六pipe">六、Pipe</a></li>
+        <li><a href="#七pool">七、Pool</a><ul>
+        <li><a href="#例7.1使用进程池非阻塞">例7.1：使用进程池（非阻塞）</a></li>
+        <li><a href="#例7.2使用进程池阻塞">例7.2：使用进程池（阻塞）</a></li>
+        <li><a href="#例7.3使用进程池并关注结果">例7.3：使用进程池，并关注结果</a></li>
+        <li><a href="#例7.4使用多个进程池">例7.4：使用多个进程池</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="python多进程">python多进程</h1>
+<h2 id="序.multiprocessing">序.multiprocessing</h2>
+<p>python中的多线程其实并不是真正的多线程，如果想要充分地使用多核CPU的资源，在python中大部分情况需要使用多进程。Python提供了非常好用的多进程包multiprocessing，只需要定义一个函数，Python会完成其他所有事情。借助这个包，可以轻松完成从单进程到并发执行的转换。multiprocessing支持子进程、通信和共享数据、执行不同形式的同步，提供了Process、Queue、Pipe、Lock等组件。</p>
+<h2 id="一process">一、Process</h2>
+<h3 id="process介绍">process介绍</h3>
+<ul>
+<li><p><strong>创建进程的类</strong>：Process([group [, target [, name [, args [, kwargs]]]]])，target表示调用对象，args表示调用对象的位置参数元组。kwargs表示调用对象的字典。name为别名。group实质上不使用。</p></li>
+<li><p><strong>方法</strong>：is_alive()、join([timeout])、run()、start()、terminate()。其中，Process以start()启动某个进程。</p></li>
+<li><p><strong>属性</strong>：authkey、daemon（要通过start()设置）、exitcode(进程在运行时为None、如果为–N，表示被信号N结束）、name、pid。其中daemon是父进程终止后自动终止，且自己不能产生新进程，必须在start()之前设置。</p></li>
+</ul>
+<h3 id="例1.1创建函数并将其作为单个进程">例1.1：创建函数并将其作为单个进程</h3>
+<pre><code><code>import multiprocessing
+import time
+
+def worker(interval):
+    n = 5
+    while n &gt; 0:
+        print(&quot;The time is {0}&quot;.format(time.ctime()))
+        time.sleep(interval)
+        n -= 1
+
+if __name__ == &quot;__main__&quot;:
+    p = multiprocessing.Process(target = worker, args = (3,))
+    p.start()
+    print(&quot;p.pid:&quot;, p.pid)
+    print(&quot;p.name:&quot;, p.name)
+    print(&quot;p.is_alive:&quot;, p.is_alive())
+
+------------------------------------------------
+
+&gt;&gt;&gt; p.pid: 1004
+&gt;&gt;&gt; p.name: Process-1
+&gt;&gt;&gt; p.is_alive: True
+&gt;&gt;&gt; The time is Mon Jul 29 21:31:11 2019
+&gt;&gt;&gt; The time is Mon Jul 29 21:31:14 2019
+&gt;&gt;&gt; The time is Mon Jul 29 21:31:17 2019
+&gt;&gt;&gt; The time is Mon Jul 29 21:31:20 2019
+&gt;&gt;&gt; The time is Mon Jul 29 21:31:23 2019</code></pre>
+<h3 id="例1.2创建函数并将其作为多个进程">例1.2：创建函数并将其作为多个进程</h3>
+<pre><code><code>import multiprocessing
+import time
+
+def worker_1(interval):
+    print(&quot;worker_1&quot;)
+    time.sleep(interval)
+    print(&quot;end worker_1&quot;)
+
+def worker_2(interval):
+    print(&quot;worker_2&quot;)
+    time.sleep(interval)
+    print(&quot;end worker_2&quot;)
+
+def worker_3(interval):
+    print(&quot;worker_3&quot;)
+    time.sleep(interval)
+    print(&quot;end worker_3&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    p1 = multiprocessing.Process(target = worker_1, args = (2,))
+    p2 = multiprocessing.Process(target = worker_2, args = (3,))
+    p3 = multiprocessing.Process(target = worker_3, args = (4,))
+
+    p1.start()
+    p2.start()
+    p3.start()
+
+    print(&quot;The number of CPU is:&quot; + str(multiprocessing.cpu_count()))
+    for p in multiprocessing.active_children():
+        print(&quot;child   p.name:&quot; + p.name + &quot;\tp.id&quot; + str(p.pid))
+    print(&quot;END&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; The number of CPU is:8
+&gt;&gt;&gt; child   p.name:Process-3    p.id18208
+&gt;&gt;&gt; child   p.name:Process-2    p.id1404
+&gt;&gt;&gt; child   p.name:Process-1    p.id11684
+&gt;&gt;&gt; END
+&gt;&gt;&gt; worker_1
+&gt;&gt;&gt; worker_2
+&gt;&gt;&gt; worker_3
+&gt;&gt;&gt; end worker_1
+&gt;&gt;&gt; end worker_2
+&gt;&gt;&gt; end worker_3</code></pre>
+<h3 id="例1.3将进程定义为类">例1.3：将进程定义为类</h3>
+<pre><code><code>import multiprocessing
+import time
+
+class ClockProcess(multiprocessing.Process):
+    def __init__(self, interval):
+        multiprocessing.Process.__init__(self)
+        self.interval = interval
+
+    def run(self):
+        n = 5
+        while n &gt; 0:
+            print(&quot;the time is {0}&quot;.format(time.ctime()))
+            time.sleep(self.interval)
+            n -= 1
+
+if __name__ == &#39;__main__&#39;:
+    p = ClockProcess(3)
+    p.start() 
+
+------------------------------------------------
+
+&gt;&gt;&gt; the time is Mon Jul 29 21:43:07 2019
+&gt;&gt;&gt; the time is Mon Jul 29 21:43:10 2019
+&gt;&gt;&gt; the time is Mon Jul 29 21:43:13 2019
+&gt;&gt;&gt; the time is Mon Jul 29 21:43:16 2019
+&gt;&gt;&gt; the time is Mon Jul 29 21:43:19 2019</code></pre>
+<p><strong>注</strong>：进程p调用start()时，自动调用run()</p>
+<h3 id="例1.4daemon程序对比结果">例1.4：daemon程序对比结果</h3>
+<h4 id="不加daemon属性">1.4-1 不加daemon属性</h4>
+<pre><code><code>import multiprocessing
+import time
+
+def worker(interval):
+    print(&quot;work start:{0}&quot;.format(time.ctime()));
+    time.sleep(interval)
+    print(&quot;work end:{0}&quot;.format(time.ctime()));
+
+if __name__ == &quot;__main__&quot;:
+    p = multiprocessing.Process(target = worker, args = (3,))
+    p.start()
+    print(&quot;end!&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; end!
+&gt;&gt;&gt; work start:Tue Jul 29 21:29:10 2019
+&gt;&gt;&gt; work end:Tue Jul 29 21:29:13 2019</code></pre>
+<h4 id="加上daemon属性">1.4-2 加上daemon属性</h4>
+<pre><code><code>import multiprocessing
+import time
+
+def worker(interval):
+    print(&quot;work start:{0}&quot;.format(time.ctime()));
+    time.sleep(interval)
+    print(&quot;work end:{0}&quot;.format(time.ctime()));
+
+if __name__ == &quot;__main__&quot;:
+    p = multiprocessing.Process(target = worker, args = (3,))
+    p.daemon = True
+    p.start()
+    print(&quot;end!&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; end!</code></pre>
+<p><strong>注</strong>：因子进程设置了daemon属性，主进程结束，它们就随着结束了。</p>
+<h4 id="设置daemon执行完结束的方法">1.4-3 设置daemon执行完结束的方法</h4>
+<pre><code><code>import multiprocessing
+import time
+
+def worker(interval):
+    print(&quot;work start:{0}&quot;.format(time.ctime()));
+    time.sleep(interval)
+    print(&quot;work end:{0}&quot;.format(time.ctime()));
+
+if __name__ == &quot;__main__&quot;:
+    p = multiprocessing.Process(target = worker, args = (3,))
+    p.daemon = True
+    p.start()
+    p.join()
+    print(&quot;end!&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; work start:Tue Jul 29 22:16:32 2019
+&gt;&gt;&gt; work end:Tue Jul 29 22:16:35 2019
+&gt;&gt;&gt; end!</code></pre>
+<h2 id="二lock">二、Lock</h2>
+<p>当多个进程需要访问共享资源的时候，Lock可以用来避免访问的冲突。</p>
+<pre><code><code>import multiprocessing
+import sys
+
+def worker_with(lock, f):
+    with lock:
+        fs = open(f, &#39;a+&#39;)
+        n = 10
+        while n &gt; 1:
+            fs.write(&quot;Lockd acquired via with\n&quot;)
+            n -= 1
+        fs.close()
+        
+def worker_no_with(lock, f):
+    lock.acquire()
+    try:
+        fs = open(f, &#39;a+&#39;)
+        n = 10
+        while n &gt; 1:
+            fs.write(&quot;Lock acquired directly\n&quot;)
+            n -= 1
+        fs.close()
+    finally:
+        lock.release()
+    
+if __name__ == &quot;__main__&quot;:
+    lock = multiprocessing.Lock()
+    f = &quot;file.txt&quot;
+    w = multiprocessing.Process(target = worker_with, args=(lock, f))
+    nw = multiprocessing.Process(target = worker_no_with, args=(lock, f))
+    w.start()
+    nw.start()
+    print(&quot;end&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lockd acquired via with
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly
+&gt;&gt;&gt; Lock acquired directly</code></pre>
+<h2 id="三semaphore">三、Semaphore</h2>
+<p>Semaphore用来控制对共享资源的访问数量，例如池的最大连接数。</p>
+<pre><code><code>import multiprocessing
+import time
+
+def worker(s, i):
+    s.acquire()
+    print(multiprocessing.current_process().name + &quot;acquire&quot;);
+    time.sleep(i)
+    print(multiprocessing.current_process().name + &quot;release\n&quot;);
+    s.release()
+
+if __name__ == &quot;__main__&quot;:
+    s = multiprocessing.Semaphore(2)
+    for i in range(5):
+        p = multiprocessing.Process(target = worker, args=(s, i*2))
+        p.start()
+
+------------------------------------------------
+
+&gt;&gt;&gt; Process-1acquire
+&gt;&gt;&gt; Process-1release
+&gt;&gt;&gt;  
+&gt;&gt;&gt; Process-2acquire
+&gt;&gt;&gt; Process-3acquire
+&gt;&gt;&gt; Process-2release
+&gt;&gt;&gt;  
+&gt;&gt;&gt; Process-5acquire
+&gt;&gt;&gt; Process-3release
+&gt;&gt;&gt;  
+&gt;&gt;&gt; Process-4acquire
+&gt;&gt;&gt; Process-5release
+&gt;&gt;&gt;  
+&gt;&gt;&gt; Process-4release</code></pre>
+<h2 id="四event">四、Event</h2>
+<p>Event用来实现进程间同步通信。</p>
+<pre><code><code>import multiprocessing
+import time
+
+def wait_for_event(e):
+    print(&quot;wait_for_event: starting&quot;)
+    e.wait()
+    print(&quot;wairt_for_event: e.is_set()-&gt;&quot; + str(e.is_set()))
+
+def wait_for_event_timeout(e, t):
+    print(&quot;wait_for_event_timeout:starting&quot;)
+    e.wait(t)
+    print(&quot;wait_for_event_timeout:e.is_set-&gt;&quot; + str(e.is_set()))
+
+if __name__ == &quot;__main__&quot;:
+    e = multiprocessing.Event()
+    w1 = multiprocessing.Process(name = &quot;block&quot;,
+            target = wait_for_event,
+            args = (e,))
+
+    w2 = multiprocessing.Process(name = &quot;non-block&quot;,
+            target = wait_for_event_timeout,
+            args = (e, 2))
+    w1.start()
+    w2.start()
+
+    time.sleep(3)
+
+    e.set()
+    print(&quot;main: event is set&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; wait_for_event: starting
+&gt;&gt;&gt; wait_for_event_timeout:starting
+&gt;&gt;&gt; wait_for_event_timeout:e.is_set-&gt;False
+&gt;&gt;&gt; main: event is set
+&gt;&gt;&gt; wairt_for_event: e.is_set()-&gt;True</code></pre>
+<h2 id="五queue">五、Queue</h2>
+<p>Queue是多进程安全的队列，可以使用Queue实现多进程之间的数据传递。put方法用以插入数据到队列中，put方法还有两个可选参数：blocked和timeout。如果blocked为True（默认值），并且timeout为正值，该方法会阻塞timeout指定的时间，直到该队列有剩余的空间。如果超时，会抛出Queue.Full异常。如果blocked为False，但该Queue已满，会立即抛出Queue.Full异常。</p>
+<p>get方法可以从队列读取并且删除一个元素。同样，get方法有两个可选参数：blocked和timeout。如果blocked为True（默认值），并且timeout为正值，那么在等待时间内没有取到任何元素，会抛出Queue.Empty异常。如果blocked为False，有两种情况存在，如果Queue有一个值可用，则立即返回该值，否则，如果队列为空，则立即抛出Queue.Empty异常。Queue的一段示例代码：</p>
+<pre><code><code>import multiprocessing
+
+def writer_proc(q):      
+    try:         
+        q.put(1, block = False) 
+    except:         
+        pass   
+
+def reader_proc(q):      
+    try:         
+        print(q.get(block = False))
+    except:         
+        pass
+
+if __name__ == &quot;__main__&quot;:
+    q = multiprocessing.Queue()
+    writer = multiprocessing.Process(target=writer_proc, args=(q,))  
+    writer.start()   
+
+    reader = multiprocessing.Process(target=reader_proc, args=(q,))  
+    reader.start()  
+
+    reader.join()  
+    writer.join()
+
+------------------------------------------------
+
+&gt;&gt;&gt; 1</code></pre>
+<h2 id="六pipe">六、Pipe</h2>
+<p>Pipe方法返回(conn1, conn2)代表一个管道的两个端。Pipe方法有duplex参数，如果duplex参数为True(默认值)，那么这个管道是全双工模式，也就是说conn1和conn2均可收发。duplex为False，conn1只负责接受消息，conn2只负责发送消息。</p>
+<p>send和recv方法分别是发送和接受消息的方法。例如，在全双工模式下，可以调用conn1.send发送消息，conn1.recv接收消息。如果没有消息可接收，recv方法会一直阻塞。如果管道已经被关闭，那么recv方法会抛出EOFError。</p>
+<pre><code><code>import multiprocessing
+import time
+
+def proc1(pipe):
+    while True:
+        for i in range(10000):
+            print(&quot;send: %s&quot; %(i))
+            pipe.send(i)
+            time.sleep(1)
+
+def proc2(pipe):
+    while True:
+        print(&quot;proc2 rev:&quot;, pipe.recv())
+        time.sleep(1)
+
+def proc3(pipe):
+    while True:
+        print(&quot;PROC3 rev:&quot;, pipe.recv())
+        time.sleep(1)
+
+if __name__ == &quot;__main__&quot;:
+    pipe = multiprocessing.Pipe()
+    p1 = multiprocessing.Process(target=proc1, args=(pipe[0],))
+    p2 = multiprocessing.Process(target=proc2, args=(pipe[1],))
+    # p3 = multiprocessing.Process(target=proc3, args=(pipe[1],))
+
+    p1.start()
+    p2.start()
+    # p3.start()
+
+    p1.join()
+    p2.join()
+    # p3.join()
+
+------------------------------------------------
+
+&gt;&gt;&gt; send: 0
+&gt;&gt;&gt; roc2 rev: 0
+&gt;&gt;&gt; send: 1
+&gt;&gt;&gt; proc2 rev: 1
+&gt;&gt;&gt; send: 2
+&gt;&gt;&gt; proc2 rev: 2
+&gt;&gt;&gt; send: 3
+&gt;&gt;&gt; proc2 rev: 3
+&gt;&gt;&gt; send: 4
+&gt;&gt;&gt; proc2 rev: 4
+&gt;&gt;&gt; send: 5
+&gt;&gt;&gt; proc2 rev: 5
+&gt;&gt;&gt; send: 6
+&gt;&gt;&gt; proc2 rev: 6
+&gt;&gt;&gt; send: 7
+&gt;&gt;&gt; proc2 rev: 7
+&gt;&gt;&gt; send: 8
+&gt;&gt;&gt; proc2 rev: 8
+     .
+     .
+     .
+     .
+     .
+     .</code></pre>
+<h2 id="七pool">七、Pool</h2>
+<p>在利用Python进行系统管理的时候，特别是同时操作多个文件目录，或者远程控制多台主机，并行操作可以节约大量的时间。当被操作对象数目不大时，可以直接利用multiprocessing中的Process动态成生多个进程，十几个还好，但如果是上百个，上千个目标，手动的去限制进程数量却又太过繁琐，此时可以发挥进程池的功效。<br />
+Pool可以提供指定数量的进程，供用户调用，当有新的请求提交到pool中时，如果池还没有满，那么就会创建一个新的进程用来执行该请求；但如果池中的进程数已经达到规定最大值，那么该请求就会等待，直到池中有进程结束，才会创建新的进程来它。</p>
+<h3 id="例7.1使用进程池非阻塞">例7.1：使用进程池（非阻塞）</h3>
+<pre><code><code>import multiprocessing
+import time
+
+def func(msg):
+    print(&quot;msg:&quot;, msg)
+    time.sleep(3)
+    print(&quot;end&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    pool = multiprocessing.Pool(processes = 3)
+    for i in range(4):
+        msg = &quot;hello %d&quot; %(i)
+        pool.apply_async(func, (msg, ))   #维持执行的进程总数为processes，当一个进程执行完毕后会添加新的进程进去
+
+    print(&quot;Mark~ Mark~ Mark~~~~~~~~~~~~~~~~~~~~~~&quot;)
+    pool.close()
+    pool.join()   #调用join之前，先调用close函数，否则会出错。执行完close后不会有新的进程加入到pool,join函数等待所有子进程结束
+    print(&quot;Sub-process(es) done.&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; Mark~ Mark~ Mark~~~~~~~~~~~~~~~~~~~~~~
+&gt;&gt;&gt; msg: hello 0
+&gt;&gt;&gt; msg: hello 1
+&gt;&gt;&gt; msg: hello 2
+&gt;&gt;&gt; end
+&gt;&gt;&gt; msg: hello 3
+&gt;&gt;&gt; end
+&gt;&gt;&gt; end
+&gt;&gt;&gt; end
+&gt;&gt;&gt; Sub-process(es) done.</code></pre>
+<p>函数解释：</p>
+<ul>
+<li>apply_async(func[, args[, kwds[, callback]]]) 它是非阻塞，apply(func[, args[, kwds]])是阻塞的（理解区别，看例1例2结果区别）</li>
+<li>close() 关闭pool，使其不在接受新的任务。</li>
+<li>terminate() 结束工作进程，不在处理未完成的任务。</li>
+<li>join() 主进程阻塞，等待子进程的退出， join方法要在close或terminate之后使用。</li>
+</ul>
+<p>执行说明：创建一个进程池pool，并设定进程的数量为3，xrange(4)会相继产生四个对象[0, 1, 2, 4]，四个对象被提交到pool中，因pool指定进程数为3，所以0、1、2会直接送到进程中执行，当其中一个执行完事后才空出一个进程处理对象3，所以会出现输出“msg: hello 3”出现在&quot;end&quot;后。因为为非阻塞，主函数会自己执行自个的，不搭理进程的执行，所以运行完for循环后直接输出“mMsg: hark~ Mark~ Mark~~~~~~~~~~~~~~~~~~~~~~”，主程序在pool.join（）处等待各个进程的结束。</p>
+<h3 id="例7.2使用进程池阻塞">例7.2：使用进程池（阻塞）</h3>
+<pre><code><code>import multiprocessing
+import time
+
+def func(msg):
+    print(&quot;msg:&quot;, msg)
+    time.sleep(3)
+    print(&quot;end&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    pool = multiprocessing.Pool(processes = 3)
+    for i in range(4):
+        msg = &quot;hello %d&quot; %(i)
+        pool.apply(func, (msg, ))   #维持执行的进程总数为processes，当一个进程执行完毕后会添加新的进程进去
+
+    print(&quot;Mark~ Mark~ Mark~~~~~~~~~~~~~~~~~~~~~~&quot;)
+    pool.close()
+    pool.join()   #调用join之前，先调用close函数，否则会出错。执行完close后不会有新的进程加入到pool,join函数等待所有子进程结束
+    print(&quot;Sub-process(es) done.&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; msg: hello 0
+&gt;&gt;&gt; end
+&gt;&gt;&gt; msg: hello 1
+&gt;&gt;&gt; end
+&gt;&gt;&gt; msg: hello 2
+&gt;&gt;&gt; end
+&gt;&gt;&gt; msg: hello 3
+&gt;&gt;&gt; end
+&gt;&gt;&gt; Mark~ Mark~ Mark~~~~~~~~~~~~~~~~~~~~~~
+&gt;&gt;&gt; Sub-process(es) done.</code></pre>
+<h3 id="例7.3使用进程池并关注结果">例7.3：使用进程池，并关注结果</h3>
+<pre><code><code>import multiprocessing
+import time
+
+def func(msg):
+    print(&quot;msg:&quot;, msg)
+    time.sleep(3)
+    print(&quot;end&quot;)
+    return &quot;done&quot; + msg
+
+if __name__ == &quot;__main__&quot;:
+    pool = multiprocessing.Pool(processes=4)
+    result = []
+    for i in range(3):
+        msg = &quot;hello %d&quot; %(i)
+        result.append(pool.apply_async(func, (msg, )))
+    pool.close()
+    pool.join()
+    for res in result:
+        print(&quot;:::&quot;, res.get())
+    print(&quot;Sub-process(es) done.&quot;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; msg: hello 0
+&gt;&gt;&gt; msg: hello 1
+&gt;&gt;&gt; msg: hello 2
+&gt;&gt;&gt; end
+&gt;&gt;&gt; end
+&gt;&gt;&gt; end
+&gt;&gt;&gt; ::: donehello 0
+&gt;&gt;&gt; ::: donehello 1
+&gt;&gt;&gt; ::: donehello 2
+&gt;&gt;&gt; Sub-process(es) done.</code></pre>
+<h3 id="例7.4使用多个进程池">例7.4：使用多个进程池</h3>
+<pre><code><code>import multiprocessing
+import os, time, random
+
+
+def Lee():
+    print(&quot;\nRun task Lee-%s&quot; % (os.getpid()))  # os.getpid()获取当前的进程的ID
+    start = time.time()
+    time.sleep(random.random() * 10)  # random.random()随机生成0-1之间的小数
+    end = time.time()
+    print(&#39;Task Lee, runs %0.2f seconds.&#39; % (end - start))
+
+
+def Marlon():
+    print(&quot;\nRun task Marlon-%s&quot; % (os.getpid()))
+    start = time.time()
+    time.sleep(random.random() * 40)
+    end = time.time()
+    print(&#39;Task Marlon runs %0.2f seconds.&#39; % (end - start))
+
+
+def Allen():
+    print(&quot;\nRun task Allen-%s&quot; % (os.getpid()))
+    start = time.time()
+    time.sleep(random.random() * 30)
+    end = time.time()
+    print(&#39;Task Allen runs %0.2f seconds.&#39; % (end - start))
+
+
+def Frank():
+    print(&quot;\nRun task Frank-%s&quot; % (os.getpid()))
+    start = time.time()
+    time.sleep(random.random() * 20)
+    end = time.time()
+    print(&#39;Task Frank runs %0.2f seconds.&#39; % (end - start))
+
+
+if __name__ == &#39;__main__&#39;:
+    function_list = [Lee, Marlon, Allen, Frank]
+    print(&quot;parent process %s&quot; % (os.getpid()))
+
+    pool = multiprocessing.Pool(4)
+    for func in function_list:
+        pool.apply_async(func)  # Pool执行函数，apply执行函数,当有一个进程执行完毕后，会添加一个新的进程到pool中
+
+    print(&#39;Waiting for all subprocesses done...&#39;)
+    pool.close()
+    pool.join()  # 调用join之前，一定要先调用close() 函数，否则会出错, close()执行后不会有新的进程加入到pool,join函数等待素有子进程结束
+    print(&#39;All subprocesses done.&#39;)
+
+------------------------------------------------
+
+&gt;&gt;&gt; parent process 9828
+&gt;&gt;&gt; Waiting for all subprocesses done...
+&gt;&gt;&gt; 
+&gt;&gt;&gt; Run task Lee-12948
+&gt;&gt;&gt; 
+&gt;&gt;&gt; Run task Marlon-8948
+&gt;&gt;&gt; 
+&gt;&gt;&gt; Run task Allen-18124
+&gt;&gt;&gt; 
+&gt;&gt;&gt; Run task Frank-17404
+&gt;&gt;&gt; Task Frank runs 3.42 seconds.
+&gt;&gt;&gt; Task Lee, runs 6.69 seconds.
+&gt;&gt;&gt; Task Allen runs 8.38 seconds.
+&gt;&gt;&gt; Task Marlon runs 13.37 seconds.
+&gt;&gt;&gt; All subprocesses done.</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

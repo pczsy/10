@@ -1,0 +1,78 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修利用selenium和ffmpeg爬取m3u8 ts视频《进击的巨人》' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>利用selenium和ffmpeg爬取m3u8 ts视频《进击的巨人》</center></div><div class='banquan'>原文出处:本文由博客园博主九命猫幺提供。<br/>
+原文连接:https://www.cnblogs.com/yongestcat/p/11645843.html</div><br>
+    <h2>需求</h2><p>想看下动漫《进击的巨人》,发现到处被和谐，找不到资源，但是在一个视频网站找到了在线播放，<a title="https://www.55cc.cc/dongman/17890/player-2-1.html" href="https://www.55cc.cc/dongman/17890/player-2-1.html">https://www.55cc.cc/dongman/17890/player-2-1.html</a>，然而不能下载下来（喜欢的东西我一般都看很多遍）</p><p><br></p><p>找了下，网站没发现robots协议，加上我用的和真人浏览差不多的效率来爬取，应该ok的</p><p><br></p><p>于是想爬虫爬取下，但是看源代码发现视频是m3u8的ts流，而且是双层m3u8的，并且m3u8地址还隐藏在js代码中，于是有2种处理方法：</p><p>&nbsp;&nbsp;&nbsp; 1.直接requests源码，把js代码的部分逐字解析，找出m3u8地址。</p><p>&nbsp;&nbsp;&nbsp; 2.直接调用浏览器渲染，将渲染后的网页代码拿到，就可以看到iframe标签中src地址了</p><p><a href="https://img2018.cnblogs.com/blog/1393680/201910/1393680-20191010092923508-1332577385.png"><img width="793" height="524" title="image" style="border: 0px currentcolor; border-image: none; margin-right: auto; margin-left: auto; float: none; display: block; background-image: none;" alt="image" src="./images/利用selenium和ffmpeg爬取m3u8 ts视频《进击的巨人》0.png" border="0"></a></p><p>获取到首层m3u8地址后就简单了，直接requests请求到第二层m3u8地址，这就是真实地址了，下载后可以看到是很多的ts流小文件，于是有2种处理方法了：</p><p>&nbsp;&nbsp;&nbsp; 1.直接逐个获取ts地址，然而写到本地磁盘的同一个文件，最后转码到mp4(ts格式太占空间) </p><p>&nbsp;&nbsp;&nbsp; 2.直接调用ffmpeg，能根据m3u8地址下载ts流并合并为一个文件且同步转码为mp4</p><p><a href="https://img2018.cnblogs.com/blog/1393680/201910/1393680-20191010092924276-107078611.png"><img width="1199" height="702" title="image" style="margin: 0px auto; border: 0px currentcolor; border-image: none; float: none; display: block; background-image: none;" alt="image" src="./images/利用selenium和ffmpeg爬取m3u8 ts视频《进击的巨人》1.png" border="0"></a></p><p>上述均采用第二种方法，于是写出个简单的该网站的视频爬虫</p><h2>源代码</h2><div class="cnblogs_Highlighter">
+<pre><code>from selenium import webdriver
+from bs4 import BeautifulSoup
+import re
+import requests
+import os
+
+if __name__ == '__main__':
+    urls = ['https://www.55cc.cc/dongman/17890/player-2-'+str(n)+'.html' for n in range(1,14,)]
+    for url in urls:
+        browser = webdriver.Firefox()
+        browser.get(url)
+        htmldata=browser.page_source
+        browser.close()
+        soup = BeautifulSoup(htmldata,'html.parser')
+        m3u8 = re.findall(r'(https://\S+)',soup.select('iframe[name="iFrame_play"]')[0].get('src')[1::1])[0]
+        r = requests.get(m3u8).text
+        m3u8_rel = m3u8.replace('index.m3u8','')+re.split('\n',r)[-1]
+        ffmpeg = '"C:\\soft\\ffmpeg\\bin\\ffmpeg.exe"'
+        output = "f:\\进击的巨人\\第三季\\"+soup.title.string.replace('集在线观看_动漫_五五影院','').replace(' ','')+".mp4"
+        cmd = ffmpeg+" -i "+m3u8_rel+" -vcodec copy -acodec copy "+output
+        os.system(cmd)
+</pre>
+</div>
+<h2>执行结果</h2><p><a href="https://img2018.cnblogs.com/blog/1393680/201910/1393680-20191010092925233-1553593389.png"><img width="1171" height="1199" title="image" style="margin: 0px auto; border: 0px currentcolor; border-image: none; float: none; display: block; background-image: none;" alt="image" src="./images/利用selenium和ffmpeg爬取m3u8 ts视频《进击的巨人》2.png" border="0"></a></p><h2>总结</h2><p>每次都要启动浏览器，有点儿膈应人，后面还是改成headless浏览器即无界面浏览器(无头浏览器)来渲染</p><p>12集都要顺序执行下载，有点儿慢，后续改成并发执行，一次性同步并发执行12条cmd命令来下载，即多进程方式</p><h2>优化后</h2><p>把共12集由原来的串行爬取改为并行爬取，增加效率</p><p><a href="https://img2018.cnblogs.com/blog/1393680/201910/1393680-20191010112427143-1433813228.png"><img width="1504" height="938" title="image" style="margin: 0px auto; border: 0px currentcolor; border-image: none; float: none; display: block; background-image: none;" alt="image" src="./images/利用selenium和ffmpeg爬取m3u8 ts视频《进击的巨人》3.png" border="0"></a></p><p><br></p><div class="cnblogs_Highlighter">
+<pre><code>from selenium import webdriver
+from bs4 import BeautifulSoup
+import re
+import requests
+import os
+
+if __name__ == '__main__':
+    urls = ['https://www.55cc.cc/dongman/17890/player-2-'+str(n)+'.html' for n in range(1,14,)]
+    cmds = []
+    command = ''
+    for url in urls:
+        browser = webdriver.Firefox()
+        browser.get(url)
+        htmldata=browser.page_source
+        browser.close()
+        soup = BeautifulSoup(htmldata,'html.parser')
+        m3u8 = re.findall(r'(https://\S+)',soup.select('iframe[name="iFrame_play"]')[0].get('src')[1::1])[0]
+        r = requests.get(m3u8).text
+        m3u8_rel = m3u8.replace('index.m3u8','')+re.split('\n',r)[-1]        
+        output = "f:\\进击的巨人\\第三季\\"+soup.title.string.replace('集在线观看_动漫_五五影院','').replace(' ','')+".mp4"
+        cmd ="ffmpeg -i "+m3u8_rel+" -vcodec copy -acodec copy "+output
+        cmds.append(cmd)
+        #os.system(cmd)
+    for i in cmds:
+        command+='start cmd /c "'+i+'"&amp;'
+    os.system(command[:-1:])
+</pre>
+</div><h2>知识点</h2><p>尝试过you-get来爬，不过好像不好用，也许是我菜</p><p><br></p><p>浏览器动态渲染 webkit；</p><p>python中动态网页爬取方式：</p><p>&nbsp; dryscape 作者已经不再维护了，并且作者推荐的库仅是python2，已凉凉；</p><p>&nbsp; selenium 可以，但是缺点是必须要打开浏览器；</p><p>&nbsp; Phantom JS，无头浏览器 ，无界面浏览器， headless ，借助之可以模拟webkit执行，但是Phantom JS停止更新了且selenium不支持它了，也凉凉；</p><p>&nbsp; chrome headless 或者firefox headless可以替代Phantom JS（建议使用，毕竟官方出品，比开源项目动不动有大坑，比如phantomjs坑1000+，或者没人维护等等毛病）</p><p>&nbsp; puppeteer也可以替代Phantom JS ，Pyppeteer是其python实现库但是有问题不成熟，不建议用</p><p>&nbsp; tampermonkey油猴插件，自动交互，用js注入，可以对网页各种花式操作，比如给网页注入个下载按钮啥的（油猴可以自动交互但不好监控网络请求，chrome extension 可以监控请求但没法监控响应，cdp 全部都可以做但是不好操作 dom）</p><p>&nbsp; cheerio 针对DOM的</p><p>&nbsp; appium是针对手机端的，一般由于手机端性能问题，反爬策略较少，对于pc端实在没法子的，可以从手机端操作</p><p><br></p><p>selenium被识别的程度越来越高，阿里的网站瞬间能识别,但是识别了并不会告诉你，而是返回给你和真人不一样的结果</p><p><br></p><p>一般小型网站，直接webkit渲染即可，最简单通用的方式是用 headless 的浏览器，完全模拟人工操作，增大 IP 池，降低访问评率。缺点是效率低，资源成本高</p><p>大型网站，是有价值去仔细分析的，一般都是前后分离，传输数据都是json，找到接口requests即可，但是对于加密的，直接请求又可能不行</p><p><br></p><p>无头浏览器的资源占用太多，能不用就不用</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

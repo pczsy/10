@@ -1,0 +1,480 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修kubectl exec 在kubelet中的处理流程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>kubectl exec 在kubelet中的处理流程</center></div><div class='banquan'>原文出处:本文由博客园博主gaorong404提供。<br/>
+原文连接:https://www.cnblogs.com/gaorong/p/11873114.html</div><br>
+    <blockquote>
+<p>基于kuebrnetes v1.17</p>
+</blockquote>
+<p>简单来说，一个完整的streaming请求如下：<br />
+<img src="./images/kubectl exec 在kubelet中的处理流程0.png" /></p>
+<ul>
+<li>客户端 kubectl exec -i -t ...</li>
+<li>kube-apiserver 向 Kubelet 发送流式请求 /exec/</li>
+<li>Kubelet 通过 CRI 接口向 CRI Shim 请求 Exec 的 URL</li>
+<li>CRI Shim 向 Kubelet 返回 Exec URL</li>
+<li>Kubelet 向 kube-apiserver 返回重定向的响应</li>
+<li>kube-apiserver 重定向流式请求到 Exec URL，接着就是 CRI Shim 内部的 Streaming Server 跟 kube-apiserver 进行数据交互，完成 Exec 的请求和响应</li>
+</ul>
+<p>在 v1.10 及更早版本中，容器运行时必需返回一个 API Server 可直接访问的 URL（通常跟 Kubelet 使用相同的监听地址）；而从 v1.11 开始，Kubelet 新增了 --redirect-container-streaming（默认为 false），默认不再转发而是代理 Streaming 请求，这样运行时可以返回一个 localhost 的 URL。通过 Kubelet 代理的好处是由 Kubelet 处理与 API server 通信之间的请求认证。</p>
+<p>可以看到kubelet在处理exec请求的时候分为两步， 1. 首先获取streaming URL，2. 随后根据该URL建立流式请求。</p>
+<h2 id="获取streaming-url">获取streaming URL</h2>
+<p>kubelet在启动时会初始化一个serve，注册好对应的handler， exec的handler如下：</p>
+<pre><code><code>
+    ws = new(restful.WebService)
+    ws.
+        Path(&quot;/exec&quot;)
+    ws.Route(ws.GET(&quot;/{podNamespace}/{podID}/{containerName}&quot;).
+        To(s.getExec).
+        Operation(&quot;getExec&quot;))
+    ws.Route(ws.POST(&quot;/{podNamespace}/{podID}/{containerName}&quot;).
+        To(s.getExec).
+        Operation(&quot;getExec&quot;))
+    ws.Route(ws.GET(&quot;/{podNamespace}/{podID}/{uid}/{containerName}&quot;).
+        To(s.getExec).
+        Operation(&quot;getExec&quot;))
+    ws.Route(ws.POST(&quot;/{podNamespace}/{podID}/{uid}/{containerName}&quot;).
+        To(s.getExec).
+        Operation(&quot;getExec&quot;))
+    s.restfulCont.Add(ws)
+</code></pre>
+<p>所有的路径最后都由<code>getExec</code>来进行处理：</p>
+<pre><code><code>// getExec handles requests to run a command inside a container.
+func (s *Server) getExec(request *restful.Request, response *restful.Response) {
+    params := getExecRequestParams(request)
+    streamOpts, err := remotecommandserver.NewOptions(request.Request)
+    if err != nil {
+        utilruntime.HandleError(err)
+        response.WriteError(http.StatusBadRequest, err)
+        return
+    }
+    pod, ok := s.host.GetPodByName(params.podNamespace, params.podName)
+    if !ok {
+        response.WriteError(http.StatusNotFound, fmt.Errorf(&quot;pod does not exist&quot;))
+        return
+    }
+
+    podFullName := kubecontainer.GetPodFullName(pod)
+    url, err := s.host.GetExec(podFullName, params.podUID, params.containerName, params.cmd, *streamOpts)
+    if err != nil {
+        streaming.WriteError(err, response.ResponseWriter)
+        return
+    }
+    if s.redirectContainerStreaming {
+        http.Redirect(response.ResponseWriter, request.Request, url.String(), http.StatusFound)
+        return
+    }
+    proxyStream(response.ResponseWriter, request.Request, url)
+}</code></pre>
+<p>以上代码可以看出，首先调用host.GetExec获取URL，然后判断是否开启重定向，如果开启则进行重定向，否则直接代理请求到该streaming URL。这里<code>host</code>对象对应的实现其实就是kubelet， 我们看下<code>GetExec</code>的实现：</p>
+<pre><code><code>// GetExec gets the URL the exec will be served from, or nil if the Kubelet will serve it.
+func (kl *Kubelet) GetExec(podFullName string, podUID types.UID, containerName string, cmd []string, streamOpts remotecommandserver.Options) (*url.URL, error) {
+    container, err := kl.findContainer(podFullName, podUID, containerName)
+    if err != nil {
+        return nil, err
+    }
+    if container == nil {
+        return nil, fmt.Errorf(&quot;container not found (%q)&quot;, containerName)
+    }
+    return kl.streamingRuntime.GetExec(container.ID, cmd, streamOpts.Stdin, streamOpts.Stdout, streamOpts.Stderr, streamOpts.TTY)
+}</code></pre>
+<p>这里只是继续调用streamingRuntime的<code>GetExec</code>方法，streamingRuntime是个interface，具体的实现是kubeGenericRuntimeManager</p>
+<pre><code><code>// GetExec gets the endpoint the runtime will serve the exec request from.
+func (m *kubeGenericRuntimeManager) GetExec(id kubecontainer.ContainerID, cmd []string, stdin, stdout, stderr, tty bool) (*url.URL, error) {
+    req := &amp;runtimeapi.ExecRequest{
+        ContainerId: id.ID,
+        Cmd:         cmd,
+        Tty:         tty,
+        Stdin:       stdin,
+        Stdout:      stdout,
+        Stderr:      stderr,
+    }
+    resp, err := m.runtimeService.Exec(req)
+    if err != nil {
+        return nil, err
+    }
+
+    return url.Parse(resp.Url)
+}</code></pre>
+<p>继而调用了runtimeService.Exec方法， 此处runtimeService根据CRI创建的remoteRuntimeService，简单来说就是对应CRI server的client端</p>
+<pre><code><code>// Exec prepares a streaming endpoint to execute a command in the container, and returns the address.
+func (r *RemoteRuntimeService) Exec(req *runtimeapi.ExecRequest) (*runtimeapi.ExecResponse, error) {
+    ctx, cancel := getContextWithTimeout(r.timeout)
+    defer cancel()
+
+    resp, err := r.runtimeClient.Exec(ctx, req)
+    if err != nil {
+        klog.Errorf(&quot;Exec %s &#39;%s&#39; from runtime service failed: %v&quot;, req.ContainerId, strings.Join(req.Cmd, &quot; &quot;), err)
+        return nil, err
+    }
+
+    if resp.Url == &quot;&quot; {
+        errorMessage := &quot;URL is not set&quot;
+        klog.Errorf(&quot;Exec failed: %s&quot;, errorMessage)
+        return nil, errors.New(errorMessage)
+    }
+
+    return resp, nil
+}</code></pre>
+<p>调用cri client请求cri server端，在这里server端就是docker shim (docker Service对象)</p>
+<pre><code><code>// Exec prepares a streaming endpoint to execute a command in the container, and returns the address.
+func (ds *dockerService) Exec(_ context.Context, req *runtimeapi.ExecRequest) (*runtimeapi.ExecResponse, error) {
+    if ds.streamingServer == nil {
+        return nil, streaming.NewErrorStreamingDisabled(&quot;exec&quot;)
+    }
+    _, err := checkContainerStatus(ds.client, req.ContainerId)
+    if err != nil {
+        return nil, err
+    }
+    return ds.streamingServer.GetExec(req)
+}</code></pre>
+<p>调用dockerService.StreamingSerer的GetExec方法，streamingServer的所有方法都定义在：pkg/kubelet/server/streaming/server.go里</p>
+<pre><code><code>func (s *server) GetExec(req *runtimeapi.ExecRequest) (*runtimeapi.ExecResponse, error) {
+    if err := validateExecRequest(req); err != nil {
+        return nil, err
+    }
+    token, err := s.cache.Insert(req)
+    if err != nil {
+        return nil, err
+    }
+    return &amp;runtimeapi.ExecResponse{
+        Url: s.buildURL(&quot;exec&quot;, token),
+    }, nil
+}</code></pre>
+<p>可以看到这里只是返回一个简单的token组合成的url， 之所以生成一个token是因为用户的命令中可能包含各种各样的字符，各种长度的字符，需要格式化为一个简单的token。 该token会缓存在本地，后面真正的exec请求会携带这该token，通过该token找到之前的具体请求。</p>
+<h2 id="处理streaming请求">处理streaming请求</h2>
+<p>在获取到该exec真正的URL后，就需要通过该URL来获取真正的数据了。为该URL提供服务的sever一般位于CRI的实现之中，例如docker shim会创建一个streamingServer来提供服务。</p>
+<p>各个运行时 streaming server 的处理框架都是类似的，kublet为了方便各runtime实现CRI接口，提供了统一的包，位于：<code>pkg/kubelet/server/streaming/server.go</code>。 各种底层runtime只需要实现其中的steaming.Runtime接口就可以简单创建一个streamingServer:</p>
+<pre><code><code>// Runtime is the interface to execute the commands and provide the streams.
+type Runtime interface {
+    Exec(containerID string, cmd []string, in io.Reader, out, err io.WriteCloser, tty bool, resize &lt;-chan remotecommand.TerminalSize) error
+    Attach(containerID string, in io.Reader, out, err io.WriteCloser, tty bool, resize &lt;-chan remotecommand.TerminalSize) error
+    PortForward(podSandboxID string, port int32, stream io.ReadWriteCloser) error
+}</code></pre>
+<p>目前kubelet内置了docker runtime的实现：dockershim，在dockershim中streaming.Runtime的实现结构体为streamingRuntime：</p>
+<pre><code><code>type streamingRuntime struct {
+    client      libdocker.Interface
+    execHandler ExecHandler
+}
+
+var _ streaming.Runtime = &amp;streamingRuntime{}</code></pre>
+<p>其中docker client作为成员函数，以便后面请求docker获取数据。</p>
+<hr />
+<p><strong>NOTE</strong><br />
+注意区分kubelet中各种runtime的定义，说实话各种runtime确实挺乱的，我们需要明确各种Runtime是定义在哪个scope下的，<code>streaming.Runtime</code>是个interface， 位于pkg/kubelet/server/streaming/server.go，用来定义流处理请求的所需要的动作。<code>streamingRuntime</code>是dockershim对<code>streaming.Runtime</code> interface的具体实现，位于<code>pkg/kubelet/dockershim/docker_streaming.go</code>，该结构体为private的。 另一个比较容易混淆的是<code>pkg/kubelet/container/runtime.go</code> (俗称kubecontainer)中的<code>StreamingRuntime</code>， 该interface为public的，用来定义<code>GetExec/GetAttach/GetPortForward</code>接口</p>
+<hr />
+<p>利用该<code>streaming.Runtime</code>就可以创建streamingServer了:</p>
+<pre><code><code>
+// NewServer creates a new Server for stream requests.
+// TODO(tallclair): Add auth(n/z) interface &amp; handling.
+func NewServer(config Config, runtime Runtime) (Server, error) {
+    s := &amp;server{
+        config:  config,
+        runtime: &amp;criAdapter{runtime},
+        cache:   newRequestCache(),
+    }
+
+    if s.config.BaseURL == nil {
+        s.config.BaseURL = &amp;url.URL{
+            Scheme: &quot;http&quot;,
+            Host:   s.config.Addr,
+        }
+        if s.config.TLSConfig != nil {
+            s.config.BaseURL.Scheme = &quot;https&quot;
+        }
+    }
+
+    ws := &amp;restful.WebService{}
+    endpoints := []struct {
+        path    string
+        handler restful.RouteFunction
+    }{
+        {&quot;/exec/{token}&quot;, s.serveExec},
+        {&quot;/attach/{token}&quot;, s.serveAttach},
+        {&quot;/portforward/{token}&quot;, s.servePortForward},
+    }
+    // If serving relative to a base path, set that here.
+    pathPrefix := path.Dir(s.config.BaseURL.Path)
+    for _, e := range endpoints {
+        for _, method := range []string{&quot;GET&quot;, &quot;POST&quot;} {
+            ws.Route(ws.
+                Method(method).
+                Path(path.Join(pathPrefix, e.path)).
+                To(e.handler))
+        }
+    }
+    handler := restful.NewContainer()
+    handler.Add(ws)
+    s.handler = handler
+    s.server = &amp;http.Server{
+        Addr:      s.config.Addr,
+        Handler:   s.handler,
+        TLSConfig: s.config.TLSConfig,
+    }
+
+    return s, nil
+}
+</code></pre>
+<p>在<code>NewServer</code>中会注册对应的handler来处理<code>/exec/{token}</code>类接口。这里exec的handdler为<code>ServerExec</code>方法：</p>
+<pre><code><code>func (s *server) serveExec(req *restful.Request, resp *restful.Response) {
+    token := req.PathParameter(&quot;token&quot;)
+    cachedRequest, ok := s.cache.Consume(token)
+    if !ok {
+        http.NotFound(resp.ResponseWriter, req.Request)
+        return
+    }
+    exec, ok := cachedRequest.(*runtimeapi.ExecRequest)
+    if !ok {
+        http.NotFound(resp.ResponseWriter, req.Request)
+        return
+    }
+
+    streamOpts := &amp;remotecommandserver.Options{
+        Stdin:  exec.Stdin,
+        Stdout: exec.Stdout,
+        Stderr: exec.Stderr,
+        TTY:    exec.Tty,
+    }
+
+    remotecommandserver.ServeExec(
+        resp.ResponseWriter,
+        req.Request,
+        s.runtime,
+        &quot;&quot;, // unused: podName
+        &quot;&quot;, // unusued: podUID
+        exec.ContainerId,
+        exec.Cmd,
+        streamOpts,
+        s.config.StreamIdleTimeout,
+        s.config.StreamCreationTimeout,
+        s.config.SupportedRemoteCommandProtocols)
+}</code></pre>
+<p>进而调用<code>ServeExec</code>方法:</p>
+<pre><code><code>// ServeExec handles requests to execute a command in a container. After
+// creating/receiving the required streams, it delegates the actual execution
+// to the executor.
+func ServeExec(w http.ResponseWriter, req *http.Request, executor Executor, podName string, uid types.UID, container string, cmd []string, streamOpts *Options, idleTimeout, streamCreationTimeout time.Duration, supportedProtocols []string) {
+    ctx, ok := createStreams(req, w, streamOpts, supportedProtocols, idleTimeout, streamCreationTimeout)
+    if !ok {
+        // error is handled by createStreams
+        return
+    }
+    defer ctx.conn.Close()
+
+    err := executor.ExecInContainer(podName, uid, container, cmd, ctx.stdinStream, ctx.stdoutStream, ctx.stderrStream, ctx.tty, ctx.resizeChan, 0)
+    if err != nil {
+        if exitErr, ok := err.(utilexec.ExitError); ok &amp;&amp; exitErr.Exited() {
+            rc := exitErr.ExitStatus()
+            ctx.writeStatus(&amp;apierrors.StatusError{ErrStatus: metav1.Status{
+                Status: metav1.StatusFailure,
+                Reason: remotecommandconsts.NonZeroExitCodeReason,
+                Details: &amp;metav1.StatusDetails{
+                    Causes: []metav1.StatusCause{
+                        {
+                            Type:    remotecommandconsts.ExitCodeCauseType,
+                            Message: fmt.Sprintf(&quot;%d&quot;, rc),
+                        },
+                    },
+                },
+                Message: fmt.Sprintf(&quot;command terminated with non-zero exit code: %v&quot;, exitErr),
+            }})
+        } else {
+            err = fmt.Errorf(&quot;error executing command in container: %v&quot;, err)
+            runtime.HandleError(err)
+            ctx.writeStatus(apierrors.NewInternalError(err))
+        }
+    } else {
+        ctx.writeStatus(&amp;apierrors.StatusError{ErrStatus: metav1.Status{
+            Status: metav1.StatusSuccess,
+        }})
+    }
+}
+
+</code></pre>
+<p>在remotecommandserver.ServeExec中调用了executer.ExecInContainer 方法， 该executer接口的实现是criAdapter, criAdapter只是Runtime的一个wrapper，真正调用的是<code>Runtime.Exec</code>， Runtime是个interface，我们来看下具体在dockershim中的实现：</p>
+<pre><code><code>func (r *streamingRuntime) Exec(containerID string, cmd []string, in io.Reader, out, err io.WriteCloser, tty bool, resize &lt;-chan remotecommand.TerminalSize) error {
+    return r.exec(containerID, cmd, in, out, err, tty, resize, 0)
+}
+
+// Internal version of Exec adds a timeout.
+func (r *streamingRuntime) exec(containerID string, cmd []string, in io.Reader, out, errw io.WriteCloser, tty bool, resize &lt;-chan remotecommand.TerminalSize, timeout time.Duration) error {
+    container, err := checkContainerStatus(r.client, containerID)
+    if err != nil {
+        return err
+    }
+    return r.execHandler.ExecInContainer(r.client, container, cmd, in, out, errw, tty, resize, timeout)
+}
+</code></pre>
+<p>其中execHandler是在初始化streamRuntime的时候定义的NativeExecHandler， 可以看到是直接调用libdocker api与docker进行交互</p>
+<pre><code><code>// NativeExecHandler executes commands in Docker containers using Docker&#39;s exec API.
+type NativeExecHandler struct{}
+
+func (*NativeExecHandler) ExecInContainer(client libdocker.Interface, container *dockertypes.ContainerJSON, cmd []string, stdin io.Reader, stdout, stderr io.WriteCloser, tty bool, resize &lt;-chan remotecommand.TerminalSize, timeout time.Duration) error {
+    done := make(chan struct{})
+    defer close(done)
+
+    createOpts := dockertypes.ExecConfig{
+        Cmd:          cmd,
+        AttachStdin:  stdin != nil,
+        AttachStdout: stdout != nil,
+        AttachStderr: stderr != nil,
+        Tty:          tty,
+    }
+    execObj, err := client.CreateExec(container.ID, createOpts)
+    if err != nil {
+        return fmt.Errorf(&quot;failed to exec in container - Exec setup failed - %v&quot;, err)
+    }
+
+    // Have to start this before the call to client.StartExec because client.StartExec is a blocking
+    // call :-( Otherwise, resize events don&#39;t get processed and the terminal never resizes.
+    //
+    // We also have to delay attempting to send a terminal resize request to docker until after the
+    // exec has started; otherwise, the initial resize request will fail.
+    execStarted := make(chan struct{})
+    go func() {
+        select {
+        case &lt;-execStarted:
+            // client.StartExec has started the exec, so we can start resizing
+        case &lt;-done:
+            // ExecInContainer has returned, so short-circuit
+            return
+        }
+
+        kubecontainer.HandleResizing(resize, func(size remotecommand.TerminalSize) {
+            client.ResizeExecTTY(execObj.ID, uint(size.Height), uint(size.Width))
+        })
+    }()
+
+    startOpts := dockertypes.ExecStartCheck{Detach: false, Tty: tty}
+    streamOpts := libdocker.StreamOptions{
+        InputStream:  stdin,
+        OutputStream: stdout,
+        ErrorStream:  stderr,
+        RawTerminal:  tty,
+        ExecStarted:  execStarted,
+    }
+    err = client.StartExec(execObj.ID, startOpts, streamOpts)
+    if err != nil {
+        return err
+    }
+
+    ticker := time.NewTicker(2 * time.Second)
+    defer ticker.Stop()
+    count := 0
+    for {
+        inspect, err2 := client.InspectExec(execObj.ID)
+        if err2 != nil {
+            return err2
+        }
+        if !inspect.Running {
+            if inspect.ExitCode != 0 {
+                err = &amp;dockerExitError{inspect}
+            }
+            break
+        }
+
+        count++
+        if count == 5 {
+            klog.Errorf(&quot;Exec session %s in container %s terminated but process still running!&quot;, execObj.ID, container.ID)
+            break
+        }
+
+        &lt;-ticker.C
+    }
+
+    return err
+}
+
+</code></pre>
+<p>至此整个处理流程就结束了。</p>
+<p>其实整个流程也比较简单，就是各个runtime shim实现一个kubelet定义好的iterface <code>streaming.Runtime</code>, 然后就可以利用kubelet提供的一个统一的工具package简单实现一个streaming server。该server负责两件事情，1. getExec: 首先根据用户请求的命令返回一个带有token的url，重定向用户请求到该url。2. serveExec: 随后真正提供exec的服务，该exec调用各个runtime shim的具体实现.。</p>
+<h2 id="关于-redirectcontainerstreaming">关于 <code>RedirectContainerStreaming</code></h2>
+<p>在前面提到，如果kubelet开启了<code>RedirectContainerStreaming</code>，则kubelet会将streaming URL返回给apiserver, 随后apiserver会重定向到该streaming URL。这样设计是为了避免所有的流式请求都经过kubelet对kubelet造成压力， 但是从另外一方面考虑，这样做的缺点是无法使用kubelet的认证功能。</p>
+<p>那接下来我们仔细探究一下该参数所起到的真正作用，kubelet中默认runtime是docker，所以这里的研究对象就是dockershim：</p>
+<p>一: <strong><em>如果将RedirectContainerStreaming参数设置为true</em></strong> 则返回的URL类似于<code>/cri/exec/aRbQe4pn</code>，可以看到这里的域名默认是没有hostname的，则重定向时默认重定向到原来的hostname，即kubelet监听的hostname。 所以其实dockershim作为默认的runtime时，设置<code>RedirectContainerStreaming</code>为true并不会有什么本质的区别，对kubelet的性能影响并没有减少，因为所有的流处理还是经过了kubelet。</p>
+<p>上述<code>/cri/exec/aRbQe4pn</code>这个路径在kubelet server中的对应handler为<code>criHandler</code>。 kubelet启动的时候会对该criHandler进行赋值，将dockerService赋值给criHandler (此处docker service其实就是docker shim)</p>
+<pre><code><code>if crOptions.RedirectContainerStreaming {
+    klet.criHandler = ds
+}
+</code></pre>
+<p>dockerService中的实现为:</p>
+<pre><code><code>func (ds *dockerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    if ds.streamingServer != nil {
+        ds.streamingServer.ServeHTTP(w, r)
+    } else {
+        http.NotFound(w, r)
+    }
+}
+</code></pre>
+<p>简单调用了streamingSever的ServeHTTP方法:</p>
+<pre><code><code>func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    s.handler.ServeHTTP(w, r)
+}
+</code></pre>
+<p>在streamingServer会根据注册的handler进行处理请， 这就又回到了我们上面提到的第二步: <a href="#处理streaming请求">提供streaming请求</a></p>
+<p>整个workflow如下：<br />
+<img src="./images/kubectl exec 在kubelet中的处理流程1.png" /></p>
+<p>二: <strong><em>如果设置<code>RedirectContainerStreaming</code>为false</em></strong> 则此时第一步获取到的streaming URL形如:<code>http://127.0.0.1:36699/exec/8rYzmQK9</code>。 可以看到这里是带有hostname的。 因为此时kubelet并不会将该URL返回给apiserver，会直接请求该URL进行代理，如此一来就可以通过127.0.0.1进行直接通信，这个localhost的端口必然是由docker shim来进行监听:</p>
+<pre><code><code>// Start initializes and starts components in dockerService.
+func (ds *dockerService) Start() error {
+    ds.initCleanup()
+
+    // Initialize the legacy cleanup flag.
+    if ds.startLocalStreamingServer {
+        go func() {
+            if err := ds.streamingServer.Start(true); err != nil {
+                klog.Fatalf(&quot;Streaming server stopped unexpectedly: %v&quot;, err)
+            }
+        }()
+    }
+    return ds.containerManager.Start()
+}
+</code></pre>
+<p>在dockerShim中调用了streamingServer的Start方法启动监听端口:</p>
+<pre><code><code>func (s *server) Start(stayUp bool) error {
+    if !stayUp {
+        // TODO(tallclair): Implement this.
+        return errors.New(&quot;stayUp=false is not yet implemented&quot;)
+    }
+
+    listener, err := net.Listen(&quot;tcp&quot;, s.config.Addr)
+    if err != nil {
+        return err
+    }
+    // Use the actual address as baseURL host. This handles the &quot;0&quot; port case.
+    s.config.BaseURL.Host = listener.Addr().String()
+    if s.config.TLSConfig != nil {
+        return s.server.ServeTLS(listener, &quot;&quot;, &quot;&quot;) // Use certs from TLSConfig.
+    }
+    return s.server.Serve(listener)
+}</code></pre>
+<p>通过启动一个监听在localhost的sever, 这就又回到了我们上面提到的第二步: <a href="#处理streaming请求">提供streaming请求</a></p>
+<p>整个workflow如下：<br />
+<img src="./images/kubectl exec 在kubelet中的处理流程2.png" /></p>
+<p>仔细观察这两幅workflow图片的差别就会发现， <code>RedirectContainerStreaming</code> 在默认的dockershim中并没有实质的作用，此时还是建议将该值设置为false来提供流处理请求的认证功能。</p>
+<h2 id="reference">Reference</h2>
+<p><a href="https://zhuanlan.zhihu.com/p/73728920">Kubernetes 容器运行时演进</a><br />
+<a href="https://erkanerol.github.io/post/how-kubectl-exec-works/">How does 'kubectl exec' work?</a><br />
+<a href="https://docs.google.com/document/d/1OE_QoInPlVCK9rMAx9aybRmgFiVjHpJCHI9LrfdNM_s/edit#">CRI Streaming Requests</a><br />
+<a href="https://github.com/kubernetes/kubernetes/pull/38742">kubernetes PR#38742: [CRI] Don't include user data in CRI streaming redirect URLs</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

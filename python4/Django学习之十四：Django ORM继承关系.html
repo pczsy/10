@@ -1,0 +1,170 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django学习之十四：Django ORM继承关系' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django学习之十四：Django ORM继承关系</center></div><div class='banquan'>原文出处:本文由博客园博主ZJiQi提供。<br/>
+原文连接:https://www.cnblogs.com/ZJiQi/p/11189965.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#django-orm继承关系">Django ORM继承关系</a><ul>
+        <li><a href="#single_tabledjango好像不支持">1. SINGLE_TABLE（django好像不支持）</a></li>
+        <li><a href="#table_per_class">2. TABLE_PER_CLASS</a></li>
+        <li><a href="#joined">3. JOINED</a></li>
+        <li><a href="#代理继承">4. 代理继承</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="django-orm继承关系">Django ORM继承关系</h1>
+<p>参考：<a href="https://www.cnblogs.com/holbrook/archive/2012/03/18/2405036.html" class="uri">https://www.cnblogs.com/holbrook/archive/2012/03/18/2405036.html</a></p>
+<blockquote>
+<p>     因为关系数据库是没有自然有效的方法来表示表与表之间的继承关系。而model layer 是用类来表示表，而类是面向对象的范畴，继承是它的一大特性。自然可以使用model class 通过继承来表示它们之间的关系，但是要映射到关系数据库应该是怎样表示。这就得从数据库存储的角度来看，大牛们采用了几种在数据库中映射继承关系的方式：主要三种<br />
+single_table/table_per_class/joined 主要三种<br />
+由于python语言的动态性，python类是可以进行多重继承关系，那么还有多重继承关系的映射。<br />
+最后还有一种<strong>代理模型</strong>继承。</p>
+</blockquote>
+<blockquote>
+<p>    对于抽象model的定义，必须在其内嵌类中指定一个abstract = True的metadata，需要注意的是，虽然subclass继承了抽象类，同时继承了class meta内嵌类的内容；但是有些内嵌类中的属性是不会被继承的，如对于abstract = True 这个metadata是没有继承的。也就是说在构建subclass 的时候，会将abstract 设置为Flase。如果要构建一个抽象类继承自一个抽象类， 那么就需要在子抽象类中显示的声明abstract = True。相同的如db_table也不会继承到子类中，子类需要自己声明。</p>
+</blockquote>
+<p>因为orm的可继承和三种继承方式的特点，那么一个model映射一个数据库表的说法就错了。抽象model是不会映射任何数据库表的。</p>
+<h3 id="single_tabledjango好像不支持">1. SINGLE_TABLE（django好像不支持）</h3>
+<p>使用单个表，且数据库中只有一个映射表，这个表就代表了整个继承树，继承树中的多个子类model只会操作自己新增的字段，不会因为整个继承树使用一个表而能操作其它非自己的字段；这种就是一表收揽所有字段，字段虽然没有冗余了，但是数据父类数据对象是冗余的。同一个父对象有多个子对象。<br />
+single_table 在model layer上定义就是父类和子类</p>
+<pre><code><code>from django.db import models
+
+class Vehicle(models.Model)： # 抽象类在migration时不会创建表
+    name = models.CharField(max_length=32)
+
+    class Meta:
+        abstract = True
+
+class Car(Vehicle):
+    Color = models.CharField(max_length=32)
+
+    class Meta:
+        db_table = &#39;mbook_vehicle&#39;
+
+class Bike(Vehicle):
+    Weight = models.IntegerField()
+
+    class Meta:
+        db_table = &#39;mbook_vehicle&#39;
+    </code></pre>
+<h3 id="table_per_class">2. TABLE_PER_CLASS</h3>
+<p>有字段冗余，每个类一张表，父类是抽象类不创建父类映射的表，而是将父类的字段复制到子类映射表中去。</p>
+<pre><code><code>from django.db import models
+
+class Animal(models.Model):
+    name = models.CharField(max_length=32)
+
+    class Meta:
+        abstract = True
+
+class Dog(Animal):
+    Color = models.CharField(max_length=32)
+
+class Bird(Animal):
+    Size = models.CharField(max_length=32)</code></pre>
+<p>使用python manage.py sqlmigrate mbook 0005 查看sql如下：</p>
+<pre><code><code>BEGIN;
+--
+-- Create model Bird
+--
+CREATE TABLE `mbook_bird` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(32) NOT NULL, `Size` varchar(32) NOT NULL);
+--
+-- Create model Dog
+--
+CREATE TABLE `mbook_dog` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(32) NOT NULL, `Color` varchar(32) NOT NULL);
+COMMIT;
+-- 只创建了具体类表，抽象父类是没有创建的。并且name字段是冗余的。</code></pre>
+<p>因为Animal类是抽象类，所以没有objects属性，即没有manager管理器，所以不能操作数据对象，映射表也没创建，自然也不能操作数据。只有子类才能操作。</p>
+<p>抽象继承操作没什么说的，就是操作继承的具体子类就可以了。这个是用的比较多的。</p>
+<h3 id="joined">3. JOINED</h3>
+<p>没有冗余，每个类一张表，要同时操作父表和子表</p>
+<pre><code><code>from django.db import models
+
+class Person(models.Model):
+    name = models.CharField(max_length=10)
+
+class Man(Person):
+    job = models.CharField(max_length=20)
+
+class Woman(Person):
+    makeup = models.CharField(max_length=20)</code></pre>
+<p>使用python manage.py sqlmigrate mbook 0004 可以看到创建表的sql语句</p>
+<pre><code><code>BEGIN;
+--
+-- Create model Person
+--
+CREATE TABLE `mbook_person` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(32) NOT NULL);  -- id是django自动生成的
+--
+-- Create model Man
+--
+CREATE TABLE `mbook_man` (`person_ptr_id` integer NOT NULL PRIMARY KEY, `job` varchar(32) NOT NULL);
+--
+-- Create model Woman
+--
+CREATE TABLE `mbook_woman` (`person_ptr_id` integer NOT NULL PRIMARY KEY, `makeup` varchar(32) NOT NULL);
+
+ALTER TABLE `mbook_man` ADD CONSTRAINT `mbook_man_person_ptr_id_9ab049ad_fk_mbook_person_id` FOREIGN KEY (`person_ptr_id`) REFERENCES `mbook_person` (`id`);
+-- 添加一个外键
+ALTER TABLE `mbook_woman` ADD CONSTRAINT `mbook_woman_person_ptr_id_67db6679_fk_mbook_person_id` FOREIGN KEY (`person_ptr_id`) REFERENCES `mbook_person` (`id`);
+COMMIT;
+</code></pre>
+<p>这种，在子类没有新建父类的字段，但是子类可以使用父类的字段，创建子类的数据时，因为子类是继承自父类，在python-level，子类是有父类的字段的，所以子类在创建新实例是，在python-level看上去是在自己的表中添加了，其实是操作了了两个表，即子类自己映射的表中，和其继承的父类表中都添加了数据。所以叫做多表继承，也就是子类和父类映射的表都会参与继承。实质是添加了onetoone的关系。</p>
+<p>下面是数据操作：</p>
+<pre><code><code>1. 通过Man创建数据，相应Person中是否有数据
+&gt;&gt;&gt; m = Man.objects.create(job=&#39;programmer&#39;)
+mbook_man:
+1   programmer
+mbook_person:
+1   
+两个表都有数据，但是由于没有指定name，所以person表没有name.
+从效果，可以看出应用途径，多表继承字段不冗余，也达到了继承表的效果。
+2. 通过删除Man记录，
+&gt;&gt;&gt; m.delete()
+(2, {&#39;mbook.Man&#39;: 1, &#39;mbook.Person&#39;: 1})
+结果是两个表的数据都被删除了；进一不说明多表继承是有效的，继承的效果在python层面和数据库层面得到了理想相同的效果。
+</code></pre>
+<h3 id="代理继承">4. 代理继承</h3>
+<p>也就是一个model继承自一个具体类，但是只是一个代理类，也就是通过这个继承出来的代理类，来操作父类，这个代理类只需要在class meta中添加proxy = True 的metadata就可以。<br />
+出现代理类这种继承，是有这样一个需求，就是：因为多表继承，子类会创建表，现在需求是不想创建新的表，只是在子类中添加在python-level的一些行为（因为不能去修改父类，在父类中添加新的python层面行为），所以只能通过继承来添加，但是又不用子类有新的field字段，也不用创建一个新的子类映射的表。基于这种需求，就出现了，代理继承模式，就是像抽象继承的的反过程（抽象类没表，子类具体类有表），代理是父类是具体类有表，代理继承的类是没有表的，只在python代码层面新增了方法，而不用代理子类创建新的表。<br />
+和抽象不同的是，抽象类是没有manager的，是不能够通过抽象类访问数据库具体数据的。<br />
+而代理类则不同了，它是有manager的，是可以通过manager操作它所代理的父类具体类中的数据的。</p>
+<p>代理继承的好处：</p>
+<blockquote>
+<p>你可以在代理 model 中改变默认的排序设置和默认的 manager ，更不会对原始 model 产生影响。<br />
+如代理类 设置排序，这样问代理类获取数据是排序的结果；使用具体类父类获取数据得到的非排序结果；这个应用是非常常见的，在不改变model的情况下。</p>
+</blockquote>
+<p>代理类的限制：</p>
+<ol>
+<li>代理 model 必须继承自一个非抽象基类</li>
+<li>你不能继承自多个非抽象基类，这是因为一个代理 model 不能连接不同的数据表</li>
+<li>代理 model 也可以继承任意多个抽象基类，但前提是它们没有定义任何 model 字段</li>
+</ol>
+<p>代理类的manager</p>
+<ol>
+<li>如果你没有在代理 model 中定义任何 manager ，代理 model 就会从父类中继承 manager</li>
+<li>如果你在代理 model 中定义了一个 manager ，它就会变成默认的 manager ，不过定义在父类中的 manager 仍是有效的</li>
+</ol>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

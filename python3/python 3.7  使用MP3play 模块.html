@@ -1,0 +1,64 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python 3.7  使用MP3play 模块' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python 3.7  使用MP3play 模块</center></div><div class='banquan'>原文出处:本文由博客园博主一颗神豆提供。<br/>
+原文连接:https://www.cnblogs.com/XingzhiDai/p/11654484.html</div><br>
+    <p>　　因工作需要，做了一个QQ机器人语音播报程序。主要思路 是通过 酷Q 获取QQ消息取出有效信息。</p>
+<p>根据信息在百度AI上合成语音，然后本地播放。</p>
+<p>&nbsp; &nbsp; &nbsp; 在播放语音的时候用了好几个模块&nbsp;&nbsp;pygame 、pymedia&nbsp; 、系统os 等，试听效果都不怎么理想，最后发现MP3play 蛮好（开始用的python2.7）</p>
+<p>　　移植到新环境的时候mp3play 报错了。无法播放，根据提示查看源码，修改了两处地方，可正常运行。</p>
+<p>　　mp3play 根目录下&nbsp; 有两个文件&nbsp; __init__.py 和 windows.py&nbsp; 根目录可以通过 pip install&nbsp; mp3play&nbsp; 查看（没安装的会安装，安装了会显示安装路径）</p>
+<p>　　修改windows.py 两处代码</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> _mci:
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self):
+        self.w32mci </span>=<span style="color: #000000;"> windll.winmm.mciSendStringA
+        self.w32mcierror </span>=<span style="color: #000000;"> windll.winmm.mciGetErrorStringA
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> send(self, command):
+        buffer </span>= c_buffer(255<span style="color: #000000;">)
+        command</span>=command.encode(encoding=<span style="color: #800000;">"</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">"</span>)  <span style="color: #008000;">#</span><span style="color: #008000;">添加的将str 转bytes</span>
+<span style="color: #000000;">        
+        errorcode </span>= self.w32mci(command, buffer, 254<span style="color: #000000;">, 0)  #&nbsp;默认的str(command) 不要str
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> errorcode:
+            
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> errorcode, self.get_error(errorcode)
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> errorcode, buffer.value
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_error(self, error):
+        error </span>=<span style="color: #000000;"> int(error)
+        buffer </span>= c_buffer(255<span style="color: #000000;">)
+        self.w32mcierror(error, buffer, </span>254<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> buffer.value
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> directsend(self, txt):
+        (err, buf) </span>=<span style="color: #000000;"> self.send(txt)
+        </span><span style="color: #0000ff;">if</span> err !=<span style="color: #000000;"> 0:
+            </span><span style="color: #0000ff;">print</span> (<span style="color: #800000;">'</span><span style="color: #800000;">Error %s for "%s": %s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> (str(err), txt, buf))        # print 添加一个()
+        </span><span style="color: #0000ff;">return</span> (err, buf)</pre>
+</div>
+<p>&nbsp; &nbsp; 改了两处测试可以使用。然后看了下MP3play&nbsp; 发现他主要是调用了系统&nbsp;windll.winmm.mciSendStringA&nbsp; 函数</p>
+<p>　from ctypes import windll, c_buffer</p>
+<p>&nbsp; &nbsp; 核心调用&nbsp;windll.winmm.mciSendStringA(b"play aa.mp3", 0, 0, 0)&nbsp;&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

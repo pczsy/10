@@ -1,0 +1,422 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修小米开源数据库&lt;pegasus&gt;简介' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>小米开源数据库&lt;pegasus&gt;简介</center></div><div class='banquan'>原文出处:本文由博客园博主小徐同学是个coder提供。<br/>
+原文连接:https://www.cnblogs.com/zjxu97/p/12078390.html</div><br>
+    <h2 class="md-end-block md-heading">更好的样式前往 <a href="https://github.com/xuzhongjian/note-all" target="_blank">我的Github笔记</a>&nbsp;查看</h2>
+<p>&lt;md文档排版不好&gt;</p>
+<h4 class="md-end-block md-heading"><span class="md-plain md-expand">数据模型</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">组合键：Table + HashKey + SortKey</span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Table实现业务数据的隔离</span></p>
+</li>
+<li class="md-list-item md-focus-container">
+<p class="md-end-block md-p md-focus"><span class="md-plain md-expand">HashKey决定数据在那个分片</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">SortKey决定数据在分片内的排序</span></p>
+</li>
+</ol>
+<h4 class="md-end-block md-heading"><span class="md-plain">一致性协议</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">使用PacificA协议，保证多副本数据的一致性。</span></p>
+<p class="md-end-block md-p"><span class="md-comment">&lt;!-- addition --&gt;</span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">机器</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">Pegasus分布式集群至少需要准备这些机器：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">MetaServer</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">link：<span class=" md-link"><a href="https://pegasus-kv.github.io/2017/11/21/meta-server-design.html"><span class="md-plain">Meta Server 的设计</span></a></span></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">要求：2~3台机器，无需SSD盘。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">作用：用来保存表和表的分片信息。</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">ReplicaServer：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">link：<span class=" md-link"><a href="https://pegasus-kv.github.io/2017/11/21/meta-server-design.html"><span class="md-plain">Replica Server 的设计</span></a></span></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">要求至少3台机器，建议挂SSD盘。譬如一台服务器挂着8块或者12块SSD盘。这些机器要求是同构的，即具有相同的配置。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">作用：至少三台ReplicaServer。每一个ReplicaServer都是由多个Replica组成的。每一个Replica表示的是一个数据分片的Primary或Secondary。</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Collector：可选角色，1台机器，无需SSD盘。该进程主要用于收集和汇总集群的统计信息，负载很小，建议放在MetaServer的其中一台机器上。</span></p>
+</li>
+</ul>
+<h4 class="md-end-block md-heading"><span class="md-plain">Replica</span></h4>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">一个数据分片对应3个Replica。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Replica有两个种类：Primary和Secondary。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">在一个数据分片对应的 3 个或以上的Replica中，只有1个Primary，其余的均是Secondary。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">很多个Replica组成一个ReplicaServer，同一个ReplicaServer中的Replica种类不相同。</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">同一个ReplicaServer中的Replica不一定全是Primary，也不一定全是Secondary。</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">一个最基本的Pegasus集群，最少需要 3 个ReplicaServer。</span></p>
+</li>
+</ul>
+<p class="md-end-block md-p"><span class="md-plain">在Pegasus中，一个Replica有如下几种状态：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Primary</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Secondary</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">PotentialSecondary(learner)：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">当group中新添加一个成员时，在它补全完数据成为Secondary之前的状态</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Inactive：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">和MetaServer断开连接时候的状态，或者在向MetaServer请求修改group的PartitionConfiguration时的状态</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Error：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">当Replica发生IO或者逻辑错误时候的状态</span></p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 class="md-end-block md-heading"><span class="md-plain">写流程</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">写流程类似于两段提交：</span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">客户端根据Key首先查询MetaServer，查询到这个Key对应的分片的对应的ReplicaServer。具体来说，客户端需要的其实是分片Primary所在的ReplicaServer。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">客户端向Primary ReplicaServer发起写请求。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Primary ReplicaServer向其对应的两台或以上的Secondary ReplicaServer复制数据。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Secondary ReplicaServer将数据写入成功后，Primary ReplicaServer向客户端返回成功的响应。</span></p>
+</li>
+</ol>
+<p class="md-end-block md-p"><span class="md-plain">可能导致ReplicaServer不能响应写请求的原因有：</span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">ReplicaServer无法向MetaServer持续汇报心跳，自动下线。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Replica在IO上发生了一些无法恢复的异常故障，自动下线。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">MetaServer将Replica的Primary进行了迁移。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Primary在和MetaServer进行group成员变更的操作，拒绝写。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">当前Secondary个数太少，Replica出于安全性考虑拒绝写。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">出于流控考虑而拒绝写。</span></p>
+</li>
+</ol>
+<h4 class="md-end-block md-heading"><span class="md-plain">读流程</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">只从Primary读。</span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">宕机恢复</span></h4>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">MetaServer和所有的ReplicaServer维持心跳。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">通过心跳来实现失败检测。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">宕机恢复的几种情况：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Primary Failover：如果某个分区的Primary所在的ReplicaServer宕机了，那么MetaServer 就会选择一个Secondary成为Primary。过后再添加Secondary。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Secondary Failover：如果某个分区的Secondary所在的ReplicaServer宕机了，那么暂时使用一主一副的机构继续提供服务。过后再添加Secondary。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">MetaServer Failover：主MetaServer宕机了，备用的MetaServer通过zookeeper抢主成为新的主MetaServer。从zookeeper恢复状态，然后重新和所有ReplicaServer建立心跳。</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">宕机恢复过程中，尽量避免数据的跨节点复制。</span></p>
+</li>
+</ul>
+<h4 class="md-end-block md-heading"><span class="md-plain">zookeeper抢主</span></h4>
+<p class="md-end-block md-p"><span class="md-comment">&lt;!-- zookeeper抢主 --&gt;</span></p>
+<p class="md-end-block md-p"><span class="md-plain">link：<span class=" md-link"><a href="https://www.cnblogs.com/nevermorewang/p/5611807.html"><span class="md-plain">zookeeper抢主</span></a></span></span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">单机存储</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">一个ReplicaServer包括多个Replica，Replica使用RocksDB作为存储引擎：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">关闭掉了rocksdb的WAL。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">PacificA对每条写请求都编了SequenceID，RocksDB对写请求也有内部的SequenceID。Pegasus对二者做了融合，来支持自定义的checkpoint的生成。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Pegasus给RocksDB添加了一些compaction filter以支持Pegasus的语义：例如某个value的TTL。</span></p>
+</li>
+</ul>
+<p class="md-end-block md-p"><span class="md-plain">和很多一致性协议的实现一样，Pegasus中PacificA的实现也是和存储引擎解耦的。</span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">RocksDB</span></h4>
+<p class="md-end-block md-p"><span class="md-comment">&lt;!-- RocksDB --&gt;</span></p>
+<p class="md-end-block md-p"><span class="md-plain">link：<span class=" md-link"><a href="https://rocksdb.org.cn/doc/Compaction-Filter.html"><span class="md-plain">RocksDB</span></a></span></span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">数据安全</span></h4>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Table软删除</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Table删除后，数据会保留一段时间，防止误删除 </span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">元数据恢复</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">Zookeeper损坏时，从各ReplicaServer收集并重建元数据 </span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">远程冷备份</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">数据定期备份到异地，譬如HDFS或者金山云 &bull; 在需要的时候可快速恢复 </span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">跨机房同步</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">在多个机房部署集群</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">采用异步复制的方式同步数据</span></p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 class="md-end-block md-heading"><span class="md-plain">冷备份</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">Pegasus的冷备份功能用来将Pegasus中的数据定期生成快照文件，并备份到其他存储介质上，从而为数据容灾多提供一层保障。但由于备份的是某个时间点的数据快照文件，所以冷备份并不保证可以保留所有最新的数据，也就是说，恢复的时候可能会丢失最近一段时间的数据。</span></p>
+<p class="md-end-block md-p"><span class="md-plain">具体来看，冷备份过程要涉及到如下一些参数：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">存储介质(backup_provider)：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">指其他的文件存储系统或服务，如本地文件系统或者HDFS。</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">数据冷备份的周期(backup_interval)：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">周期的长短决定了备份数据的覆盖范围。如果周期是1个月，那么恢复数据时，就可能只恢复一个月之前的数据。但如果周期设的太短，备份就会太频繁，从而使得备份开销很大。在小米内部，冷备份的周期通常是1天。</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">保留的冷备份个数(backup_history_count)：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">保留的备份个数越多，存储的空间开销就越大。在小米内部，一般保留最近的3个冷备份。</span></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">进行冷备份的表的集合(backup_app_ids)：</span></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">并不是所有的表都值得进行冷备份。在小米内部，对于经常重灌全量数据的表，我们是不进行冷备份的。</span></p>
+</li>
+</ul>
+</li>
+</ul>
+<p class="md-end-block md-p"><span class="md-plain">在Pegasus中，以上这几个参数的组合称为一个冷备份策略(backup_policy)。数据的冷备份就行按照policy为单位进行的。</span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">跨机房同步</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">link：<span class=" md-link"><a href="https://pegasus-kv.github.io/2019/06/09/duplication-design.html"><span class="md-plain">跨机房同步文档</span></a></span></span></p>
+<p class="md-end-block md-p"><span class="md-plain">小米内部有些业务对服务可用性有较高要求，但又不堪每年数次机房故障的烦恼，于是向 pegasus 团队寻求帮助，希望在机房故障时，服务能够切换流量至备用机房而数据不致丢失。因为成本所限，在小米内部以双机房为主。</span></p>
+<p class="md-end-block md-p"><span class="md-plain">通常解决该问题有几种思路：</span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">由 client 将数据同步写至两机房。这种方法较为低效，容易受跨机房专线带宽影响，并且延时高，同机房 1ms 内的写延时在跨机房下通常会放大到几十毫秒，优点是一致性强，但需要 client 实现。服务端的复杂度小，客户端的复杂度大。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">使用 raft/paxos 协议进行 quorum write 实现机房间同步。这种做法需要至少 3 副本分别在 3 机房部署，延时较高但提供强一致性，因为要考虑跨集群的元信息管理，这是实现难度最大的一种方案。</span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span class="md-plain">在两机房下分别部署两个 pegasus 集群，集群间进行异步复制。机房 A 的数据可能会在 1 分钟后复制到机房 B，但 client 对此无感知，只感知机房 A。在机房 A 故障时，用户可以选择写机房 B。这种方案适合 <span><strong><span class="md-plain">最终一致性/弱一致性</span></strong><span class="md-plain"> 要求的场景。后面会讲解我们如何实现 &ldquo;最终一致性&rdquo;。</span></span></span></p>
+</li>
+</ol>
+<p class="md-end-block md-p"><span class="md-plain">基于实际业务需求考虑，我们选择方案3。</span></p>
+<p class="md-end-block md-p"><span class="md-plain">即使同样是做方案 3 的集群间异步同步，业内的做法也有不同：</span></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><span><strong><span class="md-plain">各集群单副本</span></strong><span class="md-plain">：这种方案考虑到多集群已存在冗余的情况下，可以减少单集群内的副本数，同时既然一致性已没有保证，大可以索性脱离一致性协议，完全依赖于稳定的集群间网络，保证即使单机房宕机，损失的数据量也是仅仅几十毫秒内的请求量级。考虑机房数为 5 的时候，如果每个机房都是 3 副本，那么全量数据就是 3*5=15 副本，这时候简化为各集群单副本的方案就是几乎最自然的选择。</span></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span><strong><span class="md-plain">同步工具作为外部依赖使用</span></strong><span class="md-plain">：跨机房同步自然是尽可能不影响服务是最好，所以同步工具可以作为外部依赖部署，单纯访问节点磁盘的日志（WAL）并转发日志。这个方案对日志 GC 有前提条件，即<span><strong><span class="md-plain">日志不可以在同步完成前被删除</span></strong><span class="md-plain">，否则就丢数据了，但存储服务日志的 GC 是外部工具难以控制的。所以可以把日志强行保留一周以上，但缺点是磁盘空间的成本较大。同步工具作为外部依赖的优点在于稳定性强，不影响服务，缺点在于对服务的控制能力差，很难处理一些琐碎的一致性问题（后面会讲到），<span><strong><span class="md-plain">难以实现最终一致性</span></strong><span class="md-plain">。</span></span></span></span></span></span></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><span><strong><span class="md-plain">同步工具嵌入到服务内部</span></strong><span class="md-plain">：这种做法在工具稳定前会有一段阵痛期，即工具的稳定性影响服务的稳定性。但实现的灵活性肯定是最强的。</span></span></p>
+</li>
+</ol>
+<p class="md-end-block md-p"><span class="md-plain">最初 Pegasus 的热备份方案借鉴于 HBase Replication，基本只考虑了第三种方案。而事实证明这种方案更容易保证 Pegasus 存储数据不丢的属性。</span></p>
+<p class="md-end-block md-p"><span class="md-plain">每个 replica （这里特指每个分片的 primary，注意 secondary 不负责热备份复制）独自复制自己的 private log 到远端，replica 之间互不影响。复制直接通过 pegasus client 来完成。每一条写入 A 的记录（如 set / multiset）都会通过 pegasus client 复制到 B。为了将热备份的写与常规写区别开，我们这里定义 <span><strong><span><em><span class="md-plain">duplicate_rpc</span></em><span class="md-plain"> 表示热备写。</span></span></strong></span></span></p>
+<p class="md-end-block md-p"><strong><span class="md-plain">A-&gt;B 的热备写，B 也同样会经由三副本的 PacificA 协议提交，并且写入 private log 中。这里有一个问题是，在 A，B 互相同步的场景，一份写操作将形成循环：A-&gt;B-&gt;A，同样的写会无数次地被重放。为了避免循环写，我们引入 <span><strong><span><em><span class="md-plain">cluster id</span></em><span class="md-plain"> 的概念，每条 duplicate_rpc 都会标记发送者的 cluster id。</span></span></strong></span></span></strong></p>
+<pre><code><strong><strong><span>[duplication-group]</span></strong></strong><br /><strong><strong><span>A=1</span></strong></strong><br /><strong><strong><span>B=2</span></strong></strong></pre>
+<pre><code><strong><span class="cm-variable-3">void&nbsp;<span class="cm-def">set(<span class="cm-variable-3">String&nbsp;tableName,&nbsp;<span class="cm-variable-3">byte[]&nbsp;hashKey,&nbsp;<span class="cm-variable-3">byte[]&nbsp;sortKey,&nbsp;<span class="cm-variable-3">byte[]&nbsp;value,&nbsp;<span class="cm-variable-3">int&nbsp;ttlSeconds)</span></span></span></span></span></span></span></strong></pre>
+<p class="md-end-block md-p"><strong>直接使用pegasus优化，直接对pegasus读、写。可以替代redis缓存的架构。</strong></p>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>读写逻辑复杂</strong></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>要特意维护数据一致性</strong></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>服务可用性不高</strong></p>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>机器成本高</strong></p>
+</li>
+</ol>
+<p class="md-end-block md-p"><strong>问题：</strong></p>
+<p class="md-end-block md-p"><strong>读取：先读取缓存，如果缓存中不存在，那么再读取数据库中的数据。</strong></p>
+<p class="md-end-block md-p"><strong>写入：双写，既写入缓存、也要写入数据库。</strong></p>
+<p class="md-end-block md-p"><strong>原先：Redis 作为缓存 + HBase/mysql/MongoDB 作为数据库。</strong></p>
+<h4 class="md-end-block md-heading"><strong>业务应用</strong></h4>
+<table class="md-table">
+<thead>
+<tr class="md-end-block"><th>&nbsp;</th><th><span class="td-span"><span class="md-plain">HashKey</span></span></th><th><span class="td-span"><span class="md-plain">SortKey</span></span></th><th><span class="td-span"><span class="md-plain">Value</span></span></th></tr>
+</thead>
+<tbody>
+<tr class="md-end-block">
+<td><span class="td-span"><span class="md-plain">map</span></span></td>
+<td><span class="td-span"><span class="md-plain">MapId</span></span></td>
+<td><span class="td-span"><span class="md-plain">key</span></span></td>
+<td><span class="td-span"><span class="md-plain">value</span></span></td>
+</tr>
+<tr class="md-end-block">
+<td><span class="td-span"><span class="md-plain">set</span></span></td>
+<td><span class="td-span"><span class="md-plain">SetId</span></span></td>
+<td><span class="td-span"><span class="md-plain">key</span></span></td>
+<td><span class="td-span"><span class="md-plain">null</span></span></td>
+</tr>
+<tr class="md-end-block">
+<td><span class="td-span"><span class="md-plain">list</span></span></td>
+<td><span class="td-span"><span class="md-plain">ListId</span></span></td>
+<td><span class="td-span"><span class="md-plain">index</span></span></td>
+<td><span class="td-span"><span class="md-plain">value</span></span></td>
+</tr>
+</tbody>
+</table>
+<p class="md-end-block md-p"><strong>Pegasus本身不支持容器类型，但是其HashKey + SortKey的数据模型可以模拟容器。</strong></p>
+<h5 class="md-end-block md-heading"><strong>容器支持</strong></h5>
+<p class="md-end-block md-p"><strong>对HashKey或者SortKey进行字符串匹配， 只有符合条件的结果才会返回。对HashKey或者SortKey进行字符串匹配，只有符合条件的</strong></p>
+<h5 class="md-end-block md-heading"><strong>条件过滤</strong></h5>
+<p class="md-end-block md-p"><strong>同一个HashKey的数据写入同一个Replica，同一个Replica的操作，在同一个线程中串行执行。这样就避免了同步的问题。</strong></p>
+<p class="md-end-block md-p"><strong>对同一个HashKey的写操作，保证总是原子的，包括set、multiSet、del、multiDel、incr、 checkAndSet。</strong></p>
+<h5 class="md-end-block md-heading"><strong>单行事务</strong></h5>
+<p class="md-end-block md-p"><strong>支持对数据指定过期时间， 数据过期后就无法读取到。</strong></p>
+<h5 class="md-end-block md-heading"><strong>TTL过期策略</strong></h5>
+<ol class="ol-list" start="">
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>线程安全</strong></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>所有的接口都是线程安全的，不用担心多线程的问题。</strong></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>并发性能</strong></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>客户端底层使用异步的方式实现，可以支持大的并发，不用担心性能的问题。</strong></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>Client单例</strong></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>通过 getSingletonClient() 获得的Client是单例， 可以重复使用。</strong></p>
+</li>
+</ul>
+</li>
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>翻页功能</strong></p>
+<ul class="ul-list" data-mark="-">
+<li class="md-list-item">
+<p class="md-end-block md-p"><strong>通过客户端提供的接口，能够轻松实现数据翻页功能 。</strong></p>
+</li>
+</ul>
+</li>
+</ol>
+<h5 class="md-end-block md-heading"><strong>Java客户端</strong></h5>
+<p class="md-end-block md-p"><strong>集群使用falcon进行监控。</strong></p>
+<h5 class="md-end-block md-heading"><strong>集群监控</strong></h5>
+<h4 class="md-end-block md-heading"><strong>使用</strong></h4>
+<p class="md-end-block md-p"><strong><strong><span class="md-plain">热备份同时也需要容忍在 replica 主备切换下复制的进度不会丢失，例如当前 replica1 复制到日志 decree=5001，此时发生主备切换，我们不想看到 replica1 从 0 开始，所以为了能够支持 <span><strong><span><em><span class="md-plain">断点续传</span></em><span class="md-plain">，我们引入 <span><strong><span><em><span class="md-plain">confirmed_decree</span></em><span class="md-plain">。replica 定期向 meta 汇报当前进度（如 confirmed_decree = 5001），一旦meta将该进度持久化至 zookeeper，当replica故障恢复时即可安全地从 5001重新开始热备份。</span></span></strong></span></span></span></strong></span></span></strong></strong></p>
+<p class="md-end-block md-p"><strong>所以当 B 重放某条 duplicate_rpc 时，发现其 cluster_id = 1，识别到这是一条发自 A 的热备写，则不会将它再发往 A。</strong></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

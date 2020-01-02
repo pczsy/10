@@ -1,0 +1,113 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修drf--版本控制' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>drf--版本控制</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11716250.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#作用">作用</a></li>
+        <li><a href="#内置版本控制">内置版本控制</a></li>
+        <li><a href="#局部使用">局部使用</a></li>
+        <li><a href="#全局使用">全局使用</a></li>
+        <li><a href="#案例">案例</a></li>
+        <li><a href="#源码分析">源码分析</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="作用">作用</h1>
+<p>因为程序在不停的更新迭代，新版和旧版差别比较大，但此时有些用户没用进行更新，还是访问的旧版，此时就需要进行版本控制，让用户体验更好</p>
+<h1 id="内置版本控制">内置版本控制</h1>
+<pre><code><code>from rest_framework.versioning import QueryParameterVersioning, AcceptHeaderVersioning, NamespaceVersioning, URLPathVersioning, HostNameVersioning
+
+&quot;&quot;&quot;
+1. QueryParameterVersioning: 基于url的get传参方式, 如: /users?version=v1
+
+2. URLPathVersioning: 基于url的正则方式, 如: /v1/users/
+
+3. AcceptHeaderVersioning: 基于accept请求头方式, 如: Accept: application/json; version=1.0
+
+4. HostNameVersioning: 基于主机名方法, 如: v1.example.com
+
+5. NamespaceVersioning: 基于django路由系统的namespace, 如: example.com/v1/users/
+&quot;&quot;&quot;</code></pre>
+<h1 id="局部使用">局部使用</h1>
+<p>只需要在CBV函数中加入如下参数：</p>
+<pre><code><code>versioning_class = URLPathVersioning</code></pre>
+<h1 id="全局使用">全局使用</h1>
+<p>需要在settings.py中进行配置</p>
+<pre><code><code>REST_FRAMEWORK = {
+    &#39;DEFAULT_VERSIONING_CLASS&#39;:&#39;rest_framework.versioning.QueryParameterVersioning&#39;,
+    &#39;DEFAULT_VERSION&#39;: &#39;v1&#39;,            # 默认版本(从request对象里取不到，显示的默认值)
+    &#39;ALLOWED_VERSIONS&#39;: [&#39;v1&#39;, &#39;v2&#39;],   # 允许的版本
+    &#39;VERSION_PARAM&#39;: &#39;version&#39;          # URL中获取值的key
+}</code></pre>
+<h1 id="案例">案例</h1>
+<p><strong>基于正则的方式：</strong></p>
+<pre><code><code># urls.py
+
+from django.conf.urls import url, include
+from web.views import TestView
+
+urlpatterns = [
+    url(r&#39;^(?P&lt;version&gt;[v1|v2]+)/test/&#39;, TestView.as_view(), name=&#39;test&#39;),
+]</code></pre>
+<pre><code><code># views.py
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.versioning import URLPathVersioning
+
+
+class TestView(APIView):
+    versioning_class = URLPathVersioning
+
+    def get(self, request, *args, **kwargs):
+        # 获取版本
+        print(request.version)
+        # 获取版本管理的类
+        print(request.versioning_scheme)
+
+        # 反向生成URL
+        reverse_url = request.versioning_scheme.reverse(&#39;test&#39;, request=request)
+        print(reverse_url)
+
+        return Response(&#39;GET请求，响应内容&#39;)</code></pre>
+<pre><code><code># 基于django内置,反向生成url
+from django.urls import reverse
+
+url2=reverse(viewname=&#39;ttt&#39;,kwargs={&#39;version&#39;:&#39;v2&#39;})
+print(url2)</code></pre>
+<h1 id="源码分析">源码分析</h1>
+<pre><code><code>#执行determine_version，返回两个值，放到request对象里
+version, scheme = self.determine_version(request, *args, **kwargs)
+request.version, request.versioning_scheme = version, scheme
+
+def determine_version(self, request, *args, **kwargs):
+    #当配置上版本类之后，就会实例化
+    if self.versioning_class is None:
+        return (None, None)
+    
+    scheme = self.versioning_class()
+    return (scheme.determine_version(request, *args, **kwargs), scheme)</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

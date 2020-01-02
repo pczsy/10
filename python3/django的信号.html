@@ -1,0 +1,144 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修django的信号' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>django的信号</center></div><div class='banquan'>原文出处:本文由博客园博主Lowell提供。<br/>
+原文连接:https://www.cnblogs.com/liuweida/p/11660734.html</div><br>
+    <h1 id="django的信号">django的信号</h1>
+<p>Django中提供了“信号调度”，用于在框架执行操作时解耦。通俗来讲，就是一些动作发生的时候，信号允许特定的发送者去提醒一些接受者。</p>
+<p>Django提供一种信号机制。其实就是观察者模式，又叫发布-订阅(Publish/Subscribe) 。当发生一些动作的时候，发出信号，然后监听了这个信号的函数就会执行。</p>
+<h2 id="django内置信号">1. Django内置信号</h2>
+<pre><code><code>Model signals
+    pre_init                    # django的model执行其构造方法前，自动触发
+    post_init                   # django的model执行其构造方法后，自动触发
+    pre_save                    # django的model对象保存前，自动触发
+    post_save                   # django的model对象保存后，自动触发
+    pre_delete                  # django的model对象删除前，自动触发
+    post_delete                 # django的model对象删除后，自动触发
+    m2m_changed                 # django的model中使用m2m字段操作第三张表（add,remove,clear）前后，自动触发
+    class_prepared              # 程序启动时，检测已注册的app中modal类，对于每一个类，自动触发
+Management signals
+    pre_migrate                 # 执行migrate命令前，自动触发
+    post_migrate                # 执行migrate命令后，自动触发
+Request/response signals
+    request_started             # 请求到来前，自动触发
+    request_finished            # 请求结束后，自动触发
+    got_request_exception       # 请求异常后，自动触发
+Test signals
+    setting_changed             # 使用test测试修改配置文件时，自动触发
+    template_rendered           # 使用test测试渲染模板时，自动触发
+Database Wrappers
+    connection_created          # 创建数据库连接时，自动触发</code></pre>
+<p>对于Django内置的信号，仅需注册指定信号，当程序执行相应操作时，自动触发注册函数：</p>
+<p>注册信号，写入与project同名的文件夹下的_init_.py文件中，也是换数据库引擎的地方。</p>
+<pre><code><code># 导入需要的信号
+from django.core.signals import request_finished
+from django.core.signals import request_started
+from django.core.signals import got_request_exception
+from django.db.models.signals import class_prepared
+from django.db.models.signals import pre_init, post_init
+from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_delete, post_delete
+from django.db.models.signals import m2m_changed
+from django.db.models.signals import pre_migrate, post_migrate
+from django.test.signals import setting_changed
+from django.test.signals import template_rendered
+from django.db.backends.signals import connection_created
+
+################################################ 方法一 ############################################
+# 写一个回调函数触发信号后要执行的函数
+def callback(sender, **kwargs):
+    print(&quot;xxoo_callback&quot;)
+    print(sender,kwargs)
+
+# 信号连接的哪个回调函数
+post_save.connect(callback)
+# 模板Signal.connect(receiver, sender=None, weak=True, dispatch_uid=None)
+receiver ：当前信号连接的回调函数，也就是处理信号的回调函数。 
+sender ：指定从哪个发送方接收信号。 
+weak ： 是否弱引用
+dispatch_uid ：信号接收器的唯一标识符，以防信号多次发送。
+
+################################################ 方法二 ############################################
+from django.dispatch import receiver
+
+@receiver(post_save)  # 通过加装饰器的方式，指定信号触发完后执行哪个回调函数
+def callback(sender, **kwargs):
+    print(&quot;xxoo_callback&quot;)
+    print(sender,kwargs)</code></pre>
+<p>指定发送者</p>
+<pre><code><code>from django.db.models.signals import pre_save, post_save
+from django.dispatch import receiver
+from myapp.models import MyModel
+
+@receiver(post_save,sender=MyModel)  # 指定某个model触发信号后执行该回调函数。
+def callback(sender, **kwargs):
+    print(&quot;xxoo_callback&quot;)
+    print(sender,kwargs)</code></pre>
+<h2 id="自定义信号">2. 自定义信号</h2>
+<ul>
+<li><p>定义信号</p>
+<pre><code><code># 在某个py文件中写入下面代码
+import django.dispatch
+pizza_done = django.dispatch.Signal(providing_args=[&quot;toppings&quot;, &quot;size&quot;])</code></pre></li>
+<li><p>注册信号</p>
+<pre><code><code># 在_init_.py 中注册信号
+from 路径 import pizza_done
+
+def callback(sender, **kwargs):
+    print(&quot;callback&quot;)
+    print(sender,kwargs)
+
+pizza_done.connect(callback)</code></pre></li>
+<li><p>触发信号</p>
+<pre><code><code>from 路径 import pizza_done
+
+pizza_done.send(sender=&#39;seven&#39;,toppings=123, size=456)</code></pre></li>
+</ul>
+<p>由于内置信号的触发者已经集成到Django中，所以其会自动调用，而对于自定义信号则需要开发者在自定义的位置触发。</p>
+<p>例子：</p>
+<pre><code><code>from django.shortcuts import HttpResponse
+import time
+import django.dispatch
+from django.dispatch import receiver
+ 
+# 定义一个信号
+work_done = django.dispatch.Signal(providing_args=[&#39;path&#39;, &#39;time&#39;])
+ 
+def create_signal(request):
+    url_path = request.path
+    print(&quot;我已经做完了工作。现在我发送一个信号出去，给那些指定的接收器。&quot;)
+ 
+    # 发送信号，将请求的IP地址和时间一并传递过去
+    work_done.send(create_signal, path=url_path, time=time.strftime(&quot;%Y-%m-%d %H:%M:%S&quot;))
+    return HttpResponse(&quot;200,ok&quot;)
+ 
+@receiver(work_done, sender=create_signal)
+def my_callback(sender, **kwargs):
+    print(&quot;我在%s时间收到来自%s的信号，请求url为%s&quot; % (kwargs[&#39;time&#39;], sender, kwargs[&quot;path&quot;]))</code></pre>
+<h2 id="防止重复信号">3. 防止重复信号</h2>
+<p>在某些情况下，将接收器连接到信号的代码可能会运行多次。这可能会导致您的接收器功能被多次注册，因此对于单个信号事件将被多次调用。</p>
+<p>如果此行为有问题（例如在保存模型时使用信号发送电子邮件），请传递一个唯一标识符作为<code>dispatch_uid</code>参数，以识别您的接收方功能。该标识符通常是一个字符串，尽管任何可哈希对象都足够。最终结果是，对于每个唯一<code>dispatch_uid</code>值，您的接收器功能将仅与信号绑定一次：</p>
+<pre><code><code>from django.core.signals import request_finished
+
+request_finished.connect(my_callback, dispatch_uid=&quot;my_unique_identifier&quot;)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

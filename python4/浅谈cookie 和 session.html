@@ -1,0 +1,284 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修浅谈cookie 和 session' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>浅谈cookie 和 session</center></div><div class='banquan'>原文出处:本文由博客园博主林染提供。<br/>
+原文连接:https://www.cnblogs.com/zengyi1995/p/11234692.html</div><br>
+    <h3 id="一-cookie">一、 cookie</h3>
+<ol>
+<li><p>定义：保存在浏览器本地上的一组组键值对</p></li>
+<li><p>特点：</p>
+<ul>
+<li>由服务器让浏览器进行设置的</li>
+<li>浏览器保存在浏览器本地</li>
+<li>下次访问时自动携带</li>
+</ul></li>
+<li><p>应用：</p>
+<ul>
+<li>登录</li>
+<li>保存浏览习惯</li>
+<li>简单的投票</li>
+</ul></li>
+<li><p>使用cookie的原因：因为HTTP是无状态的，用cookie来保存状态</p></li>
+<li><p>在django中操作cookie</p>
+<ul>
+<li><p>设置cookie：</p>
+<pre><code><code># HttpResponse,render也可以
+ret = redirect(&#39;/index&#39;)
+ret.set_cookie(&#39;key&#39;,value,...)        # Set-Cookie:key=value
+ret.set_signed_cookie(&#39;key&#39;,value,salt=&#39;加密盐&#39;，...)</code></pre>
+<ul>
+<li>参数：
+<ul>
+<li>key，键</li>
+<li>value=''，值</li>
+<li>max_age=None，超出时间</li>
+<li>expires=None，超出时间（针对于IE浏览器）</li>
+<li>path='/'，cookie生效的路径，/表示根路径</li>
+<li>domain=None，cookie生效的域名</li>
+<li>secure=False，https传输</li>
+<li>httponly=False，只能http协议传输，无法被JavaScript获取</li>
+</ul></li>
+</ul></li>
+<li><p>获取cookie：</p>
+<pre><code><code>request.COOKIES.get(&#39;key&#39;)
+request.get_signed_cookie(&#39;key&#39;,salt=&#39;加密盐&#39;,default=RAISE_ERROR,max_age=None)</code></pre>
+<ul>
+<li>参数：
+<ul>
+<li>default：默认值</li>
+<li>salt：加密盐</li>
+<li>max_age：后台控制过期时间</li>
+</ul></li>
+<li>注意：获取时的加密盐要和设置时的加密盐相同，否则无法获取到正确的数据</li>
+</ul></li>
+<li><p>删除cookie：</p>
+<pre><code><code>def logout(request):
+    ret = redirect(&quot;/login/&quot;)
+    ret.delete_cookie(&quot;key&quot;)       # 删除用户浏览器上之前设置的cookie值
+    return rep</code></pre></li>
+</ul></li>
+<li><p>cookie版登陆校验</p>
+<pre><code><code>from django.shortcuts import render, redirect, HttpResponse
+from django.views import View
+
+class Login(View):
+    def get(self, request, *args, **kwargs):
+        return render(request, &#39;login.html&#39;)
+
+    def post(self, request, *args, **kwargs):
+        username = request.POST.get(&#39;username&#39;)
+        pwd = request.POST.get(&#39;pwd&#39;)
+        if username == &#39;alex&#39; and pwd == &#39;123&#39;:
+            url = request.GET.get(&#39;return_url&#39;)
+            if url:
+                ret = redirect(url)
+            else:
+                ret = redirect(&#39;/index/&#39;)
+            # 设置 cookie
+            # ret[&#39;Set-Cookie&#39;] = &#39;is_login=100; Path=/&#39;
+            ret.set_cookie(&#39;is_login&#39;, &#39;1&#39;)      # 不加密的     Set-Cookie: is_login=1; Path=/
+            ret.set_signed_cookie(&#39;is_login&#39;, &#39;1&#39;, &#39;s21&#39;,max_age=10000,)     # 加密的
+            return ret
+        return render(request, &#39;login.html&#39;, {&#39;error&#39;: &#39;用户名或密码错误&#39;})
+
+# 登录验证装饰器
+def login_required(func):
+    def inner(request, *args, **kwargs):
+        # 获取 cookie
+        is_login = request.COOKIES.get(&#39;is_login&#39;)       # 不加密的
+        is_login = request.get_signed_cookie(&#39;is_login&#39;, salt=&#39;s21&#39;, default=&#39;&#39;) # 加密的
+        print(is_login)
+        url = request.path_info
+        if is_login != &#39;1&#39;:
+            return redirect(&#39;/login/?return_url={}&#39;.format(url))
+        # 已经登录
+        ret = func(request, *args, **kwargs)
+        return ret
+    return inner
+
+# 在需要在需要登录才能访问到页面的视图上加装饰器
+@login_required
+def index(request):
+    return HttpResponse(&#39;首页&#39;)
+
+@login_required
+def home(request):
+    return HttpResponse(&#39;home&#39;)
+
+def logout(request):
+    ret = redirect(&#39;/login/&#39;)
+    ret.delete_cookie(&#39;is_login&#39;)
+    return ret</code></pre></li>
+</ol>
+<h3 id="二-session">二、 session</h3>
+<ol>
+<li><p>定义：保存在服务器上的一组组键值对（必须依赖cookie来使用）</p></li>
+<li><p>使用session的原因：</p>
+<ul>
+<li>cookie保存在浏览器本地，不安全</li>
+<li>cookie保存的大小个数受到限制（cookie本身最大支持4096字节）</li>
+</ul></li>
+<li><p>总结：cookie弥补了HTTP无状态的不足，但是cookie以文本的形式保存在浏览器本地，自身安全性较差，所以我们通过cookie识别不同用户，对应的在session里保存私密信息以及超过4096字节的文本</p></li>
+<li><p>在django中操作session</p>
+<ul>
+<li>设置session：</li>
+</ul>
+<pre><code><code>request.session[&#39;key&#39;] = value
+request.session.setdefault(&#39;key&#39;,value) # 设置默认值，存在则不设置</code></pre>
+<ul>
+<li>获取session：</li>
+</ul>
+<pre><code><code>request.session[&#39;key&#39;]
+request.session.get(&#39;key&#39;,None)</code></pre>
+<ul>
+<li>删除session：</li>
+</ul>
+<pre><code><code>del request.session[&#39;key&#39;]</code></pre>
+<ul>
+<li>其他操作：</li>
+</ul>
+<pre><code><code># 所有 键、值、键值对
+request.session.keys()
+request.session.values()
+request.session.items()
+
+# 会话session的key
+request.session.session_key
+
+# 将所有Session失效日期小于当前日期的数据删除
+request.session.clear_expired()
+
+# 检查会话session的key在数据库中是否存在
+request.session.exists(&quot;session_key&quot;)
+
+# 删除当前会话的所有Session数据
+request.session.delete()
+　　
+# 删除当前的会话数据并删除会话的Cookie
+request.session.flush() 
+    # 这用于确保前面的会话数据不可以再次被用户的浏览器访问
+    # 例如，django.contrib.auth.logout() 函数中就会调用它
+
+# 设置会话Session和Cookie的超时时间
+request.session.set_expiry(value)
+ # 如果value是个整数，session会在些秒数后失效
+ # 如果value是个datatime或timedelta，session就会在这个时间后失效
+ # 如果value是0,用户关闭浏览器session就会失效
+ # 如果value是None,session会依赖全局session失效策略</code></pre></li>
+<li><p>session版登陆验证</p>
+<pre><code><code>from django.shortcuts import render, redirect, HttpResponse
+from django.views import View
+
+class Login(View):
+    def get(self, request, *args, **kwargs):
+        return render(request, &#39;login.html&#39;)
+
+    def post(self, request, *args, **kwargs):
+        username = request.POST.get(&#39;username&#39;)
+        pwd = request.POST.get(&#39;pwd&#39;)
+        if username == &#39;alex&#39; and pwd == &#39;123&#39;:
+            url = request.GET.get(&#39;return_url&#39;)
+            if url:
+                ret = redirect(url)
+            else:
+                ret = redirect(&#39;/index/&#39;)
+            # 设置 session
+            request.session[&#39;is_login&#39;] = 1      # value可以设置为数字
+            # 设置会话Session和Cookie的超时时间，0表示用户关闭浏览器session就会失效
+            # request.session.set_expiry(0)
+            return ret
+        return render(request, &#39;login.html&#39;, {&#39;error&#39;: &#39;用户名或密码错误&#39;})
+
+# 登录验证装饰器
+def login_required(func):
+    def inner(request, *args, **kwargs):
+        # 获取 session
+        is_login = request.session.get(&#39;is_login&#39;)
+        print(is_login)
+        url = request.path_info
+        if is_login != 1:
+            return redirect(&#39;/login/?return_url={}&#39;.format(url))
+        # 已经登录
+        ret = func(request, *args, **kwargs)
+        return ret
+    return inner
+
+# 在需要在需要登录才能访问到页面的视图上加装饰器
+@login_required
+def index(request):
+    # request.session.session_key：会话session的key
+    request.session.clear_expired()      # 将失效的数据删除
+    return HttpResponse(&#39;首页&#39;)
+
+@login_required
+def home(request):
+    return HttpResponse(&#39;home&#39;)
+
+def logout(request):
+    ret = redirect(&#39;/login/&#39;)
+    request.session.delete()     # 删除session数据  不删除cookie
+    request.session.flush()      # 删除session数据  并删除cookie
+    return ret</code></pre></li>
+<li><p>django中的session配置</p>
+<ul>
+<li>全局配置：from django.conf import global_settings</li>
+</ul>
+<pre><code><code>1. 数据库Session
+SESSION_ENGINE = &#39;django.contrib.sessions.backends.db&#39;     # 引擎（默认）
+
+2. 缓存Session
+SESSION_ENGINE = &#39;django.contrib.sessions.backends.cache&#39;  # 引擎
+# 使用的缓存别名（默认内存缓存，也可以是memcache），此处别名依赖缓存的设置
+SESSION_CACHE_ALIAS = &#39;default&#39;      
+
+3. 文件Session
+SESSION_ENGINE = &#39;django.contrib.sessions.backends.file&#39;    # 引擎
+# 缓存文件路径，如果为None，则使用tempfile模块获取一个临时地址tempfile.gettempdir() 
+SESSION_FILE_PATH = None
+
+4. 缓存+数据库
+SESSION_ENGINE = &#39;django.contrib.sessions.backends.cached_db&#39;        # 引擎
+
+5. 加密Cookie Session
+SESSION_ENGINE = &#39;django.contrib.sessions.backends.signed_cookies&#39;   # 引擎
+
+其他公用设置项：
+# Session的cookie保存在浏览器上时的key，即：sessionid＝随机字符串（默认）
+SESSION_COOKIE_NAME ＝ &quot;sessionid&quot;
+# Session的cookie保存的路径（默认）
+SESSION_COOKIE_PATH ＝ &quot;/&quot;
+# Session的cookie保存的域名（默认）
+SESSION_COOKIE_DOMAIN = None
+# 是否Https传输cookie（默认）
+SESSION_COOKIE_SECURE = False
+# 是否Session的cookie只支持http传输（默认）
+SESSION_COOKIE_HTTPONLY = True
+# Session的cookie失效日期（2周）（默认）
+SESSION_COOKIE_AGE = 1209600
+# 是否关闭浏览器使得Session过期（默认）
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+# 是否每次请求都保存Session，默认修改之后才保存（默认）
+SESSION_SAVE_EVERY_REQUEST = False</code></pre></li>
+</ol>
+<h2 id="section"></h2>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

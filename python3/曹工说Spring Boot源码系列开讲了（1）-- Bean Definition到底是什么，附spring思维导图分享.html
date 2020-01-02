@@ -1,0 +1,514 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享</center></div><div class='banquan'>原文出处:本文由博客园博主三国梦回提供。<br/>
+原文连接:https://www.cnblogs.com/grey-wolf/p/12044199.html</div><br>
+    <h1 id="写在前面的话about-me">写在前面的话&amp;&amp;About me</h1>
+<p>网上写spring的文章多如牛毛，为什么还要写呢，因为，很简单，那是人家写的；网上都鼓励你不要造轮子，为什么你还要造呢，因为，那不是你造的。</p>
+<p>我不是要造spring，我只是想把自己学习spring的一些感想，一些心得说出来，希望大家看到有不对的地方，请一定不吝赐教。</p>
+<p>说说我自己，13年小本毕业，软件工程专业，校招去了最近疯传的<code>牢厂</code>总部里待了2年，15年<code>越狱</code>出来，某落魄互联网公司（PC时代风头无两）待了1年，慨叹深圳买房之艰难，遂于16年底回蓉。趁着热血未冷，去了一家创业公司，9个月后，欠薪3月，靠刷信用卡还贷，不得不含泪辞职；17年投奔国企，目前从事公共安全相关工作，趁着对技术还有一腔热情，没事写写文章，目前主要兴趣是：分布式、微服务等后端技术；对k8s等新技术保持关注；没事参加一些线下技术活动，欢迎大家和我交流。</p>
+<h1 id="本系列的源码讲解思路">本系列的源码讲解思路</h1>
+<p>本来，我是想分享一些 spring cloud 的东西，但后来发现，我自己在读spring cloud的过程中，有些东西也不是理解得很透彻，比如各种@Enable注解其实是用到了spring boot的东西，然后我觉得应该倒回去先看看spring boot，然后呢，看spring boot的过程中，发现spring 和 spring boot其实是一个深度融合，“你中有我，我中有你”的关系，比如spring boot启动时，不是会连带启动spring 容器吗，等等。</p>
+<p>我就想着，干脆把spring boot系统研究一把算了，我在github上找了spring boot的工程，克隆到了码云上（速度要快得多），然后自己回退到了spring boot的第一个版本，时间大概是2013年4月，其实这第一个版本，基本的代码也已经成型了，我就拿这个版本的源码在本地idea里面看，配套的spring 版本是4.0.0，也还行。</p>
+<p>我自己加了不少注释在工程里，工程地址在这：</p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn" class="uri">https://gitee.com/ckl111/spring-boot-first-version-learn</a></p>
+<p>工程结构如下：</p>
+<p><img src="./images/曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享0.png" /></p>
+<p>这个工程我也会一直维护着，我觉得，spring 4.0.0的版本，暂时对我阅读代码来说，足够了，如果大家大概了解spring 每个版本的新特性的话，可以发现，spring 4.0开始，各种注解已经很完善了，现在虽然已经出到5.2版本了，但核心的东西也还是没有变化，所以，对我们研读源码，影响不大。如果真的把这个版本能读得差不多了，那想必对spring /spring boot的核心也理解差不多了，到时候再读新版本的源码也不迟，是吧。</p>
+<p>总体来说：</p>
+<blockquote>
+<p>spring boot 版本，2013年4月，first version。</p>
+</blockquote>
+<blockquote>
+<p>配套的spring版本，4.0.0.BOOTSTRAP-SNAPSHOT</p>
+</blockquote>
+<p>那时候的spring boot长什么样子，我这边给个地址（我这已经克隆到码云了）</p>
+<p><a href="https://gitee.com/ckl111/spring-boot/tree/fb6b2244707dd5dfad12d62cb6a3c396555270d1/" class="uri">https://gitee.com/ckl111/spring-boot/tree/fb6b2244707dd5dfad12d62cb6a3c396555270d1/</a></p>
+<h1 id="spring思维导图bean-definition部分">spring思维导图（bean definition部分）</h1>
+<p>因为我这个系列，大概会按照思维导图的流程来走，然后思维导图太大了，我这里先直接贴前面这部分：</p>
+<p><img src="./images/曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享1.png" /></p>
+<p>思维导图完整链接：<a href="https://www.processon.com/view/link/5deeefdee4b0e2c298aa5596" class="uri">https://www.processon.com/view/link/5deeefdee4b0e2c298aa5596</a></p>
+<p>我大概的讲解思路也会是上面那样，从上到下，每个点细细地讲。</p>
+<h1 id="正文">正文</h1>
+<h2 id="bean-definition是什么">bean definition是什么</h2>
+<p>闲言少叙，进入正题。第一讲，先说说bean definition吧，这个东西，实在太重要了，核心的存储结构啊。</p>
+<p>大家可以再想一想，spring 当初刚出来的时候，主打的是ioc容器，容器里装了啥呢，bean啊！bean是什么呢？</p>
+<p>恩。。。我也不知道是啥，反正spring里拿出来的就是bean。</p>
+<p>行，那bean有什么特征吗？</p>
+<p>哦，bean是一个对象，有名字，有class类型，有scope（单例、prototype那些），有role（属于应用的bean、还是spring框架的bean），有是否延迟初始化（lazy-init），有它依赖的其他bean，如果这个bean不好造（不能直接反射生成的话），可能还有个工厂方法和工厂bean呢，哎，好像还说漏了，反正挺多的。</p>
+<p>那是不是每个bean都有这些属性呢？</p>
+<p>仔细想想，好像是的吧。</p>
+<p><img src="./images/曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享2.png" alt="img" /></p>
+<p>既然都有这些东西，那这个东西感觉像是个模板了，就像是最近写了年终总结，hr小姐姐就给我们发了模板，上面姓名啊、部门啊、职位啊、述职的基本格式啊，都是固定的，我们只要拿来，填上自己的信息就行了，那我们是不是可以抽象一下，搞个class啊，比如下面这样：</p>
+<pre><code><code>package com.learn;
+
+import lombok.Data;
+
+@Data
+public class SpringDefinition {
+
+    /**
+     * bean class名
+     */
+    String beanClassName;
+
+    /**
+     * 工厂bean的名称
+     */
+    String factoryBeanName;
+
+    /**
+     * 工厂方法的名称
+     */
+    String factoryMethodName;
+
+    /**
+     * singleton/prototype等
+     */
+    String scope;
+
+    /**
+     * 是否延迟初始化
+     */
+    boolean isLazyInit;
+
+    /**
+     * 依赖的bean
+     */
+    String[] dependsOn;
+
+    /**
+     * bean的角色，比如：1：框架；2：应用
+     */
+    int role;
+
+    /**
+     * 是否为主候选bean
+     */
+    boolean primary;
+
+    ...其他属性
+}
+</code></pre>
+<p>实话说，是可以的，一些简单的，轻量级ioc容器就是这么玩的，但是spring作为优秀代码的代表，肯定不能这么low，接口的抽象性要好得多，方便我们替换不同的实现，该用接口来抽象，肯定要抽象为接口。</p>
+<p>下边我们就看看该接口,先看接口的描述：</p>
+<blockquote>
+<pre><code><code>* A BeanDefinition describes a bean instance, which has property values,
+* constructor argument values, and further information supplied by
+* concrete implementations.
+*
+* &lt;p&gt;This is just a minimal interface: The main intention is to allow a
+* {@link BeanFactoryPostProcessor} such as {@link PropertyPlaceholderConfigurer}
+* to introspect and modify property values and other bean metadata.
+* @author Juergen Hoeller
+* @author Rob Harrop
+* @since 19.03.2004</code></pre>
+</blockquote>
+<p>这里说的是，bean definition描述一个bean实例的各种属性，尤其声明了：这是一个最小化接口，主要目的是允许bean factory后置处理器，对bean property和其他元数据进行修改。而且，这是2004年的接口，可想而知，是多么核心的api了。</p>
+<p>再看看具体定义的方法，更好理解：</p>
+<pre><code><code>public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
+
+    /**
+     * Return the name of the parent definition of this bean definition, if any.
+     */
+    String getParentName();
+
+    /**
+     * Set the name of the parent definition of this bean definition, if any.
+     */
+    void setParentName(String parentName);
+
+    /**
+     * Return the current bean class name of this bean definition.
+     * &lt;p&gt;Note that this does not have to be the actual class name used at runtime, in
+     * case of a child definition overriding/inheriting the class name from its parent.
+     * Hence, do &lt;i&gt;not&lt;/i&gt; consider this to be the definitive bean type at runtime but
+     * rather only use it for parsing purposes at the individual bean definition level.
+     */
+    String getBeanClassName();
+
+    /**
+     * Override the bean class name of this bean definition.
+     * &lt;p&gt;The class name can be modified during bean factory post-processing,
+     * typically replacing the original class name with a parsed variant of it.
+     */
+    void setBeanClassName(String beanClassName);
+
+    /**
+     * Return the factory bean name, if any.
+     */
+    String getFactoryBeanName();
+
+    /**
+     * Specify the factory bean to use, if any.
+     */
+    void setFactoryBeanName(String factoryBeanName);
+
+    /**
+     * Return a factory method, if any.
+     */
+    String getFactoryMethodName();
+
+    /**
+     * Specify a factory method, if any. This method will be invoked with
+     * constructor arguments, or with no arguments if none are specified.
+     * The method will be invoked on the specified factory bean, if any,
+     * or otherwise as a static method on the local bean class.
+     * @param factoryMethodName static factory method name,
+     * or {@code null} if normal constructor creation should be used
+     * @see #getBeanClassName()
+     */
+    void setFactoryMethodName(String factoryMethodName);
+
+    /**
+     * Return the name of the current target scope for this bean,
+     * or {@code null} if not known yet.
+     */
+    String getScope();
+
+    /**
+     * Override the target scope of this bean, specifying a new scope name.
+     * @see #SCOPE_SINGLETON
+     * @see #SCOPE_PROTOTYPE
+     */
+    void setScope(String scope);
+
+    /**
+     * Return whether this bean should be lazily initialized, i.e. not
+     * eagerly instantiated on startup. Only applicable to a singleton bean.
+     */
+    boolean isLazyInit();
+
+    /**
+     * Set whether this bean should be lazily initialized.
+     * &lt;p&gt;If {@code false}, the bean will get instantiated on startup by bean
+     * factories that perform eager initialization of singletons.
+     */
+    void setLazyInit(boolean lazyInit);
+
+    /**
+     * Return the bean names that this bean depends on.
+     */
+    String[] getDependsOn();
+
+    /**
+     * Set the names of the beans that this bean depends on being initialized.
+     * The bean factory will guarantee that these beans get initialized first.
+     */
+    void setDependsOn(String[] dependsOn);
+
+    /**
+     * Return whether this bean is a candidate for getting autowired into some other bean.
+     */
+    boolean isAutowireCandidate();
+
+    /**
+     * Set whether this bean is a candidate for getting autowired into some other bean.
+     */
+    void setAutowireCandidate(boolean autowireCandidate);
+
+    /**
+     * Return whether this bean is a primary autowire candidate.
+     * If this value is true for exactly one bean among multiple
+     * matching candidates, it will serve as a tie-breaker.
+     */
+    boolean isPrimary();
+
+    /**
+     * Set whether this bean is a primary autowire candidate.
+     * &lt;p&gt;If this value is true for exactly one bean among multiple
+     * matching candidates, it will serve as a tie-breaker.
+     */
+    void setPrimary(boolean primary);
+
+
+    /**
+     * Return the constructor argument values for this bean.
+     * &lt;p&gt;The returned instance can be modified during bean factory post-processing.
+     * @return the ConstructorArgumentValues object (never {@code null})
+     */
+    ConstructorArgumentValues getConstructorArgumentValues();
+
+    /**
+     * Return the property values to be applied to a new instance of the bean.
+     * &lt;p&gt;The returned instance can be modified during bean factory post-processing.
+     * @return the MutablePropertyValues object (never {@code null})
+     */
+    MutablePropertyValues getPropertyValues();
+
+
+    /**
+     * Return whether this a &lt;b&gt;Singleton&lt;/b&gt;, with a single, shared instance
+     * returned on all calls.
+     * @see #SCOPE_SINGLETON
+     */
+    boolean isSingleton();
+
+    /**
+     * Return whether this a &lt;b&gt;Prototype&lt;/b&gt;, with an independent instance
+     * returned for each call.
+     * @see #SCOPE_PROTOTYPE
+     */
+    boolean isPrototype();
+
+    /**
+     * Return whether this bean is &quot;abstract&quot;, that is, not meant to be instantiated.
+     */
+    boolean isAbstract();
+
+    /**
+     * Get the role hint for this {@code BeanDefinition}. The role hint
+     * provides tools with an indication of the importance of a particular
+     * {@code BeanDefinition}.
+     * @see #ROLE_APPLICATION
+     * @see #ROLE_INFRASTRUCTURE
+     * @see #ROLE_SUPPORT
+     */
+    int getRole();
+
+    /**
+     * Return a human-readable description of this bean definition.
+     */
+    String getDescription();
+
+    /**
+     * Return a description of the resource that this bean definition
+     * came from (for the purpose of showing context in case of errors).
+     */
+    String getResourceDescription();
+
+    /**
+     * Return the originating BeanDefinition, or {@code null} if none.
+     * Allows for retrieving the decorated bean definition, if any.
+     * &lt;p&gt;Note that this method returns the immediate originator. Iterate through the
+     * originator chain to find the original BeanDefinition as defined by the user.
+     */
+    BeanDefinition getOriginatingBeanDefinition();
+
+}</code></pre>
+<p>大家仔细看看，是不是其实和我们定义的class差不多呢，主要都是一些get/set方法。里面的字段呢，下一讲我们详细讲解一下，会结合一些融会贯通的地方。</p>
+<h2 id="bean-definition接口的实现有哪些">bean definition接口的实现有哪些</h2>
+<p>然后我们看看这个接口有哪些实现吧？</p>
+<p>可以看到，这里有两个是我标红了，因为他们特殊，特殊在他们不属于spring-beans包，而是在spring-context包里。后边遇到了我们再单说，这里存疑。</p>
+<p>再来看看这个接口的继承图：</p>
+<p><img src="./images/曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享3.png" /></p>
+<h2 id="可以获取注解信息的子接口annotatedbeandefinition">可以获取注解信息的子接口AnnotatedBeanDefinition</h2>
+<p>我们看到，这个接口有一个子接口，是<code>AnnotatedBeanDefinition</code>。这个接口定义如下：</p>
+<pre><code><code>/**
+ * Extended {@link org.springframework.beans.factory.config.BeanDefinition}
+ * interface that exposes {@link org.springframework.core.type.AnnotationMetadata}
+ * about its bean class - without requiring the class to be loaded yet.
+ * 这个接口扩展了BeanDefinition，可以获得bean definition中的bean class上的注解元数据。
+ * 举个例子，假设我们用@controller标注了某个类，那这里就能获取到@controller这个注解里面的信息
+ *
+ * @author Juergen Hoeller
+ * @since 2.5
+ * @see AnnotatedGenericBeanDefinition
+ * @see org.springframework.core.type.AnnotationMetadata
+ */
+public interface AnnotatedBeanDefinition extends BeanDefinition {
+
+    /**
+     * Obtain the annotation metadata (as well as basic class metadata)
+     * for this bean definition&#39;s bean class.
+     * @return the annotation metadata object (never {@code null})
+     */
+    AnnotationMetadata getMetadata();
+
+}</code></pre>
+<p>可以想一想有什么用，这个接口能取到bean definition中对应bean class上标注的注解元数据。</p>
+<p>比如下面的controller举例：</p>
+<pre><code><code>@Target({ElementType.TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Component
+public @interface Controller {
+
+    /**
+     * The value may indicate a suggestion for a logical component name,
+     * to be turned into a Spring bean in case of an autodetected component.
+     * @return the suggested component name, if any
+     */
+    String value() default &quot;&quot;;
+
+}</code></pre>
+<p>那这个<code>AnnotatedBeanDefinition</code>就能取到controller中的value字段的值。</p>
+<p>我这里也写了个简单的例子，如下：</p>
+<pre><code><code>@Component(&quot;testService&quot;)
+public class HelloWorldService {
+
+}</code></pre>
+<pre><code><code>    @Autowired
+    private ApplicationContext applicationContext;
+
+    @Override
+    public void run(String... args) {
+        DefaultListableBeanFactory beanFactory =
+                (DefaultListableBeanFactory) applicationContext.getAutowireCapableBeanFactory();
+         // 获取bean definition，然后获取其注解元数据 
+        AnnotatedBeanDefinition annotatedBeanDefinition = (AnnotatedBeanDefinition) beanFactory.getBeanDefinition(&quot;testService&quot;);
+        AnnotationMetadata metadata = annotatedBeanDefinition.getMetadata();
+        Map&lt;String, Object&gt; annotationAttributes = metadata.getAnnotationAttributes(&quot;org.springframework.stereotype.Component&quot;);
+        log.info(&quot;annotationAttributes:{}&quot;,annotationAttributes);
+    }</code></pre>
+<p>我这边打印出来就是：</p>
+<blockquote>
+<p>信息: annotationAttributes:{value=testService}</p>
+</blockquote>
+<p>代码在</p>
+<p><a href="https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-bootstrap-bean-definition-demo" class="uri">https://gitee.com/ckl111/spring-boot-first-version-learn/tree/master/all-demo-in-spring-learning/spring-bootstrap-bean-definition-demo</a></p>
+<h2 id="接口下的实现类">接口下的实现类</h2>
+<p>仔细看了两个接口 <code>AnnotatedBeanDefinition</code>和<code>BeanDefinition</code>，其实实现类都是差不多那几个。</p>
+<p><img src="./images/曹工说Spring Boot源码系列开讲了（1）-- Bean Definition到底是什么，附spring思维导图分享4.png" /></p>
+<p>基本上<code>org.springframework.beans.factory.support.AbstractBeanDefinition</code>充当了基本的实现，基本上，该实现的方法都实现了，除了一个：</p>
+<pre><code><code>    /**
+     * Clone this bean definition.
+     * To be implemented by concrete subclasses.
+     * @return the cloned bean definition object
+     */
+    public abstract AbstractBeanDefinition cloneBeanDefinition();</code></pre>
+<p>赶紧这个方法，对我们分析也没多大帮助，暂时跳过即可。</p>
+<p>再看看<code>org.springframework.beans.factory.support.GenericBeanDefinition</code>，感觉很重要，我们看看：</p>
+<pre><code><code>public class GenericBeanDefinition extends AbstractBeanDefinition {
+
+    private String parentName;
+
+
+    /**
+     * 这里有点意思，类似于builder模式，先生成一个实例，再自己各种set方法设置相关属性
+     * 
+     * Create a new GenericBeanDefinition, to be configured through its bean
+     * properties and configuration methods.
+     * @see #setBeanClass
+     * @see #setBeanClassName
+     * @see #setScope
+     * @see #setAutowireMode
+     * @see #setDependencyCheck
+     * @see #setConstructorArgumentValues
+     * @see #setPropertyValues
+     */
+    public GenericBeanDefinition() {
+        super();
+    }
+    ...
+
+    @Override
+    public AbstractBeanDefinition cloneBeanDefinition() {
+        return new GenericBeanDefinition(this);
+    }
+
+}</code></pre>
+<p>ok，都这么简单的话，就再看两个，spring beans包中的<code>org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition</code>:</p>
+<pre><code><code>public class AnnotatedGenericBeanDefinition extends GenericBeanDefinition implements AnnotatedBeanDefinition {
+
+    private final AnnotationMetadata metadata;
+
+
+    /**
+     * Create a new AnnotatedGenericBeanDefinition for the given bean class.
+     * @param beanClass the loaded bean class
+     */
+    public AnnotatedGenericBeanDefinition(Class&lt;?&gt; beanClass) {
+        setBeanClass(beanClass);
+        this.metadata = new StandardAnnotationMetadata(beanClass, true);
+    }
+
+    /**
+     * Create a new AnnotatedGenericBeanDefinition for the given annotation metadata,
+     * allowing for ASM-based processing and avoidance of early loading of the bean class.
+     * Note that this constructor is functionally equivalent to
+     * {@link org.springframework.context.annotation.ScannedGenericBeanDefinition
+     * ScannedGenericBeanDefinition}, however the semantics of the latter indicate that
+     * a bean was discovered specifically via component-scanning as opposed to other
+     * means.
+     * @param metadata the annotation metadata for the bean class in question
+     * @since 3.1.1
+     */
+    public AnnotatedGenericBeanDefinition(AnnotationMetadata metadata) {
+        Assert.notNull(metadata, &quot;AnnotationMetadata must not be null&quot;);
+        setBeanClassName(metadata.getClassName());
+        this.metadata = metadata;
+    }
+
+
+    public final AnnotationMetadata getMetadata() {
+         return this.metadata;
+    }
+
+}</code></pre>
+<p>很简单，就是多了获取bean class的注解的功能。</p>
+<p>再看这个呢，</p>
+<pre><code><code>/**
+ * Extension of the {@link GenericBeanDefinition}
+ * class, based on an ASM ClassReader, with support for annotation metadata exposed
+ * through the {@link AnnotatedBeanDefinition} interface.
+ *
+ * &lt;p&gt;This class does &lt;i&gt;not&lt;/i&gt; load the bean {@code Class} early.
+ * It rather retrieves all relevant metadata from the &quot;.class&quot; file itself,
+ * parsed with the ASM ClassReader. It is functionally equivalent to
+ * {@link AnnotatedGenericBeanDefinition#AnnotatedGenericBeanDefinition(AnnotationMetadata)}
+ * but distinguishes by type beans that have been &lt;em&gt;scanned&lt;/em&gt; vs those that have
+ * been otherwise registered or detected by other means.
+ *
+ * @author Juergen Hoeller
+ * @author Chris Beams
+ * @since 2.5
+ * @see #getMetadata()
+ * @see #getBeanClassName()
+ * @see org.springframework.core.type.classreading.MetadataReaderFactory
+ * @see AnnotatedGenericBeanDefinition
+ */
+@SuppressWarnings(&quot;serial&quot;)
+public class ScannedGenericBeanDefinition extends GenericBeanDefinition implements AnnotatedBeanDefinition {
+
+    private final AnnotationMetadata metadata;
+
+
+    /**
+     * Create a new ScannedGenericBeanDefinition for the class that the
+     * given MetadataReader describes.
+     * @param metadataReader the MetadataReader for the scanned target class
+     */
+    public ScannedGenericBeanDefinition(MetadataReader metadataReader) {
+        Assert.notNull(metadataReader, &quot;MetadataReader must not be null&quot;);
+        this.metadata = metadataReader.getAnnotationMetadata();
+        setBeanClassName(this.metadata.getClassName());
+    }
+
+
+    public final AnnotationMetadata getMetadata() {
+        return this.metadata;
+    }
+
+}</code></pre>
+<p>我一开始，一眼看过去，感觉眼花了，差不多啊，但这个是在spring context包里，然后，可以看上面的注释，说是使用asm去获取注解信息。所以，这个和上面那个的差别是：</p>
+<blockquote>
+<p>org.springframework.context.annotation.ScannedGenericBeanDefinition 位于spring-context，使用asm</p>
+<p>org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition 位于spring-beans，使用反射</p>
+</blockquote>
+<p>再看看<code>org.springframework.beans.factory.support.RootBeanDefinition</code>(位于spring-beans)，这个类下面只有一个子类，位于spring-context的</p>
+<p><code>org.springframework.context.annotation.ConfigurationClassBeanDefinitionReader.ConfigurationClassBeanDefinition</code></p>
+<p>这两个类，一看就比较特别，能看出来，和@configuration注解有莫大关系，这个我们放后面讲。</p>
+<h1 id="总结">总结</h1>
+<p>本篇就先到这里，留了一些问题，放到后面（有些我也要查一下，哈哈）。下一讲继续。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

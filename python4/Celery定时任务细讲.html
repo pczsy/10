@@ -1,0 +1,120 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Celery定时任务细讲' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Celery定时任务细讲</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11665791.html</div><br>
+    <h1 id="celery定时任务细讲">Celery定时任务细讲</h1>
+<h2 id="一.目录结构">一.目录结构</h2>
+<pre><code><code>任务所在目录
+    ├── celery_task # celery包 如果celery_task只是建了普通文件夹__init__可以没有,如果是包一定要有
+    │   ├── __init__.py # 包文件 看情况要不要存在
+    │   ├── celery.py   # celery连接和配置相关文件，且名字必须交celery.py,其实也不是必须的不然你指令可能要修改
+    │   └── tasks.py    # 所有任务函数</code></pre>
+<h2 id="二.配置">二.配置</h2>
+<p><code>celery.py</code></p>
+<pre><code><code>from celery import Celery
+
+
+#创建一个Celery对象
+broker = &#39;redis://127.0.0.1:6379/2&#39;  #任务放在用redis://ip:端口/第几个数据库
+backend = &#39;redis://127.0.0.1:6379/3&#39; #任务结果放在
+include = [&#39;celery_task.tasks&#39;,]    #任务所在目录
+app = Celery(broker=broker, backend=backend, include=include)
+
+app.conf.timezone = &#39;Asia/Shanghai&#39;  #配置时区
+app.conf.enable_utc = False      # 是否使用UTC
+
+from datetime import timedelta
+from celery.schedules import crontab
+app.conf.beat_schedule = {
+    #任务名称自定义可随意
+    &#39;get_banner-task&#39;: { 
+        &#39;task&#39;: &#39;celery_task.tasks.get_baidu_info&#39;,#任务所在路径且指定哪个任务
+        &#39;schedule&#39;: crontab(hour=3,minute=0),  #定时任务相关
+    },
+}
+</code></pre>
+<p><code>celery.py</code></p>
+<pre><code><code>from .celery import app
+import requests
+@app.task  #一定要加装饰器
+def get_baidu_info():
+    response = requests.get(https://www.baidu.com/&#39;)
+    return response.text</code></pre>
+<h2 id="三.配置参数">三.配置参数</h2>
+<h3 id="配置参数的方式">配置参数的方式</h3>
+<p><code>方式一</code></p>
+<p>app.conf.参数名称=参数值</p>
+<p><code>方法二</code></p>
+<pre><code><code>app.conf.update(
+    参数名称=参数值,
+    参数名称=参数值
+)</code></pre>
+<p><code>方法三</code></p>
+<p>导入配置文件</p>
+<pre><code><code>app.config_from_object(&#39;配置文件路径&#39;)</code></pre>
+<p>配置文件</p>
+<pre><code><code>参数名称=参数值
+参数名称=参数值</code></pre>
+<h3 id="一.时区配置">一.时区配置</h3>
+<p>常用中国</p>
+<pre><code><code>app.conf.timezone = &#39;Asia/Shanghai&#39; 
+app.conf.enable_utc = False 
+#也可以直接设置
+app.conf.timezone = &#39;Asia/Shanghai&#39; </code></pre>
+<p>国际时间</p>
+<pre><code><code>app.conf.enable_utc = True
+app.conf.timezone = &#39;Europe/London&#39;
+#也可以直接设置
+app.conf.timezone = &#39;Europe/London&#39;</code></pre>
+<h3 id="二.beat_schedule">二.beat_schedule</h3>
+<ul>
+<li>task： 指定任务的名字</li>
+<li>schedule : 设定任务的调度方式，可以是一个表示秒的整数，也可以是一个 timedelta 对象，或者是一个 crontab 对象（后面介绍），总之就是设定任务如何重复执行</li>
+<li>args： 任务的位置参数以列表的形式</li>
+<li>kwargs：任务的关键字参数,以字典的形式</li>
+<li>options：所有 apply_async 所支持的参数</li>
+</ul>
+<h4 id="timedelta-对象">timedelta 对象</h4>
+<pre><code><code>from datetime import timedelta
+
+ &#39;schedule&#39;: timedelta(seconds=3), #每三秒 执行一次 其他想想就知道啦
+  #具体有啥参数我也不想列举了你ctrl+左键进入timedelta源码自己看就知道啦</code></pre>
+<h4 id="crontab-对象">crontab 对象</h4>
+<pre><code><code>#schedule配置举例
+from celery.schedules import crontab
+# 每分钟执行一次
+crontab()
+
+# 每天凌晨十二点执行
+crontab(minute=0, hour=0)
+
+# 每十五分钟执行一次
+crontab(minute=&#39;*/15&#39;)
+
+# 每周日的每一分钟执行一次
+crontab(minute=&#39;*&#39;,hour=&#39;*&#39;, day_of_week=&#39;sun&#39;)
+
+# 每周三，五的三点，七点和二十二点没十分钟执行一次
+crontab(minute=&#39;*/10&#39;,hour=&#39;3,17,22&#39;, day_of_week=&#39;thu,fri&#39;)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

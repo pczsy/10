@@ -1,0 +1,364 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修celery 分布式异步任务框架(celery简单使用、celery多任务结构、celery定时任务、celery计划任务、celery在Django项目中使用Python脚本调用Django环境)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>celery 分布式异步任务框架(celery简单使用、celery多任务结构、celery定时任务、celery计划任务、celery在Django项目中使用Python脚本调用Django环境)</center></div><div class='banquan'>原文出处:本文由博客园博主MrSu提供。<br/>
+原文连接:https://www.cnblogs.com/suguangti/p/11178128.html</div><br>
+    <h2>一、celery简介：</h2>
+<p>Celery 是一个强大的 分布式任务队列 的 异步处理框架，它可以让任务的执行完全脱离主程序，甚至可以被分配到其他主机上运行。我们通常使用它来实现异步任务（async task）和定时任务（crontab）。</p>
+<p>Celery的架构由三部分组成，消息中间件（message broker），任务执行单元（worker）和任务执行结果存储（task result store）组成。</p>
+<p><img src="./images/celery 分布式异步任务框架(celery简单使用、celery多任务结构、celery定时任务、celery计划任务、celery在Django项目中使用Python脚本调用Django环境)0.png" alt="" /></p>
+<p>可以看到，Celery 主要包含以下几个模块：</p>
+<ul>
+<li>
+<p>任务模块 Task</p>
+<p>包含异步任务和定时任务。其中，异步任务通常在业务逻辑中被触发并发往任务队列，而定时任务由 Celery Beat 进程周期性地将任务发往任务队列。</p>
+</li>
+<li>
+<p>消息中间件 Broker</p>
+<p>Broker，即为任务调度队列，接收任务生产者发来的消息（即任务），将任务存入队列。Celery 本身不提供队列服务，官方推荐使用 RabbitMQ 和&nbsp;<a href="http://lib.csdn.net/base/redis" rel="nofollow">Redis</a>&nbsp;等。</p>
+</li>
+<li>
+<p>任务执行单元 Worker</p>
+<p>Worker 是执行任务的处理单元，它实时监控消息队列，获取队列中调度的任务，并执行它。</p>
+</li>
+<li>
+<p>任务结果存储 Backend</p>
+<p>Backend 用于存储任务的执行结果，以供查询。同消息中间件一样，存储也可使用 RabbitMQ,&nbsp;<a href="http://lib.csdn.net/base/redis" rel="nofollow">redis</a>&nbsp;和&nbsp;<a href="http://lib.csdn.net/base/mongodb" rel="nofollow">MongoDB</a>&nbsp;等。</p>
+</li>
+</ul>
+<p>&nbsp;所以总结一下celery：它是一个处理大量消息的分布式系统，能异步任务、定时任务，使用场景一般用于耗时操作的多任务或者定时性的任务</p>
+<h2>二、celery安装与使用</h2>
+<p><strong>pycharm安装：</strong></p>
+<div class="cnblogs_code">
+<pre><code>pip3 install celery</pre>
+</div>
+<h3>&nbsp;初步使用：（创建一个Python项目）</h3>
+<p><strong>① 实例化一个celery对象，使用该对象.task装饰需要管理的任务函数：</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> celery_task.py</span>
+
+<span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> Celery
+
+</span><span style="color: #800000;">"""</span><span style="color: #800000;">
+# 如果redis没有设置密码
+broker = 'redis://127.0.0.1:6379/1'
+backend = 'redis://127.0.0.1:6379/2'
+</span><span style="color: #800000;">"""</span><span style="color: #000000;">
+broker </span>= <span style="color: #800000;">'</span><span style="color: #800000;">redis://:12345@127.0.0.1:6379/1</span><span style="color: #800000;">'</span><span style="color: #000000;">
+backend </span>= <span style="color: #800000;">'</span><span style="color: #800000;">redis://:12345@127.0.0.1:6379/2</span><span style="color: #800000;">'</span>
+<span style="color: #008000;">#</span><span style="color: #008000;"> c1是实例化产生的celery的名字，因为会存在多个celery</span>
+app = Celery(<span style="color: #800000;">'</span><span style="color: #800000;">c1</span><span style="color: #800000;">'</span>, broker=broker, backend=<span style="color: #000000;">backend)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 需要使用一个装饰器，来管理该任务(函数)</span>
+<span style="color: #000000;">@app.task
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> add(x, y):
+    </span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+    time.sleep(</span>1<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">return</span> x + y</pre>
+</div>
+<p><strong>②&nbsp;将装饰的任务函数条件到消息队列中，此时提交的任务函数并没有执行，只是提交到worker，它会返回一个标识任务的字符串</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> submit.task.py</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 用于提交任务</span>
+<span style="color: #0000ff;">from</span> celery_task <span style="color: #0000ff;">import</span><span style="color: #000000;"> add
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 提交任务到消息队列中，这里只是将任务提交，并没有执行</span>
+<span style="color: #000000;">
+res </span>= add. delay(3, 8<span style="color: #000000;">)
+</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(res)
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 结果是标识任务的字符串(id号)</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> 7811a028-428c-4dd5-9135-788e26e694a7</span></pre>
+</div>
+<p><strong>③&nbsp;使用命令启动worker去刚才提交的执行任务</strong></p>
+<div class="cnblogs_code">
+<pre><code>linux: celery worker -A celery_task -<span style="color: #000000;">l info   
+<span style="color: #ff0000;">windows下：celery worker </span></span><span style="color: #ff0000;">-A celery_task -l info -P eventlet</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>④&nbsp;查看结果，根据提交任务返回的字符串去查询</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> check_res.py</span>
+
+<span style="color: #0000ff;">from</span> celery.result <span style="color: #0000ff;">import</span><span style="color: #000000;"> AsyncResult
+</span><span style="color: #0000ff;">from</span> celery_task <span style="color: #0000ff;">import</span><span style="color: #000000;"> app
+
+async </span>= AsyncResult(id=<span style="color: #800000;">'</span><span style="color: #800000;">bd600820-9366-4220-a679-3e435ae91e71</span><span style="color: #800000;">'</span>, app=<span style="color: #000000;">app)
+
+</span><span style="color: #0000ff;">if</span><span style="color: #000000;"> async.successful():
+    result </span>=<span style="color: #000000;"> async.get()
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(result)
+
+</span><span style="color: #0000ff;">elif</span><span style="color: #000000;"> async.failed():
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">执行失败</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">elif</span> async.status == <span style="color: #800000;">'</span><span style="color: #800000;">PENDING</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">任务等待中</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">elif</span> async.status == <span style="color: #800000;">'</span><span style="color: #800000;">RETRY</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">任务异常后重试</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">elif</span> async.status == <span style="color: #800000;">'</span><span style="color: #800000;">STARTED</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">任务正在执行</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p><img src="./images/celery 分布式异步任务框架(celery简单使用、celery多任务结构、celery定时任务、celery计划任务、celery在Django项目中使用Python脚本调用Django环境)1.png" alt="" /></p>
+<p><strong>celery简单使用流程：</strong></p>
+<div class="cnblogs_code">
+<pre><code>-<span style="color: #000000;">celery的使用
+    </span>-<span style="color: #000000;">pip3 install celery
+    </span>-<span style="color: #000000;">写一个py文件：celery_task
+        </span>-1<span style="color: #000000;"> 指定broker（消息中间件），指定backend（结果存储）
+        </span>-2 实例化产生一个Celery对象 app=Celery(<span style="color: #800000;">'</span><span style="color: #800000;">名字</span><span style="color: #800000;">'</span><span style="color: #000000;">，broker，backend)
+        </span>-3<span style="color: #000000;"> 加装饰器绑定任务，在函数（add）上加装饰器app.task
+        </span>-4<span style="color: #000000;"> 其他程序提交任务,先导入add，add.delay(参，参数)，会将该函数提交到消息中间件，但是并不会执行，有个返回值，直接print会打印出任务的id，以后用id去查询任务是否执行完成
+        </span>-5<span style="color: #000000;"> 启动worker去执行任务：
+        linux: celery worker </span>-A celery_task_s1 -<span style="color: #000000;">l info   
+        windows下：celery worker </span>-A celery_task_s1 -l info -<span style="color: #000000;">P eventlet
+        </span>-6<span style="color: #000000;"> 查看结果：根据id去查询
+            async </span>= AsyncResult(id=<span style="color: #800000;">"</span><span style="color: #800000;">bd600820-9366-4220-a679-3e435ae91e71</span><span style="color: #800000;">"</span>, app=<span style="color: #000000;">app)
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> async.successful():
+                </span><span style="color: #008000;">#</span><span style="color: #008000;">取出它return的值</span>
+                result =<span style="color: #000000;"> async.get()
+                </span><span style="color: #0000ff;">print</span>(result)</pre>
+</div>
+<h3>celery的多任务</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> celery的多任务结构</span>
+    -<span style="color: #000000;">项目结构：
+        pro_cel
+            ├── celery_task</span><span style="color: #008000;">#</span><span style="color: #008000;"> celery相关文件夹</span>
+            │   ├── celery.py   <span style="color: #008000;">#</span><span style="color: #008000;"> celery连接和配置相关文件,必须叫这个名字</span>
+            │   └── tasks1.py    <span style="color: #008000;">#</span><span style="color: #008000;">  所有任务函数</span>
+            │   └── tasks2.py    <span style="color: #008000;">#</span><span style="color: #008000;">  所有任务函数</span>
+            ├── check_result.py <span style="color: #008000;">#</span><span style="color: #008000;"> 检查结果</span>
+            └── send_task.py    <span style="color: #008000;">#</span><span style="color: #008000;"> 触发任务</span>
+    -<span style="color: #000000;">启动worker，celery_task是包的名字
+        celery worker </span>-A celery_task -l info -P eventlet</pre>
+</div>
+<p>&nbsp;按照多任务文件结构创建文件：</p>
+<p><img src="./images/celery 分布式异步任务框架(celery简单使用、celery多任务结构、celery定时任务、celery计划任务、celery在Django项目中使用Python脚本调用Django环境)2.png" alt="" /></p>
+<p>注意celery.py这个文件的文件名是固定的，不能改，task_1和task_2可以自己定义，他俩代表自定义的任务分类，还可以再创建task_3。。。等其它名字的任务文件，send_task.py是提交任务到worker，check_result.py是查看结果的</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> celery.py</span>
+
+<span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> Celery
+broker </span>= <span style="color: #800000;">'</span><span style="color: #800000;">redis://:12345@127.0.0.1:6379/1</span><span style="color: #800000;">'</span><span style="color: #000000;">
+backend </span>= <span style="color: #800000;">'</span><span style="color: #800000;">redis://:12345@127.0.0.1:6379/2</span><span style="color: #800000;">'</span>
+<span style="color: #008000;">#</span><span style="color: #008000;"> c1是实例化产生的celery的名字，因为会存在多个celery</span>
+app = Celery(<span style="color: #800000;">'</span><span style="color: #800000;">c1</span><span style="color: #800000;">'</span>, broker=broker, backend=<span style="color: #000000;">backend,
+             </span><span style="color: #008000;">#</span><span style="color: #008000;"> 包含一些2个任务文件，去相应的py文件找任务，对多个任务进行分类</span>
+             include=<span style="color: #000000;">[
+                 </span><span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_1</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                 </span><span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_2</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+             ])
+
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> celery提供一些配置，具体可查看官方文档</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> app.conf.timezone = 'Asia/Shanghai'</span></pre>
+</div>
+<p>在send_task.py种右键运行，提交任务到worker(这里打印了提交的2个任务的id)</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> task_1.py</span>
+<span style="color: #0000ff;">from</span> celery_task.celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> app
+
+@app.task
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> add1(x, y):
+    </span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+    time.sleep(</span>0.5<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">return</span> x +<span style="color: #000000;"> y
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> task_2.py</span>
+<span style="color: #0000ff;">from</span> celery_task.celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> app
+
+@app.task
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> add2(x, y):
+    </span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+    time.sleep(</span>1<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">return</span> x * y</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> send_task.py</span>
+<span style="color: #0000ff;">from</span> celery_task.task_1 <span style="color: #0000ff;">import</span><span style="color: #000000;"> add1
+</span><span style="color: #0000ff;">from</span> celery_task.task_2 <span style="color: #0000ff;">import</span><span style="color: #000000;"> add2
+
+
+res1 </span>= add1.delay(3, 8<span style="color: #000000;">)
+</span><span style="color: #0000ff;">print</span>(res1)   <span style="color: #008000;">#</span><span style="color: #008000;"> 16e847f3-fc14-4391-89e2-e2b3546872cf</span>
+<span style="color: #000000;">
+res2 </span>= add2.delay(4, 9<span style="color: #000000;">)
+</span><span style="color: #0000ff;">print</span>(res2)   <span style="color: #008000;">#</span><span style="color: #008000;"> 858c0ae5-8516-4473-8be5-7501fb856ff4</span></pre>
+</div>
+<p><strong>启动worker，celery_task是包的名字</strong><br /><strong>				celery worker -A celery_task -l info -P eventlet</strong></p>
+<p><img src="./images/celery 分布式异步任务框架(celery简单使用、celery多任务结构、celery定时任务、celery计划任务、celery在Django项目中使用Python脚本调用Django环境)3.png" alt="" /></p>
+<p>然后将打印的2个id在check_result.py中进行查询结果</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> check_reslut.py</span>
+<span style="color: #0000ff;">from</span> celery.result <span style="color: #0000ff;">import</span><span style="color: #000000;"> AsyncResult
+</span><span style="color: #0000ff;">from</span> celery_task.celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> app
+
+</span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> [<span style="color: #800000;">'</span><span style="color: #800000;">16e847f3-fc14-4391-89e2-e2b3546872cf</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">858c0ae5-8516-4473-8be5-7501fb856ff4</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+    async </span>= AsyncResult(id=i, app=<span style="color: #000000;">app)    
+    </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> async.successful():
+        result </span>=<span style="color: #000000;"> async.get()
+        </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(result)
+    
+    </span><span style="color: #0000ff;">elif</span><span style="color: #000000;"> async.failed():
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">执行失败</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    
+    </span><span style="color: #0000ff;">elif</span> async.status == <span style="color: #800000;">'</span><span style="color: #800000;">PENDING</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">任务等待中</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    
+    </span><span style="color: #0000ff;">elif</span> async.status == <span style="color: #800000;">'</span><span style="color: #800000;">RETRY</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">任务异常后重试</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    
+    </span><span style="color: #0000ff;">elif</span> async.status == <span style="color: #800000;">'</span><span style="color: #800000;">STARTED</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">任务正在执行</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>&nbsp;<img src="./images/celery 分布式异步任务框架(celery简单使用、celery多任务结构、celery定时任务、celery计划任务、celery在Django项目中使用Python脚本调用Django环境)4.png" alt="" /></p>
+<h3>celery的定时任务</h3>
+<h4>方式一：执行时间在年月日时分秒</h4>
+<p>在提交任务的地方修改：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> send_task.py</span>
+
+<span style="color: #0000ff;">from</span> celery_task.task_1 <span style="color: #0000ff;">import</span><span style="color: #000000;"> add1
+</span><span style="color: #0000ff;">from</span> celery_task.task_2 <span style="color: #0000ff;">import</span><span style="color: #000000;"> add2
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 执行定时任务，3s以后执行add1、add2任务</span>
+<span style="color: #0000ff;">from</span> datetime <span style="color: #0000ff;">import</span><span style="color: #000000;"> datetime
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 设置任务执行时间2019年7月12日21点45分12秒</span>
+v1 = datetime(2019, 7, 12, 21, 48, 12<span style="color: #000000;">)
+</span><span style="color: #0000ff;">print</span>(v1)  <span style="color: #008000;">#</span><span style="color: #008000;"> 2019-07-12 21:45:12</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> 将v1时间转成utc时间</span>
+v2 =<span style="color: #000000;"> datetime.utcfromtimestamp(v1.timestamp())
+</span><span style="color: #0000ff;">print</span>(v2)  <span style="color: #008000;">#</span><span style="color: #008000;"> 2019-07-12 13:45:12</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> 取出要执行任务的时间对象，调用apply_async方法，args是任务函数传的参数，eta是执行的时间</span>
+result1 = add1.apply_async(args=[3, 8], eta=<span style="color: #000000;">v2)
+result2 </span>= add2.apply_async(args=[4, 9], eta=<span style="color: #000000;">v2)
+</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(result1.id)
+</span><span style="color: #0000ff;">print</span>(result2.id)</pre>
+</div>
+<p>&nbsp;</p>
+<h4>方式二：通过延迟执行的时间算出执行的具体utc时间，与方式一基本相同</h4>
+<p>在提交任务的地方修改：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> send_task.py</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 方式二：实际上和方法一类似，多了一个延迟时间，也就是用现在时间和推迟执行的时间计算出任务执行的最终utc时间</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> 然后也是调用apply_async方法。</span>
+<span style="color: #0000ff;">from</span> datetime <span style="color: #0000ff;">import</span><span style="color: #000000;"> datetime
+ctime </span>=<span style="color: #000000;"> datetime.now()
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 默认使用utc时间</span>
+utc_ctime =<span style="color: #000000;"> datetime.utcfromtimestamp(ctime.timestamp())
+</span><span style="color: #0000ff;">from</span> datetime <span style="color: #0000ff;">import</span><span style="color: #000000;"> timedelta
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 使用timedelta模块，拿到10秒后的时间对象，这里参数可以传秒、毫秒、微秒、分、小时、周、天</span>
+time_delay = timedelta(seconds=10<span style="color: #000000;">)
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 得到任务运行时间：</span>
+task_time = utc_ctime +<span style="color: #000000;"> time_delay
+result1 </span>= add1.apply_async(args=[3, 8], eta=<span style="color: #000000;">task_time)
+result2 </span>= add2.apply_async(args=[4, 9], eta=<span style="color: #000000;">task_time)
+</span><span style="color: #0000ff;">print</span><span style="color: #000000;">(result1.id)
+</span><span style="color: #0000ff;">print</span>(result2.id)</pre>
+</div>
+<h3>celery的计划任务</h3>
+<p>计划任务需要在celery.py中添加代码，然后需要beat一下，才能将计划开启</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> celery.py中</span>
+
+<span style="color: #0000ff;">from</span> celery <span style="color: #0000ff;">import</span><span style="color: #000000;"> Celery
+broker </span>= <span style="color: #800000;">'</span><span style="color: #800000;">redis://:12345@127.0.0.1:6379/1</span><span style="color: #800000;">'</span><span style="color: #000000;">
+backend </span>= <span style="color: #800000;">'</span><span style="color: #800000;">redis://:12345@127.0.0.1:6379/2</span><span style="color: #800000;">'</span>
+<span style="color: #008000;">#</span><span style="color: #008000;"> c1是实例化产生的celery的名字，因为会存在多个celery</span>
+app = Celery(<span style="color: #800000;">'</span><span style="color: #800000;">c1</span><span style="color: #800000;">'</span>, broker=broker, backend=<span style="color: #000000;">backend,
+             </span><span style="color: #008000;">#</span><span style="color: #008000;"> 包含一些2个任务文件，去相应的py文件找任务，对多个任务进行分类</span>
+             include=<span style="color: #000000;">[
+                 </span><span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_1</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                 </span><span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_2</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                 </span><span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_3</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+             ])
+
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> celery提供一些配置，具体可查看官方文档</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> app.conf.timezone = "Asia/Shanghai"</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> app.conf.enable_utc = True</span>
+
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 计划任务</span>
+<span style="color: #0000ff;">from</span> datetime <span style="color: #0000ff;">import</span><span style="color: #000000;"> timedelta
+</span><span style="color: #0000ff;">from</span> celery.schedules <span style="color: #0000ff;">import</span><span style="color: #000000;"> crontab
+app.conf.beat_schedule </span>=<span style="color: #000000;"> {
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">submit_every_2_seconds</span><span style="color: #800000;">'</span><span style="color: #000000;">: {
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 计划的任务执行函数</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">task</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_1.add1</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 每个2秒执行一次</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">schedule</span><span style="color: #800000;">'</span>: timedelta(seconds=2<span style="color: #000000;">),
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 传递的任务函数参数</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">args</span><span style="color: #800000;">'</span>: (3, 9<span style="color: #000000;">)
+    },
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">submit_every_3_seconds</span><span style="color: #800000;">'</span><span style="color: #000000;">: {
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 计划的任务执行函数</span>
+            <span style="color: #800000;">'</span><span style="color: #800000;">task</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_2.add2</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 每个3秒执行一次</span>
+            <span style="color: #800000;">'</span><span style="color: #800000;">schedule</span><span style="color: #800000;">'</span>: timedelta(seconds=3<span style="color: #000000;">),
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 传递的任务函数参数</span>
+            <span style="color: #800000;">'</span><span style="color: #800000;">args</span><span style="color: #800000;">'</span>: (4, 7<span style="color: #000000;">)
+    },
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">submit_in_fix_datetime</span><span style="color: #800000;">'</span><span style="color: #000000;">: {
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">task</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">celery_task.task_3.add3</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 比如每年的7月13日10点53分执行</span>
+        <span style="color: #008000;">#</span><span style="color: #008000;"> 注意：默认使用utc时间，当前的时间中的小时必须要-8个小时才会到点提交</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">schedule</span><span style="color: #800000;">'</span>: crontab(minute=53, hour=2, day_of_month=13, month_of_year=7<span style="color: #000000;">),
+        
+        </span><span style="color: #800000;">'''</span><span style="color: #800000;">
+        # 如果不想-8，可以先设置时区，再按正常时间设置
+        app.conf.timezone = "Asia/Shanghai"
+        app.conf.enable_utc = True
+        </span><span style="color: #800000;">'''</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">args</span><span style="color: #800000;">'</span>: (<span style="color: #800000;">'</span><span style="color: #800000;">Hello World</span><span style="color: #800000;">'</span><span style="color: #000000;">,)
+    }
+
+}
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 上面写完后，需要起一个进程，启动计划任务</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> celery beat -A celery_task -l info</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 启动worker：</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> celery worker -A celery_task -l info -P eventlet</span></pre>
+</div>
+<p>&nbsp;Django中使用celery</p>
+<p>django-celery：由于djang-celery模块对版本的要求过于严格，而且容易出现很多bug，所以不建议使用</p>
+<p>直接使用celery多任务结构的，将celery多任务结构的代码文件夹celery_task拷贝到Django项目中，然后在视图函数中进行任务提交、然后进行结构查看。(启动项目时候记得将worker启动起来，注意启动路径要跟你拷贝的celery_task文件同级)</p>
+<p><span style="color: #000080;"><strong>注意：当我们在Django项目中使用celery，在celery的任务函数中不能直接调用django的环境(比如orm方法查询数据库)，需要添加代码调用Django环境</strong></span></p>
+<p><span style="color: #000080;"><strong>在Python脚本中调用Django环境</strong></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 加载Django环境，bbs是所在的Django项目名称</span>
+    os.environ.setdefault(<span style="color: #800000;">"</span><span style="color: #800000;">DJANGO_SETTINGS_MODULE</span><span style="color: #800000;">"</span>, <span style="color: #800000;">'</span><span style="color: #800000;">bbs.settings</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 引入Django模块</span>
+    <span style="color: #0000ff;">import</span><span style="color: #000000;"> django
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 初始化Django环境</span>
+<span style="color: #000000;">    django.setup()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 从app当中导入models</span>
+    <span style="color: #0000ff;">from</span> app01 <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 调用操作，拿到数据库中的所有Book数据对象</span>
+    books = models.Books.objects.all()</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

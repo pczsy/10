@@ -1,0 +1,368 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[从今天开始修炼数据结构]无环图的应用 —— 拓扑排序和关键路径算法' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[从今天开始修炼数据结构]无环图的应用 —— 拓扑排序和关键路径算法</center></div><div class='banquan'>原文出处:本文由博客园博主Joey777210提供。<br/>
+原文连接:https://www.cnblogs.com/Joey777210/p/12070708.html</div><br>
+    <p>上一篇文章我们学习了最短路径的两个算法。它们是有环图的应用。下面我们来谈谈无环图的应用。</p>
+<p><span style="font-size: 14pt;"><strong>　　一、拓扑排序</strong></span></p>
+<p>　　　　博主大学学的是土木工程，在老本行，施工时很关键的节约人力时间成本的一项就是流水施工，钢筋没绑完，浇筑水泥的那帮兄弟就得在那等着，所以安排好流水施工，让工作周期能很好地衔接就很关键。这样的工程活动，抽象成图的话是无环的有向图。</p>
+<p>　　　　在表示工程的有向图中，用顶点表示活动，弧表示活动之间的优先关系，这样的有向图为顶点表示活动的网，成为AOV网（Active On Vertex Network）</p>
+<p>　　　※ 若在一个具有n个顶点的有向图G =&nbsp; (V,E)中,V中的顶点序列v1,v2, &hellip;&hellip; , vn满足若从顶点vi到vj有一条路径，则在顶点序列中，顶点vi必然在vj之前。则我们称这样的顶点序列为一个拓扑序列。</p>
+<p>　　　　<strong>所谓拓扑排序，其实就是对一个有向图构造拓扑序列的过程。</strong>构造时会有两个结果：1，此网的全部顶点都被输出，则说明它是不存在环的AOV网；2，如果输出顶点数少了，哪怕是少了一个，也说明这个网存在回路，不是AOV网。</p>
+<p>　　<strong><span style="font-size: 18px;">拓扑排序算法：</span></strong></p>
+<p><strong><span style="font-size: 18px;">　　　</span></strong><span style="font-size: 14px;">对AOV网进行拓扑排序的基本思路是：从AOV网中选择一个入度为0的顶点输出，然后删去此顶点和以此顶点为尾的弧，继续重复此步骤，直到输出全部顶点或者AOV网中不存在入度为0的顶点为止。</span></p>
+<p><span style="font-size: 14px;">　　　　拓扑排序算法的实现显然用邻接表比较方便。我们还需要另外一个辅助的栈来存储入度为0的顶点，免得每次找入度为0的顶点都要遍历整个图。</span></p>
+<p><span style="font-size: 14px;">　　　　给出示例图如下：</span></p>
+<p><span style="font-size: 14px;">　　　　<img src="./images/[从今天开始修炼数据结构]无环图的应用 —— 拓扑排序和关键路径算法0.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;　　代码实现：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;">边结点的定义</span>
+<span style="color: #0000ff;">package</span><span style="color: #000000;"> Graph.TopologicalSort;
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Edge {
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> begin;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> end;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Edge next;
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Edge getNext() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> next;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setNext(Edge next) {
+        </span><span style="color: #0000ff;">this</span>.next =<span style="color: #000000;"> next;
+    }
+
+    </span><span style="color: #0000ff;">public</span> Edge(<span style="color: #0000ff;">int</span> begin, <span style="color: #0000ff;">int</span><span style="color: #000000;"> end){
+        </span><span style="color: #0000ff;">this</span>.begin =<span style="color: #000000;"> begin;
+        </span><span style="color: #0000ff;">this</span>.end =<span style="color: #000000;"> end;
+        </span><span style="color: #0000ff;">this</span>.next = <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> getBegin() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> begin;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setBegin(<span style="color: #0000ff;">int</span><span style="color: #000000;"> begin) {
+        </span><span style="color: #0000ff;">this</span>.begin =<span style="color: #000000;"> begin;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> getEnd() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> end;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setEnd(<span style="color: #0000ff;">int</span><span style="color: #000000;"> end) {
+        </span><span style="color: #0000ff;">this</span>.end =<span style="color: #000000;"> end;
+    }
+}</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">//</span><span style="color: #008000;">顶点结点的定义</span>
+<span style="color: #0000ff;">package</span><span style="color: #000000;"> Graph.TopologicalSort;
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Vertex {
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> data;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> in;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> out;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Edge edge;
+
+    </span><span style="color: #0000ff;">public</span> Vertex(<span style="color: #0000ff;">int</span><span style="color: #000000;"> data){
+        </span><span style="color: #0000ff;">this</span>.data =<span style="color: #000000;"> data;
+        </span><span style="color: #0000ff;">this</span>.in = 0<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">this</span>.out = 0<span style="color: #000000;">;
+        edge </span>= <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+    }
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Edge getEdge() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> edge;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setEdge(Edge next) {
+        </span><span style="color: #0000ff;">this</span>.edge =<span style="color: #000000;"> next;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> getData() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> data;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setData(<span style="color: #0000ff;">int</span><span style="color: #000000;"> data) {
+        </span><span style="color: #0000ff;">this</span>.data =<span style="color: #000000;"> data;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> getIn() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> in;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setIn(<span style="color: #0000ff;">int</span><span style="color: #000000;"> in) {
+        </span><span style="color: #0000ff;">this</span>.in =<span style="color: #000000;"> in;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> getOut() {
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> out;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setOut(<span style="color: #0000ff;">int</span><span style="color: #000000;"> out) {
+        </span><span style="color: #0000ff;">this</span>.out =<span style="color: #000000;"> out;
+    }
+}</span></pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> Graph.TopologicalSort;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Stack;
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> DigraphAdjust {
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> numVertex;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> maxNumVertex;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Vertex[] vertexs;
+
+    </span><span style="color: #0000ff;">public</span> DigraphAdjust(<span style="color: #0000ff;">int</span><span style="color: #000000;"> maxNumVertex){
+        </span><span style="color: #0000ff;">this</span>.maxNumVertex =<span style="color: #000000;"> maxNumVertex;
+        vertexs </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Vertex[maxNumVertex];
+        numVertex </span>= 0<span style="color: #000000;">;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> addVertex(<span style="color: #0000ff;">int</span><span style="color: #000000;"> data){
+        Vertex newVertex </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Vertex(data);
+        vertexs[numVertex</span>++] =<span style="color: #000000;"> newVertex;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> addEdge(<span style="color: #0000ff;">int</span> begin, <span style="color: #0000ff;">int</span><span style="color: #000000;"> end){
+        Edge newEdge </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Edge(begin, end);
+        Vertex beginV </span>=<span style="color: #000000;"> vertexs[begin];
+        beginV.setOut(vertexs[begin].getOut() </span>+ 1<span style="color: #000000;">);
+        vertexs[end].setIn(vertexs[end].getIn() </span>+ 1<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">if</span> (beginV.getEdge() == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            beginV.setEdge(newEdge);
+        }</span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            Edge e </span>=<span style="color: #000000;"> beginV.getEdge();
+            beginV.setEdge(newEdge);
+            newEdge.setNext(e);
+        }
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> deleteVertex(<span style="color: #0000ff;">int</span><span style="color: #000000;"> index){
+        Edge e </span>=<span style="color: #000000;"> vertexs[index].getEdge();
+        </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> k;
+        </span><span style="color: #0000ff;">for</span> (; e != <span style="color: #0000ff;">null</span>; e =<span style="color: #000000;"> e.getNext()){
+            vertexs[e.getEnd()].setIn(vertexs[e.getEnd()].getIn() </span>- 1<span style="color: #000000;">);
+            k </span>=<span style="color: #000000;"> vertexs[e.getEnd()].getIn();
+            </span><span style="color: #0000ff;">if</span> (k == 0<span style="color: #000000;">){
+                zeroIn.push(e.getEnd());
+            }
+        }
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">这里并非真的删除顶点，而是只让后续结点的入度减一即可</span>
+        <span style="color: #008000;">/*</span><span style="color: #008000;">
+        for (int i = index; i &lt; numVertex - 1; i++) {
+            vertexs[i] = vertexs[i + 1];
+        }
+        numVertex--;
+         </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    }
+
+    </span><span style="color: #0000ff;">private</span> Stack&lt;Integer&gt; zeroIn = <span style="color: #0000ff;">new</span> Stack&lt;&gt;<span style="color: #000000;">();
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">拓扑算法</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> TopologicalSort(){
+
+        </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = 0; i &lt; numVertex; i++<span style="color: #000000;">){
+            </span><span style="color: #0000ff;">if</span> (vertexs[i].getIn() == 0<span style="color: #000000;">){
+                zeroIn.push(i);
+            }
+        }
+
+        </span><span style="color: #0000ff;">int</span> count = 0<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">while</span> (!<span style="color: #000000;">zeroIn.isEmpty()){
+            </span><span style="color: #0000ff;">int</span> node =<span style="color: #000000;"> zeroIn.pop();
+            System.out.println(vertexs[node].getData() </span>+ "  " + ++<span style="color: #000000;">count);
+
+            deleteVertex(node);
+        }
+
+        </span><span style="color: #0000ff;">if</span> (count &lt;<span style="color: #000000;"> numVertex){
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+        }</span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+        }
+    }
+
+}</span></pre>
+</div>
+<p>总结：对一个具有n个顶点e条弧的AOV网来说，扫描顶点表将入度为0的顶点入栈的时间复杂度是O(n)，之后的while循环中，每个顶点进一次栈，出一次栈，入度减1的操作共执行了e次，所以整个算法的时间复杂度为O（n+e）</p>
+<p><span style="font-size: 14pt;"><strong>二、关键路径</strong></span></p>
+<p>　　关键路径是为了解决工程完成需要的最短时间问题。</p>
+<p>　　<strong>在一个表示工程的带权有向图中，用顶点表示事件，用有向图表示活动，用边上的权值表示活动的持续时间，这种有向图的边表示活动的网，我们称之为AOE网。</strong></p>
+<p>　　如下：</p>
+<p><img src="./images/[从今天开始修炼数据结构]无环图的应用 —— 拓扑排序和关键路径算法1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>　　路径上各个活动所持续的时间之和成为路径长度，从原点到终点具有最大长度的路径叫做关键路径，在关键路径上的活动叫做关键活动。&nbsp;</p>
+<p>　　为此，需要定义如下几个参数：</p>
+<p>　　1.事件的最早发生时间etv（earliest time of vertex）：即顶点vkvk的最早发生时间<br />　　2.事件的最晚发生时间ltv（latest time of vertex）：即顶点vkvk的最晚发生时间，也就是每个顶点对应的事件最晚需要开始时间，超出此时间将会延误整个工期<br />　　3.活动的最早开工时间ete（earliest time of edge）：即弧akak的最早发生时间<br />　　4.活动的最晚开工时间lte（latest time of edge）：即弧akak的最晚发生时间，也就是不推迟工期的最晚开工时间</p>
+<p><strong><span style="font-size: 16px;">　　如何找关键路径：</span></strong></p>
+<p>　　如果一个活动，它的最早开始时间和最晚开始时间是一样的，也就是说，它不能被拖延，那么它就是关键活动了。关键活动的长度决定了工程总耗时。<strong>那么我们找到所有活动的最早开始时间和最晚开始时间，比较哪些活动的二者是相等的，这些活动就是关键活动。</strong></p>
+<p><strong><span style="font-size: 16px;">　　关键路径算法：</span></strong></p>
+<p>　　我们先求事件的最早发生时间etv，利用我们上面讲过的从头至尾找拓扑序列的过程，并且在这个过程中存下每个顶点前驱的发生时间加上二者之间边的权值，就是该顶点的最早发生时间。</p>
+<p>　　代码如下</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.Stack;
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Graph {
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> numVertex;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> maxNumVertex;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> VertexC[] vertexs;
+
+    </span><span style="color: #0000ff;">public</span> Graph(<span style="color: #0000ff;">int</span><span style="color: #000000;"> maxNumVertex){
+        </span><span style="color: #0000ff;">this</span>.maxNumVertex =<span style="color: #000000;"> maxNumVertex;
+        vertexs </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> VertexC[maxNumVertex];
+        numVertex </span>= 0<span style="color: #000000;">;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> addVertex(<span style="color: #0000ff;">int</span><span style="color: #000000;"> data){
+        VertexC newVertex </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> VertexC(data);
+        vertexs[numVertex</span>++] =<span style="color: #000000;"> newVertex;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> addEdge(<span style="color: #0000ff;">int</span> begin, <span style="color: #0000ff;">int</span> end, <span style="color: #0000ff;">int</span><span style="color: #000000;"> weight){
+        EdgeC newEdge </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> EdgeC(begin, end, weight);
+        VertexC beginV </span>=<span style="color: #000000;"> vertexs[begin];
+        beginV.setOut(vertexs[begin].getOut() </span>+ 1<span style="color: #000000;">);
+        vertexs[end].setIn(vertexs[end].getIn() </span>+ 1<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">if</span> (beginV.getEdge() == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            beginV.setEdge(newEdge);
+        }</span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            EdgeC e </span>=<span style="color: #000000;"> beginV.getEdge();
+            beginV.setEdge(newEdge);
+            newEdge.setNext(e);
+        }
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> deleteVertex(<span style="color: #0000ff;">int</span><span style="color: #000000;"> index){
+        EdgeC e </span>=<span style="color: #000000;"> vertexs[index].getEdge();
+        </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> k;
+        </span><span style="color: #0000ff;">for</span> (; e != <span style="color: #0000ff;">null</span>; e =<span style="color: #000000;"> e.getNext()){
+            vertexs[e.getEnd()].setIn(vertexs[e.getEnd()].getIn() </span>- 1<span style="color: #000000;">);
+            k </span>=<span style="color: #000000;"> vertexs[e.getEnd()].getIn();
+            </span><span style="color: #0000ff;">if</span> (k == 0<span style="color: #000000;">){
+                zeroIn.push(e.getEnd());
+            }
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">关键部分：求各顶点事件的最早发生时间。
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">即刚刚被删除的顶点的最早发生时间加上这两点之间权值 与 要求的顶点之前的最早发生时间 之间取较大值</span>
+            <span style="color: #0000ff;">if</span><span style="color: #000000;">(etv[topoStack.peek()]
+                    </span>+<span style="color: #000000;"> e.getWeight()
+                    </span>&gt;<span style="color: #000000;"> etv[e.getEnd()]){
+                etv[e.getEnd()] </span>= etv[topoStack.peek()] +<span style="color: #000000;"> e.getWeight();
+            }
+        }
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">这里并非真的删除顶点，而是只让后续结点的入度减一即可</span>
+        <span style="color: #008000;">/*</span><span style="color: #008000;">
+        for (int i = index; i &lt; numVertex - 1; i++) {
+            vertexs[i] = vertexs[i + 1];
+        }
+        numVertex--;
+         </span><span style="color: #008000;">*/</span><span style="color: #000000;">
+    }
+
+    </span><span style="color: #0000ff;">private</span> Stack&lt;Integer&gt; zeroIn = <span style="color: #0000ff;">new</span> Stack&lt;&gt;<span style="color: #000000;">();
+    </span><span style="color: #0000ff;">private</span> Stack&lt;Integer&gt; topoStack = <span style="color: #0000ff;">new</span> Stack&lt;&gt;<span style="color: #000000;">();
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span>[] etv; <span style="color: #008000;">//</span><span style="color: #008000;">事件的最早发生时间</span>
+    <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span>[] ltv; <span style="color: #008000;">//</span><span style="color: #008000;">事件的最晚发生时间
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;">拓扑排序算法</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> TopologicalSort(){
+
+        </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = 0; i &lt; numVertex; i++<span style="color: #000000;">){
+            etv </span>= <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span><span style="color: #000000;">[numVertex];
+            </span><span style="color: #0000ff;">if</span> (vertexs[i].getIn() == 0<span style="color: #000000;">){
+                zeroIn.push(i);
+            }
+            etv[i] </span>= 0<span style="color: #000000;">;
+        }
+
+        </span><span style="color: #0000ff;">int</span> count = 0<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">while</span> (!<span style="color: #000000;">zeroIn.isEmpty()){
+            </span><span style="color: #0000ff;">int</span> node =<span style="color: #000000;"> zeroIn.pop();
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">System.out.println(vertexs[node].getData() + "  " + ++count);</span>
+            topoStack.push(node);   <span style="color: #008000;">//</span><span style="color: #008000;">将弹出的顶点序号压入拓扑排序的栈</span>
+<span style="color: #000000;">            deleteVertex(node);
+        }
+
+        </span><span style="color: #0000ff;">if</span> (count &lt;<span style="color: #000000;"> numVertex){
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+        }</span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+        }
+    }</span></pre>
+</div>
+<p>　　然后将ltv数组初始化为etv[]最后一个元素的值，每个顶点的最晚发生时间是其每个后继节点的最晚发生时间减去二者之间活动的持续时间，这样我们求得了ltv数组。</p>
+<p>　　之后再根据etv数组和ltv数组求得ete数组。ete数组是活动的最早开工时间，它等于它的前驱事件的最早发生时间，也就是说ete数组和etv数组是相等的。</p>
+<p>　　　　lte数组是活动的最晚开工时间，也就等于它的后继事件的最晚发生时间减去活动的持续时间，也就等于对应的ltv数组减去weight。这样我们把两个数组都求出来了。</p>
+<p>　　　　后面只需要比较每个顶点的ete和lte是否相等，就知道这个活动是不是关键活动。代码如下</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> CriticalPath(){
+        </span><span style="color: #0000ff;">int</span>[] ete = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span>[numVertex]; <span style="color: #008000;">//</span><span style="color: #008000;">保存边上活动的最早开始时间,其index表示该边begin的index</span>
+        <span style="color: #0000ff;">int</span>[] lte = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span>[numVertex]; <span style="color: #008000;">//</span><span style="color: #008000;">保存边上活动的最晚开始时间</span>
+        EdgeC e;    <span style="color: #008000;">//</span><span style="color: #008000;">下面用来保存顶点的临时变量</span>
+        TopologicalSort();  <span style="color: #008000;">//</span><span style="color: #008000;">先通过拓扑排序求出etv
+
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">初始化ltv</span>
+         ltv = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">int</span><span style="color: #000000;">[numVertex];
+        </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = 0; i &lt; numVertex; i++<span style="color: #000000;">){
+            ltv[i] </span>= etv[numVertex - 1<span style="color: #000000;">];
+        }
+
+        </span><span style="color: #0000ff;">while</span> (!<span style="color: #000000;">topoStack.isEmpty()) {
+            </span><span style="color: #0000ff;">int</span> node =<span style="color: #000000;"> topoStack.pop();
+            </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> adj;
+
+            </span><span style="color: #008000;">//</span><span style="color: #008000;">求得每一个顶点事件的最晚发生时间,类似反向拓扑排序</span>
+            <span style="color: #0000ff;">for</span> (e = vertexs[node].getEdge(); e != <span style="color: #0000ff;">null</span>; e =<span style="color: #000000;"> e.getNext()) {
+                adj </span>=<span style="color: #000000;"> e.getEnd();
+                </span><span style="color: #0000ff;">if</span> (ltv[adj] - e.getWeight() &lt;<span style="color: #000000;"> ltv[node]) {
+                    ltv[node] </span>= ltv[adj] -<span style="color: #000000;"> e.getWeight();
+                }
+            }
+            </span><span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span><span style="color: #000000;"> i : ltv) {
+                System.out.println(i);
+            }
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">求关键路径 .</span>
+         +
+        <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> index = 0; index &lt; numVertex; index++<span style="color: #000000;">){
+            </span><span style="color: #0000ff;">for</span> (e = vertexs[index].getEdge(); e != <span style="color: #0000ff;">null</span>; e =<span style="color: #000000;"> e.getNext()){
+                ete[index] </span>=<span style="color: #000000;"> etv[index];
+                lte[index] </span>= ltv[e.getEnd()] -<span style="color: #000000;"> e.getWeight();
+                </span><span style="color: #0000ff;">if</span> (ete[index] ==<span style="color: #000000;"> lte[index]){
+                    System.out.printf(</span>"(%d,%d) : %d \n"<span style="color: #000000;">, vertexs[index].getData(), vertexs[e.getEnd()].getData(), e.getWeight());
+                }
+            }
+        }
+     }</span></pre>
+</div>
+<p>这个例子只是求得了唯一一条关键路径，并不代表再别的例子中不存在多条关键路径。</p>
+<p>&nbsp;</p>
+<p>到这里图就基本讲的差不多了，下面放框架</p>
+<p><img src="./images/[从今天开始修炼数据结构]无环图的应用 —— 拓扑排序和关键路径算法2.png" alt="" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

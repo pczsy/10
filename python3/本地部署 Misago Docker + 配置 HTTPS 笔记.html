@@ -1,0 +1,141 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修本地部署 Misago Docker + 配置 HTTPS 笔记' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>本地部署 Misago Docker + 配置 HTTPS 笔记</center></div><div class='banquan'>原文出处:本文由博客园博主初七&#176;提供。<br/>
+原文连接:https://www.cnblogs.com/zannen/p/11367885.html</div><br>
+    <p>最近答应帮朋友做个论坛网站，想借此机会捡起 Python</p>
+<p>在 GitHub 找了一圈，打算借用以 Python+Django 开发的&nbsp;<a href="https://github.com/rafalp/Misago" target="_blank">Misago</a>&nbsp;这个论坛系统</p>
+<p>由于作者在今年更新的 Misago 0.20 版本中，使用 Docker 打包整个项目，还需要启用 HTTPS，这为我本地开发部署制造了不少问题</p>
+<p>经验不足，折腾了一下午，终于在本地部署成功，记录一下过程</p>
+<p>新版 Misago 有一个新项目 <a href="https://github.com/rafalp/misago_docker" target="_blank">Misago Docker</a>，<a href="https://misago.gitbook.io/docs/" target="_blank">文档</a>也进行了更新</p>
+<p><span style="font-size: 16px;">一、安装 Docker 和 Docker Compose</span></p>
+<p>按照文档的安装要求，我首先在本地 Vagrant 虚拟机中安装 Docker 和 Docker Compose</p>
+<p>虚拟机系统是 Ubuntu 16.04</p>
+<p>参照<a href="https://docs.docker.com/install/linux/docker-ce/ubuntu" target="_blank">官方安装指南</a>依次执行，或编写安装脚本</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> apt-<span style="color: #000000;">get update
+
+# Docker 的源是 https，所以安装这些软件用于支持 https 的 apt 仓库
+</span><span style="color: #0000ff;">sudo</span> apt-get <span style="color: #0000ff;">install</span> -y apt-transport-https ca-certificates curl gnupg-agent software-properties-<span style="color: #000000;">common
+
+# 添加 Docker 的官方 GPG key
+curl </span>-fsSL https:<span style="color: #008000;">//</span><span style="color: #008000;">download.docker.com/linux/ubuntu/gpg | sudo apt-key add -</span>
+<span style="color: #000000;">
+# 设置官方 Docker 源
+</span><span style="color: #0000ff;">sudo</span> add-apt-<span style="color: #000000;">repository \
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">deb [arch=amd64] https://download.docker.com/linux/ubuntu \</span>
+    $(lsb_release -<span style="color: #000000;">cs) \
+    stable</span><span style="color: #800000;">"
+</span><span style="color: #000000;">
+# 安装 Docker
+</span><span style="color: #0000ff;">sudo</span> apt-<span style="color: #000000;">get update
+</span><span style="color: #0000ff;">sudo</span> apt-get <span style="color: #0000ff;">install</span> -y docker-ce docker-ce-cli containerd.io</pre>
+</div>
+<p>接下来安装 Docker Compose（<a href="https://docs.docker.com/compose/install/" target="_blank">官方安装指南</a>），也可以换国内源安装（但是我用国内源不能下载&hellip;）</p>
+<p>注意中间的版本号</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> curl -L <span style="color: #800000;">"</span><span style="color: #800000;">https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)</span><span style="color: #800000;">"</span> -o /usr/local/bin/docker-<span style="color: #000000;">compose
+</span><span style="color: #0000ff;">sudo</span> <span style="color: #0000ff;">chmod</span> +x /usr/local/bin/docker-compose</pre>
+</div>
+<p><span style="font-size: 16px;">二、安装 Misago Docker</span></p>
+<p>参照<a href="https://misago.gitbook.io/docs/setup/misago" target="_blank">安装文档</a>，下载 Misago 到目录 misago_docker</p>
+<div class="cnblogs_code">
+<pre><code>git clone https:<span style="color: #008000;">//</span><span style="color: #008000;">github.com/rafalp/misago_docker.git --depth=1</span></pre>
+</div>
+<p>进入目录，执行安装脚本&nbsp;<span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmFwcGN0bCUyMiUyQyUyMm1hcmtzJTIyJTNBJTVCJTdCJTIyb2JqZWN0JTIyJTNBJTIybWFyayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJjb2RlJTIyJTJDJTIyZGF0YSUyMiUzQSU3QiU3RCU3RCU1RCU3RCU1RCU3RCU1RCU3RCU1RCU3RA==">appctl</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">cd misago_docker
+.</span>/appctl setup</pre>
+</div>
+<p>按照提示填写域名、<span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">Let's Encrypt 邮箱、<a href="https://misago.gitbook.io/docs/locales" target="_blank">语言环境</a>、时区、邮件设置等</span></p>
+<p><span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">最后初始化默认数据库，等待安装即可</span></p>
+<p><span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">这里需要注意，Misago Docker 使用&nbsp;<a href="https://github.com/JrCs/docker-letsencrypt-nginx-proxy-companion" target="_blank">letsencrypt-nginx-proxy-companion</a>&nbsp;自动创建 Let's Encrypt 证书，用于 HTTPS</span></p>
+<p><span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">由于我是在本地部署，Let's Encrypt 不能为内网地址创建证书，所以需要使用其他方法</span></p>
+<p><span style="font-size: 16px;" data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">三、本地配置 HTTPS</span></p>
+<p><span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">经过大量尝试，最后总结了一套最方便的方法，</span><span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">使用 <a href="https://github.com/FiloSottile/mkcert" target="_blank">mkcert</a>&nbsp;创建本地开发证书</span></p>
+<p><span data-slate-fragment="JTdCJTIyb2JqZWN0JTIyJTNBJTIyZG9jdW1lbnQlMjIlMkMlMjJkYXRhJTIyJTNBJTdCJTdEJTJDJTIybm9kZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJibG9jayUyMiUyQyUyMnR5cGUlMjIlM0ElMjJwYXJhZ3JhcGglMjIlMkMlMjJpc1ZvaWQlMjIlM0FmYWxzZSUyQyUyMmRhdGElMjIlM0ElN0IlN0QlMkMlMjJub2RlcyUyMiUzQSU1QiU3QiUyMm9iamVjdCUyMiUzQSUyMnRleHQlMjIlMkMlMjJsZWF2ZXMlMjIlM0ElNUIlN0IlMjJvYmplY3QlMjIlM0ElMjJsZWFmJTIyJTJDJTIydGV4dCUyMiUzQSUyMmF0ZS4lMjBNaXNhZ28lMjB1JTIyJTJDJTIybWFya3MlMjIlM0ElNUIlNUQlN0QlNUQlN0QlNUQlN0QlNUQlN0Q=">1.在虚拟机安装 mkcert</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"># 安装依赖 certutil
+</span><span style="color: #0000ff;">sudo</span> apt-<span style="color: #000000;">get update
+</span><span style="color: #0000ff;">sudo</span> apt <span style="color: #0000ff;">install</span> libnss3-<span style="color: #000000;">tools
+
+# 下载 mkcert（当前版本 v1.</span><span style="color: #800080;">3.0</span><span style="color: #000000;">）
+</span><span style="color: #0000ff;">wget</span> -O mkcert https:<span style="color: #008000;">//</span><span style="color: #008000;">github.com/FiloSottile/mkcert/releases/download/v1.3.0/mkcert-v1.3.0-linux-amd64</span>
+<span style="color: #000000;">
+# 设置执行权限
+</span><span style="color: #0000ff;">sudo</span> <span style="color: #0000ff;">chmod</span> +<span style="color: #000000;">x mkcert
+</span><span style="color: #0000ff;">sudo</span> <span style="color: #0000ff;">mv</span> mkcert /usr/local/bin</pre>
+</div>
+<p>为本地域创建 SSL 证书</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"># 安装本地 CA
+</span><span style="color: #0000ff;">sudo</span> mkcert -<span style="color: #0000ff;">install</span><span style="color: #000000;">
+
+# 创建证书
+</span><span style="color: #0000ff;">sudo</span> mkcert domain1 domain2 &hellip;</pre>
+</div>
+<p>2.在宿主机安装 CA</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"># 查看虚拟机中 CA 位置
+mkcert </span>-CAROOT</pre>
+</div>
+<p>复制&nbsp;rootCA.pem 到宿主机，默认安装目录</p>
+<div class="cnblogs_code">
+<pre><code>C:\Users\用户名\AppData\Local\mkcert</pre>
+</div>
+<p><a href="https://github.com/FiloSottile/mkcert/releases" target="_blank">下载</a> Windows 版 mkcert，安装 CA（也可以手动安装啦&hellip;）</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;"># 设置 $CAROOT 目录，或使用默认目录
+# 进入 mkcert 程序目录，执行
+mkcert.exe </span>-<span style="color: #0000ff;">install</span></pre>
+</div>
+<p>3.替换 Misago Docker 中&nbsp;nginx-proxy 的默认证书</p>
+<p>这一步由于不熟悉 Docker 走了好多弯路&hellip;建议学习一下 Docker 的相关知识</p>
+<p>首先观察一下项目中的&nbsp;docker-compose.yaml，这是&nbsp;Docker Compose 的配置文件</p>
+<p>对照&nbsp;<a href="https://github.com/JrCs/docker-letsencrypt-nginx-proxy-companion" target="_blank">letsencrypt-nginx-proxy-companion</a> 的说明，注释掉 nginx-lets-encrypt 容器和对其的依赖</p>
+<p>再对照 <a href="https://github.com/jwilder/nginx-proxy" target="_blank">nginx-proxy</a>&nbsp;的说明，修改&nbsp;nginx-proxy 容器的数据卷挂载</p>
+<div class="cnblogs_code">
+<pre><code># /vagrant/<span style="color: #000000;">certs 是我本地的 SSL 证书目录
+# 证书和密钥的名称应该修改为 域名.crt 域名.key
+volumes:
+    # </span>- nginx-certs:/etc/nginx/<span style="color: #000000;">certs
+    # </span>- nginx-html:/usr/share/nginx/<span style="color: #000000;">html
+    </span>- /vagrant/certs:/etc/nginx/certs</pre>
+</div>
+<p>修改完后重启项目</p>
+<p><span style="font-size: 16px;">四、其他问题</span></p>
+<p>进行到这一步，本以为大功告成</p>
+<p>浏览器访问 https://misago.test（我的本地站点域名）已经显示证书有效</p>
+<p>但是却报了 500 错误&hellip;</p>
+<p>又是一番查找，在 nginx-proxy 的 Issues 里看到好几个相似问题</p>
+<p>最后看到<a href="https://github.com/jwilder/nginx-proxy/issues/897" target="_blank">一个大佬</a>说可能是数据卷挂载问题，需要重建一下容器，才反应过来我之前都是重启，还是对 Docker 不熟悉&hellip;</p>
+<p>于是按照大佬说的，先</p>
+<div class="cnblogs_code">
+<pre><code>docker-compose down</pre>
+</div>
+<p>再</p>
+<div class="cnblogs_code">
+<pre><code>docker-compose up --detach</pre>
+</div>
+<p>问题解决，终于可以愉快地进行本地访问了。</p>
+<p>至此，本地部署 Misago Docker + 配置 HTTPS 全部完成。</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

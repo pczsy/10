@@ -1,0 +1,191 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修浅谈动态规划' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>浅谈动态规划</center></div><div class='banquan'>原文出处:本文由博客园博主偷懒のXJ提供。<br/>
+原文连接:https://www.cnblogs.com/AkatsukiJun/p/11316266.html</div><br>
+    <h1 id="动态规划">动态规划</h1>
+<h2 id="简介">简介</h2>
+<p>​ 动态规划与分治方法相似，都是通过组合子问题的解来求解原问题。一般来说，分治方法将问题划分为互不相交的子问题，递归地求解子问题，再将子问题的解组合起来，求出原问题的解。在此之上，动态规划应用于子问题重叠的情况，即不同的子问题具有公共的子子问题。在这种情况下，分治算法会做许多不必要的工作，它会反复地求解那些公共子子问题。而动态规划算法对每个子子问题只求解一次，将解保存起来，从而无需每次求解一个子子问题时都重新计算，避免了各种不必要的计算工作。</p>
+<h2 id="适用问题">适用问题</h2>
+<p>​ 动态规划通常用来求解<strong>最优化问题</strong>。这类问题可以有很多可行解，每个解都有一个值，我们希望寻找具有最优值（最大值或最小值）的解。我们称这样的解为问题的<strong>一个最优解</strong>，而不是<strong>最优解</strong>，因为可能有多个解都能达到最优值。</p>
+<h2 id="例1最少减速逃离建筑群">例1：最少减速逃离建筑群</h2>
+<h3 id="问题介绍">问题介绍</h3>
+<p>​ 有一个n*n的建筑群，入口位置在（0,0），出口在（n-1,n-1），经过每一个建筑都会造成一定的减速，现在你只能向前或者向下逃跑，请问最少在减速多少时可以逃出建筑群？</p>
+<h3 id="问题分析">问题分析</h3>
+<p>​ 以n=3为例，假设建筑群为：<br />
+<span class="math display">\[
+\begin{matrix}
+5&amp;5&amp;7\\
+6&amp;7&amp;8\\
+2&amp;2&amp;4
+\end{matrix}
+\]</span><br />
+​ 最短路径为5➡6➡2➡2➡4，最少减速是19。</p>
+<p>​ 以分治思想来思考问题，在某个建筑的最少减速一定是“上面建筑的最小减速”和“前面建筑的最小减速”较小的那一个，再加上本建筑的减速值。得到递归式：<br />
+<span class="math display">\[
+f(i,j) = x(i,j) + min(f(i-1,j), f(i, j-1))
+\]</span><br />
+​ 因此很容易写出递归方法：</p>
+<pre><code><code>def func(i, j, maze):
+    if i == 0 and j == 0:
+        rtn = 0
+    elif i == 0 and j &gt;= 1:
+        rtn = func(i, j - 1, maze)
+    elif i &gt;= 1 and j == 0:
+        rtn = func(i - 1, j, maze)
+    else:
+        rtn = min(func(i - 1, j, maze), func(i, j - 1, maze))
+    return rtn + maze[i][j]
+
+
+if __name__ == &#39;__main__&#39;:
+    maze = [[5, 5, 7], [6, 7, 8], [2, 2, 4]]
+    result = func(len(maze) - 1, len(maze) - 1, maze)
+    print(result)  # 运行结果为19</code></pre>
+<p>​ 虽然可以得到正确结果，但是这样有一个问题：<strong>随着n的不断增大，运行时间随指数增长</strong>。当n达到15时，即：</p>
+<pre><code><code>maze = [[7, 6, 4, 1, 4, 2, 4, 1, 9, 3, 1, 2, 9, 2, 9],
+        [5, 8, 9, 7, 9, 9, 4, 3, 6, 1, 7, 2, 4, 3, 8],
+        [8, 9, 7, 3, 7, 5, 9, 4, 5, 5, 5, 4, 8, 3, 1],
+        [5, 9, 7, 9, 1, 8, 9, 8, 3, 9, 4, 3, 5, 6, 8],
+        [4, 3, 4, 8, 8, 1, 3, 2, 3, 3, 8, 1, 8, 8, 5],
+        [7, 8, 6, 2, 9, 1, 4, 6, 7, 2, 7, 9, 1, 9, 5],
+        [3, 2, 6, 1, 1, 1, 8, 2, 7, 7, 7, 6, 4, 9, 6],
+        [3, 2, 4, 2, 5, 5, 1, 1, 4, 7, 5, 1, 6, 6, 5],
+        [2, 4, 1, 6, 1, 2, 2, 2, 2, 4, 6, 1, 1, 9, 5],
+        [8, 8, 6, 8, 3, 6, 3, 6, 9, 7, 4, 7, 3, 8, 2],
+        [3, 5, 7, 1, 9, 1, 4, 5, 8, 7, 8, 4, 5, 5, 7],
+        [9, 4, 7, 1, 8, 7, 5, 6, 5, 8, 4, 7, 4, 8, 6],
+        [1, 7, 4, 1, 8, 7, 9, 6, 8, 7, 8, 4, 3, 2, 7],
+        [1, 8, 4, 9, 9, 4, 5, 1, 1, 8, 3, 8, 2, 4, 9],
+        [8, 1, 8, 8, 8, 9, 7, 3, 9, 1, 1, 6, 2, 7, 9]]</code></pre>
+<p>运行结果为105，运行时间为40s左右，随着n继续增长，运行时间成倍的增长。</p>
+<h3 id="动态规划解法">动态规划解法</h3>
+<p>​ 动态规划的核心思想就是建立备忘录，使得重复计算的最优值只计算一次。比如f(6,6)就至少在计算f(7,6)和f(6,7)的时候被重复计算过（实际上重复计算的次数特别多）。闲话不多说，上代码：</p>
+<pre><code><code>memo = {}
+def func(i, j, maze):
+    rtn = memo.get((i, j), None)
+    if rtn is None:
+        if i == 0 and j == 0:
+            rtn = 0
+        elif i == 0 and j &gt;= 1:
+            rtn = func(i, j - 1, maze)
+        elif i &gt;= 1 and j == 0:
+            rtn = func(i - 1, j, maze)
+        else:
+            rtn = min(func(i - 1, j, maze), func(i, j - 1, maze))
+        memo[(i, j)] = rtn
+    return rtn + maze[i][j]
+
+
+if __name__ == &#39;__main__&#39;:
+    # maze = [[5, 5, 7], [6, 7, 8], [2, 2, 4]]
+    maze = [[7, 6, 4, 1, 4, 2, 4, 1, 9, 3, 1, 2, 9, 2, 9],
+            [5, 8, 9, 7, 9, 9, 4, 3, 6, 1, 7, 2, 4, 3, 8],
+            [8, 9, 7, 3, 7, 5, 9, 4, 5, 5, 5, 4, 8, 3, 1],
+            [5, 9, 7, 9, 1, 8, 9, 8, 3, 9, 4, 3, 5, 6, 8],
+            [4, 3, 4, 8, 8, 1, 3, 2, 3, 3, 8, 1, 8, 8, 5],
+            [7, 8, 6, 2, 9, 1, 4, 6, 7, 2, 7, 9, 1, 9, 5],
+            [3, 2, 6, 1, 1, 1, 8, 2, 7, 7, 7, 6, 4, 9, 6],
+            [3, 2, 4, 2, 5, 5, 1, 1, 4, 7, 5, 1, 6, 6, 5],
+            [2, 4, 1, 6, 1, 2, 2, 2, 2, 4, 6, 1, 1, 9, 5],
+            [8, 8, 6, 8, 3, 6, 3, 6, 9, 7, 4, 7, 3, 8, 2],
+            [3, 5, 7, 1, 9, 1, 4, 5, 8, 7, 8, 4, 5, 5, 7],
+            [9, 4, 7, 1, 8, 7, 5, 6, 5, 8, 4, 7, 4, 8, 6],
+            [1, 7, 4, 1, 8, 7, 9, 6, 8, 7, 8, 4, 3, 2, 7],
+            [1, 8, 4, 9, 9, 4, 5, 1, 1, 8, 3, 8, 2, 4, 9],
+            [8, 1, 8, 8, 8, 9, 7, 3, 9, 1, 1, 6, 2, 7, 9]]
+    result = func(len(maze) - 1, len(maze) - 1, maze)
+    print(result)  # 结果仍然是105</code></pre>
+<p>​ 这里增加了一个字典类型memo作为备忘录，在每次计算最优值之前，先查备忘录，看这个最优值在之前有没有计算过。如果有，直接从备忘录中读取最优值；如果没有，则计算最优值，并在计算完成后将最优值记录在备忘录里。用动态规划的方法一瞬间就完成了n=15的规模计算，计算n=1000的规模也只需要2s左右</p>
+<h2 id="例2最长回文子序列长度">例2：最长回文子序列长度</h2>
+<h3 id="问题介绍-1">问题介绍：</h3>
+<h4 id="回文">回文</h4>
+<p>​ 回文是指正向遍历和反向遍历完全相同的字符串，比如noon、level、pip都是回文。</p>
+<h4 id="子序列">子序列</h4>
+<p>​ 说到子序列就必须先说一下子串，这两个概念很容易搞混。</p>
+<p>​ 子串是指字符串中连续的n个字符。比如在imbalance中，imba、balan、lance等都属于imbalance的子串。</p>
+<p>​ 而子序列是指字符串中不一定连续但先后顺序一致的n个字符，如ibal、baa、ace、等都是imbalance的子序列。子序列的概念要大于子串的概念。</p>
+<h4 id="最长回文子序列">最长回文子序列</h4>
+<p>​ 以character为例，ara是character的一个回文子序列，长度为3，但却不是character的最长回文子序列，最长回文子序列应为carac，长度为5，因此character的最长回文子序列长度为5。</p>
+<h3 id="问题分析-1">问题分析</h3>
+<p>​ 对任意字符串，如果头和尾相同，那么它的最长回文子序列一定是去头去尾之后的部分的最长回文子序列加上头和尾。如果头和尾不同，那么它的最长回文子序列是去头的部分的最长回文子序列和去尾的部分的最长回文子序列中较长的那一个。因此得到递推式：<br />
+<span class="math display">\[
+f(i,j)=\begin{cases}
+f(i+1, j-1) + 2 &amp; s(i)=s(j)\\
+max(f(i+1,j),f(i,j-1)) &amp; s(i)\neq s(j)
+\end{cases}
+\]</span><br />
+递归方法：</p>
+<pre><code><code>def func(start, end, s):
+    if start == end:
+        rtn = 1
+    elif start &gt; end:
+        rtn = 0
+    else:
+        if s[start] == s[end]:
+            rtn = func(start+1, end-1, s) + 2
+        else:
+            rtn = max(func(start + 1, end, s), func(start, end - 1, s))
+    return rtn
+
+
+if __name__ == &#39;__main__&#39;:
+    s = &quot;character&quot;
+    result = func(0, len(s)-1, s)
+    print(result)  # 运行结果为5</code></pre>
+<p>​ 还是老问题，虽然能够得到正确结果，但是计算时间过长。当字符串长度为27时，计算时间约为20s。</p>
+<h3 id="动态规划解法-1">动态规划解法</h3>
+<pre><code><code>memo = {}
+def func(start, end, s):
+    rtn = memo.get((start, end), None)
+    if rtn is None:
+        if start == end:
+            rtn = (1, s[start])
+        elif start &gt; end:
+            rtn = (0, &quot;&quot;)
+        else:
+            if s[start] == s[end]:
+                rtn = func(start + 1, end - 1, s)
+                rtn = (rtn[0] + 2, s[start] + rtn[1] + s[end])
+            else:
+                rtn = max(func(start + 1, end, s), func(start, end - 1, s), key=lambda x: x[0])
+        memo[(start, end)] = rtn
+    return rtn
+
+
+if __name__ == &#39;__main__&#39;:
+    s = &quot;89ac537abdf2b59bb180483eeb142727a7f2788a198cb23c2277de96eec49188d01ed902bd0a38fc256ef8a05a3856a35d567e2c21a99a1d2797ac87a8074f30&quot;
+    result = func(0, len(s)-1, s)
+    print(result)  # 运行结果为(44, &#39;89ac53a5808e2f8ab29e1881e92ba8f2e8085a35ca98&#39;)</code></pre>
+<p>​ 还是一样增加了一个memo备忘录，与之前不同的是，备忘录里不仅记录了最优值，还记录了最优值对应的其中一个最优解。同样大大减少了计算时间，512位的字符串只需要约0.01s就能完成计算。</p>
+<h2 id="总结">总结</h2>
+<p>​ 那么，我们什么时候该使用动态规划呢？</p>
+<p>​ 动态规划方法求解的最优化问题应该具备的两个要素：<strong>最优子结构</strong>和<strong>子问题重叠</strong>。</p>
+<h3 id="最优子结构">最优子结构</h3>
+<p>​ 如果一个问题的最优解包含其子问题的最优解，我们就称此问题具有最优子结构性质。在例1中，f(i,j)的最优解取决于f(i-1,j)、f(i,j-1)的最优解；在例二中，f(i,j)的最优解取决于f(i+1,j-1)、f(i,j-1)、f(i+1,j)的最优解。</p>
+<p>​ 刻画出了最优子结构，基本上就已经解决了问题的一半。</p>
+<h3 id="子问题重叠">子问题重叠</h3>
+<p>​ 适合用动态规划方法求解的最优化问题应该具备的第二个性质是子问题空间必须足够“小”，即问题的递归算法会反复地求解相同的子问题，而不是一直产生新的子问题。动态规划通常通过建立备忘来利用这个性质。</p>
+<h2 id="结语">结语</h2>
+<p>​ 本文的主要目的在于帮助大家理解动态规划的核心思想——<strong>建立备忘</strong>。本文使用的动态规划皆为自顶向下的方法，因为这样很容易从分治算法中转换过来，也便于思考。除了自顶向下的方法外，还有自底向上法，有兴趣的同学可以去读一读《算法导论》，里面讲的很详细，这里不再赘述。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

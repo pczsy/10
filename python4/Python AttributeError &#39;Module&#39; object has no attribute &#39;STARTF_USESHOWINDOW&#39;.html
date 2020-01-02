@@ -1,0 +1,152 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python AttributeError &#39;Module&#39; object has no attribute &#39;STARTF_USESHOWINDOW&#39;' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python AttributeError &#39;Module&#39; object has no attribute &#39;STARTF_USESHOWINDOW&#39;</center></div><div class='banquan'>原文出处:本文由博客园博主dujinyang提供。<br/>
+原文连接:https://www.cnblogs.com/python2048/p/11465815.html</div><br>
+    <blockquote>
+<p>夫学须志也，才须学也，非学无以广才，非志无以成学。——诸葛亮<br />
+生活有度，自得慈铭 ——杜锦阳</p>
+</blockquote>
+<hr/>
+<p>今天新来的同事安装环境遇到个莫名其妙的问题：</p>
+<pre><code><code>AttributeError: &#39;Module&#39; object has no attribute &#39;STARTF_USESHOWINDOW&#39; </code></pre>
+<p>其它小伙伴好像都没遇到过，后来发现，应该是系统的问题，因为还出现了字节混乱的错误:<br />
+<code>UNICODEENCODEERROR:‘ascii’ code  can't  encode...</code></p>
+<p>这个先不提，我们先来看看下面的错误： <code>STARTF_USESHOWINDOW</code></p>
+<p><img src="./images/Python AttributeError &#39;Module&#39; object has no attribute &#39;STARTF_USESHOWINDOW&#39;0.png" alt="深圳市米奇云科技有限公司" /></p>
+<p>因公司信息，所以打上马赛克了。</p>
+<p>百度了一会，发现网上解决方案都不靠谱。</p>
+<p>出错原因：使用了subprocess模块，系统找不到这个模块。</p>
+<p>你可以做个测试：在python下输出subprocess也会报这个错。</p>
+<p>后来想到有可能系统环境的问题和模块代码引起，起初是替换了<code>Lib\site-packages\matplotlib\compat</code>下的<code>subprocess.py</code>，后来想到这是子模块，于是再替换了Lib\下的 <code>subprocess.py</code> ，再运行，一切正常。</p>
+<p><strong>国内外论坛都没找到相关的解释，后来去翻了源码才知道了原因</strong>，Cmd是WIN下命令符，pyc是编译后运行的，和JAVA一样，一次编译多处运行，如果出现这个错误的小伙伴可以找这几个地方替换下，或者直接拿可运行版本的丢进去覆盖下。</p>
+<p>我们来翻看一下：</p>
+<pre><code><code>if mswindows:
+    import threading
+    import msvcrt
+    import _subprocess
+    class STARTUPINFO:
+        dwFlags = 0
+        hStdInput = None
+        hStdOutput = None
+        hStdError = None
+        wShowWindow = 0
+    class pywintypes:
+        error = IOError
+else:
+    import select
+    _has_poll = hasattr(select, &#39;poll&#39;)
+    import fcntl
+    import pickle
+
+    # When select or poll has indicated that the file is writable,
+    # we can write up to _PIPE_BUF bytes without risk of blocking.
+    # POSIX defines PIPE_BUF as &gt;= 512.
+    _PIPE_BUF = getattr(select, &#39;PIPE_BUF&#39;, 512)</code></pre>
+<p>此处是引入了 <code>import _subprocess</code> 模块，也就是说 <code>subprocess.py -&gt; _subprocess</code></p>
+<p>然后定位到：</p>
+<pre><code><code>if mswindows:
+        #
+        # Windows methods
+        #</code></pre>
+<p>在这下面找到：</p>
+<pre><code><code> def _execute_child(self, args, executable, preexec_fn, close_fds,
+                           cwd, env, universal_newlines,
+                           startupinfo, creationflags, shell, to_close,
+                           p2cread, p2cwrite,
+                           c2pread, c2pwrite,
+                           errread, errwrite):
+            &quot;&quot;&quot;Execute program (MS Windows version)&quot;&quot;&quot;
+
+            if not isinstance(args, types.StringTypes):
+                args = list2cmdline(args)
+
+            # Process startup details
+            if startupinfo is None:
+                startupinfo = STARTUPINFO()
+            if None not in (p2cread, c2pwrite, errwrite):
+                startupinfo.dwFlags |= _subprocess.STARTF_USESTDHANDLES
+                startupinfo.hStdInput = p2cread
+                startupinfo.hStdOutput = c2pwrite
+                startupinfo.hStdError = errwrite
+
+            if shell:
+                startupinfo.dwFlags |= _subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = _subprocess.SW_HIDE
+                comspec = os.environ.get(&quot;COMSPEC&quot;, &quot;cmd.exe&quot;)
+                args = &#39;{} /c &quot;{}&quot;&#39;.format (comspec, args)
+                if (_subprocess.GetVersion() &gt;= 0x80000000 or
+                        os.path.basename(comspec).lower() == &quot;command.com&quot;):
+                    # Win9x, or using command.com on NT. We need to
+                    # use the w9xpopen intermediate program. For more
+                    # information, see KB Q150956
+                    # (http://web.archive.org/web/20011105084002/http://support.microsoft.com/support/kb/articles/Q150/9/56.asp)
+                    w9xpopen = self._find_w9xpopen()
+                    args = &#39;&quot;%s&quot; %s&#39; % (w9xpopen, args)
+                    # Not passing CREATE_NEW_CONSOLE has been known to
+                    # cause random failures on win9x.  Specifically a
+                    # dialog: &quot;Your program accessed mem currently in
+                    # use at xxx&quot; and a hopeful warning about the
+                    # stability of your system.  Cost is Ctrl+C wont
+                    # kill children.
+                    creationflags |= _subprocess.CREATE_NEW_CONSOLE</code></pre>
+<p>看到这里，应该不难发现，<code>CREATE_NEW_CONSOLE</code> 是如何触发的。</p>
+<p>再来看下main方法的测试入口：</p>
+<pre><code><code>&quot;&quot;&quot;
+  KARL-Dujinyang
+  QQ:309933706
+&quot;&quot;&quot;
+if __name__ == &quot;__main__&quot;:
+    if mswindows:
+        _demo_windows()
+    else:
+        _demo_posix()</code></pre>
+<p><code>mswindows</code> 在我们文章开头代码中已经提及了，测试的可以拿到此处代码进行测试：</p>
+<pre><code><code>mswindows = (sys.platform == &quot;win32&quot;)</code></pre>
+<p><code>_demo_windows</code> 方法的定义：</p>
+<pre><code><code>def _demo_windows():
+    #
+    # Example 1: Connecting several subprocesses
+    #
+    print &quot;Looking for &#39;PROMPT&#39; in set output...&quot;
+    p1 = Popen(&quot;set&quot;, stdout=PIPE, shell=True)
+    p2 = Popen(&#39;find &quot;PROMPT&quot;&#39;, stdin=p1.stdout, stdout=PIPE)
+    print repr(p2.communicate()[0])
+
+    #dujinyang
+    # Example 2: Simple execution of program
+    #
+    print &quot;Executing calc...&quot;
+    p = Popen(&quot;calc&quot;)
+    p.wait()</code></pre>
+<p><br/></p>
+<p>可以看出，这里是由 <code>OPEN-&gt;CLOSE</code> 所引起的问题。如果出现这个错误的小伙伴可以找这几个地方替换下，或者直接拿可运行版本的丢进去覆盖下，也可以找我拿下源码覆盖，后面如果有时间我会上传到一份到CSDN上。<br />
+<br/><br />
+|| 版权声明：本文为博主杜锦阳原创文章，转载请注明出处。</p>
+<p>|| 版权声明：本文为博主杜锦阳原创文章，转载请注明出处。</p>
+<hr />
+<p>作者：奥特曼超人Dujinyang</p>
+<p>来源：CSDN</p>
+<p>原文：<a href="https://dujinyang.blog.csdn.net/" class="uri">https://dujinyang.blog.csdn.net/</a></p>
+<p>版权声明：本文为博主原创文章，转载请附上博文链接！</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

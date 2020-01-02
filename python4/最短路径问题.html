@@ -1,0 +1,210 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修最短路径问题' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>最短路径问题</center></div><div class='banquan'>原文出处:本文由博客园博主赐我白日梦提供。<br/>
+原文连接:https://www.cnblogs.com/ZhuChangwu/p/12069797.html</div><br>
+    <h3 id="最短路径问题">最短路径问题</h3>
+<p>本文将解析如何使用 Dijkstra 算法求解最短路径问题</p>
+<p>如下图:</p>
+<p><img src="./images/最短路径问题0.png" alt="路径图" /></p>
+<p>就像上图, 每一个点可以理解成一个岔路口, 线段就是路径, 线段上的值为长度, 如何找到从 v0到各个岔路口的最小值, 也就是最短路径问题</p>
+<ul>
+<li><strong>如何使用代码表示出上图呢? </strong></li>
+</ul>
+<p>最短路径问题 和 深度广度搜索一样, 都是建立在图这个数据结构上的, 因此我们可以选用邻接表 或者是临接矩阵 来表示上图 , 封装类如下:</p>
+<pre><code><code>public class Graph01 {
+
+    // 使用邻接表的方式表示图
+    private LinkedList&lt;Edge&gt; [] graph ;
+    // 图中一共多少个点
+    private int size;
+
+    public Graph01(int size) {
+        this.size = size;
+        this.graph = new LinkedList[this.size];
+        for (int i = 0; i &lt; size; i++) {
+            graph[i]=new LinkedList&lt;&gt;();
+        }
+    }
+
+    // 添加点的方法
+    public void addEdge(int s, int e, int w) {
+        this.graph[s].add(new Edge(s, e, w));
+    }</code></pre>
+<p>它大概长这个样子:</p>
+<p><img src="./images/最短路径问题1.png" alt="邻接表1" /></p>
+<ul>
+<li><strong>如何表示两点之间的边?</strong></li>
+</ul>
+<p>一条边有三个描述属性, 两边的顶点 + 权重</p>
+<pre><code><code>   // 边的封装类
+    private class Edge {
+        // 开始点的值
+        private int start;
+        // 结束点的值
+        private int end;
+        // 权重
+        private int weight;
+
+        public Edge(int start, int end, int weight) {
+            this.start = start;
+            this.end = end;
+            this.weight = weight;
+        }
+    }
+</code></pre>
+<ul>
+<li><strong>如何表示顶点</strong></li>
+</ul>
+<p><img src="./images/最短路径问题0.png" alt="路径图" /></p>
+<p>使用两个属性描述顶点, 分别是 dist 和 id , 比如我们描述 v3 , 那么它的id = 3 , dist是到起点v0的距离, 故 dist =13</p>
+<pre><code><code>  // 图中各个点的封装类
+    private class Vertex implements Comparable&lt;Vertex&gt; {
+        // 用户指定的起点到当前点的距离
+        private int dist;
+        // 顶点的id (v1 v2 中的 1 和 2)
+        private int id;
+
+        public Vertex(int dist, int startId) {
+            this.dist = dist;
+            this.id = startId;
+        }
+
+        @Override
+        public int compareTo(Vertex o) {
+            if (o.dist &gt; this.dist) return -1;
+            else return 1;
+        }
+    }</code></pre>
+<ul>
+<li><strong>寻找最短路径的思路</strong></li>
+</ul>
+<p><img src="./images/最短路径问题0.png" alt="路径图" /></p>
+<p>还是看这个图: 比如我们寻找的最短路径就是 v0 到 其它所有的顶点的最短路径 , <strong>按照广度优先顺序遍历这个图</strong></p>
+<p>寻找 v0 的临接点 , 于是我们能发现 v1 v2 v4 v6 这四个点都是v0的临界点, 然后我们分别给 v1 v2 v4 v6 这四个点做出如下的标记</p>
+<pre><code><code> v1.dist = 13   // dist表示的是 当前点到起点的距离
+ v2.dist = 8
+ v4.dist = 30
+ v6.dist = 32</code></pre>
+<p>但是我们发现, 直接相连 , 并不一定是最短的 , 就像下面这样 , 虽然都能到v4 , 但是很显然, 如果按照<code>v0 -&gt; v2 -&gt; v3 -&gt; v4</code> 会更近 , <strong>这就意味着我们需要不断的更新每一个节点到起点的dist值</strong></p>
+<pre><code><code> v0.dist + v4.dist = 30
+ v0.dist + v2.dist + v3.dist = 19 </code></pre>
+<p><strong>那么, 是否存在一个点到起点v0的dist是 百分百确定并且不会更改呢??? 没错,就是 它所有临界点中, dist最小的那个点</strong></p>
+<p><strong>于是, 我们的编码流程就是下面这样</strong></p>
+<ol>
+<li>找到起点</li>
+<li>将起点添加进队列(因为我们是广度优先遍历)</li>
+<li>循环遍历队列中的值
+<ol>
+<li>如果当前点 == 结束点 , 就 break</li>
+<li>从队列中取出dist 最小的点 记作 当前点</li>
+<li>找到当前点的所有直接 临接点</li>
+<li>挨个遍历根节点的临界点
+<ol>
+<li><strong>如何未被访问过, 并且 当前点.dist + 当前路径的长度 &lt; 当前点的下一个点的dist (说明找到了比原来标记的最短路径 , 更短的路径) , 然后 用前者更新后者的值</strong></li>
+<li>将当前点加入到可以还原路径长度的辅助数组中</li>
+<li>如果当前点的下一个点未被访问过, 标记它被访问了, 然后加入队列中</li>
+</ol></li>
+</ol></li>
+</ol>
+<blockquote>
+<p><strong>默认所有的点的 dist = Integer.MAXVALUE</strong></p>
+</blockquote>
+<p>如果看这图, 用笔跟着上面的逻辑画一下的话, 就能发现, 确实能找到 v0到其他各个点的最短路径, 唯一不好理解的部分就是我们用黑色加粗的地方,</p>
+<p><img src="./images/最短路径问题0.png" alt="路径图" /></p>
+<p>我们举例子解释一下 , 还是上图:</p>
+<p><strong>比如, 就从开头说 : </strong></p>
+<p>通过上面的步骤4 , 我们可以遍历到v0的直接临接点是 v4 , 这是第一次访问, 于是我们可以继续处理, 然后我们按照 步骤4.1 进行判断 <code>v0.dist + 30 &lt; v4.dist</code> 条件满足了(默认所有的点的 dist = Integer.MAXVALUE), 于是我们就更新 <code>v4.dist = v0.dist + 30 &lt; v4.dist =30</code></p>
+<p>经过了几轮循环后, 假设当前已经是v3了, 这是我们继续来到步骤4.1中进行判断, <code>v3.dist + 6 &lt; v4.dist</code> 我们发现也是满足的, 因为一开始算出了 v4.dist= 30 , 于是进一步更新这个值, 使<code>v4.dist = v3.dist + 6</code> , 这样迭代下面 , 我们就能获取到起点 到所有点的最短路径</p>
+<p><strong>最短路径 dijkstra 算法实现如下: </strong></p>
+<pre><code><code>   public void dijkstra(int start, int end) {
+        // 标记是否曾访问过
+        boolean[] visited = new boolean[this.size];
+        // 还路径
+        int [] resultArray = new int[this.size];
+        // 存放图中的所有的顶点
+        Vertex[] vertices = new Vertex[this.size];
+        for (int i = 0; i &lt; vertices.length; i++) {
+            vertices[i]=new Vertex(Integer.MAX_VALUE,i);
+        }
+
+        // 获取顶点, 并赋初值为0
+        Vertex startVertex = vertices[0];
+        startVertex.dist = 0;
+        visited[start] = true;
+        // 创建队列,并将头结点入队
+        Queue&lt;Vertex&gt; queue = new PriorityQueue&lt;&gt;();
+        queue.add(startVertex);
+
+        while (!queue.isEmpty()) {
+            // 取出当前距离开始点 dist 最近的点
+            Vertex minVertex = queue.poll();
+            // 如果已经找到了顶点就退出去
+            if (minVertex.id==end) break;
+
+            // 遍历当前点的所有临接点
+            for (int i = 0; i &lt; graph[minVertex.id].size(); i++) {
+                // 依次获取出他们的边
+                Edge edge = graph[minVertex.id].get(i);
+                // 根据边的信息, 取出它的取出它的临界点
+                Vertex nextVertex = vertices[edge.end];
+
+                // 如果当前点 + 当前边的长度 &lt; 当前点到它临界点nextVertex的长度 就说明找到了这个直连点更新的点路径, 于是更新原来的直联点的数据
+                if (minVertex.dist + edge.weight &lt; nextVertex.dist) {
+                    // 更新原来的不准确的路径值
+                    nextVertex.dist = minVertex.dist + edge.weight;
+
+                    /**
+                     * 数值  0 0 0 2 0 0 0
+                     * 下标  0 1 2 3 4 5 6
+                     *
+                     * 下标为3位置的值为2 , 表示在图中  vertex3的前面的vertex2
+                     */
+                    resultArray[nextVertex.id]=minVertex.id;
+                    if (!visited[nextVertex.id]){
+                        queue.add(nextVertex);
+                        visited[nextVertex.id]=true;
+                    }
+                }
+            }
+        }
+        System.out.print(start);
+        print( start,end ,resultArray);
+    } 
+   /**
+     * 例如:
+     * 数值:  0 0 0 2 3 1 1
+     * 下标:  0 1 2 3 4 5 6
+     *  我们得到 从 0 - 6 的路径该怎么走呢? 按照如下的顺序将方法压入栈, 弹栈时即可获取到路径
+     * 
+     *  | 0 0 |
+     *  | 0 1 |
+     *  | 0 6 |   方法栈
+     * ----------
+     */
+    private void print(int start, int end, int[] resultArray) {
+        if (start==end) return;
+        print(start,resultArray[end],resultArray);
+        System.out.print(&quot;-&gt;&quot;+end);
+    }</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

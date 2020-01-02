@@ -1,0 +1,96 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python numba讲解' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python numba讲解</center></div><div class='banquan'>原文出处:本文由博客园博主一只帅气的IT小昂提供。<br/>
+原文连接:https://www.cnblogs.com/ITXiaoAng/p/11704278.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#一什么是numba">一：什么是numba</a></li>
+        <li><a href="#二如何使用numba">二：如何使用numba</a></li>
+        </ul>
+    </div>
+</div>
+<p>  由于python有动态解释性语言的特性，跑起代码来相比java、c++要慢很多，尤其在做科学计算的时候，十亿百亿级别的运算，让python的这种劣势更加凸显。<br><br />
+  因此就出现了解决python慢的一大利器numba，可以让python的运行速度提升上百倍甚至更多！<br><br />
+  numpy是为面向numpy数组的计算任务而设计的。<br><br />
+  Numba把NumPy数组类型生成高效的编译代码，用于在GPU或多核CPU上执行。<br><br />
+  在做大量科学计算时和使用for循环数据较多时，尽量使用numba。<br />
+<br><br></p>
+<h3 id="一什么是numba">一：什么是numba</h3>
+<p>  numba是一款可以将python函数编译为机器代码的JIT编译器，经过numba编译的python代码（仅限数组运算），其运行速度可以接近C或FORTRAN语言。<br />
+<br><br />
+  numba的作用是给python换一种编译器。让代码直接转成机器码运行。<br />
+<br><br></p>
+<h3 id="二如何使用numba">二：如何使用numba</h3>
+<p>  使用numba非常简单，只需要将numba装饰器应用到python函数中，无需改动原本的python代码，numba会自动完成剩余的工作。那么怎么使用呢，下面有一个例子。<br><br><br />
+<font color="yellow"> 1.计算numpy数组各个数值的双曲正切值。<br />
+</font><br><br />
+(1)导入numpy、numba及其编译器</p>
+<pre><code><code>import numpy as np
+import numba
+from numba import jit</code></pre>
+<p>(2)传入numba装饰器jit，编写函数</p>
+<pre><code><code># nopython = True 选项要求完全编译该函数（以便完全删除Python解释器调用），否则会引发异常
+@jit(nopython=True) # jit，numba装饰器中的一种
+def go_fast2(a): # 首次调用时，函数被编译为机器代码
+    trace = 0
+    # 假设输入变量是numpy数组
+    for i in range(a.shape[0]):     # Numba 擅长处理循环
+        trace += np.tanh(a[i, i])   # numba喜欢numpy函数
+    return a + trace                # numba喜欢numpy广播</code></pre>
+<p>(3)给函数传递实参</p>
+<pre><code><code># 因为函数要求传入的参数是nunpy数组
+x = np.arange(100).reshape(10, 10)
+# 执行函数
+go_fast(x)</code></pre>
+<p>(4)经numba加速的函数执行时间</p>
+<pre><code><code>% timeit go_fast(x)</code></pre>
+<p>(5)结果输出</p>
+<pre><code><code>3.63 µs ± 156 ns  #加速后
+136 µs ± 1.09 µs  #不加速</code></pre>
+<p>快了40倍。</p>
+<p><font color="yellow"> 2.nunba对for循环的加速 </font><br />
+(1)代码</p>
+<pre><code><code># 普通函数
+def go_fast1(): # 首次调用时，函数被编译为机器代码
+    x = 0
+    for i in np.arange(5000):
+        x += i
+    return x
+
+
+# nopython = True选项要求完全编译该函数（以便完全删除Python解释器调用），否则会引发异常
+@jit(nopython=True) # jit，numba装饰器中的一种
+def go_fast2(): # 首次调用时，函数被编译为机器代码
+    x = 0
+    for i in np.arange(5000):
+        x += i
+    return x</code></pre>
+<p>(2)结果输出</p>
+<pre><code><code>1.57 µs ± 53.8 ns #加速后
+408 µs ± 9.73 µs  #不加速</code></pre>
+<p>快了200倍。<br />
+<br><br />
+  numba对python代码运行速度有巨大的提升，这极大的促进了大数据时代的python数据分析能力，但不会对numpy和for循环以外的python代码有很大帮助，对数据科学工作者来说，这真是一个好技术！</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,139 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修AQS系列（四）- ReentrantReadWriteLock读写锁的释放锁' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>AQS系列（四）- ReentrantReadWriteLock读写锁的释放锁</center></div><div class='banquan'>原文出处:本文由博客园博主张曾经提供。<br/>
+原文连接:https://www.cnblogs.com/zzq6032010/p/12076580.html</div><br>
+    <p><span style="font-size: 18px;"><strong><span style="background-color: #c0c0c0;">前言</span></strong></span></p>
+<p>&nbsp; &nbsp; 继续JUC包中ReentrantReadWriteLock的学习，今天学习释放锁。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>一、写锁释放锁</strong></span></p>
+<p>&nbsp; &nbsp; 入口方法</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> unlock() {
+</span><span style="color: #008080;">2</span>             sync.release(1<span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 进入AQS追踪release方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> release(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;">2</span>         <span style="color: #0000ff;">if</span><span style="color: #000000;"> (tryRelease(arg)) {
+</span><span style="color: #008080;">3</span>             Node h =<span style="color: #000000;"> head;
+</span><span style="color: #008080;">4</span>             <span style="color: #0000ff;">if</span> (h != <span style="color: #0000ff;">null</span> &amp;&amp; h.waitStatus != 0<span style="color: #000000;">)
+</span><span style="color: #008080;">5</span> <span style="color: #000000;">                unparkSuccessor(h);
+</span><span style="color: #008080;">6</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">7</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">8</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">9</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 可见跟ReentrantLock调用的同一个释放锁方法，不同点就是tryRelease方法，所以此处只看此方法即可。读写锁tryRelease方法的实现在其内部类Sync中封装，如下所示：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> tryRelease(<span style="color: #0000ff;">int</span><span style="color: #000000;"> releases) {
+</span><span style="color: #008080;"> 2</span>             <span style="color: #0000ff;">if</span> (!<span style="color: #000000;">isHeldExclusively()) // 判断当前线程是不是记录的独占线程，不是的话不能释放
+</span><span style="color: #008080;"> 3</span>                 <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> IllegalMonitorStateException();
+</span><span style="color: #008080;"> 4</span>             <span style="color: #0000ff;">int</span> nextc = getState() -<span style="color: #000000;"> releases;
+</span><span style="color: #008080;"> 5</span>             <span style="color: #0000ff;">boolean</span> free = exclusiveCount(nextc) == 0<span style="color: #000000;">; // 判断减完之后是不是0，是0的话说明当前线程都释放了，将独占线程设置为空，后面排队的可以抢占锁了
+</span><span style="color: #008080;"> 6</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> (free)
+</span><span style="color: #008080;"> 7</span>                 setExclusiveOwnerThread(<span style="color: #0000ff;">null</span><span style="color: #000000;">);
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">            setState(nextc);
+</span><span style="color: #008080;"> 9</span>             <span style="color: #0000ff;">return</span><span style="color: #000000;"> free;
+</span><span style="color: #008080;">10</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 跟ReentrantLock中唯一不同的地方是对于free的赋值，因为写锁的重入次数是记录在state的低16位上，所以此处要获取一下，其余的逻辑都一样。</p>
+<p><span style="font-size: 18px;"><strong><span style="background-color: #c0c0c0;">二、读锁释放锁</span></strong></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> unlock() {
+</span><span style="color: #008080;">2</span>             sync.releaseShared(1<span style="color: #000000;">);
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 进入AQS追踪releaseShared方法：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> releaseShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> arg) {
+</span><span style="color: #008080;">2</span>         <span style="color: #0000ff;">if</span><span style="color: #000000;"> (tryReleaseShared(arg)) {
+</span><span style="color: #008080;">3</span> <span style="color: #000000;">            doReleaseShared();
+</span><span style="color: #008080;">4</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">5</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">6</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;">7</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 只有两个关键方法tryReleaseShared和doReleaseShared，下面分别看看它们的实现逻辑。</p>
+<p><strong>1、tryReleaseShared</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">boolean</span> tryReleaseShared(<span style="color: #0000ff;">int</span><span style="color: #000000;"> unused) {
+</span><span style="color: #008080;"> 2</span>             Thread current =<span style="color: #000000;"> Thread.currentThread();
+</span><span style="color: #008080;"> 3</span>             <span style="color: #0000ff;">if</span> (firstReader == current) {<span style="color: #008000;">//</span><span style="color: #008000;"> 如果当前线程是第一个获取锁的，因为有两个成员变量直接记录，所以只要修改这两个成员变量的值即可
+</span><span style="color: #008080;"> 4</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> assert firstReaderHoldCount &gt; 0;</span>
+<span style="color: #008080;"> 5</span>                 <span style="color: #0000ff;">if</span> (firstReaderHoldCount == 1) <span style="color: #008000;">//</span><span style="color: #008000;"> count为1，此时不应该把它置为0吗</span>
+<span style="color: #008080;"> 6</span>                     firstReader = <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 7</span>                 <span style="color: #0000ff;">else</span>
+<span style="color: #008080;"> 8</span>                     firstReaderHoldCount--<span style="color: #000000;">;
+</span><span style="color: #008080;"> 9</span>             } <span style="color: #0000ff;">else</span> { <span style="color: #008000;">//</span><span style="color: #008000;"> 不是当前线程，则要去缓存获取或者本地线程变量中获取当前线程的重入次数，给它减一，如果次数小于等于1则直接移除</span>
+<span style="color: #008080;">10</span>                 HoldCounter rh =<span style="color: #000000;"> cachedHoldCounter;
+</span><span style="color: #008080;">11</span>                 <span style="color: #0000ff;">if</span> (rh == <span style="color: #0000ff;">null</span> || rh.tid !=<span style="color: #000000;"> getThreadId(current))
+</span><span style="color: #008080;">12</span>                     rh =<span style="color: #000000;"> readHolds.get();
+</span><span style="color: #008080;">13</span>                 <span style="color: #0000ff;">int</span> count =<span style="color: #000000;"> rh.count;
+</span><span style="color: #008080;">14</span>                 <span style="color: #0000ff;">if</span> (count &lt;= 1<span style="color: #000000;">) {
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">                    readHolds.remove();
+</span><span style="color: #008080;">16</span>                     <span style="color: #0000ff;">if</span> (count &lt;= 0<span style="color: #000000;">)
+</span><span style="color: #008080;">17</span>                         <span style="color: #0000ff;">throw</span><span style="color: #000000;"> unmatchedUnlockException();
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">19</span>                 --<span style="color: #000000;">rh.count;
+</span><span style="color: #008080;">20</span>             } <span style="color: #008000;">//</span><span style="color: #008000;"> 维护state的锁重入次数/获取次数记录</span>
+<span style="color: #008080;">21</span>             <span style="color: #0000ff;">for</span><span style="color: #000000;"> (;;) {
+</span><span style="color: #008080;">22</span>                 <span style="color: #0000ff;">int</span> c =<span style="color: #000000;"> getState();
+</span><span style="color: #008080;">23</span>                 <span style="color: #008000;">//</span><span style="color: #008000;"> 因为是读锁，所以一个SHARED_UNIT的值代表一个锁</span>
+<span style="color: #008080;">24</span>                 <span style="color: #0000ff;">int</span> nextc = c -<span style="color: #000000;"> SHARED_UNIT;
+</span><span style="color: #008080;">25</span>                 <span style="color: #0000ff;">if</span><span style="color: #000000;"> (compareAndSetState(c, nextc))
+</span><span style="color: #008080;">26</span>                     <span style="color: #008000;">//</span><span style="color: #008000;"> 如果只有读锁，这里返回什么都无所谓；所以此返回值是专门为写锁准备的，后续会根据返回值去唤醒写锁，</span>
+<span style="color: #008080;">27</span>                     <span style="color: #0000ff;">return</span> nextc == 0<span style="color: #000000;">;
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">29</span>         }</pre>
+</div>
+<p>&nbsp; &nbsp; 该方法逻辑很清晰，for循环上面的部分代码，用户将读锁当前线程记录的重入次数-1；for循环用于将AQS中维护的state中的读锁占有次数-1.返回的布尔类型用于给后续方法判断是否要唤醒写锁。后续方法即我们下一步要追踪的doReleaseShared方法。</p>
+<p><strong>2、doReleaseShared</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> doReleaseShared() {
+</span><span style="color: #008080;"> 2</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 唤醒后续的写线程</span>
+<span style="color: #008080;"> 3</span>          <span style="color: #0000ff;">for</span><span style="color: #000000;"> (;;) {
+</span><span style="color: #008080;"> 4</span>              Node h =<span style="color: #000000;"> head;
+</span><span style="color: #008080;"> 5</span>              <span style="color: #0000ff;">if</span> (h != <span style="color: #0000ff;">null</span> &amp;&amp; h !=<span style="color: #000000;"> tail) {
+</span><span style="color: #008080;"> 6</span>                  <span style="color: #0000ff;">int</span> ws =<span style="color: #000000;"> h.waitStatus;
+</span><span style="color: #008080;"> 7</span>                  <span style="color: #0000ff;">if</span> (ws == Node.SIGNAL) { <span style="color: #008000;">//</span><span style="color: #008000;"> 第一种：如果状态是-1，说明后面肯定有阻塞的任务，要去唤醒它</span>
+<span style="color: #008080;"> 8</span>                      <span style="color: #0000ff;">if</span> (!compareAndSetWaitStatus(h, Node.SIGNAL, 0<span style="color: #000000;">))
+</span><span style="color: #008080;"> 9</span>                          <span style="color: #0000ff;">continue</span>;            <span style="color: #008000;">//</span><span style="color: #008000;"> loop to recheck cases</span>
+<span style="color: #008080;">10</span> <span style="color: #000000;">                     unparkSuccessor(h);
+</span><span style="color: #008080;">11</span>                  } <span style="color: #008000;">// </span><span style="color: #008000;">ws等于0说明是最后一个节点了，此时将Node的ws设置为PROPAGATE，因为后续没有节点了，所以不用唤醒</span>
+<span style="color: #008080;">12</span>                  <span style="color: #0000ff;">else</span> <span style="color: #0000ff;">if</span> (ws == 0 &amp;&amp;!compareAndSetWaitStatus(h, 0<span style="color: #000000;">, Node.PROPAGATE))
+</span><span style="color: #008080;">13</span>                      <span style="color: #0000ff;">continue</span>;                <span style="color: #008000;">//</span><span style="color: #008000;"> loop on failed CAS</span>
+<span style="color: #008080;">14</span> <span style="color: #000000;">             }
+</span><span style="color: #008080;">15</span>              <span style="color: #0000ff;">if</span> (h == head)  <span style="color: #008000;">//</span><span style="color: #008000;"> 不等于head说明又有新的读锁进来了，这时要继续循环</span>
+<span style="color: #008080;">16</span>                  <span style="color: #0000ff;">break</span><span style="color: #000000;">;
+</span><span style="color: #008080;">17</span> <span style="color: #000000;">             }
+</span><span style="color: #008080;">18</span>     }</pre>
+</div>
+<p>&nbsp; &nbsp; 此方法用于唤醒读锁后处于挂起状态的锁，读锁后处于挂起状态的锁有两种：第一种是写锁，这很好理解，如果有读锁被占用，写锁过来的时候肯定需要挂起等读锁执行完（非相同线程），读锁执行完之后唤醒这个写锁；第二种是读锁，为什么当前执行的是读锁而后面还会有读锁被挂起呢？这就要回到系列(三)中的内容了，在系列（三）读锁加锁中我们讲过一个&nbsp;apparentlyFirstQueuedIsExclusive 方法，该方法会判断队列中第一个排队的是不是写锁，如果是写锁则让当前的读锁挂起不去竞争锁，而若在队首写锁等待的过程中有多个读锁过来，则这多个读锁都会被依次挂起，这时就会出现第二种情况，即读锁执行的时候后面还有一个读锁被挂起，执行完之后需唤醒它。</p>
+<p>&nbsp; &nbsp; 此处第二种读锁唤醒读锁的场景，是在读锁加锁时触发的。在系列（三）中对这里未涉及，现在我们再回头看看。在<strong>doAcquireShared</strong>方法中，有个setHeadAndPropagate方法，在该方法中会检测下一个节点是不是读锁，如果是就调用doReleaseShared方法唤醒它。</p>
+<p><span style="background-color: #c0c0c0; font-size: 18px;"><strong>小结</strong></span></p>
+<p>&nbsp; &nbsp; 读写锁的释放锁逻辑基本就这些了，下面再做一个小结。</p>
+<p>&nbsp; &nbsp; 写锁释放逻辑跟ReentrantLock中的释放锁逻辑基本一致，因为毕竟都是独占锁。</p>
+<p>&nbsp; &nbsp; 读锁释放则复杂的多，它会先释放每个读锁线程记录的重入次数，再去减掉state中记录的加锁次数，最后还要唤醒后面挂起的线程。唤醒挂起的线程又分两种情况，一种是唤醒后面的写锁线程，另一种是唤醒读锁线程。读锁之间不互斥为什么在读锁执行时还会有读锁被挂起？是因为在读锁加锁时为防止写锁饥饿如果判断队首有写锁在等待获取锁那么后来的读锁都要挂起等待，这时就会出现多个读锁被挂起的情况。<strong>在释放读锁时唤醒的线程是写锁线程，在读锁加锁时唤醒的线程是读锁线程。</strong></p>
+<p>&nbsp; &nbsp; 另外，对于Node.PROPAGATE这个状态一直没看出它的作用，而且查看了一下使用的地方，发现只在上面的doReleaseShared方法中用过，所以个人觉得是个可有可无的状态，不知道是为后续扩展留的状态还是有其他作用我没看出来，如果有对此有理解的园友，欢迎给答疑解惑一下，感谢！</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

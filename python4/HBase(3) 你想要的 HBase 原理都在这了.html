@@ -1,0 +1,356 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修HBase(3) 你想要的 HBase 原理都在这了' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>HBase(3) 你想要的 HBase 原理都在这了</center></div><div class='banquan'>原文出处:本文由博客园博主美码师提供。<br/>
+原文连接:https://www.cnblogs.com/littleatp/p/12079507.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#一-集群架构">一、 集群架构</a><ul>
+        <li><a href="#集群角色">集群角色</a></li>
+        <li><a href="#工作机制">工作机制</a></li>
+        </ul></li>
+        <li><a href="#二存储机制">二、存储机制</a><ul>
+        <li><a href="#a.-存储模型">A. 存储模型</a></li>
+        <li><a href="#b.-lsm-与-compaction">B. LSM 与 Compaction</a></li>
+        <li><a href="#c.-region-分裂">C. Region 分裂</a></li>
+        <li><a href="#d.-自动均衡">D. 自动均衡</a></li>
+        </ul></li>
+        <li><a href="#三访问机制">三、访问机制</a></li>
+        <li><a href="#四-鉴权">四、 鉴权</a></li>
+        <li><a href="#五-高可靠">五、 高可靠</a><ul>
+        <li><a href="#集群高可靠">1.集群高可靠</a></li>
+        <li><a href="#隔离性">2. 隔离性</a></li>
+        <li><a href="#容灾">3. 容灾</a></li>
+        </ul></li>
+        <li><a href="#参考文档">参考文档</a></li>
+        </ul>
+    </div>
+</div>
+<p>在前面的文章中，介绍过 HBase 的入门操作知识，但对于正考虑将 HBase 用于生产系统的项目来说还是远远不够。<br />
+一般在对 HBase 做选型之前，还需要学习一些它的架构原理、弹性扩展及可靠性方面的知识。<br />
+本文来自笔者此前对 HBase 做的学习概括，可方便于对 HBase 的技术全景进行快速的掌握。</p>
+<h2 id="一-集群架构">一、 集群架构</h2>
+<p>尽管HBase可以工作在本地文件系统之上，但在生产环境中，HBase需要依托 HDFS 作为其底层的数据存储，而HDFS提供了默认的3副本来实现数据文件的高可靠。<br />
+整个HBase 集群主要由 Zookeeper、Master、RegionServer、HDFS所组成，如下图：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了0.png" /></p>
+<h3 id="集群角色">集群角色</h3>
+<p><strong>Master</strong><br />
+HBase Master 用于管理多个 Region Server，包括监测各个 Region Server 的状态、分配 Region及自动均衡等。 具体职责包括：</p>
+<ul>
+<li>负责管理所有的RegionServer，实现RegionServer的高可用</li>
+<li>管理所有的数据分片(Region)到RegionServer的分配，包括自动均衡</li>
+<li>执行建表/修改表/删除表等DDL操作</li>
+</ul>
+<p>HBase 允许多个 Master 节点共存，当多个 Master 节点共存时，只有一个 Master 是提供服务的，这种主备角色的&quot;仲裁&quot;由 ZooKeeper 实现。</p>
+<p><strong>Region Server</strong><br />
+Region Server 是真正的数据读写服务器，即客户端会直接连接 Region Server 进行操作。<br />
+一个 Region Server 会包括了多个 Region，这里的 Region 则是真正存放 HBase 数据的区域单元，当一个表很大时，会拆分成很多个 Region 进行存放。<br />
+可以说，Region 是 HBase 分布式的基本单位。</p>
+<p><strong>Zookeeper</strong><br />
+Zookeeper 对于 HBase的作用是至关重要的。</p>
+<ul>
+<li>Zookeeper 提供了 HBase Master 的高可用实现，并保证同一时刻有且仅有一个主 Master 可用。</li>
+<li>Zookeeper 保存了 Region 和 Region Server 的关联信息(提供寻址入口)，并保存了集群的元数据(Schema/Table)。</li>
+<li>Zookeeper 实时监控Region server的上线和下线信息，并实时通知Master。</li>
+</ul>
+<p>就目前来说，Zookeeper 已经成为了分布式系统架构中最常用的标准框架之一。 除了 HBase之外，有许多分布式大数据相关的开源框架，都依赖于 Zookeeper 实现 HA。</p>
+<p><strong>HDFS</strong><br />
+HDFS 是 Hadoop 的分布式文件系统，提供了高可靠高扩展的文件存储能力。 其内部也是一个集群结构，包含 NameNode、DataNode 角色。<br />
+其中 NameNode存储的是 HDFS文件目录树的元数据，包含文件与Block的关联信息，而DataNode 则是HDFS的数据存放节点。</p>
+<p>HDFS作为一个分布式文件系统，自然需要文件目录树的元数据信息，另外，在HDFS中每一个文件都是按照Block存储的，文件与Block的关联也通过元数据信息来描述。NameNode提供了这些元数据信息的存储。</p>
+<h3 id="工作机制">工作机制</h3>
+<p>在一个完整的HBase 分布式集群中，各个组件的交互工作如下图所示：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了1.png" /></p>
+<p>首先 Zookeeper 维护了 Master 与各个 Region Server 之间的关系及状态。 当一个 Client 需要访问 HBase 集群时，会先和 Zookeeper 进行通信，并得到 Master和 RegionServer的地址信息。<br />
+对于创建表/删除表/修改表来说，客户端会通过 Master 来进行操作，而正常的表数据读写，则是通过找到对应的 Region Server来操作。</p>
+<p><strong>Region Server 的作用</strong></p>
+<p>每一个 Region Server 会管理很多个 Region(区域), 这个就是之前提到的 HBase 数据分布式及高可靠的一个单元。 每个 Region 只会存储一个表中的的一段数据，这是按 RowKey 的区间来分隔的。<br />
+而且，一个 Region 的存储空间有一个上限(Threshold)，当存放数据的大小达到该上限时，Region 就会进行分裂并产生多个新的 Region，随着一个Region Server 上的 Region 越来越多，Master 可以监测到不均衡的情况，并自动将Region进行重新分配。<br />
+因此，数据可以源源不断的写入到 HBase时，通过这种 Region的分裂、自动均衡来支持海量数据的存储。</p>
+<p>对于一个Region来说，其内部是由 多个Store构成的，而一个Store 对应于一个ColumnFamily(列族)。<br />
+在实现上一个Store对象会包含一个MemStore以及多个StoreFile。 当数据写入 Region时，先写入MemStore(保持有序)。<br />
+当MemStore 写满了之后就会 Flush 到StoreFile，这里的 StoreFile 就对应了一个HDFS中的 HFile文件。<br />
+最终 Region会对应到多个 持久化的 HFile，当这些 HFile 越来越多时，Region Server 会执行合并操作(Compaction)来合并为一个大的HFile，以此来优化读取性能，这个机制则是基于LSM的原理实现的。</p>
+<p><strong>HLog 和可靠性</strong></p>
+<p>HBase 提供了HLog来保证数据写入的可靠性，HLog 本质上就是一种 WAL(事务机制中常见的预写日志)，其同样是通过HDFS来持久化的(对应于一个Sequence文件)。 每个Region Server 都包含一个HLog，其中记录了所有发生在Region Server上的数据变更操作。<br />
+当数据发生写入时，会先记录日志到 HLog中，然后再写入 MemStore，最终才持久化到 HFile中。 这样当 Region Server 宕机时，尽管 MemStore中的数据会丢失，但还可以通过 HLog来恢复之前的数据，从而保证了高可靠。<br />
+那么，HFile 是否可靠呢？ 这点则是由 HDFS 来保证的，一个HFile 默认会有3个副本。</p>
+<p>除此之外，HLog 也是HBase 实现集群同步复制的关键手段。</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了2.png" /></p>
+<h2 id="二存储机制">二、存储机制</h2>
+<p>接下来，我们看看HBase中的数据是怎样被存储及管理的。</p>
+<h3 id="a.-存储模型">A. 存储模型</h3>
+<p>首先需要澄清的一点是，Region 和 Column Family (简称CF) 的区别。</p>
+<p>Region 是HBase 分布式存储的基本单位，其本质上是一种水平切分单位，可以理解为数据的分片；而Column Family(列族)则是垂直切分的单位，可理解为一种列的分组。<br />
+这两者的区别可以参考下图：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了3.png" /></p>
+<p>无论是Region、还是CF，都是逻辑上的一个概念，对于物理上的实现则如下图所示：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了4.png" /></p>
+<p><strong>存储模块说明</strong></p>
+<ul>
+<li>一个 Region 包含多个Store,一个store对应一个CF</li>
+<li>Store包括位于内存中的 Memstore 和多个持久化的 Storefile;</li>
+<li>写操作先写入 Memstore，当 Memstore 中的数据大小达到某个阈值后会Flush到一个单独的 Storefile</li>
+<li>当 Storefile 文件的数量增长到一定阈值后，系统会进行合并，形成更大的 Storefile(Compaction)</li>
+<li>当一个 Region 所有 Storefile 的大小总和超过一定阈值后，会把当前的 Region 分割为两个(分裂)</li>
+<li>Master 自动检测RegionServer 上Region的分配情况，自动进行均衡迁移</li>
+<li>客户端检索数据，优先从 Memstore查询，然后再查询 Storefile</li>
+</ul>
+<h4 id="hfile-结构">HFile 结构</h4>
+<p>HFile 是HDFS 的存储单元，其结构如下图：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了5.png" /></p>
+<p>HFile 由很多个数据块（Block）组成，并且有一个固定的结尾块。其中的数据块是由一个 Header 和多个 Key-Value 的键值对组成。<br />
+在结尾的数据块中包含了数据相关的索引信息，系统也是通过结尾的索引信息找到 HFile 中的数据。</p>
+<p>HFile 中的数据块大小默认为 64KB。如果访问 HBase 数据库的场景多为有序的访问，那么建议将该值设置的大一些。<br />
+如果场景多为随机访问，那么建议将该值设置的小一些。一般情况下，通过调整该值可以提高 HBase 的性能</p>
+<h3 id="b.-lsm-与-compaction">B. LSM 与 Compaction</h3>
+<p>HBase 在存储上是基于LSM树 实现的，与传统的B/B+树原理不同的是，LSM树非常适用于写入要求非常高的场景。</p>
+<h4 id="lsm的原理">LSM的原理</h4>
+<p>将一个大的B(B+)树拆分成N棵小树，数据首先写入内存中(有序)，随着数据写入越来越多，内存中的数据会被flush到磁盘中形成一个文件；<br />
+在读取数据时，则需要合并磁盘中历史数据和内存中最近修改的操作后返回。 由于数据是顺序写入的，因此LSM的写入性能非常高，但读取时可能会访问较多的磁盘文件，性能较差。<br />
+为了缓解读性能低下的问题，LSM树会定时将磁盘中的多个文件(小树)进行合并，以优化读性能。</p>
+<p>在HBase的实现中，内存中的数据则是对应于MemStore，而磁盘中的数据则对应于 StoreFile (HFile实现)。 当MemStore写满后会Flush到一个HFile 中。<br />
+随着HFile 文件的不断增多，Region 的读性能就会受到影响(IOPS 增加)。因此 HBase 的 Region Server 会定期进行Compaction操作，将多个HFile 合并为一个大的 有序的 HFile。<br />
+HBase 中运行的 Compaction 动作有两种：</p>
+<ul>
+<li><strong>Minor Compaction</strong>，列族中小范围的HFile文件合并，一般较快，占用IO低</li>
+<li><strong>Major Compaction</strong>，列族中所有的HFile文件合并，同时清理TTL过期以及延迟删除的数据，该过程会产生大量IO操作，性能影响较大。</li>
+</ul>
+<p>具体的过程如下图所示：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了6.png" /></p>
+<p><strong><em>图片出处：<a href="http://www.nosqlnotes.com/" class="uri">http://www.nosqlnotes.com/</a></em></strong></p>
+<h4 id="flush-性能影响">Flush 性能影响</h4>
+<p>如果 Memstore 很小，意味着Flush 的次数会很多，一旦Compaction的速度跟不上就会产生大量的HFile 文件，这会导致读性能恶化，为了减缓这个问题，HBase 使用了 In Memory Flush And Compact 的方法，即数据在 MemStore 中先经分段(Segement)、Flush、Compaction 过程，到达一定大小后再 Flush 到 HFile。在这里，MemStore 使用了 ConcurrentSkipListMap(并发跳跃表) 来保证一定的读写并发能力。ConcurrentSkipListMap 在容量超过一定大小后性能下降明显，因此 MemStore 也不能设置得太大，当前的默认值在128MB。</p>
+<p>触发Flush 行为的条件包括：</p>
+<ul>
+<li><strong>Memstore级别：</strong>Region中任意一个MemStore达到了 hbase.hregion.memstore.flush.size 控制的上限（默认128MB），会触发Memstore的flush。</li>
+<li><strong>Region级别：</strong>Region中Memstore大小之和达到了 hbase.hregion.memstore.block.multiplier hbase.hregion.memstore.flush.size 控制的上限（默认 2 128M = 256M），会触发Memstore的flush。</li>
+<li><strong>RegionServer级别：</strong>Region Server中所有Region的Memstore大小总和达到了 hbase.regionserver.global.memstore.upperLimit ＊ hbase_heapsize 控制的上限（默认0.4，即RegionServer 40%的JVM内存），将会按Memstore由大到小进行flush，直至总体Memstore内存使用量低于 hbase.regionserver.global.memstore.lowerLimit ＊ hbase_heapsize 控制的下限（默认0.38， 即RegionServer 38%的JVM内存）。</li>
+<li><strong>RegionServer中HLog数量达到上限：</strong>将会选取最早的 HLog对应的一个或多个Region进行flush（通过参数hbase.regionserver.maxlogs配置）。</li>
+<li><strong>HBase定期flush：</strong>确保Memstore不会长时间没有持久化，默认周期为1小时。为避免所有的MemStore在同一时间都进行flush导致的问题，定期的flush操作有20000左右的随机延时。</li>
+<li><strong>手动执行flush：</strong>用户可以通过shell命令 flush ‘tablename’或者flush ‘region name’分别对一个表或者一个Region进行flush。</li>
+</ul>
+<p>除此以外，为了保证Compaction的进度与Flush对齐，HBase会在HFile数量到达一定阀值后阻塞Flush操作，如下面的参数：</p>
+<ul>
+<li>hbase.hstore.blockingStoreFiles，触发Flush阻塞等待的StoreFiles数量上限，2.x版本默认为16</li>
+<li>hbase.hstore.blockingWaitTime，阻塞Flush的时间，2.x版本默认为90s</li>
+</ul>
+<h4 id="compaction-策略">Compaction 策略</h4>
+<p>Compaction 的目的是优化读性能，但会导致 IO 放大，这是因为在合并过程中，文件需要不断的被读入、写出，加上 HDFS 的多副本复制，则会再一次增加多次的IO操作。<br />
+此外，Compaction 利用了缓冲区合并来避免对已有的 HFile 造成阻塞，只有在最后合并 HFile 元数据时会有一点点的影响，这几乎可以忽略不计。<br />
+但 Compaction 完成后会淘汰Block Cache，这样便会造成短期的读取时延增大。</p>
+<p>在性能压测时通常可以看到由 Compaction 导致的一些&quot;毛刺&quot;现象，但这是不可避免的，我们只能是根据业务场景来选择一些合理的 Compaction 策略。</p>
+<p>一般，Minor Compaction 会配置为按需触发，其合并的范围小，时间短，对业务性能的影响相对可控。<br />
+但 Major Compaction 则建议是在业务闲时手动触发，以避免业务造成严重的卡顿。</p>
+<p>关于如何选择合并文件的范围，HBase 提供了以下几种策略：</p>
+<ul>
+<li><p>Stripe Compaction<br />
+将一个Region划分为多个子区域(Stripes)，Compaction严格控制在单个Stripe范围内发生，这样可以有效降低Compaction对IO资源的占用。<br />
+Stripe 范围是根据RowKey来设定的，因此这适用于RowKey单调递增写入的场景</p></li>
+<li><p>Date Tiered Compaction<br />
+与Stripe Compaction 类似，但却是基于时间戳来决定子区域的范围，适合时序数据的场景(仅按时间范围检索)</p></li>
+<li><p>MOB Compaction<br />
+与 MOB 特性绑定的 Compaction，MOB 用于存储文件数据，其将元数据与文件数据分离存储，其中文件数据不参与Compaction，这样就大大减少了Compaction带来的IO放大的影响。</p></li>
+<li><p>RatioBased Compaction<br />
+基于比例计算的 Compaction 策略，在0.96之前默认的策略，该策略会根据下列参数来选择 Compaction 的文件。</p></li>
+</ul>
+<p><strong><em>hbase.hstore.compaction.ratio</em></strong>：最小待合并文件数<br />
+<strong><em>hbase.hstore.compaction.min</em></strong>：最小待合并文件数<br />
+<strong><em>hbase.hstore.compaction.max</em></strong>：最大待合并文件数<br />
+<strong><em>hbase.hstore.compaction.min.size</em></strong>最小合并文件总大小</p>
+<p>一般由于旧文件都是经过Compaction的会比较大，因此通常会基于新文件来做合并。<br />
+关于该策略的详细讨论可<a href="https://yq.aliyun.com/articles/675998">参考这里</a></p>
+<ul>
+<li>Exploring Compaction<br />
+RatioBased Compaction 演进后的默认版本，基本算法类似，但Exploring会根据性价比来进一步筛选，此时考虑的因素为：</li>
+</ul>
+<p><strong>文件数量较多(读性能增益)，总体大小偏小(降低IO放大)</strong></p>
+<h3 id="c.-region-分裂">C. Region 分裂</h3>
+<p>假设某个Region增长到了极限，将会切分为两个子Region(原来的Region称为父Region)该过程的步骤如下：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了7.png" /></p>
+<ol>
+<li>RegionServer 初始化两个子Region信息，写入一个ZK节点数据：/hbase/region-in-transition/region-name=SPLITING</li>
+<li>Master 通过Watch机制获知该region状态改变，此时可通过Master的UI界面观察到；</li>
+<li>RegionServer 创建.split临时目录，用于保存split后的子Region信息；</li>
+<li>RegionServer 关闭父Region并执行Flush操作，此后在短暂的时间内对于父Region的读写操作都会失败；</li>
+<li>RegionServer 在.split文件夹下新建两个子Region的目录，同时分别生成拆分后的reference文件(仅仅是引用信息);</li>
+<li>RegionServer 将.split文件夹下的子Region的目录拷贝到HBase根目录下，形成两个新的Region；</li>
+<li>RegionServer 修改 hbase.meta 表(连接该元数据表对应的RegionServer)，将父Region 标记为Split完成，Offline=true，即表示分裂完成后下线；</li>
+<li>RegionServer 打开两个子Region，表示可接收读写操作；</li>
+<li>RegionServer 修改 hbase.meta 表，将子Region上线的信息写入；</li>
+<li>RegionServer 修改ZK节点数据：/hbase/region-in-transition/region-name=SPLIT，此后Master获知分裂完成。 如果有正在运行的均衡任务，则会考虑进一步处理；</li>
+</ol>
+<p>可以发现，整个分裂过程仅仅是创建了一些数据文件的引用及元数据更新操作，对于业务的影响是非常微小的。<br />
+那么，在分裂后的一段时间内，引用数据文件还会持续存在，一直到当子Region发生Compaction操作时，才会将父Region的HFile数据拷贝到子Region目录。</p>
+<p>关于 Region切分的细节分析进一步参考</p>
+<p><strong><em><a href="http://hbasefly.com/2017/08/27/hbase-split/?dspinw=x0dnj2&amp;uypslg=eyr0j3" class="uri">http://hbasefly.com/2017/08/27/hbase-split/?dspinw=x0dnj2&amp;uypslg=eyr0j3</a></em></strong></p>
+<h3 id="d.-自动均衡">D. 自动均衡</h3>
+<p>HBase 的 Region 分配和自动均衡是由 Master 节点控制的，在初始化表时会先分配一个Region，然后指定给某个Region Server。 如果使用预分区，那么Master 会按照轮询的方式平均分配到每个 Region Server。<br />
+此后，随着Region不断的增大和裂变，Region Server 上的 Region 数量开始变得不均衡。<br />
+如果开启了自动均衡开关，Master 会通过定时器来检查集群中的Regions在各个RegionServer之间的负载是否是均衡。一旦检测到不均衡的情况，就会生成相应的Region迁移计划。</p>
+<p>关于均衡的方式，HBase 提供以下两种策略：</p>
+<ul>
+<li>DefaultLoadBalancer 默认的策略，根据 Region 个数来进行均衡</li>
+<li>StochasticLoadBalancer 根据读写压力评估来进行均衡</li>
+</ul>
+<p>由于HBase的的数据(包括HLog、StoreFile等)都是写入到HDFS文件系统中的， 因此 HBase 的 Region 迁移是非常轻量级的。<br />
+在做Region迁移时，Region所对应的HDFS文件是不变的，此时只需要将 Region 的元数据重新分配到目标 Region Server 就可以了。<br />
+迁移过程的步骤包含：</p>
+<p>1.创建Region 迁移计划，指定 RegionID、源 Region Server 和目标 Region Server；<br />
+2.源 Region Server 解绑，此时会关闭 Region<br />
+3.目标 Region Server 绑定，重新打开 Region</p>
+<h2 id="三访问机制">三、访问机制</h2>
+<p>HBase 支持多种读写客户端访问方式，具体包括：</p>
+<ul>
+<li>基于Java Client，一般是通过 RPC 调用 HBase。</li>
+<li>基于RestFul API，需要启用 Rest Server 代理组件，该组件通过 Java Client 实现。</li>
+<li>基于Thrift API，需要启用 Thrift Server 代理组件，该组件通过 Java Client 实现。</li>
+<li>基于 MapReduce 的批处理 API</li>
+<li>基于HBase Shell，其内部也是通过 Java Client 实现的。</li>
+</ul>
+<p>无论使用何种调用方式，始终还是离不开最基础的 RPC 调用流程。<br />
+该流程的交互逻辑如下图所示：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了8.png" /></p>
+<ol>
+<li><p>连接 ZooKeeper<br />
+在进行数据操作之前，客户端首先需要接入ZooKeeper，并初始化一个ZooKeeper Session。<br />
+该Session由ZooKeeper Client与ZooKeeper Server端之间创建，并通过心跳机制保持长连接</p></li>
+<li>获取meta Region路由信息<br />
+HBase 将Region分布的元数据存放在hbase.meta这个表中，该表记录了每一个用户表Region的路由以及状态信息，它的 RowKey 包含如下的信息：</li>
+</ol>
+<ul>
+<li>表名 Table Name</li>
+<li>Region StartKey</li>
+<li>Region ID<br />
+客户端通过Zookeeper 先找到 meta Region 所在的 Region Server，然后获得 meta Region信息。<br />
+之后根据操作的 RowKey 就可以定位到对应的Region ID，最后再<strong>通过 Zookeeper 的映射表就可以得到Region 所在的 Region Server</strong>了。<br />
+需要注意的是，客户端一般会对 meta Region 信息进行缓存，避免每次都要耗费时间读取。</li>
+</ul>
+<ol>
+<li>读写 Region Server<br />
+在得到真实数据所在的 Region Server 之后，客户端便通过RPC接口向目标 Region Server 发起访问。<br />
+对于一些批量请求，客户端会先通过Region 进行分组，再并发的向多个 Region Server 发出请求。</li>
+</ol>
+<p>对于使用 Rest Server 或是 Thrift Server 等中间组件的情况，调用流程如下图：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了9.png" /></p>
+<h2 id="四-鉴权">四、 鉴权</h2>
+<p>HBase 的安全同时依赖于 Zookeeper、HDFS。</p>
+<h4 id="acl权限">ACL权限</h4>
+<p>HBase 支持RWXCA权限模型设置：</p>
+<p>读取（R） - 可以读取给定范围的数据。<br />
+写入（W） - 可以在给定范围写入数据。<br />
+执行（X） - 可以在给定范围内执行协处理器端点。<br />
+创建（C） - 可以在给定范围内创建表或删除表（甚至不创建它们）。<br />
+管理员（A） - 可以执行群集操作，例如在给定的范围内平衡群集或分配区域。</p>
+<p>需要以最小权限原则为数据库表配置对应的用户权限</p>
+<p>同样，为了保证整体的安全性，需要对ZooKeeper、HDFS都设定合理的ACL控制，包括文件系统。</p>
+<h4 id="身份认证和授权">身份认证和授权</h4>
+<p>HBase 集群中可使用KerberOS来实现节点之间的身份鉴权，包括：</p>
+<ul>
+<li>节点接入 Zookeeper</li>
+<li>节点连接 Master、RegionServer</li>
+<li>节点接入 HDFS</li>
+<li>外加的 Rest Server、Thrift Server</li>
+</ul>
+<p>Kerberos 是一个常见的身份认证及鉴权协议系统，使用 Kerberos 的系统在设计上采用C/S结构及AES对称加密技术，并且能够进行双方认证。<br />
+支持防止窃听、防止replay攻击、保护数据完整性等特性。 Kerberos 认证过程需要依赖于单独的 Kerberos Server(KDC)，一个认证过程如下图：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了10.png" /></p>
+<ol>
+<li>Kerberos Authentication: 客户端请求认证服务器(AS)，获得Ticket Granting Ticket (TGT)</li>
+<li>Kerberos Authorization: 客户端通过TGT票据请求TGS(Ticket授权服务)，通过后会获得一个授权的Service Ticket</li>
+<li>Service Request: 客户端使用Service Ticket访问目标服务，目标服务会对Service Ticket进行本地校验，如果通过则表示认证成功。</li>
+</ol>
+<p>关于KerberOS的详细原理，可以参考<a href="http://www.nosqlnotes.com/technotes/kerberos-protocol/">NoSQL漫谈-图解 KerberOS</a>这篇文章</p>
+<p>对于HBase集群来说，各个节点使用KerberOS认证时，需要先配置keytab文件，该文件中就记录了实体ID(pricipal)、以及密钥的信息。<br />
+而这些实体ID及密钥都是由KerberOS 服务生成并管理的。</p>
+<h4 id="传输层安全">传输层安全</h4>
+<ul>
+<li>对客户端RPC 设置<strong><em>hbase.rpc.protection=privacy</em></strong>可以开启RPC加密功能，这对性能存在一定损失(约10%)</li>
+<li>还可以使用TLS传输协议进一步提升安全性。</li>
+</ul>
+<h2 id="五-高可靠">五、 高可靠</h2>
+<h3 id="集群高可靠">1.集群高可靠</h3>
+<h4 id="zookeeper-高可靠">Zookeeper 高可靠</h4>
+<p>Zookeeper 本身是集群多节点的架构，其内部使用 Paxos 算法来实现选举和数据的强一致性。<br />
+在部署上通常可以选择3节点的架构来保证可靠性。</p>
+<h4 id="master-高可靠">Master 高可靠</h4>
+<p>HBase 可以开启 Backup Master 来实现 Master 节点高可用，同一时间内只有主 Master 可以工作，Master 宕机后由 备Master 自动接管<br />
+Master 的 HA 机制是借助 Zookeeper 完成的</p>
+<h4 id="regionserver-高可靠">RegionServer 高可靠</h4>
+<p>Region Server 通常会部署为多个节点，每个节点分别接管不同的 Region<br />
+而 Master 会对 Region Server 的状态进行检测，一旦发现 Region Server 宕机，则会将该 Server 上的 Region 列表重新指派给一个新的 Region Server。<br />
+此外，Master还会将已宕机的Region Server的HLog 做一定拆分，并分发到新的 Region Server 上做数据恢复。</p>
+<p>该过程不涉及数据迁移，只是元数据的变更，操作数据量少并不会对业务造成很大的影响。</p>
+<h4 id="数据高可靠">数据高可靠</h4>
+<p>Region Server 本身提供了 HLog(WAL) 来提供断电保护，当Server 异常宕机时，MemStore内丢失的数据可以通过 HLog 来回放恢复。</p>
+<h4 id="hdfs-高可靠">HDFS 高可靠</h4>
+<p>HDFS 本身提供了一系列的可靠性机制，包括：</p>
+<ul>
+<li>NameNode可以部署多个</li>
+<li>DataNode可以部署多个</li>
+<li>HFile 存在多副本(默认3个)，保证了数据文件可靠性</li>
+</ul>
+<h3 id="隔离性">2. 隔离性</h3>
+<p>在部署上，通常依据一些原则策略来保证可靠性：</p>
+<ul>
+<li>控制节点与数据节点分离部署</li>
+<li>主备Master、Region节点分离部署</li>
+<li>NameNode之间、DataNode之间分离部署</li>
+<li>数据节点磁盘物理隔离</li>
+</ul>
+<h3 id="容灾">3. 容灾</h3>
+<p>尽管HDFS提供了三副本的机制，但对于关键业务来说，往往需要支持跨机房的容灾能力。</p>
+<p>HBase 支持 Replication 机制，该机制设计的主导思想是基于操作日志 (put/get/delete) 做数据同步的功能，这类似于MySQL的BinLog，或者是MongoDB的OpLog。<br />
+Replication的关键就在于前面所提到过的 HLog，这个日志除了用作数据断电保护之外，还被用来实现集群复制的功能。</p>
+<p>如下图：</p>
+<p><img src="./images/HBase(3) 你想要的 HBase 原理都在这了11.png" /></p>
+<p>客户端的 put/delete 操作会先被 RegionServer 写入本地的 HLog ，之后由一个独立的线程将 HLog 内容以缓冲写的形式推送到 Slave 集群中的某个 Region Server 上。<br />
+整个复制的HLog信息、包括复制偏移量都会保存在 Zookeeper上，同时复制动作是异步的，即不会阻塞当前的客户端读写。</p>
+<h2 id="参考文档">参考文档</h2>
+<p>HBase 深入浅出<br />
+详细介绍了HBase的由来以及特性，文中提供了HBase集群、存储机制的一些简介，非常适合入门阅读<br />
+<a href="https://www.ibm.com/developerworks/cn/analytics/library/ba-cn-bigdata-hbase/index.html" class="uri">https://www.ibm.com/developerworks/cn/analytics/library/ba-cn-bigdata-hbase/index.html</a></p>
+<p>HBase集群组件通讯端口(较全)<br />
+<a href="https://blog.cloudera.com/blog/2013/07/guide-to-using-apache-hbase-ports/" class="uri">https://blog.cloudera.com/blog/2013/07/guide-to-using-apache-hbase-ports/</a></p>
+<p>HBase-所有Region切分的细节都在这里了<br />
+<a href="http://hbasefly.com/2017/08/27/hbase-split/?dspinw=x0dnj2&amp;xwlcvg=jhww23" class="uri">http://hbasefly.com/2017/08/27/hbase-split/?dspinw=x0dnj2&amp;xwlcvg=jhww23</a></p>
+<p>一条数据的HBase之旅<br />
+<a href="http://www.nosqlnotes.com/technotes/hbase/hbase-overview-concepts/" class="uri">http://www.nosqlnotes.com/technotes/hbase/hbase-overview-concepts/</a></p>
+<p>Hbase架构与原理<br />
+<a href="https://www.jianshu.com/p/3832ae37fac4" class="uri">https://www.jianshu.com/p/3832ae37fac4</a></p>
+<p>HBase的一致性<br />
+<a href="https://www.cnblogs.com/captainlucky/p/4720986.html" class="uri">https://www.cnblogs.com/captainlucky/p/4720986.html</a></p>
+<p>深入理解HBase Memstore<br />
+<a href="https://www.cnblogs.com/cxzdy/p/5121365.html" class="uri">https://www.cnblogs.com/cxzdy/p/5121365.html</a></p>
+<p>HBase Region Balance实践<br />
+<a href="http://openinx.github.io/2016/06/21/hbase-balance/" class="uri">http://openinx.github.io/2016/06/21/hbase-balance/</a></p>
+<p>阿里Hbase的业务和容灾实践<br />
+<a href="http://velocity.oreilly.com.cn/2013/ppts/hbase_automated_operation_and_disaster_recovery_in_ali.pdf" class="uri">http://velocity.oreilly.com.cn/2013/ppts/hbase_automated_operation_and_disaster_recovery_in_ali.pdf</a></p>
+<p>关于HBase 的安全<br />
+<a href="http://www.mamicode.com/info-detail-449760.html" class="uri">http://www.mamicode.com/info-detail-449760.html</a></p>
+<p>图解KerberOS<br />
+<a href="http://www.nosqlnotes.com/technotes/kerberos-protocol/" class="uri">http://www.nosqlnotes.com/technotes/kerberos-protocol/</a></p>
+<p>HBase 官方文档中文版<br />
+<a href="https://www.w3cschool.cn/hbase_doc/hbase_doc-caye2osm.html" class="uri">https://www.w3cschool.cn/hbase_doc/hbase_doc-caye2osm.html</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

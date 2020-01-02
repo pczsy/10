@@ -1,0 +1,145 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修第五章装饰器及有参' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>第五章装饰器及有参</center></div><div class='banquan'>原文出处:本文由博客园博主一条小仙鱼提供。<br/>
+原文连接:https://www.cnblogs.com/zhaoganggang/p/11604199.html</div><br>
+    <h3 id="装饰器">装饰器</h3>
+<p>初始</p>
+<pre><code><code>开放封闭原则:
+
+扩展是开放的(增加新功能)
+
+修改源码是封闭(修改已经实现的功能)
+
+在不改变源代码及调用方式的基础下额外增加新的功能
+
+装饰器:用来装饰的工具</code></pre>
+<pre><code><code> 标准版(装饰器):
+ def func(a):  #a是要被装饰的函数名
+     def foo(*args,**kwargs):
+         &quot;装饰之前的操作&quot;
+         ret = a(*args,**kwargs)
+         &quot;装饰之后的操作&quot;
+         return ret
+     return foo
+ @func
+ def f1(*args,**kwargs):
+     print(f&quot;这是一个{args}&quot;)
+     return &quot;我可以返回了&quot;
+ f1(1,2,3,34,4,5)</code></pre>
+<pre><code><code> 语法糖 -- 甜
+ 语法糖必须放在被装饰的函数正上方</code></pre>
+<p>有参装饰器</p>
+<pre><code><code> 带参数的装饰器
+
+def startEnd(fun):
+    def wraper(name):
+        print(&quot;!!!!!!!!!!!!start!!!!!!!!!&quot;)
+        fun(name)
+        print(&quot;!!!!!!!!!!!!!end!!!!!!!!!&quot;)
+    return wraper
+ 返回值是wraper函数
+ hello()相当于执行wraper()
+
+@startEnd
+def hello(name):
+    print(&quot;hello {0}&quot;.format(name))
+
+hello(&quot;boy&quot;)
+
+
+ 在不改变代码的情况下，给现有的函数增加新的功能
+ 装饰器通过@进行使用,相当于把hello()函数作为参数
+ @startEnd  相当于  hello = startEnd(hello())
+ 当调用hello()的时候，就相当于调用了startEnd(hello())
+
+ 装饰器其实就是要你的内存地址
+ 重新给你封装新的内存 地址。
+ 你执行的时候是执行新的内存地址
+
+ a = hello
+ a() 相当于hello()
+ a = startEnd(hello)
+ a = hello   核心
+
+def author(mm):
+    def hello(fun):
+        def preHello(name):
+            print(&quot;This author is {0}&quot;.format(mm))
+            print(&quot;###########start################&quot;)
+            fun(name)
+            print(&quot;############end#################&quot;)
+        return preHello
+    return hello
+
+@author(&quot;aaa&quot;)       #装饰器最外面的一个传入的参数
+def cs(name):        #装饰器传入的函数，中间那个
+    print(&quot;welcome  {0}&quot;.format(name))
+
+ xx = author(&quot;chen&quot;)(cs)
+ xx(&quot;aaaavvvvv&quot;)
+cs(&quot;ffffffff&quot;)      #装饰器最里面传入的</code></pre>
+<p>多个装饰器装饰一个函数</p>
+<pre><code><code>def wrapper1(func):
+    def inner1(*args,**kwargs):
+        print(1)
+        func(*args,**kwargs)
+        print(11)
+    return inner1
+
+def wrapper2(func):  # func == foo
+    def inner2(*args,**kwargs):
+        func(*args, **kwargs)
+        print(22)
+    return inner2
+
+def wrapper3(func):
+    def inner3(*args,**kwargs):
+        print(3)
+        func(*args, **kwargs)
+        print(33)
+    return inner3
+
+ @wrapper1  # 1 11
+ @wrapper3  # 3 33
+ @wrapper2  #  8 22
+
+ def foo():
+     print(8)
+
+ foo = wrapper2(foo)  # foo == inner2
+ foo = wrapper3(foo)  # inner3 = wrapper3(inner2)
+ foo = wrapper1(foo)  # inner1 = wrapper1(inner3)
+ foo()                # inner1()
+
+
+ foo = wrapper3(foo)  # foo == inner3
+ foo = wrapper2(foo)  # foo = wrapper2(inner3)  foo == inner2
+ foo = wrapper1(foo)  # foo = wrapper1(inner2)
+
+
+ 被装饰的函数正上方有多个装饰器,先执行离被装饰函数最近的装饰器
+
+ 先执行离被装饰的函数最近的语法糖
+ 小技巧:进入装饰器从上往下,走到最会一个装饰器执行被装饰的函数,退出装饰器从下往上走</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

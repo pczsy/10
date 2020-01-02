@@ -1,0 +1,219 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[ Coding七十二绝技 ] 如何利用Java异常快速分析源码' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[ Coding七十二绝技 ] 如何利用Java异常快速分析源码</center></div><div class='banquan'>原文出处:本文由博客园博主风象南提供。<br/>
+原文连接:https://www.cnblogs.com/yuboon/p/12047390.html</div><br>
+    <div id="output_wrapper_id" class="output_wrapper" style="font-size: 15px; color: #3e3e3e; line-height: 1.8; word-spacing: 2px; letter-spacing: 2px; font-family: 'Helvetica Neue', Helvetica, 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;">
+<h1 id="hcodingjava" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.6em;"><span style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px;"><a style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; text-decoration: none; color: #1e6bb8; overflow-wrap: break-word;" name="PtrXR"></a></span></h1>
+<h3 id="h" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.3em; border-bottom: 2px solid #00acc1;"><span style="font-size: inherit; line-height: inherit; margin: 0px; display: inline-block; font-weight: normal; background: #00acc1; color: #ffffff; padding: 3px 10px 0px; border-top-right-radius: 3px; border-top-left-radius: 4px; margin-right: 2px;">前言</span></h3>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">异常一个神奇的东西，让广大程序员对它人又爱又恨。<br />爱它，通过它能快速定位错误，经过层层磨难能学到很多逼坑大法。<br />恨他，快下班的时刻，周末的早晨，它踏着七彩云毫无征兆的来了。</p>
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码0.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">今天，要聊的是它的一项神技 :  <strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;"><code>辅助源码分析</code></strong>。<br />对的，没有听错，它有此功效，只不过我们被恨冲昏了头脑，没看到它的美。</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码1.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><a style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; text-decoration: none; color: #1e6bb8; overflow-wrap: break-word;" name="cxsUX"></a></p>
+<h3 id="h-1" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.3em; border-bottom: 2px solid #00acc1;"><span style="font-size: inherit; line-height: inherit; margin: 0px; display: inline-block; font-weight: normal; background: #00acc1; color: #ffffff; padding: 3px 10px 0px; border-top-right-radius: 3px; border-top-left-radius: 4px; margin-right: 2px;">前情铺垫</span></h3>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">讲之前，先简要铺垫下需要用到的相关知识。</p>
+<h4 id="h1" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.2em;"><span style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px;">1</span></h4>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">了解点jvm知识都应该知道每个线程有自己的JVM Stack，程序运行时，会将方法一个一个压入栈，即栈帧，执行完再弹出栈。如下图。不知道也没关系，现在你也知道了，这是第一点。</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码2.png" alt="" /><br />Java中获取线程的方法调用栈，可通过如下方式<br />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">&nbsp;</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">public&nbsp;class&nbsp;Sample&nbsp;{<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;static&nbsp;void&nbsp;main(String[]&nbsp;args)&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hello();<br />&nbsp;&nbsp;&nbsp;&nbsp;}<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;static&nbsp;void&nbsp;&nbsp;hello(){<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StackTraceElement[]&nbsp;traceElements&nbsp;=&nbsp;Thread.currentThread().getStackTrace();<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(StackTraceElement&nbsp;traceElement&nbsp;:&nbsp;traceElements){<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.err.println(traceElement.getMethodName());<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br />&nbsp;&nbsp;&nbsp;&nbsp;}<br />}<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">输出结果如下：</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">getStackTrace<br />hello<br />main<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">可以看到，通上面图中的入栈过程是一致的，唯一区别是多了个getStackTrace的方法，因为我们在hello方法内部调用了。也会入栈。</p>
+<h4 id="h2" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.2em;"><span style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px;">2</span></h4>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">上面说了，是每个线程有自己的方法栈，所以如果在一个线程调用了另一个线程，那么两个线程有各自的方法栈。不废话，上代码。</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">public&nbsp;class&nbsp;Sample&nbsp;{<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;static&nbsp;void&nbsp;main(String[]&nbsp;args)&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hello();<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.err.println("--------------------");<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new&nbsp;Thread(){<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@Override<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;void&nbsp;run()&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hello();<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}.start();<br />&nbsp;&nbsp;&nbsp;&nbsp;}<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;static&nbsp;void&nbsp;&nbsp;hello(){<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StackTraceElement[]&nbsp;traceElements&nbsp;=&nbsp;Thread.currentThread().getStackTrace();<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for(StackTraceElement&nbsp;traceElement&nbsp;:&nbsp;traceElements){<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.err.println("Thread:"&nbsp;+&nbsp;Thread.currentThread().getName()&nbsp;+&nbsp;"&nbsp;"&nbsp;+&nbsp;traceElement.getMethodName());<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br />&nbsp;&nbsp;&nbsp;&nbsp;}<br />}<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">输出结果如下：</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">Thread:main&nbsp;getStackTrace<br />Thread:main&nbsp;hello<br />Thread:main&nbsp;main<br />--------------------<br />Thread:Thread-0&nbsp;getStackTrace<br />Thread:Thread-0&nbsp;hello<br />Thread:Thread-0&nbsp;run<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">可以看到，分别在主线程和新开的线程中调用了hello方法，输出的调用栈是各自独立的。</p>
+<h4 id="h3" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.2em;"><span style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px;">3</span></h4>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">如果程序出现异常，会从出现异常的方法沿着调用栈逐步往回找，直到找到捕获当前异常类型的代码块，然后输出异常信息。代码如下。</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">public&nbsp;class&nbsp;Sample&nbsp;{<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;static&nbsp;void&nbsp;main(String[]&nbsp;args)&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hello();<br />&nbsp;&nbsp;&nbsp;&nbsp;}<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;static&nbsp;void&nbsp;&nbsp;hello(){<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int[]&nbsp;array&nbsp;=&nbsp;new&nbsp;int[0];<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;array[1]&nbsp;=&nbsp;1;<br />&nbsp;&nbsp;&nbsp;&nbsp;}<br />}<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">方法执行后的异常如下</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">Exception&nbsp;in&nbsp;thread&nbsp;"main"&nbsp;java.lang.ArrayIndexOutOfBoundsException:&nbsp;1<br />&nbsp;&nbsp;&nbsp;&nbsp;at&nbsp;com.yuboon.fragment.exception.Sample.hello(Sample.java:15)<br />&nbsp;&nbsp;&nbsp;&nbsp;at&nbsp;com.yuboon.fragment.exception.Sample.main(Sample.java:10)<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">对比上面第一点的执行结果，是不是有些相似。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">好了，基础知识先铺垫到这。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">基于上面的铺垫，下来我们先快速试一把，看看效果。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><a style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; text-decoration: none; color: #1e6bb8; overflow-wrap: break-word;" name="Up3Fy"></a></p>
+<h3 id="h-2" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.3em; border-bottom: 2px solid #00acc1;"><span style="font-size: inherit; line-height: inherit; margin: 0px; display: inline-block; font-weight: normal; background: #00acc1; color: #ffffff; padding: 3px 10px 0px; border-top-right-radius: 3px; border-top-left-radius: 4px; margin-right: 2px;">小试牛刀</span></h3>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">场景是这样的，不知到大家是否了解springboot启动时是如何加载嵌入的tomcat的，可能很多人专门看过，但估计这会也忘得差不多了。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">下面我们利用异常来快速找到它的启动加载逻辑。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">what ? 异常在哪呢，我正常启动也没异常啊。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">是滴，正常启动是没有，那我能不能让它不正常启动呢？</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">一个正常的情况下，异常都是被动出现的，也就是非编码人员的主观意愿出来的。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">现在我们要主动让它出来，让它来告诉我们一些真相。<br /><br />        </p>
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码3.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">怎么让springboot启动加载tomcat时出错，都在jar包里，也改不了代码啊，直接调试源码？还是debug。不急。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">我来告诉大家一个最简单的方式，利用端口。也就是将tomcat的启动端口改成一个已经被使用的端口，比如说你电脑现在运行着一个mysql服务，那我就让tomcat监听3306端口，这样启动一定会报端口被占用异常。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">来，我们试一下。将springboot配置文件中的服务端口改成3306，启动。</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码4.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">哇哦，想要的异常出来了，多么熟悉的画面。</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码5.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">先大概解释下这个异常信息，总体包含两段异常信息。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">第一段是springboot启动时内部的异常栈信息，第二段是Tomcat内部加载的异常栈信息。<br />两者关系就是，因为Tomcat端口被占用，抛出了端口被占用异常，进而导致springboot启动异常。两段异常的衔接点就在整个异常信息的第一行和最后一行，即<code>Connector.java:1008</code> <code>Connector.java:1005</code> 处。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">图中蓝色标出的类是我们程序的运行起点。点进去看实际上就是run方法处出了异常。</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">@SpringBootApplication<br />public&nbsp;class&nbsp;FragmentExceptionApplicatioin&nbsp;{<br /><br />&nbsp;&nbsp;&nbsp;&nbsp;public&nbsp;static&nbsp;void&nbsp;main(String[]&nbsp;args)&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SpringApplication.run(FragmentExceptionApplicatioin.class,&nbsp;args);<br />&nbsp;&nbsp;&nbsp;&nbsp;}<br />}<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">既然是分析springboot是如何加载tomcat的，那么主要分析第一段就OK了，第二段异常信息暂时就可以忽略。</strong></p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">下面我们仔细分析分析。回想前情铺垫里 [ 1 ][ 3 ] 部分的内容，再加上这个异常堆栈信息，我们就从这个中找到程序的执行顺序，进而分析出核心执行流程。找到源码内部的执行逻辑。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">来一步步看下 <br />经过上面的分析，实际上我们找到了程序运行的起点，即springboot的run方法。且称为<code>起始位置</code>。<br />下面要找到终点，就是最上面的那一行，且称为<code>终点位置</code>。</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">at&nbsp;org.apache.catalina.connector.Connector.startInternal(Connector.java:1008)&nbsp;~[tomcat-embed-core-9.0.21.jar:9.0.21]<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">有了起点和终点，我们知道，两点之间，线段最短。哦，跑题了。<br />是有了起点和终点，执行过程不就在中间吗。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">再一点点看，分析类图可以看到AbstractApplicationContext和ServletWebServerApplicationContext是父子类，所以将出现AbstractApplicationContext的地方都替换为为ServletWebServerApplicationContext，最终结合上面的异常栈，我们可以绘制出这么一张时序图。<br /><br /><br /></p>
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码6.png" alt="" /><br />可以清楚的看到启动时加载的过程。如何？清不清楚。
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">&nbsp;</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">简单组织语言表述一下主体流程，细节暂不展开描述。</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">应用启动的run方法调用了SpringApplication的一系列重载run方法之后<br />调用了SpringApplication的刷新上下文方法和刷新方法<br />再调用ServletWebServerApplicationContext的刷新方法<br />ServletWebServerApplicationContext刷新方法再调用内部的finishRefresh方法<br />finishRefresh调用内部的startWebServer方法<br />startWebServer内部调用TomcatWebServer的start方法启动<br /></code></pre>
+<blockquote style="line-height: inherit; display: block; padding: 15px 15px 15px 1rem; font-size: 0.9em; margin: 1em 0px; color: #000000; border-left: 5px solid #ef7060; background: #efebe9; overflow: auto; overflow-wrap: normal; word-break: normal;">
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 0px;"><strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">友情提醒</strong><br />分析一个陌生框架的源码，切勿一头扎进细节，保你进去出来后一脸懵逼。应该先找到程序的执行主线，而找到主线的方法一个是官方文档的相关介绍，一个是debug，而最直接有效的莫过于利用异常栈。</p>
+
+
+
+
+</blockquote>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">大家可以找一款框架亲自试试看。<br />从此再也不怕面试官问我某某框架的执行原理了。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">分析源码时有了这个主线，再去分析里面的细节就容易得多了。再也不怕debug进去后不知调用深浅，迷失在源码当中</strong>。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><a style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; text-decoration: none; color: #1e6bb8; overflow-wrap: break-word;" name="axr27"></a></p>
+<h3 id="h-3" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.3em; border-bottom: 2px solid #00acc1;"><span style="font-size: inherit; line-height: inherit; margin: 0px; display: inline-block; font-weight: normal; background: #00acc1; color: #ffffff; padding: 3px 10px 0px; border-top-right-radius: 3px; border-top-left-radius: 4px; margin-right: 2px;">功法进阶</span></h3>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">上面只是小试牛刀，下面再看一个例子，通过异常分析下springmvc的执行过程。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">呀，这可怎么搞，上面造个启动异常，端口重用还想了半天，这个异常要怎么造。异常出在哪里才能看到完整的异常栈呢？</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">不急，根据上面的两点之间线段最短原理，那自然是找到程序执行的<code>起始位置</code>和<code>终点位置</code>了。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">这个场景控制器起点貌似在调用端呀。比如pc端？移动端发了个请求过来，那里是起点呀，我去那里搞么。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">要这么复杂，我也就不写这篇文章了。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">妈妈呀，那怎么搞，我好像有点懵逼了呢！</p>
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码7.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">先看张草图</p>
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码8.png" alt="" /><br />不管是nio bio 又或是aio，服务端最终执行请求，必然会分配一个线程去做。
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">&nbsp;</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">既然分析的是springmvc处理过程，也就是说从浏览器到tomcat这段我们是不用管的，我们只需要分析服务端线程调用springmvc方法后执行的这一段就可以了。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">爸爸呀，服务端执行这个在tomcat里面呀，我怎么找。</p>
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码9.png" alt="" /><br />确实这么找，不好找。
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">&nbsp;</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">上面说了先找到起点和终点，没说两个都要找到呀，既然起点在tomcat里不好找，那终点能找到吗？</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">我想想，终点难道是controller里的方法吗？</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">答对了，请求所抵达的终点就是controller里面声明的方法。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">好的终点找到了，如何报错，一时脑袋懵逼，哎，还是不习惯主动写个异常，一时不知道代码怎么写。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">好吧，那我们就用两行代码来主动造个异常，异常水平的高低不要求，能出错的异常就是好异常。嗯？好像是个病句，不重要。</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;">@RequestMapping("/hello")<br />public&nbsp;String&nbsp;hello(String&nbsp;name){<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;nullObject&nbsp;=&nbsp;null;<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nullObject.toString();<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;"hello&nbsp;:&nbsp;"&nbsp;+&nbsp;name;<br />}<br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">OK，写完了，执行时第四行必报空指针错误，启动测试一下呗。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">当当当当，看看，异常栈又来了，这次看着异常是否亲切了些。</p>
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码10.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">来分析一波，上面的草图中可以看到，线程中肯定会调用springmvc的代码，tomcat的一些处理我们可以忽略，直接从异常栈中找org,springframework包开头的类信息。可以看到<code>FrameworkServlet</code>类是由tomcat进入springmvc框架的第一个类。调用它的是<code>HttpServlet</code>，再顺着网上看，就可以看到<code>DispatcherServlet</code>，在未使用springboot之前，我们使用springmvc框架还需要在web.xml中添加配置</p>
+<pre><code><code class="xml language-xml hljs" style="overflow-wrap: break-word; margin: 0px 2px; line-height: 18px; font-size: 14px; font-weight: normal; word-spacing: 0px; letter-spacing: 0px; font-family: Consolas, Inconsolata, Courier, monospace; border-radius: 0px; color: #a9b7c6; background: #282b2e; overflow-x: auto; padding: 0.5em; white-space: pre !important; word-wrap: normal !important; word-break: normal !important; overflow: auto !important; display: -webkit-box !important;"><span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-name</span>&gt;</span>springmvc<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-name</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-class</span>&gt;</span>org.springframework.web.servlet.DispatcherServlet<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-class</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">init-param</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">param-name</span>&gt;</span>contextConfigLocation<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">param-name</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">param-value</span>&gt;</span>classpath:spring-mvc.xml<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">param-value</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">init-param</span>&gt;</span><br />&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet</span>&gt;</span><br />&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-mapping</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-name</span>&gt;</span>springmvc<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-name</span>&gt;</span><br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">url-pattern</span>&gt;</span>/*<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">url-pattern</span>&gt;</span><br />&nbsp;&nbsp;<span class="hljs-tag" style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px; word-wrap: inherit !important; word-break: inherit !important;">&lt;/<span class="hljs-name" style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; color: #f82375; word-wrap: inherit !important; word-break: inherit !important;">servlet-mapping</span>&gt;</span><br /></code></pre>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">通过类关系分析，发现三者是继承关系，<code>DispatcherServlet</code>为最终子类。所以在随后的异常栈分析中，我们可以使用子类去替换父类。也就是异常栈中出现<code>FrameworkServlet、HttpServlet</code>均可使用<code>DispatcherServlet</code>进行替换分析。</p>
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码11.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">如此我们便找到了<code>起始位置</code>，那接下来的问题就是顺着<code>DispatcherServlet</code>继续往下分析。<br />下来需要确定真正的<code>终点位置</code>，上面不是确定了吗？<br />上面所确定的终止位置并不是真正的<code>终点位置</code>，看下面这段异常</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码12.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">发现是个反射调用的异常，那就可以知道Controller的方法是通过反射调用的，我们排除JDK自身存在BUG的这种问题，所以这里其实也可以忽略，那么真正的终点位置就是调用反射代码执行方法的那一行，在哪呢？在这</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码13.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">至此我们就可以锁定终点位置是<code>InvocableHandlerMethod.doInvoke</code>。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">那么剩下需要具体分析的过程如下图，也就是搞清楚这几个方法间的调用关系，处理逻辑，基本上就搞清楚了springmvc是如何接受处理一个请求的逻辑。</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码14.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">再次分析处理类的类图图发现<br />RequestMappingHandlerAdapter为AbstractHandlerMethodAdapter的子类。<br />ServletInvocableHandlerMethod为InvocableHandlerMethod的子类。<br />同上面一样，存在父子关系，用最终子类替换父类进行分析。<br />所以异常栈中出现AbstractHandlerMethodAdapter的地方都可使用RequestMappingHandlerAdapter进行替换。<br />异常栈中出现InvocableHandlerMethod的地方都可使用ServletInvocableHandlerMethod进行替换。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">结合起来画个时序图bstractHandlerMethodAdapt</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码15.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">这样看执行过程是不清楚了许多。简要语言表述此处就免了。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">回过头，在看下起始位置</p>
+
+
+
+
+<img style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; display: block; margin: 0px auto; max-width: 100%;" title="" src="./images/[ Coding七十二绝技 ] 如何利用Java异常快速分析源码16.png" alt="" />
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">是个线程，回想前情铺垫里的第 [ 2 ] 点，这就合理的解释了为什么是线程开头，因为在tomcat处理请求时，开启了线程，这个线程它有自己的JVM Stack，而这个请求处理的起点便是该线程的run方法。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">具体代码内部细节根据实际情况具体分析，<strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">需要注意的是子类上的方法有些继承自父类或直接调用的父类，分析的时候为了结构清晰我们将父类全部换成了子类，所以这个在具体分析代码的时候需要注意</strong>，<strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">直接看子类可能会找不到一些方法，需要结合父类去看</strong>，这里就不带大家一行一行去分析了，不然我该写到天亮去了，此文的关键是提供一种思路。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">等等，这只是请求接受到处理，数据是如何组装返回前台的，响应处理呢？ 怎么没看到，确实。这个流程里没有，那如何能看到请求响应的处理流程能，很简单，只需要在数据返回时造个异常就行了。怎么造？自己不妨琢磨琢磨先。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><a style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; text-decoration: none; color: #1e6bb8; overflow-wrap: break-word;" name="RDhmg"></a></p>
+<h3 id="h-4" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.3em; border-bottom: 2px solid #00acc1;"><span style="font-size: inherit; line-height: inherit; margin: 0px; display: inline-block; font-weight: normal; background: #00acc1; color: #ffffff; padding: 3px 10px 0px; border-top-right-radius: 3px; border-top-left-radius: 4px; margin-right: 2px;">收工</span></h3>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">希望通过此文能帮你在源码分析的道路上走的容易些，也希望大家在看到异常不光有恨意，还带有一丝丝爱意，那我写这篇文章的目的就达到了。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">再送大家修炼此功法的三点关键秘诀</strong></p>
+<h4 id="h1-1" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.2em;"><span style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px;">1</span></h4>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">此功法法成功的关键是找到正确的异常栈输出位置，通常情况下是程序执行逻辑终点的那个方法。</p>
+<h4 id="h2-1" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.2em;"><span style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px;">2</span></h4>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">多找几个框架，多找几个场景，去适应这种思路，所谓孰能生巧。</p>
+<h4 id="h3-1" style="color: inherit; line-height: inherit; padding: 0px; margin: 1.6em 0px; font-weight: bold; font-size: 1.2em;"><span style="font-size: inherit; color: inherit; line-height: inherit; margin: 0px; padding: 0px;">3</span></h4>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">注意抽象类和其子类，分析时出现抽象类的地方都可使用子类进行替换</p>
+<blockquote style="line-height: inherit; display: block; padding: 15px 15px 15px 1rem; font-size: 0.9em; margin: 1em 0px; color: #000000; border-left: 5px solid #ef7060; background: #efebe9; overflow: auto; overflow-wrap: normal; word-break: normal;">
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 0px;"><strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">友情提醒</strong><br />此功法还可用在项目业务场景下，刚接手了新的项目，不知如何下手，找不到执行逻辑？debug半天还是没有头绪，不妨试试此法。</p>
+
+
+
+
+</blockquote>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">它踩着七彩云走了，留给我们无尽的遐想。不行，我得赶紧找个框架试一波。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;"><strong style="font-size: inherit; line-height: inherit; margin: 0px; padding: 0px; font-weight: bold; color: #e96900;">此文风，第一次尝试，如果觉得不错不妨动动手指点个小赞，鼓励下作者，我会努力多写几篇。</strong></p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">如果觉得一般，么关系，我还有屌丝系列，少女系列，油腻男系列等风格。</p>
+<p style="font-size: inherit; color: inherit; line-height: inherit; padding: 0px; margin: 1.7em 0px;">此文结束，然而精彩故事未完&hellip;&hellip;..</p>
+
+
+
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

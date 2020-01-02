@@ -1,0 +1,540 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【一起学设计模式】命令模式+模板方法+工厂方法实战 如何优雅的更新商品库存...' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【一起学设计模式】命令模式+模板方法+工厂方法实战 如何优雅的更新商品库存...</center></div><div class='banquan'>原文出处:本文由博客园博主一枝花算不算浪漫提供。<br/>
+原文连接:https://www.cnblogs.com/wang-meng/p/11996439.html</div><br>
+    <h3 id="前言">前言</h3>
+<p>之前在我的博客(<a href="https://www.cnblogs.com/wang-meng/">一枝花算不算浪漫</a>)中已经更新过两篇设计模式相关的内容</p>
+<ul>
+<li><a href="https://www.cnblogs.com/wang-meng/p/11457544.html">【一起学设计模式】策略模式实战一：基于消息发送的策略模式实战</a></li>
+<li><a href="https://www.cnblogs.com/wang-meng/p/11539977.html">【一起学习设计模式】策略模式实战二：配合注解 干掉业务代码中冗余的if else...</a></li>
+<li><a href="https://www.cnblogs.com/wang-meng/p/11982661.html">【一起学设计模式】访问者模式实战：权限管理树删除节点操作</a></li>
+</ul>
+<p>上面内容都是基于真实业务场景精简后的设计(<strong>工作中真实场景使用到的</strong>)。</p>
+<p>之前为了学习设计模式，看过网上很多相关博客讲解，大都是画下UML类图，举例几个毫不相干的demo，看了几遍仍然是云里雾里。</p>
+<p>学习设计模式只有在真正的业务场景去使用才会更好的理解其精髓。这里举例自己工作中电商的业务场景，然后配合一些业务功能的实现，来学会设计模式，使自己的代码更优雅。</p>
+<h3 id="业务背景">业务背景</h3>
+<p>在一个电商或者进销存业务中，我们都有库存的概念。<br />
+更新库存又分为很多种场景：购买、退货、下单、取消订单、加购物车等等</p>
+<p>当然，我们之前也见过策略模式，这种业务可以抽象为每个策略去做。但是这里我们使用新的设计模式来尝试完成它。</p>
+<ol>
+<li><p>命令模式command<br />
+设置一系列的command命令，我们将不同类型的库存更新逻辑，封装了不同的库存更新命令。</p>
+<p>命令模式还有一个很经典的场景，就是做这个命令撤销。如果我们在执行这个命令的过程中，发现命令中的某个步骤失败了，我们可以在command里面实现一套cancel的逻辑，撤销这个命令之前做的所有操作，对已经完成的好做执行反步骤。</p></li>
+<li><p>模板方法模式<br />
+将一些通用的步骤抽取到抽象基类，另外一个基于模板的模式限定了每个库存更新的过程都是一样的，按照一样的步骤和顺序走，很清晰。后面如果要修改更新库存的逻辑，或者hi新增一种库存更新的逻辑，都是按照一样的步骤和顺序去走。</p></li>
+<li><p>工厂方法模式<br />
+工厂方法模式，就是将工厂模式和模板方法模式，结合起来。<br />
+就是说，可能我们需要的不是一个工厂，不同的工厂创建不同的产品，但是这些工厂之间有一些通用的逻辑，可以抽取到父工厂里面去，子工厂就专注于自己的事情就可以了。</p></li>
+</ol>
+<h3 id="类图">类图</h3>
+<p><img src="./images/【一起学设计模式】命令模式+模板方法+工厂方法实战 如何优雅的更新商品库存...0.png" alt="7BE68636-56B3-412C-8367-7F5C9B3E1161.png" /></p>
+<h3 id="代码实现">代码实现</h3>
+<ul>
+<li>商品库存更新命令接口<br />
+这里采用的command命令模式</li>
+</ul>
+<pre><code><code>/**
+ * 商品库存更新命令的接口
+ *
+ * @author wangmeng
+ * @blog https://www.cnblogs.com/wang-meng/
+ * @create 2019-12-05 06:42
+ **/
+public interface StockUpdater {
+
+    /**
+     * 更新商品库存
+     * @return 处理结果
+     */
+    Boolean updateGoodsStock();
+}</code></pre>
+<ul>
+<li>创建更新命令command的工厂接口<br />
+这里采用的是工厂方法模式</li>
+</ul>
+<pre><code><code>/**
+ * 库存更新命令工厂接口
+ *
+ * @author wangmeng
+ * @blog https://www.cnblogs.com/wang-meng/
+ * @create 2019-12-05 06:42
+ **/
+public interface StockUpdaterFactory&lt;T&gt; {
+
+    /**
+     * 创建一个库存更新命令
+     *
+     * @param parameter 参数对象
+     * @return 库存更新命令
+     */
+    StockUpdater create(T parameter);
+}</code></pre>
+<ul>
+<li>商品库存更新命令的抽象基类</li>
+</ul>
+<pre><code><code>/**
+ * 商品库存更新命令的抽象基类
+ * 
+ * @author wangmeng
+ * @blog https://www.cnblogs.com/wang-meng/
+ * @create 2019-12-05 06:44
+ **/
+@Slf4j
+public abstract class AbstractStockUpdater implements StockUpdater{
+
+    /**
+     * 商品库存对象集合
+     */
+    protected List&lt;InventoryGoodsStock&gt; goodsStockList;
+
+    /**
+     * 商品库存管理模块service
+     */
+    protected InventoryGoodsStockService goodsStockService;
+
+    public AbstractStockUpdater(List&lt;InventoryGoodsStock&gt; goodsStockList, InventoryGoodsStockService goodsStockService) {
+        this.goodsStockList = goodsStockList;
+        this.goodsStockService = goodsStockService;
+    }
+
+    /**
+     * 更新商品库存
+     * @return
+     */
+    @Override
+    public Boolean updateGoodsStock() {
+        try {
+            updateSaleStockQuantity();
+            updateLockedStockQuantity();
+            updateSaledStockQuantity();
+            updateStockStatus();
+            updateGmtModified();
+            executeUpdateGoodsStock();
+        } catch (Exception e) {
+            log.error(&quot;error&quot;, e);
+        }
+        return true;
+    }
+
+    /**
+     * 更新商品的销售库存
+     * @throws Exception
+     */
+    protected abstract void updateSaleStockQuantity() throws Exception;
+
+    /**
+     * 更新商品的锁定库存
+     * @throws Exception
+     */
+    protected abstract void updateLockedStockQuantity() throws Exception;
+
+    /**
+     * 更新商品的已销售库存
+     * @throws Exception
+     */
+    protected abstract void updateSaledStockQuantity() throws Exception;
+
+    /**
+     * 更新商品的库存状态
+     */
+    private void updateStockStatus() throws Exception {
+        for(InventoryGoodsStock goodsStockDO : goodsStockList) {
+            if(goodsStockDO.getSaleStockQuantity() &gt; 0L) {
+                goodsStockDO.setStockStatus(StockStatus.IN_STOCK);
+            } else {
+                goodsStockDO.setStockStatus(StockStatus.NOT_IN_STOCK);
+            }
+        }
+    }
+
+    /**
+     * 更新商品库存的修改时间
+     */
+    private void updateGmtModified() throws Exception {
+        Date current = new Date();
+        for(InventoryGoodsStock goodsStockDO : goodsStockList) {
+            goodsStockDO.setGmtModified(current);
+        }
+    }
+
+    /**
+     * 实际执行更新商品库存的操作
+     * @throws Exception
+     */
+    private void executeUpdateGoodsStock() throws Exception {
+        for(InventoryGoodsStock goodsStockDO : goodsStockList) {
+            goodsStockService.updateById(goodsStockDO);
+        }
+    }
+}</code></pre>
+<ul>
+<li>抽象创建command的工厂类</li>
+</ul>
+<pre><code><code>/**
+ * @author wangmeng
+ * @blog https://www.cnblogs.com/wang-meng/
+ * @create 2019-12-05 06:56
+ **/
+@Slf4j
+public abstract class AbstractStockUpdaterFactory&lt;T&gt; implements StockUpdaterFactory&lt;T&gt; {
+
+    protected InventoryGoodsStockService stockService;
+
+    public AbstractStockUpdaterFactory(InventoryGoodsStockService stockService) {
+        this.stockService = stockService;
+    }
+
+    @Override
+    public StockUpdater create(T parameter) {
+        try {
+            List&lt;Long&gt; goodsSkuIds = getGoodsSkuIds(parameter);
+            List&lt;InventoryGoodsStock&gt; goodsStockDOs = createGoodsStockList(goodsSkuIds);
+            return create(goodsStockDOs, parameter);
+        } catch (Exception e) {
+            log.error(&quot;error&quot;, e);
+        }
+        return null;
+    }
+
+    /**
+     * 获取商品sku id集合
+     * @param parameter 参数
+     * @return 商品sku id集合
+     * @throws Exception
+     */
+    protected abstract List&lt;Long&gt; getGoodsSkuIds(T parameter) throws Exception;
+
+    /**
+     * 创建库存更新命令
+     * @param parameter 参数
+     * @param goodsStockDOs 商品库存DO对象集合
+     * @return 库存更新命令
+     * @throws Exception
+     */
+    protected abstract StockUpdater create(
+            List&lt;InventoryGoodsStock&gt; goodsStockDOs, T parameter) throws Exception;
+
+    /**
+     * 创建商品库存DO对象集合
+     *
+     * @param goodsSkuIds 商品sku id集合
+     * @return 商品库存对象集合
+     */
+    private List&lt;InventoryGoodsStock&gt; createGoodsStockList(List&lt;Long&gt; goodsSkuIds) throws Exception {
+        List&lt;InventoryGoodsStock&gt; goodsStocks = new ArrayList&lt;&gt;(goodsSkuIds.size());
+        EntityWrapper&lt;InventoryGoodsStock&gt; wrapper = new EntityWrapper&lt;&gt;();
+        wrapper.in(&quot;goods_sku_id&quot;, goodsSkuIds);
+        List&lt;InventoryGoodsStock&gt; goodsStockList = stockService.selectList(wrapper);
+        Map&lt;Long, InventoryGoodsStock&gt; stockMap = new HashMap&lt;&gt;();
+        if (!CollectionUtils.isEmpty(goodsStockList)) {
+            stockMap = goodsStockList.stream().collect(Collectors.toMap(InventoryGoodsStock::getGoodsSkuId, Function.identity()));
+        }
+        for (Long goodsSkuId : goodsSkuIds) {
+            InventoryGoodsStock inventoryGoodsStock = stockMap.get(goodsSkuId);
+            if (inventoryGoodsStock == null) {
+                inventoryGoodsStock = createGoodsStock(goodsSkuId);
+                // 不建议循环中操作sql，这里只做演示作用，实际可以批量操作sql
+                stockService.insert(inventoryGoodsStock);
+            }
+
+            goodsStocks.add(inventoryGoodsStock);
+        }
+
+        return goodsStocks;
+    }
+
+    /**
+     * 创建商品库存DO对象
+     * @param goodsSkuId 商品sku id
+     * @return 商品库存DO对象
+     */
+    private InventoryGoodsStock createGoodsStock(Long goodsSkuId) {
+        InventoryGoodsStock goodsStockDO = new InventoryGoodsStock();
+        goodsStockDO.setGoodsSkuId(goodsSkuId);
+        goodsStockDO.setSaleStockQuantity(0L);
+        goodsStockDO.setLockedStockQuantity(0L);
+        goodsStockDO.setSaledStockQuantity(0L);
+        goodsStockDO.setStockStatus(StockStatus.NOT_IN_STOCK);
+        goodsStockDO.setGmtCreate(new Date());
+        goodsStockDO.setGmtModified(new Date());
+        return goodsStockDO;
+    }
+}</code></pre>
+<ul>
+<li>采购入库库存更新命令的工厂</li>
+</ul>
+<pre><code><code>/**
+ * @author wangmeng
+ * @blog https://www.cnblogs.com/wang-meng/
+ * @create 2019-12-05 06:56
+ **/
+@Slf4j
+public abstract class AbstractStockUpdaterFactory&lt;T&gt; implements StockUpdaterFactory&lt;T&gt; {
+
+    protected InventoryGoodsStockService stockService;
+
+    public AbstractStockUpdaterFactory(InventoryGoodsStockService stockService) {
+        this.stockService = stockService;
+    }
+
+    @Override
+    public StockUpdater create(T parameter) {
+        try {
+            List&lt;Long&gt; goodsSkuIds = getGoodsSkuIds(parameter);
+            List&lt;InventoryGoodsStock&gt; goodsStockDOs = createGoodsStockList(goodsSkuIds);
+            return create(goodsStockDOs, parameter);
+        } catch (Exception e) {
+            log.error(&quot;error&quot;, e);
+        }
+        return null;
+    }
+
+    /**
+     * 获取商品sku id集合
+     * @param parameter 参数
+     * @return 商品sku id集合
+     * @throws Exception
+     */
+    protected abstract List&lt;Long&gt; getGoodsSkuIds(T parameter) throws Exception;
+
+    /**
+     * 创建库存更新命令
+     * @param parameter 参数
+     * @param goodsStockDOs 商品库存DO对象集合
+     * @return 库存更新命令
+     * @throws Exception
+     */
+    protected abstract StockUpdater create(
+            List&lt;InventoryGoodsStock&gt; goodsStockDOs, T parameter) throws Exception;
+
+    /**
+     * 创建商品库存DO对象集合
+     *
+     * @param goodsSkuIds 商品sku id集合
+     * @return 商品库存对象集合
+     */
+    private List&lt;InventoryGoodsStock&gt; createGoodsStockList(List&lt;Long&gt; goodsSkuIds) throws Exception {
+        List&lt;InventoryGoodsStock&gt; goodsStocks = new ArrayList&lt;&gt;(goodsSkuIds.size());
+        EntityWrapper&lt;InventoryGoodsStock&gt; wrapper = new EntityWrapper&lt;&gt;();
+        wrapper.in(&quot;goods_sku_id&quot;, goodsSkuIds);
+        List&lt;InventoryGoodsStock&gt; goodsStockList = stockService.selectList(wrapper);
+        Map&lt;Long, InventoryGoodsStock&gt; stockMap = new HashMap&lt;&gt;();
+        if (!CollectionUtils.isEmpty(goodsStockList)) {
+            stockMap = goodsStockList.stream().collect(Collectors.toMap(InventoryGoodsStock::getGoodsSkuId, Function.identity()));
+        }
+        for (Long goodsSkuId : goodsSkuIds) {
+            InventoryGoodsStock inventoryGoodsStock = stockMap.get(goodsSkuId);
+            if (inventoryGoodsStock == null) {
+                inventoryGoodsStock = createGoodsStock(goodsSkuId);/**
+ * 采购入库库存更新命令的工厂
+ * @author wangmeng
+ *
+ */
+@Component
+public class PurchaseInputStockUpdaterFactory&lt;T&gt; 
+        extends AbstractStockUpdaterFactory&lt;T&gt; {
+
+    /**
+     * 构造函数
+     * @param stockService 商品库存管理模块的service组件
+     */
+    @Autowired
+    public PurchaseInputStockUpdaterFactory(InventoryGoodsStockService stockService) {
+        super(stockService);
+    }
+
+    /**
+     * 获取商品sku id集合
+     * @return 商品sku id集合
+     * @throws Exception
+     */
+    @Override
+    protected List&lt;Long&gt; getGoodsSkuIds(T parameter) throws Exception {     
+        PurchaseInputOrderDTO purchaseInputOrderDTO = (PurchaseInputOrderDTO) parameter;
+        List&lt;PurchaseInputOrderItemDTO&gt; purchaseInputOrderItemDTOs =
+                purchaseInputOrderDTO.getItems();
+        
+        if(purchaseInputOrderItemDTOs == null || purchaseInputOrderItemDTOs.size() == 0) {
+            return new ArrayList&lt;&gt;();
+        }
+        
+        List&lt;Long&gt; goodsSkuIds = new ArrayList&lt;Long&gt;(purchaseInputOrderItemDTOs.size());
+        for(PurchaseInputOrderItemDTO purchaseInputOrderItemDTO : purchaseInputOrderItemDTOs) {
+            goodsSkuIds.add(purchaseInputOrderItemDTO.getGoodsSkuId());
+        }
+        
+        return goodsSkuIds;
+    }
+
+    /**
+     * 创建库存更新命令
+     * @param goodsStockDOs 商品库存DO对象集合
+     * @return 库存更新命令
+     * @throws Exception
+     */
+    @Override
+    protected StockUpdater create(List&lt;InventoryGoodsStock&gt; goodsStockDOs, T parameter) throws Exception {
+        PurchaseInputOrderDTO purchaseInputOrderDTO = (PurchaseInputOrderDTO) parameter;
+        List&lt;PurchaseInputOrderItemDTO&gt; purchaseInputOrderItemDTOs = purchaseInputOrderDTO.getItems();
+        Map&lt;Long, PurchaseInputOrderItemDTO&gt; purchaseInputOrderItemDTOMap = new HashMap&lt;&gt;();
+        if(purchaseInputOrderItemDTOs != null &amp;&amp; purchaseInputOrderItemDTOs.size() &gt; 0) {
+            for(PurchaseInputOrderItemDTO purchaseInputOrderItemDTO : purchaseInputOrderItemDTOs) {
+                purchaseInputOrderItemDTOMap.put(purchaseInputOrderItemDTO.getGoodsSkuId(), 
+                        purchaseInputOrderItemDTO);
+            }
+        }
+        
+        return new PurchaseInputStockUpdater(goodsStockDOs, stockService, purchaseInputOrderItemDTOMap);
+    }
+
+}
+                // 不建议循环中操作sql，这里只做演示作用，实际可以批量操作sql
+                stockService.insert(inventoryGoodsStock);
+            }
+
+            goodsStocks.add(inventoryGoodsStock);
+        }
+
+        return goodsStocks;
+    }
+
+    /**
+     * 创建商品库存DO对象
+     * @param goodsSkuId 商品sku id
+     * @return 商品库存DO对象
+     */
+    private InventoryGoodsStock createGoodsStock(Long goodsSkuId) {
+        InventoryGoodsStock goodsStockDO = new InventoryGoodsStock();
+        goodsStockDO.setGoodsSkuId(goodsSkuId);
+        goodsStockDO.setSaleStockQuantity(0L);
+        goodsStockDO.setLockedStockQuantity(0L);
+        goodsStockDO.setSaledStockQuantity(0L);
+        goodsStockDO.setStockStatus(StockStatus.NOT_IN_STOCK);
+        goodsStockDO.setGmtCreate(new Date());
+        goodsStockDO.setGmtModified(new Date());
+        return goodsStockDO;
+    }
+}</code></pre>
+<ul>
+<li>采购入库库存更新命令</li>
+</ul>
+<pre><code><code>/**
+ * 采购入库库存更新命令
+ * @author zhonghuashishan
+ *
+ */
+public class PurchaseInputStockUpdater extends AbstractStockUpdater {
+
+    /**
+     * 采购入库单条目DTO集合
+     */
+    private Map&lt;Long, PurchaseInputOrderItemDTO&gt; purchaseInputOrderItemDTOMap;
+    
+    /**
+     * 构造函数
+     * @param goodsStockDOs 商品库存DO对象
+     * @param stockService 商品库存管理模块的service组件
+     */
+    public PurchaseInputStockUpdater(
+            List&lt;InventoryGoodsStock&gt; goodsStockDOs,
+            InventoryGoodsStockService stockService,
+            Map&lt;Long, PurchaseInputOrderItemDTO&gt; purchaseInputOrderItemDTOMap) {
+        super(goodsStockDOs, stockService);
+        this.purchaseInputOrderItemDTOMap = purchaseInputOrderItemDTOMap;
+    }
+    
+    /**
+     * 更新销售库存
+     */
+    @Override
+    protected void updateSaleStockQuantity() throws Exception {
+        for(InventoryGoodsStock goodsStockDO : goodsStockList) {
+            PurchaseInputOrderItemDTO purchaseInputOrderItemDTO =
+                    purchaseInputOrderItemDTOMap.get(goodsStockDO.getGoodsSkuId());
+            goodsStockDO.setSaleStockQuantity(goodsStockDO.getSaleStockQuantity() 
+                    + purchaseInputOrderItemDTO.getArrivalCount()); 
+        }
+    }
+
+    /**
+     * 更新锁定库存
+     */
+    @Override
+    protected void updateLockedStockQuantity() throws Exception {
+        
+    }
+
+    /**
+     * 更新已销售库存
+     */
+    @Override
+    protected void updateSaledStockQuantity() throws Exception {
+        
+    }
+
+}</code></pre>
+<ul>
+<li>实际流转调用代码</li>
+</ul>
+<pre><code><code>/**
+ * &lt;p&gt;
+ * 库存中心的商品库存表 服务实现类
+ * &lt;/p&gt;
+ *
+ * @author wangmeng
+ * @since 2019-12-03
+ */
+@Service
+@Slf4j
+public class InventoryGoodsStockServiceImpl extends ServiceImpl&lt;InventoryGoodsStockMapper, InventoryGoodsStock&gt; implements InventoryGoodsStockService {
+
+    /**
+     * 采购入库库存更新命令工厂
+     */
+    @Autowired
+    private PurchaseInputStockUpdaterFactory&lt;PurchaseInputOrderDTO&gt; purchaseInputStockUpdateCommandFactory;
+
+    /**
+     * 通知库存中心，“采购入库完成”事件发生了
+     * @param purchaseInputOrderDTO 采购入库单DTO
+     * @return 处理结果
+     */
+    @Override
+    public Boolean informPurchaseInputFinished(
+            PurchaseInputOrderDTO purchaseInputOrderDTO) {
+        try {
+            StockUpdater goodsStockUpdateCommand = purchaseInputStockUpdateCommandFactory.create(purchaseInputOrderDTO);
+            goodsStockUpdateCommand.updateGoodsStock();
+        } catch (Exception e) {
+            log.error(&quot;error&quot;, e);
+            return false;
+        }
+        return true;
+    }
+}</code></pre>
+<h3 id="申明">申明</h3>
+<p>本文章首发自本人博客：<a href="https://www.cnblogs.com/wang-meng/">https://www.cnblogs.com/wang-meng</a> 和公众号：<strong>壹枝花算不算浪漫</strong>，如若转载请标明来源!</p>
+<p>感兴趣的小伙伴可关注个人公众号：壹枝花算不算浪漫</p>
+<p><img src="./images/【一起学设计模式】命令模式+模板方法+工厂方法实战 如何优雅的更新商品库存...1.png" alt="22.jpg" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

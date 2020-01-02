@@ -1,0 +1,339 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修11.多线程、多进程和线程池编程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>11.多线程、多进程和线程池编程</center></div><div class='banquan'>原文出处:本文由博客园博主zhang_derek提供。<br/>
+原文连接:https://www.cnblogs.com/derek1184405959/p/11392029.html</div><br>
+    <h3><span style="color: #ff00ff;">1.1.线程同步Lock和Rlock</span></h3>
+<p>(1)Lock</p>
+<ul>
+<li>用锁会影响性能</li>
+<li>用锁会产生死锁</li>
+</ul>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+</span><span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Lock
+
+total </span>=<span style="color: #000000;"> 0
+lock </span>=<span style="color: #000000;"> Lock()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> add():
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> total
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> local
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(100000<span style="color: #000000;">):
+        lock.acquire()
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> lock.acquire()   #如果再加把锁会产生死锁</span>
+        total += 1<span style="color: #000000;">
+        lock.release()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> desc():
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> total
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> local
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(100000<span style="color: #000000;">):
+        lock.acquire()     </span><span style="color: #008000;">#</span><span style="color: #008000;">获取锁</span>
+        total -= 1<span style="color: #000000;">
+        lock.release()     </span><span style="color: #008000;">#</span><span style="color: #008000;">释放锁</span>
+<span style="color: #000000;">
+thread1 </span>= threading.Thread(target=<span style="color: #000000;">add)
+thread2 </span>= threading.Thread(target=<span style="color: #000000;">desc)
+thread1.start()
+thread2.start()
+thread1.join()
+thread2.join()
+</span><span style="color: #0000ff;">print</span>(total)   <span style="color: #008000;">#</span><span style="color: #008000;">0</span></pre>
+</div>
+<p>（2）RLock</p>
+<p>RLock:在同一个线程里面，可以连续多次调用acquire,一定要注意acquire和release的次数相等</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+</span><span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Lock,RLock
+
+total </span>=<span style="color: #000000;"> 0
+lock </span>=<span style="color: #000000;"> RLock()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> add():
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> total
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> local
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(100000<span style="color: #000000;">):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">用RLock在同一线程里面，可以多次调用acquire，不会产生死锁</span>
+<span style="color: #000000;">        lock.acquire()
+        lock.acquire()
+        total </span>+= 1
+        <span style="color: #008000;">#</span><span style="color: #008000;">release的次数和acquire的次数相等</span>
+<span style="color: #000000;">        lock.release()
+        lock.release()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> desc():
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> total
+    </span><span style="color: #0000ff;">global</span><span style="color: #000000;"> local
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(100000<span style="color: #000000;">):
+        lock.acquire()     </span><span style="color: #008000;">#</span><span style="color: #008000;">获取锁</span>
+        total -= 1<span style="color: #000000;">
+        lock.release()     </span><span style="color: #008000;">#</span><span style="color: #008000;">释放锁</span>
+<span style="color: #000000;">
+thread1 </span>= threading.Thread(target=<span style="color: #000000;">add)
+thread2 </span>= threading.Thread(target=<span style="color: #000000;">desc)
+thread1.start()
+thread2.start()
+thread1.join()
+thread2.join()
+</span><span style="color: #0000ff;">print</span>(total)   <span style="color: #008000;">#</span><span style="color: #008000;">0</span></pre>
+</div>
+<h3><span style="color: #ff00ff;">1.2.线程同步 - condition&nbsp;</span></h3>
+<p>使用condition模拟对话</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+</span><span style="color: #0000ff;">from</span> threading <span style="color: #0000ff;">import</span><span style="color: #000000;"> Condition
+
+ </span><span style="color: #008000;">#</span><span style="color: #008000;">通过condition，完成协同读诗</span>
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> XiaoAi(threading.Thread):
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self,cond):
+        super().</span><span style="color: #800080;">__init__</span>(name=<span style="color: #800000;">'</span><span style="color: #800000;">小爱</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        self.cond </span>=<span style="color: #000000;"> cond
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        with self.cond:
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">等待</span>
+<span style="color: #000000;">            self.cond.wait()
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">{} : 在</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(self.name))
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">通知</span>
+<span style="color: #000000;">            self.cond.notify()
+
+            self.cond.wait()
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">{} : 好啊</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(self.name))
+            self.cond.notify()
+
+            self.cond.wait()
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">{} : 君住长江尾</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(self.name))
+            self.cond.notify()
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> TianMao(threading.Thread):
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self,cond):
+        super().</span><span style="color: #800080;">__init__</span>(name=<span style="color: #800000;">"</span><span style="color: #800000;">天猫精灵</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        self.cond </span>=<span style="color: #000000;"> cond
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        with self.cond:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">{} : 小爱同学</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(self.name))
+            self.cond.notify()
+            self.cond.wait()
+
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">{} : 我们来对古诗吧</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(self.name))
+            self.cond.notify()
+            self.cond.wait()
+
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">{} : 我在长江头</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(self.name))
+            self.cond.notify()
+            self.cond.wait()
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    cond </span>=<span style="color: #000000;"> threading.Condition()
+    xiaoai </span>=<span style="color: #000000;"> XiaoAi(cond)
+    tianmao </span>=<span style="color: #000000;"> TianMao(cond)
+
+    xiaoai.start()
+    tianmao.start()</span></pre>
+</div>
+<p>结果：</p>
+<p><img src="./images/11.多线程、多进程和线程池编程0.png" alt="" /></p>
+<p>&nbsp;</p>
+<h3><span style="color: #ff00ff;">1.3.线程同步 - Semaphore&nbsp;</span></h3>
+<p>控制线程并发数量</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">samaphore是用于控制进入数量的锁</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> threading
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> htmlSpider(threading.Thread):
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self,url,sem):
+        super().</span><span style="color: #800080;">__init__</span><span style="color: #000000;">()
+        self.url </span>=<span style="color: #000000;"> url
+        self.sem </span>=<span style="color: #000000;"> sem
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        time.sleep(</span>2<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">got html text success!</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        self.sem.release()   </span><span style="color: #008000;">#</span><span style="color: #008000;">释放锁</span>
+
+<span style="color: #0000ff;">class</span><span style="color: #000000;"> UrlProducer(threading.Thread):
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self, sem):
+        super().</span><span style="color: #800080;">__init__</span><span style="color: #000000;">()
+        self.sem </span>=<span style="color: #000000;"> sem
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+        </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span> range(20<span style="color: #000000;">):
+            self.sem.acquire()    </span><span style="color: #008000;">#</span><span style="color: #008000;">加锁</span>
+            html_htread = htmlSpider(<span style="color: #800000;">"</span><span style="color: #800000;">baidu.com/{}</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(i), self.sem)
+            html_htread.start()
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">控制线程并发数量为3</span>
+    sem = threading.Semaphore(3<span style="color: #000000;">)
+    url_producer </span>=<span style="color: #000000;"> UrlProducer(sem)
+    url_producer.start()</span></pre>
+</div>
+<h3><span style="color: #ff00ff;">11.4.ThreadPoolExecutor线程池</span></h3>
+<p>线程池</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> concurrent.futures <span style="color: #0000ff;">import</span><span style="color: #000000;"> ThreadPoolExecutor, as_completed
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">为什么要线程池</span><span style="color: #008000;">
+#</span><span style="color: #008000;">主线程中可以获取某一个线程的状态或者某一个任务的状态，以及返回值</span><span style="color: #008000;">
+#</span><span style="color: #008000;">当一个线程完成的时候，主线程立马知道</span><span style="color: #008000;">
+#</span><span style="color: #008000;">futures可以让多线程和多进程编码接口一致</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> get_html(times):
+    time.sleep(times)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">get page {} success</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(times))
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> times
+
+executor </span>= ThreadPoolExecutor(max_workers=2<span style="color: #000000;">)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">通过submit提交执行的函数到线程池中，sumbit是立即返回</span>
+task1 = executor.submit(get_html, (3))    <span style="color: #008000;">#</span><span style="color: #008000;">函数和参数</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;">done方法用于判定某个任务是否完成</span>
+<span style="color: #0000ff;">print</span>(task1.done())      <span style="color: #008000;">#</span><span style="color: #008000;">False</span>
+time.sleep(4<span style="color: #000000;">)
+</span><span style="color: #0000ff;">print</span>(task1.done())      <span style="color: #008000;">#</span><span style="color: #008000;">True</span><span style="color: #008000;">
+#</span><span style="color: #008000;">result方法查看task函数执行的结构</span>
+<span style="color: #0000ff;">print</span>(task1.result())    <span style="color: #008000;">#</span><span style="color: #008000;">3</span></pre>
+</div>
+<p>用as_completed获取任务结束的返回</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> concurrent.futures <span style="color: #0000ff;">import</span><span style="color: #000000;"> ThreadPoolExecutor, as_completed
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">为什么要线程池</span><span style="color: #008000;">
+#</span><span style="color: #008000;">主线程中可以获取某一个线程的状态或者某一个任务的状态，以及返回值</span><span style="color: #008000;">
+#</span><span style="color: #008000;">当一个线程完成的时候，主线程立马知道</span><span style="color: #008000;">
+#</span><span style="color: #008000;">futures可以让多线程和多进程编码接口一致</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> def get_html(times):</span><span style="color: #008000;">
+#</span><span style="color: #008000;">     time.sleep(times)</span><span style="color: #008000;">
+#</span><span style="color: #008000;">     print("get page {} success".format(times))</span><span style="color: #008000;">
+#</span><span style="color: #008000;">     return times</span><span style="color: #008000;">
+#
+#</span><span style="color: #008000;"> executor = ThreadPoolExecutor(max_workers=2)</span><span style="color: #008000;">
+#
+#</span><span style="color: #008000;"> #通过submit提交执行的函数到线程池中，sumbit是立即返回</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> task1 = executor.submit(get_html, (3))    #函数和参数</span><span style="color: #008000;">
+#
+#</span><span style="color: #008000;"> #done方法用于判定某个任务是否完成</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> print(task1.done())      #False</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> time.sleep(4)</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> print(task1.done())      #True</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> #result方法查看task函数执行的结构</span><span style="color: #008000;">
+#</span><span style="color: #008000;"> print(task1.result())    #3</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> get_html(times):
+    time.sleep(times)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">get page {} success</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(times))
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> times
+
+executor </span>= ThreadPoolExecutor(max_workers=2<span style="color: #000000;">)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">获取已经成功的task的返回</span>
+urls = [3,2,4<span style="color: #000000;">]
+all_task </span>= [executor.submit(get_html, (url)) <span style="color: #0000ff;">for</span> url <span style="color: #0000ff;">in</span><span style="color: #000000;"> urls]
+
+</span><span style="color: #0000ff;">for</span> future <span style="color: #0000ff;">in</span><span style="color: #000000;"> as_completed(all_task):
+    data </span>=<span style="color: #000000;"> future.result()
+    </span><span style="color: #0000ff;">print</span>(data)   <span style="color: #008000;">#</span><span style="color: #008000;">已经成功的task函数的return</span></pre>
+</div>
+<h3><span style="color: #ff00ff;">11.5.进程间通信 - Queue</span></h3>
+<p>Queue</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Process, Queue
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> producer(queue):
+    queue.put(</span><span style="color: #800000;">"</span><span style="color: #800000;">a</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    time.sleep(</span>2<span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> consumer(queue):
+    time.sleep(</span>2<span style="color: #000000;">)
+    data </span>=<span style="color: #000000;"> queue.get()
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(data)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    queue </span>= Queue(10<span style="color: #000000;">)
+    my_producer </span>= Process(target=producer, args=<span style="color: #000000;">(queue,))
+    my_consumer </span>= Process(target=consumer, args=<span style="color: #000000;">(queue,))
+
+    my_producer.start()
+    my_consumer.start()
+    my_producer.join()
+    my_consumer.join()</span></pre>
+</div>
+<h3><span style="color: #ff00ff;">11.6.进程间通信 - Manager</span></h3>
+<p>Manger</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Process, Queue, Manager,Pool
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> producer(queue):
+    queue.put(</span><span style="color: #800000;">"</span><span style="color: #800000;">a</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    time.sleep(</span>2<span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> consumer(queue):
+    time.sleep(</span>2<span style="color: #000000;">)
+    data </span>=<span style="color: #000000;"> queue.get()
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(data)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;">pool中的进程间通信需要使用manger中的queue</span>
+    queue = Manager().Queue(10<span style="color: #000000;">)
+    pool </span>= Pool(2)   <span style="color: #008000;">#</span><span style="color: #008000;">创建进程池</span>
+<span style="color: #000000;">
+    pool.apply_async(producer, args</span>=<span style="color: #000000;">(queue, ))
+    pool.apply_async(consumer, args</span>=<span style="color: #000000;">(queue, ))
+
+    pool.close()
+    pool.join()</span></pre>
+</div>
+<h3><span style="color: #ff00ff;">11.7.进程间通信 - Pipe</span></h3>
+<p>pipe实现进程间通信（只能两个进程之间）</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;">Pipe进程间通信</span>
+<span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Process, Pipe
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> producer(pipe):
+    pipe.send(</span><span style="color: #800000;">"</span><span style="color: #800000;">derek</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> consumer(pipe):
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(pipe.recv())
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    receive_pipe, send_pipe </span>=<span style="color: #000000;"> Pipe()
+    my_producer </span>= Process(target=producer, args=<span style="color: #000000;">(send_pipe, ))
+    my_consumer </span>= Process(target=consumer, args=<span style="color: #000000;">(receive_pipe, ))
+
+    my_producer.start()
+    my_consumer.start()
+    my_producer.join()
+    my_producer.join()</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

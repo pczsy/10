@@ -1,0 +1,141 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修nginx中proxy_pass小斜杠' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>nginx中proxy_pass小斜杠</center></div><div class='banquan'>原文出处:本文由博客园博主_herbert提供。<br/>
+原文连接:https://www.cnblogs.com/yfrs/p/nginxproxypass.html</div><br>
+    <h4 id="nginx中proxy_pass小斜杠">nginx中proxy_pass小斜杠</h4>
+<h4 id="故事背景">1. 故事背景</h4>
+<p>相信做微信公众号开发的朋友都知道,要想在微信中预览效果,必须使用域名访问.很多朋友使用内网穿透工具.不仅不好用还不稳定.所以,发挥脸厚吃天下的态度,向公司it申请了一个子域名指向了阿里云一台ecs的80端口.可是后来,端口不够用了.本着就近原则,又找到IT小哥,能再好心的再映射一个8080端口.那知傲娇的小哥一脸鄙夷眼睛看着我,对不起子域名只能80端口.不凑巧的时,我的ecs也只开放了80端口.此时只有一个域名,我要映射多个服务器.是时候放出大器nginx了.诉求很简单</p>
+<ol>
+<li>访问 demo.herbert.com/dev1/json.do 映射内网地址 192.168.10.2:8080/dev1/json.do</li>
+<li>访问 demo.herbert.com/dev2/xxx.html 映射内网地址 192.168.10.2:8081/xxx.html</li>
+</ol>
+<h4 id="解决问题三部曲文档搜索和测试">2. 解决问题三部曲,文档搜索和测试</h4>
+<p>查看官方文档,我们选择 <a href="http://tengine.taobao.org/nginx_docs/cn/docs/">tengine</a> 翻译的官方文档.在页面[模块参考目录]找到[ngx_http_proxy_module]链接,点击进入以后搜索proxy_pass.一定会找到以下两个说明</p>
+<ul>
+<li>如果proxy_pass使用了URI，当传送请求到后端服务器时，规范化以后的请求路径与配置中的路径的匹配部分将被替换为指令中定义的URI：</li>
+</ul>
+<pre><code><code>location /name/ {
+    proxy_pass http://127.0.0.1/remote/;
+}</code></pre>
+<ul>
+<li>如果proxy_pass没有使用URI，传送到后端服务器的请求URI一般客户端发起的原始URI，如果nginx改变了请求URI，则传送的URI是nginx改变以后完整的规范化URI：</li>
+</ul>
+<pre><code><code>location /some/path/ {
+    proxy_pass http://127.0.0.1;
+}</code></pre>
+<p>这段说明晦涩难懂,还出现一个很多人搞不清楚的名称 <strong>URI</strong> ,当然我也是那个很多人,为此我搜索了<strong>URI</strong> <strong>URL</strong>的区别,期间还冒出了一个<strong>URN</strong>,头都大了,看了十分钟没找到满意的答案.姑且我么认为就是地址中的某一部分吧.</p>
+<p>简单理解下第一点,如果 proxy_pass 配置值后边<strong>包含/</strong>,最终得到的路径,会去掉location配置的path,再结合请求地址中location配置之后可能存在的内容.两者相结合成一个新的地址.按照官方提供的配置.我们假设</p>
+<ul>
+<li>该nginx的访问域名是 <code>wx.464884492.com</code></li>
+<li>用户访问的地址是 <code>wx.464884492/name/herbert/</code></li>
+</ul>
+<p>根据提供的第一种配置,nginx得到的真实地址示意图如下:</p>
+<p><img src="./images/nginx中proxy_pass小斜杠0.png" alt="最后有斜杠示意图" /></p>
+<p>再简单理解下第二点,如果 proxy_pass 配置值后边<strong>不包含/</strong>,最终得到的路径,proxy_pass配置值加上location配置path以及之后的path.两者结合成一个新地址,按官方提供配置,我们假设</p>
+<ul>
+<li>该nginx的访问域名是 <code>wx.464884492.com</code></li>
+<li>用户访问的地址是 <code>wx.464884492/some/path/herbert/</code></li>
+</ul>
+<p>根据提供的第二种配置,nginx得到的真实地址示意图如下:</p>
+<p><img src="./images/nginx中proxy_pass小斜杠1.png" alt="最后无斜杠示意图" /></p>
+<p>所以简单总结就是</p>
+<ul>
+<li>如果<em>proxy_pass</em>配置值 <strong>包含 /</strong> 就 <strong>去掉</strong> 匹配路径部分</li>
+<li>如果<em>proxy_pass</em>配置值 <strong>不包含 /</strong> 就 <strong>保留</strong> 匹配路径部分</li>
+</ul>
+<h4 id="结果验证">3. 结果验证</h4>
+<p>从nginx官网下载解压修改nginx.conf文件中http模块如下:</p>
+<pre><code><code>...
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile        on;
+    keepalive_timeout  65;
+    client_max_body_size   20M;
+    server {
+        listen       80 default_server;
+        server_name  127.0.0.1;
+        location / {  
+            proxy_pass http://127.0.0.1;
+        }
+        location /name/  {
+            proxy_pass http://127.0.0.1/remote/;
+        }
+        location /some/path/ {
+           proxy_pass http://127.0.0.1;
+        }
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+    }
+}
+...
+</code></pre>
+<p>双击nginx.exe运行分别在浏览器中访问一下地址</p>
+<ul>
+<li><a href="http://127.0.0.1/name/herbert/" class="uri">http://127.0.0.1/name/herbert/</a></li>
+<li><a href="http://127.0.0.1/some/path/herbert/" class="uri">http://127.0.0.1/some/path/herbert/</a></li>
+</ul>
+<p>由于我配置并没有具体root,访问页面最终的地址是找不到.所以页面会出现 An error occurred 的错误页.不过我们刚好可以在错误日志印证我们上面的结果.我们上边的示意图采用了域名的方式说明,如果想得到示意图上的结果,需要在host文件中添加配置<code>wx.464884492.com 127.0.0.1</code>同时在nginx配置文件server_name改成<code>wx.464884492.com</code></p>
+<p>打开logs目录下error.log日志文件,我们就会发现我们刚访问的信息以及最终转换的真实地址信息都乖乖的显示在那里,主要信息如下:</p>
+<pre class="plain"><code>浏览器访问 http://127.0.0.1/name/herbert/
+nginx 给我的访问日志
+2019/12/06 14:21:32 [alert] 15384#12716: *9206 1024 worker_connections are not enough while connecting to upstream, 
+client: 127.0.0.1, server: 127.0.0.1, 
+request: &quot;GET /remote/herbert/ HTTP/1.0&quot;, 
+upstream: &quot;http://127.0.0.1:80/remote/herbert/&quot;, host: &quot;127.0.0.1&quot;
+
+浏览器访问 http://127.0.0.1/some/path/herbert/
+nginx 给我的访问日志
+2019/12/06 14:21:35 [alert] 15384#12716: *11251 1024 worker_connections are not enough while connecting to upstream, 
+client: 127.0.0.1, server: 127.0.0.1, 
+request: &quot;GET /some/path/herbert/ HTTP/1.0&quot;, 
+upstream: &quot;http://127.0.0.1:80/some/path/herbert/&quot;, host: &quot;127.0.0.1&quot;
+</code></pre>
+<h4 id="解决问题">4. 解决问题</h4>
+<p>有了以上知识我的诉求就完美解决了.</p>
+<ul>
+<li>demo.herbert.com/dev1/json.do 映射内网地址 192.168.10.2:8080/dev1/json.do</li>
+</ul>
+<p>对应配置</p>
+<pre><code><code>location /dev1/ {  
+ proxy_pass http://192.168.10.2:8080;
+}</code></pre>
+<ul>
+<li>访问 demo.herbert.com/dev2/xxx.html 映射内网地址 192.168.10.2:8081/xxx.html</li>
+</ul>
+<p>对应配置</p>
+<pre><code><code>location /dev2/ {  
+ proxy_pass http://192.168.10.2:8081/;
+}</code></pre>
+<h4 id="总结">5. 总结</h4>
+<p>凡事多总结中没有坏处,以上那么多其实就一句话,<strong>有杠去掉,无杠保留</strong>,虽然小,但解决的步骤一个不少.</p>
+<p>欢迎感兴趣的朋友关注我的微信订阅号&quot;小院不小&quot;，或者点击下方的二维码关注。我将多年开发中遇到的难点，以及一些有意思的功能，体会都会一一发布到我的订阅号中。需要<strong>本文nginx配置文件</strong>可以在公众号中回复<strong>nginx1</strong></p>
+<p><img src="./images/nginx中proxy_pass小斜杠2.png" alt="微信关注【小院不小】" /></p>
+<p>闲来无事，采用cocos creator开发了一个小游戏，感兴趣的朋友一个可以来玩玩</p>
+<p><img src="./images/nginx中proxy_pass小斜杠3.png" alt="小游戏坦克侠" /></p>
+<p>有喜欢聊技术朋友也欢迎入群，若二维码失效可加我微信回复<strong>前端</strong></p>
+<p><img src="./images/nginx中proxy_pass小斜杠4.png" alt="微信群" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

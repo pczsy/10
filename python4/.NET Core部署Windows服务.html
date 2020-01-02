@@ -1,0 +1,315 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修.NET Core部署Windows服务' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>.NET Core部署Windows服务</center></div><div class='banquan'>原文出处:本文由博客园博主雨水的命运提供。<br/>
+原文连接:https://www.cnblogs.com/RainFate/p/12095793.html</div><br>
+    <h2 id="4192613468">创建</h2>
+<p>首先你要确保你已经安装了<strong>.NET Core 3.0或以上版本</strong>。</p>
+<p>老版本的Windows服务请看&nbsp;<a href="https://www.cnblogs.com/RainFate/p/11791820.html">这篇文章</a></p>
+<p>&nbsp;</p>
+<ul>
+<li>使用命令行创建：&nbsp;&nbsp;<span class="cnblogs_code">dotnet <span style="color: #0000ff;">new</span> worker</span>&nbsp;</li>
+</ul>
+<ul>
+<li>使用Visual Studio创建</li>
+</ul>
+<p style="margin-left: 90px;">中文版：</p>
+<p style="margin-left: 90px;"><img src="./images/.NET Core部署Windows服务0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p style="margin-left: 90px;">&nbsp;英文版：</p>
+<p style="margin-left: 90px;"><img src="./images/.NET Core部署Windows服务1.png" alt="" /></p>
+<p style="margin-left: 90px;">&nbsp;</p>
+<p>创建的新项目包含两个文件。其中&nbsp;<span class="cnblogs_code">Program.cs</span>&nbsp;文件是应用的启动程序。另外一个文件是&nbsp;<span class="cnblogs_code">Worker.cs</span>&nbsp;文件，你可以在这个文件编写你的业务代码。</p>
+<p>这看起来应该是相当的容易，但是为这个程序添加额外的并行后台服务，你还需要添加一个类，并让它继承&nbsp;<span class="cnblogs_code">BackgroundService</span>&nbsp;类：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> MyNewBackgroundWorker : BackgroundService
+{    
+    </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> Task ExecuteAsync(CancellationToken stoppingToken)    
+    {        
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">Do something.     </span>
+<span style="color: #000000;">    }
+ }</span></pre>
+</div>
+<p>然后在&nbsp;<span class="cnblogs_code">Program.cs</span>&nbsp;中，我们要做的只是把当前的Worker注册到服务集合(Service Collection)中即可。</p>
+<div class="cnblogs_code">
+<pre><code>.ConfigureServices((hostContext, services) =&gt;<span style="color: #000000;">
+{
+    services.AddHostedService</span>&lt;Worker&gt;<span style="color: #000000;">();
+    services.AddHostedService</span>&lt;MyNewBackgroundWorker&gt;<span style="color: #000000;">();
+});</span></pre>
+</div>
+<p>实际上作为&ldquo;后台服务&rdquo;任务的运行程序，&nbsp;<span class="cnblogs_code">AddHostedService</span>&nbsp;方法已经在框架中存在了很长时间了。在之前我们已经完成的一篇关于<a href="https://dotnetcoretutorials.com/2019/01/13/hosted-services-in-asp-net-core/">ASP.NET Core托管服务</a>的文章， 但是在当时场景中，我们托管是是整个应用，而非一个在你应用程序幕后运行的东西。</p>
+<p>&nbsp;</p>
+<p>优化系统的&nbsp;<span class="cnblogs_code">Worker.cs</span>&nbsp;，代码执行顺序是冲上往下依次执行的（程序开始-停止）</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('32b22bf2-db41-4b0b-b652-292917fb174d')"><img id="code_img_closed_32b22bf2-db41-4b0b-b652-292917fb174d" class="code_img_closed" src="./images/.NET Core部署Windows服务2.png" alt="" /><img id="code_img_opened_32b22bf2-db41-4b0b-b652-292917fb174d" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('32b22bf2-db41-4b0b-b652-292917fb174d',event)" src="./images/.NET Core部署Windows服务3.png" alt="" />
+<div id="cnblogs_code_open_32b22bf2-db41-4b0b-b652-292917fb174d" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">using</span><span style="color: #000000;"> System;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Collections.Generic;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.IO;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Linq;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Threading;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> System.Threading.Tasks;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> Microsoft.Extensions.Hosting;
+</span><span style="color: #0000ff;">using</span><span style="color: #000000;"> Microsoft.Extensions.Logging;
+
+</span><span style="color: #0000ff;">namespace</span><span style="color: #000000;"> WorkerService
+{
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Worker : BackgroundService
+    {
+        </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">readonly</span> ILogger&lt;Worker&gt;<span style="color: #000000;"> _logger;
+
+        </span><span style="color: #0000ff;">public</span> Worker(ILogger&lt;Worker&gt;<span style="color: #000000;"> logger)
+        {
+            _logger </span>=<span style="color: #000000;"> logger;
+        }
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> Task StartAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation($</span><span style="color: #800000;">"</span><span style="color: #800000;">Worker started at: {DateTime.Now}</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">base</span><span style="color: #000000;">.StartAsync(cancellationToken);
+        }
+
+        </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">async</span><span style="color: #000000;"> Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            </span><span style="color: #0000ff;">while</span> (!<span style="color: #000000;">stoppingToken.IsCancellationRequested)
+            {
+                _logger.LogInformation(</span><span style="color: #800000;">"</span><span style="color: #800000;">Worker running at: {time}</span><span style="color: #800000;">"</span><span style="color: #000000;">, DateTimeOffset.Now);
+                </span><span style="color: #0000ff;">await</span> Task.Delay(<span style="color: #800080;">1000</span><span style="color: #000000;">, stoppingToken);
+            }
+        }
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span><span style="color: #000000;"> Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogError($</span><span style="color: #800000;">"</span><span style="color: #800000;">Worker stopped at: {DateTime.Now}</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">base</span><span style="color: #000000;">.StopAsync(cancellationToken);
+        }
+
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">override</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> Dispose()
+        {
+            _logger.LogInformation($</span><span style="color: #800000;">"</span><span style="color: #800000;">Worker disposed at: {DateTime.Now}</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+
+            </span><span style="color: #0000ff;">base</span><span style="color: #000000;">.Dispose();
+        }
+    }
+}</span></pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<h2>部署Windows服务</h2>
+<p>需要引用&nbsp;&nbsp;<span class="cnblogs_code">Microsoft.Extensions.Hosting.WindowsServices</span>&nbsp; Neget 包</p>
+<div class="cnblogs_code">
+<pre><code>Install-Package Microsoft.Extensions.Hosting.WindowsServices</pre>
+</div>
+<p>修改&nbsp;<span class="cnblogs_code">Program.cs</span>&nbsp;文件，添加&nbsp;<span class="cnblogs_code">UseWindowsService()</span>&nbsp;方法调用</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> IHostBuilder CreateHostBuilder(<span style="color: #0000ff;">string</span>[] args) =&gt;<span style="color: #000000;"> 
+    Host.CreateDefaultBuilder(args)    
+        .ConfigureServices((hostContext, services) </span>=&gt;<span style="color: #000000;">    
+        {        
+            services.AddHostedService</span>&lt;Worker&gt;<span style="color: #000000;">();   
+         })
+         <strong>.UseWindowsService();</strong></span></pre>
+</div>
+<p>这样代码部分就完成了。</p>
+<p>然后使用 cmd 命令把我们发布后的程序代码部署成Windows服务，<strong>需要使用管理员权限运行CMD</strong></p>
+<p>借助 <strong>sc.exe</strong>&nbsp;工具。sc.exe是帮助开发部署 WindowsNT 服务的工具，路径： C:\Windows\System32\sc.exe。这个网上教程一大堆，可以自行了解，这里不多介绍。</p>
+<p>&nbsp;</p>
+<p>相关命令：</p>
+<p>下面的 <strong>ServiceName</strong> 是自定义的，可以自行修改</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">## 创建服务
+sc create ServiceName  BinPath</span>=E:\Work\Code\WindowsServiceDemo\WorkerService\bin\Debug\netcoreapp3.<span style="color: #800080;">0</span><span style="color: #000000;">\WorkerService.exe
+
+## 启动服务
+sc start ServiceName
+
+## 停止服务
+sc stop ServiceName
+
+## 删除服务
+sc delete ServiceName
+
+
+## 添加服务描述
+sc description ServiceName </span><span style="color: #800000;">"</span><span style="color: #800000;">描述</span><span style="color: #800000;">"</span><span style="color: #000000;">
+
+## 改变服务的启动方式 手动</span>/自动/<span style="color: #000000;">禁用 
+sc config ServiceName start</span>= demand/auto/disabled  </pre>
+</div>
+<p>install.bat</p>
+<div class="cnblogs_code">
+<pre><code>set serviceName=<span style="color: #000000;">ServiceName
+set serviceFilePath</span>=E:\Work\Code\WindowsServiceDemo\WorkerService\bin\Debug\netcoreapp3.<span style="color: #800080;">0</span><span style="color: #000000;">\WorkerService.exe
+set serviceDescription</span>=<span style="color: #000000;">服务描述
+
+sc create </span>%serviceName%  BinPath=%serviceFilePath%<span style="color: #000000;">
+sc config </span>%serviceName%    start=<span style="color: #000000;">auto  
+sc description </span>%serviceName%  %serviceDescription%<span style="color: #000000;">
+sc start  </span>%serviceName%<span style="color: #000000;">
+pause</span></pre>
+</div>
+<p>unstall.bat</p>
+<div class="cnblogs_code">
+<pre><code>set serviceName=<span style="color: #000000;">ServiceName
+
+sc stop   </span>%serviceName%<span style="color: #000000;"> 
+sc delete </span>%serviceName%<span style="color: #000000;"> 
+
+pause</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>最后使用<strong>管理员权限</strong>运行 install.bat</p>
+<p><img src="./images/.NET Core部署Windows服务4.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>查看下服务面板</p>
+<p><img src="./images/.NET Core部署Windows服务5.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>以上是参考&nbsp;<a href="https://www.cnblogs.com/lwqlun/p/12038062.html">这边文章</a>&nbsp;编写的。</p>
+<p>&nbsp;</p>
+<h2>部署Linux服务</h2>
+<p>环境：一台全新的Centos 7.7.1908&nbsp;系统&nbsp;</p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;"><strong>安装 .net core相关环境</strong></span></p>
+<p>参考：<a href="https://docs.microsoft.com/zh-cn/dotnet/core/install/linux-package-manager-centos7">https://docs.microsoft.com/zh-cn/dotnet/core/install/linux-package-manager-centos7</a></p>
+<p id="register-microsoft-key-and-feed"><span data-ttu-id="1a9bd-106">注册 Microsoft 密钥和源：&nbsp;&nbsp;</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">&nbsp;sudo rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm</span></pre>
+</div>
+<p><span data-ttu-id="1a9bd-113">安装 .NET Core SDK：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> <span style="color: #0000ff;">yum</span> <span style="color: #0000ff;">install</span> dotnet-sdk-<span style="color: #800080;">3.0</span>  -y</pre>
+</div>
+<p>安装完成之后可以输入&nbsp;<span class="cnblogs_code">dotnet --version</span>&nbsp;查看是否可以返回对应版本&nbsp;</p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;"><strong>修改代码</strong></span></p>
+<p>程序代码需要引用&nbsp;<span class="cnblogs_code">Microsoft.Extensions.Hosting.Systemd</span>&nbsp; Neget包</p>
+<div class="cnblogs_code">
+<pre><code>Install-Package Microsoft.Extensions.Hosting.Systemd</pre>
+</div>
+<p>修改 &nbsp;<span class="cnblogs_code">Program.cs </span>&nbsp;文件，添加&nbsp;&nbsp;<span class="cnblogs_code">UseSystemd()</span>&nbsp;&nbsp;方法调用，可以和&nbsp;<span class="cnblogs_code">UseWindowsService()</span>&nbsp;共存</p>
+<div class="cnblogs_code">
+<pre><code>        <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> IHostBuilder CreateHostBuilder(<span style="color: #0000ff;">string</span>[] args) =&gt;<span style="color: #000000;">
+            Host.CreateDefaultBuilder(args)
+                .ConfigureServices((hostContext, services) </span>=&gt;<span style="color: #000000;">
+                {
+                    services.AddHostedService</span>&lt;Worker&gt;<span style="color: #000000;">();
+                })
+                  .UseWindowsService()
+                  .<strong>UseSystemd()</strong>;</span></pre>
+</div>
+<p>然后把发布文件移至linux系统</p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;"><strong>部署服务</strong></span></p>
+<p>linux的服务是通过systemd守护进程部署的。现在在系统中我们有了一个发布后的应用程序，我们需要为systemd创建配置文件部署服务。步骤如下：</p>
+<p>创建一个<strong>.service</strong>文件（我们要部署服务，因此需要<strong>.service</strong>文件），填入以下内容。可以在Linux中直接创建或者通过windows创建然后拷贝至linux。&nbsp;</p>
+<p><span style="font-size: 15px;"><strong><a href="https://github.com/RainFate/WindowsServiceDemo/blob/Init/WorkerService/%E6%9C%8D%E5%8A%A1%E5%AE%89%E8%A3%85%E5%8D%B8%E8%BD%BD/Linux/testapp.service" target="_blank">参考链接</a></strong></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">[Unit]
+Description</span>= <span style="color: #000000;">my test app<br />
+[Service]
+Type</span>=<span style="color: #000000;">notify
+ExecStart</span>=/usr/bin/dotnet  /home/demo/<span style="color: #000000;">WorkerService.dll
+
+[Install]
+WantedBy</span>=multi-user.target</pre>
+</div>
+<pre><code>Description：描述，看个人需要是否添加。不需要可以去掉。只留下 [Service] 和 [Install]<br />Type=notify：当前服务启动完毕，会通知<code>Systemd</code>，再继续往下执行<br />ExecStart：启动当前服务的命令，程序如何启动，第一个路径是固定路径。第二个路径是应用程序的dll路径（可以自定义）<br />WantedBy：表示该服务所在的 Target服务组， multi-user.target，表示多用户命令行状态。</pre>
+<p>&nbsp;</p>
+<p>把&nbsp;<strong>.service</strong>文件移动至&nbsp;<strong>&nbsp;<em>/etc/systemd/system/&nbsp; &nbsp;</em></strong>固定目录下，假设自定义文件名称为：<strong>testapp.service</strong>（如果使用其他名称，请更改testapp）</p>
+<p><strong><img src="./images/.NET Core部署Windows服务6.png" alt="" /></strong></p>
+<p>&nbsp;&nbsp;</p>
+<p>使用systemctl命令重新加载新的配置文件</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> systemctl daemon-reload</pre>
+</div>
+<p>查看相关服务状态</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> systemctl status testapp</pre>
+</div>
+<p>您应该看到类似以下的内容：&nbsp;</p>
+<p><img src="./images/.NET Core部署Windows服务7.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;这表明您已注册的新服务已禁用，我们可以通过运行以下命令来启动我们的服务：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> systemctl start testapp.service</pre>
+</div>
+<p><span><span>重新运行&nbsp;<span class="cnblogs_code"><span style="color: #0000ff;">sudo</span> systemctl status testapp</span>&nbsp; 查看服务状态显示已激活正在运行中</span></span></p>
+<p><span><span><img src="./images/.NET Core部署Windows服务8.png" alt="" /></span></span></p>
+<p>&nbsp;</p>
+<p>&nbsp;设置服务开机自启</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> systemctl enable testapp.service</pre>
+</div>
+<p>到此我们的服务已经完整的部署到了linux系统中</p>
+<p><span><span>现在我们有一个运行了systemd的应用程序，我们可以看看日志记录集成。</span><span>使用systemd的好处之一是可以使用journalctl访问的集中式日志记录系统。</span></span></p>
+<p><span>首先，我们可以使用journalctl（访问日志的命令）查看服务日志：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">sudo</span> journalctl -u testapp</pre>
+</div>
+<p><img src="./images/.NET Core部署Windows服务9.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;可以看到我们的程序正在运行，可以使用&nbsp;&uarr;&darr; &larr; &rarr;查看日志内容。或者使用grep搜索。q&nbsp; 键退出</p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;"><strong>卸载自定义服务</strong></span></p>
+<div class="cnblogs_code">
+<pre><code>servicename=<span style="color: #000000;">testapp.service
+
+systemctl stop $servicename
+systemctl disable $servicename
+</span><span style="color: #0000ff;">rm</span> -rf /etc/systemd/system/<span style="color: #000000;">$servicename
+</span><span style="color: #0000ff;">rm</span> -rf /etc/systemd/system/<span style="color: #000000;">$servicename symlinks that might be related
+systemctl daemon</span>-<span style="color: #000000;">reload
+systemctl reset</span>-failed</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>相关链接</h2>
+<p>&nbsp;</p>
+<p>部署Windows服务相关链接：</p>
+<p><a href="https://www.cnblogs.com/lwqlun/p/12038062.html">https://www.cnblogs.com/lwqlun/p/12038062.html</a></p>
+<p><a href="https://devblogs.microsoft.com/aspnet/net-core-workers-as-windows-services/">https://devblogs.microsoft.com/aspnet/net-core-workers-as-windows-services/</a></p>
+<p><a href="https://www.cnblogs.com/Rwing/p/net-core-workers-as-windows-services.html">https://www.cnblogs.com/Rwing/p/net-core-workers-as-windows-services.html</a></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>自定义安装服务相关配置相关链接：<br /><a href="http://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html">http://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html<br /></a><a href="https://www.cnblogs.com/jhxxb/p/10654554.html">https://www.cnblogs.com/jhxxb/p/10654554.html</a></p>
+<p><strong>&nbsp;</strong></p>
+<p>systemd命令相关链接：</p>
+<p><a href="https://www.cnblogs.com/tsdxdx/p/7288490.html">https://www.cnblogs.com/tsdxdx/p/7288490.html</a></p>
+<p><a href="http://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html">http://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html</a></p>
+<p><a href="https://www.cnblogs.com/zyh121344305/p/8677015.html">https://www.cnblogs.com/zyh121344305/p/8677015.html</a></p>
+<p><a href="https://www.cnblogs.com/jhxxb/p/10654554.html">https://www.cnblogs.com/jhxxb/p/10654554.html</a></p>
+<p>&nbsp;</p>
+<p>&nbsp;部署Linux服务相关链接：</p>
+<p><a href="https://devblogs.microsoft.com/dotnet/net-core-and-systemd/">https://devblogs.microsoft.com/dotnet/net-core-and-systemd/</a></p>
+<p><a href="https://stackoverflow.com/questions/51589504/asp-net-core-2-0-unable-to-start-service-on-debian">https://stackoverflow.com/questions/51589504/asp-net-core-2-0-unable-to-start-service-on-debian</a></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;<strong>源码地址：<a href="https://github.com/RainFate/WindowsServiceDemo/tree/Init/WorkerService">https://github.com/RainFate/WindowsServiceDemo/tree/Init/WorkerService</a></strong></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

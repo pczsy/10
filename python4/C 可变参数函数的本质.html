@@ -1,0 +1,180 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修C 可变参数函数的本质' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>C 可变参数函数的本质</center></div><div class='banquan'>原文出处:本文由博客园博主H5L0提供。<br/>
+原文连接:https://www.cnblogs.com/h5l0/p/12022347.html</div><br>
+    <p><span style="font-size: 16px;">C语言支持定义可变参数的函数，方法是在函数的参数列表最后加上 " ... "，代表变长的参数列表，例如：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;"><span style="color: #0000ff;">void</span> Func(<span style="color: #0000ff;">int</span> num, ...) {  }</span></pre>
+</div>
+<p><span style="font-size: 16px;">需要注意 &ldquo;...&rdquo; 必须在最后，而且前面<strong>起码要有一个固定的参数</strong>，类型可以任意。</span></p>
+<p><span style="font-size: 16px;">为什么要有一个固定的参数呢？这篇文章要说明的就是这个问题。</span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">首先我们是如何调用变长参数列表里的变量？</span></p>
+<p><span style="font-size: 16px;">需要使用 stdarg.h 里定义的三个宏：<strong>va_start(ap, x)、va_arg(ap,t)、va_end(ap)</strong>，还有一个v<strong>a_list</strong>类型（本质上是字节指针）</span></p>
+<p><span style="font-size: 16px;">这几个宏的源代码：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;"><span style="color: #008080;">1</span>  typedef <span style="color: #0000ff;">char</span>*<span style="color: #000000;"> va_list;
+</span><span style="color: #008080;">2</span> 
+<span style="color: #008080;">3</span>  <span style="color: #0000ff;">#define</span> _INTSIZEOF(n)          ((sizeof(n) + sizeof(int) - 1) &amp; ~(sizeof(int) - 1))
+<span style="color: #008080;">4</span> 
+<span style="color: #008080;">5</span>  <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap, v) ((void)(ap = (va_list)_ADDRESSOF(v) + _INTSIZEOF(v)))
+<span style="color: #008080;">6</span>  <span style="color: #0000ff;">#define</span> __crt_va_arg(ap, t)     (*(t*)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
+<span style="color: #008080;">7</span>  <span style="color: #0000ff;">#define</span> __crt_va_end(ap)        ((void)(ap = (va_list)0))</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><strong><span style="font-size: 16px;">va_start用于获取变长参数列表的起始地址。</span></strong></p>
+<p><span style="font-size: 16px;">使用方法是：</span></p>
+<ol>
+<li><span style="font-size: 16px;">定义一个va_list类型变量，例如vlist.</span></li>
+<li><span style="font-size: 16px;">使用宏 va_start(vlist, 最后一个固定参数) 获取变长列表的起始地址</span></li>
+</ol>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;"><span style="color: #000000;">va_list vlist;
+vlist </span>= va_start(vlist, num);</span></pre>
+</div>
+<p><span style="font-size: 16px;">这个宏本质上是获取固定参数（如num）的下一个参数地址。原理是调用函数时，程序会将函数参数逐个压入栈中，使参数连续排列在内存中，因此只需要知道上一参数的内存地址和它的类型，就可以算出下一参数的地址。</span></p>
+<p><span style="font-size: 16px;">因此这个宏等价于：vlist = (char*)&amp;num + sizeof(num);</span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;"><strong>va_arg用于按顺序获取下一个参数。</strong></span></p>
+<p><span style="font-size: 16px;">使用方法：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;">Type value = va_arg(vlist, Type);</span></pre>
+</div>
+<p><span style="font-size: 16px;">本质上是对变长参数列表指针加sizeof(Type)，返回累加前的地址指向的值。等价于：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;">Type value = *(Type*<span style="color: #000000;">)vlist;
+vlist </span>+= <span style="color: #0000ff;">sizeof</span>(Type);</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;"><strong>va_end</strong>非常简单，就是把变长参数列表的指针置0，防止可能的错误。等价于：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;">vlist = (<span style="color: #0000ff;">char</span>*)<span style="color: #800080;">0</span>;</span></pre>
+</div>
+<p>&nbsp;</p>
+<p><strong><span style="font-size: 16px;">最后的简单总结：</span></strong></p>
+<p><span style="font-size: 16px;">之所以要有一个固定参数，是因为只有知道最后一个参数的地址，才能获取变长列表开始的地址。</span></p>
+<p><span style="font-size: 16px;">此外需要注意的是，在不同平台，不同编译器里，由于内存排列有所差别（内存对齐的差别），实际情况不一定有上面写的等效代码一样简单。具体可以查看vadefs.h里的定义。</span></p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('8550dfd1-e7da-4622-9abb-1ababdcf06e7')"><img id="code_img_closed_8550dfd1-e7da-4622-9abb-1ababdcf06e7" class="code_img_closed" src="./images/C 可变参数函数的本质0.png" alt="" /><img id="code_img_opened_8550dfd1-e7da-4622-9abb-1ababdcf06e7" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('8550dfd1-e7da-4622-9abb-1ababdcf06e7',event)" src="./images/C 可变参数函数的本质1.png" alt="" />
+<div id="cnblogs_code_open_8550dfd1-e7da-4622-9abb-1ababdcf06e7" class="cnblogs_code_hide">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #000000;">#ifdef __cplusplus
+</span><span style="color: #008080;"> 2</span>     <span style="color: #0000ff;">#define</span> _ADDRESSOF(v) (&amp;const_cast&lt;char&amp;&gt;(reinterpret_cast&lt;const volatile char&amp;&gt;(v)))
+<span style="color: #008080;"> 3</span> <span style="color: #0000ff;">#else</span>
+<span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">#define</span> _ADDRESSOF(v) (&amp;(v))
+<span style="color: #008080;"> 5</span> <span style="color: #0000ff;">#endif</span>
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> <span style="color: #0000ff;">#if</span> (defined _M_ARM || defined _M_HYBRID_X86_ARM64) &amp;&amp; !defined _M_CEE_PURE
+<span style="color: #008080;"> 8</span>     <span style="color: #0000ff;">#define</span> _VA_ALIGN       4
+<span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">#define</span> _SLOTSIZEOF(t)  ((sizeof(t) + _VA_ALIGN - 1) &amp; ~(_VA_ALIGN - 1))
+<span style="color: #008080;">10</span>     <span style="color: #0000ff;">#define</span> _APALIGN(t,ap)  (((va_list)0 - (ap)) &amp; (__alignof(t) - 1))
+<span style="color: #008080;">11</span> <span style="color: #0000ff;">#elif</span> defined _M_ARM64 &amp;&amp; !defined _M_CEE_PURE
+<span style="color: #008080;">12</span>     <span style="color: #0000ff;">#define</span> _VA_ALIGN       8
+<span style="color: #008080;">13</span>     <span style="color: #0000ff;">#define</span> _SLOTSIZEOF(t)  ((sizeof(t) + _VA_ALIGN - 1) &amp; ~(_VA_ALIGN - 1))
+<span style="color: #008080;">14</span>     <span style="color: #0000ff;">#define</span> _APALIGN(t,ap)  (((va_list)0 - (ap)) &amp; (__alignof(t) - 1))
+<span style="color: #008080;">15</span> <span style="color: #0000ff;">#else</span>
+<span style="color: #008080;">16</span>     <span style="color: #0000ff;">#define</span> _SLOTSIZEOF(t)  (sizeof(t))
+<span style="color: #008080;">17</span>     <span style="color: #0000ff;">#define</span> _APALIGN(t,ap)  (__alignof(t))
+<span style="color: #008080;">18</span> <span style="color: #0000ff;">#endif</span>
+<span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span> <span style="color: #0000ff;">#if</span> defined _M_CEE_PURE || (defined _M_CEE &amp;&amp; !defined _M_ARM &amp;&amp; !defined _M_ARM64)
+<span style="color: #008080;">21</span> 
+<span style="color: #008080;">22</span>     <span style="color: #0000ff;">void</span>  __cdecl __va_start(va_list*<span style="color: #000000;">, ...);
+</span><span style="color: #008080;">23</span>     <span style="color: #0000ff;">void</span>* __cdecl __va_arg(va_list*<span style="color: #000000;">, ...);
+</span><span style="color: #008080;">24</span>     <span style="color: #0000ff;">void</span>  __cdecl __va_end(va_list*<span style="color: #000000;">);
+</span><span style="color: #008080;">25</span> 
+<span style="color: #008080;">26</span>     <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap, v) ((void)(__va_start(&amp;ap, _ADDRESSOF(v), _SLOTSIZEOF(v), __alignof(v), _ADDRESSOF(v))))
+<span style="color: #008080;">27</span>     <span style="color: #0000ff;">#define</span> __crt_va_arg(ap, t)     (*(t *)__va_arg(&amp;ap, _SLOTSIZEOF(t), _APALIGN(t,ap), (t*)0))
+<span style="color: #008080;">28</span>     <span style="color: #0000ff;">#define</span> __crt_va_end(ap)        ((void)(__va_end(&amp;ap)))
+<span style="color: #008080;">29</span> 
+<span style="color: #008080;">30</span> <span style="color: #0000ff;">#elif</span> defined _M_IX86 &amp;&amp; !defined _M_HYBRID_X86_ARM64
+<span style="color: #008080;">31</span> 
+<span style="color: #008080;">32</span>     <span style="color: #0000ff;">#define</span> _INTSIZEOF(n)          ((sizeof(n) + sizeof(int) - 1) &amp; ~(sizeof(int) - 1))
+<span style="color: #008080;">33</span> 
+<span style="color: #008080;">34</span>     <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap, v) ((void)(ap = (va_list)_ADDRESSOF(v) + _INTSIZEOF(v)))
+<span style="color: #008080;">35</span>     <span style="color: #0000ff;">#define</span> __crt_va_arg(ap, t)     (*(t*)((ap += _INTSIZEOF(t)) - _INTSIZEOF(t)))
+<span style="color: #008080;">36</span>     <span style="color: #0000ff;">#define</span> __crt_va_end(ap)        ((void)(ap = (va_list)0))
+<span style="color: #008080;">37</span> 
+<span style="color: #008080;">38</span> <span style="color: #0000ff;">#elif</span> defined _M_ARM
+<span style="color: #008080;">39</span> 
+<span style="color: #008080;">40</span> <span style="color: #000000;">    #ifdef __cplusplus
+</span><span style="color: #008080;">41</span>         <span style="color: #0000ff;">void</span> __cdecl __va_start(va_list*<span style="color: #000000;">, ...);
+</span><span style="color: #008080;">42</span>         <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap, v) ((void)(__va_start(&amp;ap, _ADDRESSOF(v), _SLOTSIZEOF(v), _ADDRESSOF(v))))
+<span style="color: #008080;">43</span>     <span style="color: #0000ff;">#else</span>
+<span style="color: #008080;">44</span>         <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap, v) ((void)(ap = (va_list)_ADDRESSOF(v) + _SLOTSIZEOF(v)))
+<span style="color: #008080;">45</span>     <span style="color: #0000ff;">#endif</span>
+<span style="color: #008080;">46</span> 
+<span style="color: #008080;">47</span>     <span style="color: #0000ff;">#define</span> __crt_va_arg(ap, t) (*(t*)((ap += _SLOTSIZEOF(t) + _APALIGN(t,ap)) - _SLOTSIZEOF(t)))
+<span style="color: #008080;">48</span>     <span style="color: #0000ff;">#define</span> __crt_va_end(ap)    ((void)(ap = (va_list)0))
+<span style="color: #008080;">49</span> 
+<span style="color: #008080;">50</span> <span style="color: #0000ff;">#elif</span> defined _M_HYBRID_X86_ARM64
+<span style="color: #008080;">51</span>     <span style="color: #0000ff;">void</span> __cdecl __va_start(va_list*<span style="color: #000000;">, ...);
+</span><span style="color: #008080;">52</span>     <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap,v) ((void)(__va_start(&amp;ap, _ADDRESSOF(v), _SLOTSIZEOF(v), __alignof(v), _ADDRESSOF(v))))
+<span style="color: #008080;">53</span>     <span style="color: #0000ff;">#define</span> __crt_va_arg(ap, t)    (*(t*)((ap += _SLOTSIZEOF(t)) - _SLOTSIZEOF(t)))
+<span style="color: #008080;">54</span>     <span style="color: #0000ff;">#define</span> __crt_va_end(ap)       ((void)(ap = (va_list)0))
+<span style="color: #008080;">55</span> 
+<span style="color: #008080;">56</span> <span style="color: #0000ff;">#elif</span> defined _M_ARM64
+<span style="color: #008080;">57</span> 
+<span style="color: #008080;">58</span>     <span style="color: #0000ff;">void</span> __cdecl __va_start(va_list*<span style="color: #000000;">, ...);
+</span><span style="color: #008080;">59</span> 
+<span style="color: #008080;">60</span>     <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap,v) ((void)(__va_start(&amp;ap, _ADDRESSOF(v), _SLOTSIZEOF(v), __alignof(v), _ADDRESSOF(v))))
+<span style="color: #008080;">61</span>     <span style="color: #0000ff;">#define</span> __crt_va_arg(ap, t)                                                 \
+<span style="color: #008080;">62</span>         ((<span style="color: #0000ff;">sizeof</span>(t) &gt; (<span style="color: #800080;">2</span> * <span style="color: #0000ff;">sizeof</span><span style="color: #000000;">(__int64)))                                   \
+</span><span style="color: #008080;">63</span>             ? **(t**)((ap += <span style="color: #0000ff;">sizeof</span>(__int64)) - <span style="color: #0000ff;">sizeof</span><span style="color: #000000;">(__int64))               \
+</span><span style="color: #008080;">64</span>             : *(t*)((ap += _SLOTSIZEOF(t) + _APALIGN(t,ap)) -<span style="color: #000000;"> _SLOTSIZEOF(t)))
+</span><span style="color: #008080;">65</span>     <span style="color: #0000ff;">#define</span> __crt_va_end(ap)       ((void)(ap = (va_list)0))
+<span style="color: #008080;">66</span> 
+<span style="color: #008080;">67</span> 
+<span style="color: #008080;">68</span> <span style="color: #0000ff;">#elif</span> defined _M_X64
+<span style="color: #008080;">69</span> 
+<span style="color: #008080;">70</span>     <span style="color: #0000ff;">void</span> __cdecl __va_start(va_list*<span style="color: #000000;"> , ...);
+</span><span style="color: #008080;">71</span> 
+<span style="color: #008080;">72</span>     <span style="color: #0000ff;">#define</span> __crt_va_start_a(ap, x) ((void)(__va_start(&amp;ap, x)))
+<span style="color: #008080;">73</span>     <span style="color: #0000ff;">#define</span> __crt_va_arg(ap, t)                                               \
+<span style="color: #008080;">74</span>         ((<span style="color: #0000ff;">sizeof</span>(t) &gt; <span style="color: #0000ff;">sizeof</span>(__int64) || (<span style="color: #0000ff;">sizeof</span>(t) &amp; (<span style="color: #0000ff;">sizeof</span>(t) - <span style="color: #800080;">1</span>)) != <span style="color: #800080;">0</span><span style="color: #000000;">) \
+</span><span style="color: #008080;">75</span>             ? **(t**)((ap += <span style="color: #0000ff;">sizeof</span>(__int64)) - <span style="color: #0000ff;">sizeof</span><span style="color: #000000;">(__int64))             \
+</span><span style="color: #008080;">76</span>             :  *(t* )((ap += <span style="color: #0000ff;">sizeof</span>(__int64)) - <span style="color: #0000ff;">sizeof</span><span style="color: #000000;">(__int64)))
+</span><span style="color: #008080;">77</span>     <span style="color: #0000ff;">#define</span> __crt_va_end(ap)        ((void)(ap = (va_list)0))
+<span style="color: #008080;">78</span> 
+<span style="color: #008080;">79</span> <span style="color: #0000ff;">#endif</span></pre>
+</div>
+<span class="cnblogs_code_collapse">vadefs.h 部分代码</span></div>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">知道了原理，我们其实可以直接获取变长参数列表里任意一个变量，而不用逐个获取，特别是在参数的类型都相同的情况下，例如：</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 15px;"><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">int</span> Sum(<span style="color: #0000ff;">int</span><span style="color: #000000;"> count, ...)
+</span><span style="color: #008080;"> 2</span> <span style="color: #000000;">{
+</span><span style="color: #008080;"> 3</span>     <span style="color: #0000ff;">int</span> sum = <span style="color: #800080;">0</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 4</span> 
+<span style="color: #008080;"> 5</span>     <span style="color: #0000ff;">for</span> (<span style="color: #0000ff;">int</span> i = <span style="color: #800080;">0</span>; i &lt; count; i++<span style="color: #000000;">)
+</span><span style="color: #008080;"> 6</span> <span style="color: #000000;">    {
+</span><span style="color: #008080;"> 7</span>         sum += *(<span style="color: #0000ff;">int</span> *)((<span style="color: #0000ff;">char</span> *)&amp;count + <span style="color: #0000ff;">sizeof</span>(<span style="color: #0000ff;">int</span>) * (i + <span style="color: #800080;">1</span><span style="color: #000000;">));
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 9</span> 
+<span style="color: #008080;">10</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> sum;
+</span><span style="color: #008080;">11</span> }</span></pre>
+</div>
+<p><span style="font-size: 16px;">当然，这样的代码移植性差，如果更改了平台很可能就会出错，使用时还是谨慎为好。</span></p>
+<p><span style="font-size: 16px;">此外还有一些陷阱：</span></p>
+<p><span style="font-size: 16px;"><a href="https://blog.csdn.net/smstong/article/details/50751121">https://blog.csdn.net/smstong/article/details/50751121</a>&nbsp;</span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">&nbsp;</span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

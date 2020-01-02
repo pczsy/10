@@ -1,0 +1,234 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修使用littlefs-fuse在PC端调试littlefs文件系统' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>使用littlefs-fuse在PC端调试littlefs文件系统</center></div><div class='banquan'>原文出处:本文由博客园博主zqb-all提供。<br/>
+原文连接:https://www.cnblogs.com/zqb-all/p/12078659.html</div><br>
+    <h2 id="背景">背景</h2>
+<p>littlefs是arm面向嵌入式设备推出的一款掉电安全的小型文件系统，具有抗掉电，动态磨损均衡，RAM/ROM需求少等特点，具体介绍可见 <a href="https://github.com/ARMmbed/littlefs" class="uri">https://github.com/ARMmbed/littlefs</a></p>
+<p>作为一款在嵌入式设备上使用的文件系统，出问题时，一般是需要将数据dump出来进行分析的。此时就需要PC端的调试工具了。</p>
+<h2 id="littlefs-fuse简介">littlefs-fuse简介</h2>
+<p>这个项目提供了一个littlefs的FUSE封装，也就是你可以借助此项目，在PC上直接将littlefs镜像挂载起来，并正常进行一些文件系统的操作。</p>
+<p>源码位于：<a href="https://github.com/ARMmbed/littlefs-fuse" class="uri">https://github.com/ARMmbed/littlefs-fuse</a></p>
+<h2 id="结构">结构</h2>
+<p>我们直接下载下来</p>
+<pre><code><code> $ git clone https://github.com/ARMmbed/littlefs-fuse.git
+ $ cd littlefs-fuse</code></pre>
+<p>先看下结构</p>
+<pre><code><code>$ tree -L 2
+
+.
+├── lfs_fuse_bd.c
+├── lfs_fuse_bd.h
+├── lfs_fuse.c
+├── LICENSE.md
+├── littlefs
+│   ├── DESIGN.md
+│   ├── emubd
+│   ├── lfs.c
+│   ├── lfs.h
+│   ├── lfs_util.c
+│   ├── lfs_util.h
+│   ├── LICENSE.md
+│   ├── Makefile
+│   ├── README.md
+│   ├── scripts
+│   ├── SPEC.md
+│   └── tests
+├── Makefile
+└── README.md</code></pre>
+<p>外层是封装，里面则直接包含了littlefs文件夹。当我们需要特定版本的littlefs，例如使用跟设备上同一版本的littlefs时，只需要替换掉里层的这个littlefs即可，非常方便。</p>
+<h2 id="编译">编译</h2>
+<p>根据README，项目依赖 FUSE version 2.6及以上的版本，可以使用如下命令查看版本</p>
+<pre><code><code>fusermount -V</code></pre>
+<p>另外还需要安装下 libfuse-dev:</p>
+<pre><code><code>sudo apt-get install libfuse-dev</code></pre>
+<p>依赖项满足之后，直接make即可生成lfs应用程序</p>
+<pre><code><code>make</code></pre>
+<h2 id="生成设备并挂载使用">生成设备并挂载使用</h2>
+<p>首先需要造一个块设备出来</p>
+<pre><code><code>sudo chmod a+rw /dev/loop0                  # make loop device user accessible
+dd if=/dev/zero of=image bs=512 count=2048  # create a 1MB image
+losetup /dev/loop0 image                    # attach the loop device</code></pre>
+<p>我们上一步是dd生成了一个空的image，所以需要先格式化，</p>
+<pre><code><code>./lfs --format /dev/loop0</code></pre>
+<p>再挂载</p>
+<pre><code><code>mkdir -p mount
+./lfs /dev/loop0 mount</code></pre>
+<p>挂载成功后，执行mount可以看到挂载情况</p>
+<pre><code><code>$ mount | grep lfs
+/home/zhuangqiubin/debug_littlefs/littlefs-fuse/lfs on /home/zhuangqiubin/debug_littlefs/littlefs-fuse/mount type fuse.lfs (rw,nosuid,nodev,relatime,user_id=1000,group_id=1000)</code></pre>
+<p>现在就可以在mount目录下，随意进行操作了，创建删除读出写入，都会被转换成littlefs的操作，最终作用到image上</p>
+<p>过程中，可以随时dump出数据，就可以看到你的操作，最终存储到littlefs上时什么样的数据格式了，例如</p>
+<pre><code><code>$ echo &quot;www.cnblogs.com/zqb-all/&quot; &gt;&gt; mount/test_littlefs.txt
+
+$ hexdump -C image
+00000000  03 00 00 00 f0 0f ff f7  6c 69 74 74 6c 65 66 73  |........littlefs|
+00000010  2f e0 00 10 00 00 02 00  00 02 00 00 00 08 00 00  |/...............|
+00000020  ff 00 00 00 ff ff ff 7f  fe 03 00 00 20 00 04 09  |............ ...|
+00000030  74 65 73 74 5f 6c 69 74  74 6c 65 66 73 2e 74 78  |test_littlefs.tx|
+00000040  74 20 00 00 11 70 0f f9  b7 ee c0 48 bb ff ff ff  |t ...p.....H....|
+00000050  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+00000200  04 00 00 00 f0 0f ff f7  6c 69 74 74 6c 65 66 73  |........littlefs|
+00000210  2f e0 00 10 00 00 02 00  00 02 00 00 00 08 00 00  |/...............|
+00000220  ff 00 00 00 ff ff ff 7f  fe 03 00 00 20 00 04 09  |............ ...|
+00000230  74 65 73 74 5f 6c 69 74  74 6c 65 66 73 2e 74 78  |test_littlefs.tx|
+00000240  74 20 00 00 08 77 77 77  2e 63 6e 62 6c 6f 67 73  |t ...www.cnblogs|
+00000250  2e 63 6f 6d 2f 7a 71 62  2d 61 6c 6c 2f 0a 70 0f  |.com/zqb-all/.p.|
+00000260  f9 87 46 fe c1 ad ff ff  ff ff ff ff ff ff ff ff  |..F.............|
+00000270  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+*
+00000400  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+*
+00100000
+</code></pre>
+<p>使用完毕之后，用以下命令卸载</p>
+<pre><code><code>umount mount
+sudo losetup -d /dev/loop0</code></pre>
+<h2 id="挂载一个指定镜像">挂载一个指定镜像</h2>
+<p>以上是生成了空的镜像，格式化再挂载。如果要挂载一个现成的镜像，步骤也是差不多的，只是镜像换一下。假设现成的镜像叫littlefs.img，则</p>
+<pre><code><code>sudo chmod a+rw /dev/loop0                  # make loop device user accessible
+losetup /dev/loop0 littlefs.img                    # attach the loop device
+mkdir -p mount
+./lfs /dev/loop0 mount</code></pre>
+<p>卸载命令没有差别</p>
+<pre><code><code>umount mount
+sudo losetup -d /dev/loop0</code></pre>
+<p>但从设备上dump出的littlefs镜像，其配置不一定会跟littlefs-fuse的默认配置匹配。</p>
+<p>此时为了能正确挂载，以及准确地模拟littlefs在设备上运行的情况，我们需要将配置改成一样的。</p>
+<p>解决方式一，直接修改源码，例如</p>
+<pre class="c"><code>diff --git a/lfs_fuse.c b/lfs_fuse.c
+index 3c87dad..d1a99a2 100644
+--- a/lfs_fuse.c
++++ b/lfs_fuse.c
+@@ -26,7 +26,16 @@
+ 
+ 
+ // config and other state
+-static struct lfs_config config = {0};
++/* static struct lfs_config config = {0}; */
++static struct lfs_config config = {
++    .read_size = 256,
++    .prog_size = 256,
++    .block_size = 4096,
++    .block_count = 1224,
++    .block_cycles = 512,
++    .cache_size = 256,
++    .lookahead_size = 32
++};
+</code></pre>
+<p>修改后重新make生成即可</p>
+<p>解决方式二，在调用的时候，通过命令行参数指定，例如</p>
+<pre><code><code>./lfs --block_size=512 --format /dev/loop0
+./lfs --block_size=512 /dev/loop0 mount</code></pre>
+<p>支持的选项，可以在help中找到</p>
+<pre><code><code>$lfs -h
+usage: ./lfs [options] device mountpoint
+
+general options:
+    -o opt,[opt...]        FUSE options
+    -h   --help            print help
+    -V   --version         print version
+
+littlefs options:
+    --format               format instead of mounting
+    --migrate              migrate previous version  instead of mounting
+    -b   --block_size      logical block size, overrides the block device
+    --block_count          block count, overrides the block device
+    --block_cycles         number of erase cycles before eviction (512)
+    --read_size            readable unit (block_size)
+    --prog_size            programmable unit (block_size)
+    --cache_size           size of caches (block_size)
+    --lookahead_size       size of lookahead buffer (8192)
+    --name_max             max size of file names (255)
+    --file_max             max size of file contents (2147483647)
+    --attr_max             max size of custom attributes (1022)
+
+FUSE options:
+    -d   -o debug          enable debug output (implies -f)
+    -f                     foreground operation
+    -s                     disable multi-threaded operation
+
+    -o allow_other         allow access to other users
+    -o allow_root          allow access to root
+    -o auto_unmount        auto unmount on process termination
+    -o nonempty            allow mounts over non-empty file/dir
+    -o default_permissions enable permission checking by kernel
+    -o fsname=NAME         set filesystem name
+    -o subtype=NAME        set filesystem type
+    -o large_read          issue large read requests (2.4 only)
+    -o max_read=N          set maximum size of read requests
+
+    -o hard_remove         immediate removal (don&#39;t hide files)
+    -o use_ino             let filesystem set inode numbers
+    -o readdir_ino         try to fill in d_ino in readdir
+    -o direct_io           use direct I/O
+    -o kernel_cache        cache files in kernel
+    -o [no]auto_cache      enable caching based on modification times (off)
+    -o umask=M             set file permissions (octal)
+    -o uid=N               set file owner
+    -o gid=N               set file group
+    -o entry_timeout=T     cache timeout for names (1.0s)
+    -o negative_timeout=T  cache timeout for deleted names (0.0s)
+    -o attr_timeout=T      cache timeout for attributes (1.0s)
+    -o ac_attr_timeout=T   auto cache timeout for attributes (attr_timeout)
+    -o noforget            never forget cached inodes
+    -o remember=T          remember cached inodes for T seconds (0s)
+    -o nopath              don&#39;t supply path if not necessary
+    -o intr                allow requests to be interrupted
+    -o intr_signal=NUM     signal to send on interrupt (10)
+    -o modules=M1[:M2...]  names of modules to push onto filesystem stack
+
+    -o max_write=N         set maximum size of write requests
+    -o max_readahead=N     set maximum readahead
+    -o max_background=N    set number of maximum background requests
+    -o congestion_threshold=N  set kernel&#39;s congestion threshold
+    -o async_read          perform reads asynchronously (default)
+    -o sync_read           perform reads synchronously
+    -o atomic_o_trunc      enable atomic open+truncate support
+    -o big_writes          enable larger than 4kB writes
+    -o no_remote_lock      disable remote file locking
+    -o no_remote_flock     disable remote file locking (BSD)
+    -o no_remote_posix_lock disable remove file locking (POSIX)
+    -o [no_]splice_write   use splice to write to the fuse device
+    -o [no_]splice_move    move data while splicing to the fuse device
+    -o [no_]splice_read    use splice to read from the fuse device
+
+Module options:
+
+[iconv]
+    -o from_code=CHARSET   original encoding of file names (default: UTF-8)
+    -o to_code=CHARSET      new encoding of the file names (default: UTF-8)
+
+[subdir]
+    -o subdir=DIR       prepend this directory to all paths (mandatory)
+    -o [no]rellinks     transform absolute symlinks to relative</code></pre>
+<h2 id="调试">调试</h2>
+<p>既然可以在PC上模拟挂载和读写，那首先最直观的，就是可以在littlefs的源码中按需添加调试代码，再重新挂载dump出来的镜像，通过打印来分析问题。</p>
+<p>其次，必要的时候，我们还可以上gdb</p>
+<pre><code><code>make DEBUG=1 clean all                # build with debug info
+gdb --args ./lfs -d /dev/loop0 mount  # run with gdb</code></pre>
+<h2 id="其他">其他</h2>
+<p>我的博客即将同步至腾讯云+社区，邀请大家一同入驻：https://cloud.tencent.com/developer/support-plan?invite_code=27xncv5u32v4c</p>
+<p>本文地址：https://www.cnblogs.com/zqb-all/p/12078659.html</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

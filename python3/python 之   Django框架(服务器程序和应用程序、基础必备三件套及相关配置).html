@@ -1,0 +1,226 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python 之   Django框架(服务器程序和应用程序、基础必备三件套及相关配置)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python 之   Django框架(服务器程序和应用程序、基础必备三件套及相关配置)</center></div><div class='banquan'>原文出处:本文由博客园博主small_white-提供。<br/>
+原文连接:https://www.cnblogs.com/mylu/p/11397112.html</div><br>
+    <h2 class="md-end-block md-heading md-focus"><span class="md-plain">第十二章 Django框架</span></h2>
+<h3 class="md-end-block md-heading"><span class="md-plain">12.1 服务器程序和应用程序</span></h3>
+<p class="md-end-block md-p"><span class="md-plain">服务器程序负责对socket服务器进行封装，并在请求到来时，对请求的各种数据进行整理。应用程序则负责具体的逻辑处理。为了方便应用程序的开发，就出现了众多的Web框架，例如：Django、Flask、web.py 等。不同的框架有不同的开发方式，但是无论如何，开发出的应用程序都要和服务器程序配合，才能为用户提供服务。</span></p>
+<p class="md-end-block md-p"><span class="md-plain">WSGI（Web Server Gateway Interface）就是一种规范，它定义了使用Python编写的web应用程序与web服务器程序之间的接口格式，实现web应用程序与web服务器程序间的解耦。</span></p>
+<p class="md-end-block md-p"><span class="md-plain">常用的WSGI服务器有uwsgi、Gunicorn,而Python标准库提供的独立WSGI服务器叫<span><strong>wsgiref</strong><span class="md-plain">，Django开发环境用的就是这个模块来做服务器。</span></span></span></p>
+<h4 class="md-end-block md-heading"><span class="md-plain">12.11 用wsgiref代替socket server</span></h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #0000ff;">from</span> wsgiref.simple_server <span style="color: #0000ff;">import</span><span style="color: #000000;"> make_server
+</span><span style="color: #0000ff;">def</span> home(url):                          <span style="color: #008000;">#</span><span style="color: #008000;"> 将返回不同的内容部分封装成函数</span>
+    s = <span style="color: #800000;">"</span><span style="color: #800000;">this is {} page!</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(url)
+    </span><span style="color: #0000ff;">return</span> bytes(s, encoding=<span style="color: #800000;">"</span><span style="color: #800000;">utf8</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> index(url):
+    </span><span style="color: #0000ff;">return</span> b<span style="color: #800000;">'</span><span style="color: #800000;">&lt;h1&gt;index page&lt;/h1&gt;</span><span style="color: #800000;">'</span>
+<span style="color: #0000ff;">def</span> user(url):                          <span style="color: #008000;">#</span><span style="color: #008000;"> 不同的用户得到的页面上显示不同的时间</span>
+    c_time =<span style="color: #000000;"> str(time.time())
+    with open(</span><span style="color: #800000;">"</span><span style="color: #800000;">user.html</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">r</span><span style="color: #800000;">"</span><span style="color: #000000;">) as f:
+        data_s </span>=<span style="color: #000000;"> f.read()
+        data_s </span>= data_s.replace(<span style="color: #800000;">"</span><span style="color: #800000;">@@xx@@</span><span style="color: #800000;">"</span><span style="color: #000000;">, c_time)  
+        </span><span style="color: #0000ff;">return</span> bytes(data_s, encoding=<span style="color: #800000;">"</span><span style="color: #800000;">utf8</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+​
+url2func </span>= [                           <span style="color: #008000;">#</span><span style="color: #008000;"> url和实际要执行的函数的对应关系</span>
+    (<span style="color: #800000;">"</span><span style="color: #800000;">/index/</span><span style="color: #800000;">"</span><span style="color: #000000;">, index),
+    (</span><span style="color: #800000;">"</span><span style="color: #800000;">/home/</span><span style="color: #800000;">"</span><span style="color: #000000;">, home),
+    (</span><span style="color: #800000;">"</span><span style="color: #800000;">/user/</span><span style="color: #800000;">"</span><span style="color: #000000;">, user),]
+​
+</span><span style="color: #0000ff;">def</span> run_server(environ, start_response):<span style="color: #008000;">#</span><span style="color: #008000;"> 按照wsgiref的要求定义一个run_server函数</span>
+    start_response(<span style="color: #800000;">'</span><span style="color: #800000;">200 OK</span><span style="color: #800000;">'</span>,[(<span style="color: #800000;">'</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">'</span>,<span style="color: #800000;">'</span><span style="color: #800000;">text/html;charset=utf8</span><span style="color: #800000;">'</span>),])<span style="color: #008000;">#</span><span style="color: #008000;">设置HTTP响应的状态码和头信息</span>
+    url = environ[<span style="color: #800000;">'</span><span style="color: #800000;">PATH_INFO</span><span style="color: #800000;">'</span>]         <span style="color: #008000;">#</span><span style="color: #008000;"> 取到用户输入的url</span>
+    func =<span style="color: #000000;"> None
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> url2func:
+        </span><span style="color: #0000ff;">if</span> url ==<span style="color: #000000;"> i[0]:
+            func </span>= i[1]               <span style="color: #008000;">#</span><span style="color: #008000;"> 拿到将要执行的函数</span>
+            <span style="color: #0000ff;">break</span>
+    <span style="color: #0000ff;">if</span><span style="color: #000000;"> func:
+        msg </span>= func(url)               <span style="color: #008000;">#</span><span style="color: #008000;"> 执行对应的函数</span>
+    <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+        msg </span>= b<span style="color: #800000;">'</span><span style="color: #800000;">&lt;h1&gt;404&lt;/h1&gt;</span><span style="color: #800000;">'</span>          <span style="color: #008000;">#</span><span style="color: #008000;"> 找不到要执行的函数就返回404</span>
+    <span style="color: #0000ff;">return</span> [msg, ]                    <span style="color: #008000;">#</span><span style="color: #008000;"> 发送消息到客户端</span>
+<span style="color: #000000;">​
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    httpd </span>= make_server(<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8090<span style="color: #000000;">, run_server)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">我在8090等你哦...</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    httpd.serve_forever()</span></pre>
+</div>
+<h4 class="md-end-block md-heading"><span class="md-plain">12.12 HTML模板渲染工具jinja2</span></h4>
+<p class="md-end-block md-p"><span><strong>user.html:</strong></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">table </span><span style="color: #ff0000;">border</span><span style="color: #0000ff;">="1"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">thead</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">tr</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">th</span><span style="color: #0000ff;">&gt;</span>id<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">th</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">th</span><span style="color: #0000ff;">&gt;</span>姓名<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">th</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">th</span><span style="color: #0000ff;">&gt;</span>爱好<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">th</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">tr</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">thead</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">tbody</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">
+    {% for user in user_list %}
+    </span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">tr</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">td</span><span style="color: #0000ff;">&gt;</span>{{user.id}}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">td</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">td</span><span style="color: #0000ff;">&gt;</span>{{user.name}}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">td</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">td</span><span style="color: #0000ff;">&gt;</span>{{user.hobby}}<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">td</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">tr</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">
+    {% endfor %}
+    </span><span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">tbody</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">table</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p class="md-end-block md-p"><span><strong>使用jinjia2替换HTML中的数据:</strong></span></p>
+<p class="md-end-block md-p"><span class="md-plain">使用pymysql模块查询数据库获取数据，使用jinjia2替换HTML中的数据</span></p>
+<p class="md-end-block md-p"><span class="md-plain">模板的原理就是字符串替换，我们只要在HTML页面中遵循jinja2的语法规则，其内部就会按照指定的语法进行相应的替换，从而达到<span><strong>动态</strong><span class="md-plain">的返回内容</span></span></span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #0000ff;">from</span> wsgiref.simple_server <span style="color: #0000ff;">import</span><span style="color: #000000;"> make_server
+</span><span style="color: #0000ff;">from</span> jinja2 <span style="color: #0000ff;">import</span><span style="color: #000000;"> Template
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> pymysql
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> user(url):
+    conn </span>= pymysql.connect(                 <span style="color: #008000;">#</span><span style="color: #008000;"> 从数据库里面去到所有的用户信息，</span>
+        host=<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        port</span>=3306<span style="color: #000000;">,
+        user</span>=<span style="color: #800000;">'</span><span style="color: #800000;">root</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        password</span>=<span style="color: #800000;">'</span><span style="color: #800000;">123</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        database</span>=<span style="color: #800000;">'</span><span style="color: #800000;">db6</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        charset</span>=<span style="color: #800000;">'</span><span style="color: #800000;">utf8</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    )
+    cursor </span>= conn.cursor(cursor=<span style="color: #000000;">pymysql.cursors.DictCursor)
+    cursor.execute(</span><span style="color: #800000;">'</span><span style="color: #800000;">select * from user</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    ret </span>=<span style="color: #000000;"> cursor.fetchall()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">print(ret)</span>
+    with open(<span style="color: #800000;">"</span><span style="color: #800000;">user.html</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">r</span><span style="color: #800000;">"</span>, encoding=<span style="color: #800000;">"</span><span style="color: #800000;">utf8</span><span style="color: #800000;">"</span><span style="color: #000000;">) as f:
+        data_s </span>=<span style="color: #000000;"> f.read()
+        template </span>= Template(data_s)               <span style="color: #008000;">#</span><span style="color: #008000;"> 生成一个模板文件实例</span>
+        msg = template.render({<span style="color: #800000;">"</span><span style="color: #800000;">user_list</span><span style="color: #800000;">"</span>: ret})  <span style="color: #008000;">#</span><span style="color: #008000;"> 把数据填充到模板里面</span>
+        <span style="color: #0000ff;">return</span> bytes(msg, encoding=<span style="color: #800000;">"</span><span style="color: #800000;">utf8</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    
+url2func </span>= [                                     <span style="color: #008000;">#</span><span style="color: #008000;"> url和将要执行的函数的对应关系</span>
+    (<span style="color: #800000;">"</span><span style="color: #800000;">/index/</span><span style="color: #800000;">"</span><span style="color: #000000;">, index),
+    (</span><span style="color: #800000;">"</span><span style="color: #800000;">/home/</span><span style="color: #800000;">"</span><span style="color: #000000;">, home),
+    (</span><span style="color: #800000;">"</span><span style="color: #800000;">/user/</span><span style="color: #800000;">"</span><span style="color: #000000;">, user),]
+</span><span style="color: #0000ff;">def</span> run_server(environ, start_response):          <span style="color: #008000;">#</span><span style="color: #008000;"> 按照wsgiref的要求定义一个run_server函数</span>
+    start_response(<span style="color: #800000;">'</span><span style="color: #800000;">200 OK</span><span style="color: #800000;">'</span>,[(<span style="color: #800000;">'</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">'</span>,<span style="color: #800000;">'</span><span style="color: #800000;">text/html;charset=utf8</span><span style="color: #800000;">'</span>),])<span style="color: #008000;">#</span><span style="color: #008000;">设置HTTP响应的状态码和头信息</span>
+    url = environ[<span style="color: #800000;">'</span><span style="color: #800000;">PATH_INFO</span><span style="color: #800000;">'</span>]  <span style="color: #008000;">#</span><span style="color: #008000;"> 取到用户输入的url</span>
+<span style="color: #000000;">​
+    func </span>=<span style="color: #000000;"> None
+    </span><span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> url2func:
+        </span><span style="color: #0000ff;">if</span> url ==<span style="color: #000000;"> i[0]:
+            func </span>= i[1]       <span style="color: #008000;">#</span><span style="color: #008000;"> 拿到将要执行的函数</span>
+            <span style="color: #0000ff;">break</span>
+    <span style="color: #0000ff;">if</span><span style="color: #000000;"> func:
+        msg </span>= func(url)       <span style="color: #008000;">#</span><span style="color: #008000;"> 执行对应的函数</span>
+    <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+        msg </span>= b<span style="color: #800000;">'</span><span style="color: #800000;">&lt;h1&gt;404&lt;/h1&gt;</span><span style="color: #800000;">'</span>  <span style="color: #008000;">#</span><span style="color: #008000;"> 找不到要执行的函数就返回404</span>
+    <span style="color: #0000ff;">return</span> [msg, ]            <span style="color: #008000;">#</span><span style="color: #008000;"> 发送消息到客户端</span>
+<span style="color: #000000;">​
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    httpd </span>= make_server(<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8090<span style="color: #000000;">, run_server)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">我在8090等你哦...</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    httpd.serve_forever()</span></pre>
+</div>
+<h3 class="md-end-block md-heading"><span class="md-plain">12.2 Django基础必备三件套</span></h3>
+<p class="md-end-block md-p"><span class="md-plain">用命令创建了一个名为"mysite"的Django 项目</span></p>
+<div class="cnblogs_code">
+<pre><code>django-admin startproject mysite</pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">Django目录：</span></p>
+<div class="cnblogs_code">
+<pre><code>mysite/<span style="color: #000000;">
+├── manage.py       </span><span style="color: #008000;">#</span><span style="color: #008000;"> 管理文件</span>
+└── mysite          <span style="color: #008000;">#</span><span style="color: #008000;"> 项目目录</span>
+    ├── <span style="color: #800080;">__init__</span><span style="color: #000000;">.py
+    ├── settings.py  </span><span style="color: #008000;">#</span><span style="color: #008000;"> 配置</span>
+    ├── urls.py      <span style="color: #008000;">#</span><span style="color: #008000;"> 路由 --&gt; URL和函数的对应关系</span>
+    └── wsgi.py      <span style="color: #008000;">#</span><span style="color: #008000;"> runserver命令就使用wsgiref模块做简单的 web server</span></pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">用命令运行Django项目</span></p>
+<div class="cnblogs_code">
+<pre><code>python3 manage.py runserver 127.0.0.1:8000 <span style="color: #008000;">#</span><span style="color: #008000;">默认使用8000端口</span></pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">模板文件配置：<span><strong>settings</strong></span></span></p>
+<div class="cnblogs_code">
+<pre><code>TEMPLATES =<span style="color: #000000;"> [
+    {
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">BACKEND</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">django.template.backends.django.DjangoTemplates</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">DIRS</span><span style="color: #800000;">'</span>: [os.path.join(BASE_DIR, <span style="color: #800000;">"</span><span style="color: #800000;">template</span><span style="color: #800000;">"</span>)],  <span style="color: #008000;">#</span><span style="color: #008000;"> template文件夹位置</span>
+        <span style="color: #800000;">'</span><span style="color: #800000;">APP_DIRS</span><span style="color: #800000;">'</span><span style="color: #000000;">: True,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">OPTIONS</span><span style="color: #800000;">'</span><span style="color: #000000;">: {
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">context_processors</span><span style="color: #800000;">'</span><span style="color: #000000;">: [
+                </span><span style="color: #800000;">'</span><span style="color: #800000;">django.template.context_processors.debug</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                </span><span style="color: #800000;">'</span><span style="color: #800000;">django.template.context_processors.request</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                </span><span style="color: #800000;">'</span><span style="color: #800000;">django.contrib.auth.context_processors.auth</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                </span><span style="color: #800000;">'</span><span style="color: #800000;">django.contrib.messages.context_processors.messages</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+            ],
+        },
+    },
+]</span></pre>
+</div>
+<p class="md-end-block md-p"><span class="md-plain">静态文件配置：<span><strong>settings</strong></span></span></p>
+<div class="cnblogs_code">
+<pre><code>STATIC_URL = <span style="color: #800000;">'</span><span style="color: #800000;">/static/</span><span style="color: #800000;">'</span>               <span style="color: #008000;">#</span><span style="color: #008000;"> HTML中使用的静态文件夹前缀</span>
+STATICFILES_DIRS =<span style="color: #000000;"> [
+    os.path.join(BASE_DIR, </span><span style="color: #800000;">"</span><span style="color: #800000;">static</span><span style="color: #800000;">"</span>),  <span style="color: #008000;">#</span><span style="color: #008000;"> 静态文件存放位置</span>
+]</pre>
+</div>
+<h4 class="md-end-block md-heading"><span class="md-plain">12.21 HttpResponse</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">内部传入一个字符串参数，返回给浏览器</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.conf.urls <span style="color: #0000ff;">import</span><span style="color: #000000;"> url
+</span><span style="color: #0000ff;">from</span> django.contrib <span style="color: #0000ff;">import</span><span style="color: #000000;"> admin
+</span><span style="color: #0000ff;">from</span> django.shortcuts <span style="color: #0000ff;">import</span><span style="color: #000000;"> HttpResponse, render, redirect
+</span><span style="color: #0000ff;">def</span> index(request):                         <span style="color: #008000;">#</span><span style="color: #008000;">所有跟请求相关的数据都封装到了request这个参数里面</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 业务逻辑代码</span>
+    <span style="color: #0000ff;">return</span> HttpResponse(<span style="color: #800000;">"</span><span style="color: #800000;">这是index页面！</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<h4 class="md-end-block md-heading"><span class="md-plain">12.22 render</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">除request参数外还接受一个待渲染的模板文件和一个保存具体数据的字典参数，将数据填充进模板文件，最后把结果返回给浏览器（类似于上面用到的jinja2）</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> login(request):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 自己去找HTML文件</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> with open("templates/login.html", "r", encoding="utf8") as f:  </span>
+    <span style="color: #008000;">#</span><span style="color: #008000;">     data = f.read()</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> return HttpResponse(data)</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> Django去找login.html文件，读取出来内容，返回给浏览器</span>
+    <span style="color: #0000ff;">return</span> render(request, <span style="color: #800000;">"</span><span style="color: #800000;">login.html</span><span style="color: #800000;">"</span>, {<span style="color: #800000;">"</span><span style="color: #800000;">name</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">alex</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">hobby</span><span style="color: #800000;">"</span>: [<span style="color: #800000;">"</span><span style="color: #800000;">烫头</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">泡吧</span><span style="color: #800000;">"</span>]})</pre>
+</div>
+<h4 class="md-end-block md-heading"><span class="md-plain">12.23 redirect</span></h4>
+<p class="md-end-block md-p"><span class="md-plain">接受一个URL参数，表示跳转到指定的URL</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> index(request):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 业务逻辑代码</span>
+    <span style="color: #0000ff;">return</span> redirect(<span style="color: #800000;">"</span><span style="color: #800000;">/home/</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<h4 class="md-end-block md-heading"><span class="md-plain">12.24 设置URL和函数的对应关系</span></h4>
+<div class="cnblogs_code">
+<pre><code>urlpatterns =<span style="color: #000000;"> [
+    url(r</span><span style="color: #800000;">'</span><span style="color: #800000;">^admin/</span><span style="color: #800000;">'</span><span style="color: #000000;">, admin.site.urls),
+    url(r</span><span style="color: #800000;">'</span><span style="color: #800000;">^home/</span><span style="color: #800000;">'</span><span style="color: #000000;">, home),
+    url(r</span><span style="color: #800000;">'</span><span style="color: #800000;">^index/</span><span style="color: #800000;">'</span><span style="color: #000000;">, index),
+    url(r</span><span style="color: #800000;">'</span><span style="color: #800000;">^login/</span><span style="color: #800000;">'</span><span style="color: #000000;">, login),
+]</span></pre>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

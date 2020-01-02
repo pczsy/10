@@ -1,0 +1,252 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修这可能是最容易入门的socket教程了' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>这可能是最容易入门的socket教程了</center></div><div class='banquan'>原文出处:本文由博客园博主温酒煮bug提供。<br/>
+原文连接:https://www.cnblogs.com/nedulee/p/12026342.html</div><br>
+    <h1>前言：</h1>
+<blockquote>
+<div style="margin-left: 30px;">　　如今，网络编程已然成为了一个后端开发工程师需要具备的核心技能之一。因此，该博客力求提供最简单、通俗的描述方式，来描绘网络编程中常见的知识点，同时附带代码示例，后期会加上具体的抓包分析，实际项目、框架案例，希望可以和大家共同探索网络世界。</div>
+</blockquote>
+<h1>什么是socket？</h1>
+<div style="margin-left: 30px;">　　在计算机通讯领域，socket被翻译为<strong>&ldquo;套接字&rdquo;</strong>。</div>
+<div style="margin-left: 30px;">　　但是这种翻译方法其实是不优雅的，因为从字面意思来看，我们并不能很直白的理解socket的具体用途。如果可以的话，我更希望它被翻译成<strong>&ldquo;通讯插头&rdquo;</strong>。</div>
+<div style="margin-left: 30px;"><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/这可能是最容易入门的socket教程了0.png" alt="" />
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+</div>
+<div style="margin-left: 30px;">　　我们可以这样想象一下，现在有一根&ldquo;网线&rdquo;，一头连接着客户端，一头连接着服务器，客户端和服务器的数据通过这跟&ldquo;网线&rdquo;来进行传输，而socket的作用，其实就相当于连接网线的插头。在通讯之前，客户端和服务器都要建立一个socket。</div>
+<h1>socket在网络编程中的位置</h1>
+<div style="margin-left: 30px;">socket是基于TCP、UDP协议的，如果你熟悉TCP/IP协议。你就会知道，TCP、UDP属于<strong>传输层</strong>。由于我们主要是学习Socket，所以这里只是简单介绍一下这两种协议：</div>
+<ol>
+<li style="list-style-type: none;"><ol>
+<li>TCP是面向连接的、UDP是面向无连接的，所谓面向连接，指的就是通讯双方会维护一组状态，保证连接的可靠性。</li>
+<li>TCP的数据包结构相对复杂，而UDP则相对简单。无论是TCP还是UDP，他们的包头上都应该有端口号和目标端口号，TCP的包头上有序号（顺序），确认序号（不丢包）、窗口大小（流量控制 &amp; 拥塞控制）、状态码（FIN ACK SYN）等。TCP和UDP的包头如下图。</li>
+<li>TCP数据传输方式是基于数据流的，而UDP则是基于数据报。</li>
+</ol></li>
+</ol>
+<div style="margin-left: 30px;"><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/这可能是最容易入门的socket教程了1.png" alt="" />
+<p>&nbsp;</p>
+<p style="text-align: center;">udp包头</p>
+<p style="text-align: center;"><img src="./images/这可能是最容易入门的socket教程了2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p style="text-align: center;">&nbsp;tcp包头</p>
+</div>
+<div style="margin-left: 30px;"><strong>（我们将在其他博文中对TCP和UDP进行具体讲解）</strong></div>
+<div style="margin-left: 30px;">　<strong>一个包在网络中传输，一定不会只有上层没下层</strong>。TCP、UDP处于传输层。TCP/IP协议从上到下分别为：<strong>应用层、传输层、网络层、链路层、物理层</strong>。所以传输层的数据包想要在网络中传输，除了端口号，我们还需要网络层中的ip地址。socket的创建需要提供的信息就是 ip+端口。</div>
+<h1>如何使用socket：</h1>
+<div style="margin-left: 30px;">TCP是基于数据流的，所以如果是基于TCP的Socket，我们就需要建立连接，然后获取数据流，再进行通讯。</div>
+<div style="margin-left: 30px;">每对连接需要建立一组socket，具体步骤如下：</div>
+<div style="margin-left: 30px;"><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/这可能是最容易入门的socket教程了3.png" alt="" width="391" height="396" />
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+</div>
+<h2>代码（TCP）：</h2>
+<h3>服务器：</h3>
+<div class="cnblogs_code" style="margin-left: 30px;">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.BufferedReader;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.BufferedWriter;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.IOException;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.InputStream;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.InputStreamReader;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.OutputStream;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.OutputStreamWriter;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.ServerSocket;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.Socket;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * 服务器.
+ *
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> jialin.li
+ * @date 2019-12-10 19:45
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> TcpServer {
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> main(String[] args) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> IOException {
+        </span><span style="color: #0000ff;">int</span> port = 8099<span style="color: #000000;">;
+        ServerSocket connectionSocket </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> ServerSocket(port);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 监听端口，accept为阻塞方法</span>
+        System.out.println("Get socket successfully, wait for request..."<span style="color: #000000;">);
+        Socket communicationSocket </span>=<span style="color: #000000;"> connectionSocket.accept();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 获取输入流，读取数据</span>
+        InputStream inputStream =<span style="color: #000000;"> communicationSocket.getInputStream();
+        InputStreamReader inputStreamReader </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> InputStreamReader(inputStream);
+        BufferedReader bufferedReader </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> BufferedReader(inputStreamReader);
+        String message;
+        </span><span style="color: #0000ff;">while</span> ((message = bufferedReader.readLine()) != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            System.out.printf(</span>"get message from client : %s"<span style="color: #000000;">,message);
+        }
+        communicationSocket.shutdownInput();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 获取输出流,返回结果</span>
+        OutputStream outputStream =<span style="color: #000000;"> communicationSocket.getOutputStream();
+        OutputStreamWriter outputStreamWriter </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> OutputStreamWriter(outputStream);
+        BufferedWriter bufferedWriter </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> BufferedWriter(outputStreamWriter);
+        bufferedWriter.write(</span>"I got your message and the communication is over."<span style="color: #000000;">);
+        bufferedWriter.flush();
+        communicationSocket.shutdownOutput();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 关闭资源</span>
+<span style="color: #000000;">        bufferedWriter.close();
+        bufferedReader.close();
+    }
+}</span></pre>
+</div>
+<h3>客户端：</h3>
+<div class="cnblogs_code" style="margin-left: 30px;">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.BufferedReader;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.BufferedWriter;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.IOException;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.InputStream;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.InputStreamReader;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.OutputStream;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.OutputStreamWriter;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.Socket;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * 客户端.
+ *
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> jialin.li
+ * @date 2019-12-10 22:30
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> TcpClient {
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> main(String[] args) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> IOException {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 指定ip 端口，创建socket</span>
+        String host = "127.0.0.1"<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">int</span> port = 8099<span style="color: #000000;">;
+        Socket communicationSocket </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> Socket(host, port);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 获取输出流,写入数据</span>
+        OutputStream outputStream =<span style="color: #000000;"> communicationSocket.getOutputStream();
+        OutputStreamWriter outputStreamWriter </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> OutputStreamWriter(outputStream);
+        BufferedWriter bufferedWriter </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> BufferedWriter(outputStreamWriter);
+        bufferedWriter.write(</span>"hello world"<span style="color: #000000;">);
+        bufferedWriter.flush();
+        communicationSocket.shutdownOutput();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 获取输入流,读取服务器返回信息</span>
+        InputStream inputStream =<span style="color: #000000;"> communicationSocket.getInputStream();
+        InputStreamReader inputStreamReader </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> InputStreamReader(inputStream);
+        BufferedReader bufferedReader </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> BufferedReader(inputStreamReader);
+        String message;
+        </span><span style="color: #0000ff;">while</span> ((message = bufferedReader.readLine()) != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            System.out.printf(</span>"get message from server : %s"<span style="color: #000000;">, message);
+        }
+        communicationSocket.shutdownInput();
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 关闭资源</span>
+<span style="color: #000000;">        bufferedWriter.close();
+        bufferedReader.close();
+    }
+}</span></pre>
+</div>
+<h2>执行结果：</h2>
+<p style="margin-left: 30px;">server：</p>
+<p style="margin-left: 30px;">Get socket successfully, wait for request...<br />get message from client : hello world</p>
+<p style="margin-left: 30px;">client：</p>
+<p style="margin-left: 30px;">get message from server : I got your message and the communication is over.</p>
+<h2>outputStream.close与shutdownOutput的区别：</h2>
+<p>　　<strong>这里只对outputStream进行分析，inputStream与之相同。</strong></p>
+<p><strong>　　</strong>可以看出，上述代码，我们在执行完输入/输出动作之后，会调用一个shutdownInput/shutdownOutput方法，这个方法有什么作用呢？可不可以用close方法替代？</p>
+<p>　　首先，我们阅读jdk中关于该方法的doc注释：</p>
+<p style="margin-left: 30px;"><span style="color: #808080;">Disables the output stream for this socket.</span><br /><span style="color: #808080;">For a TCP socket, any previously written data will be sent</span><br /><span style="color: #808080;">followed by TCP's normal connection termination sequence.</span></p>
+<p style="margin-left: 30px;"><span style="color: #808080;">If you write to a socket output stream after invoking</span><br /><span style="color: #808080;">shutdownOutput() on the socket, the stream will throw</span><br /><span style="color: #808080;">an IOException.</span></p>
+<p style="margin-left: 30px;">　　大体意思是说，该方法会禁用socket的输出流，对于基于TCP协议的Socket，任何在方法执行之前发送数据，都可以被正常发送，如果在这个方法执行后发送数据，就会抛出一个IO异常。通过该方法关闭流，Socket连接不会收到影响，但是如果我们直接使用close方法关闭流，那么Socket连接也会随之关闭。接下来我们来测试一下，在Server中用inputStream.close来代替socket.shutdownInput方法。</p>
+<p style="margin-left: 30px;"><strong>结果是由于inputStream.close提前关闭了socket，导致服务器在输出数据的时，socket.getOutputStream方法抛出异常：java.net.SocketException: Socket is closed　</strong></p>
+<h2>为什么我们每次调用BufferedWrite的write方法，都要调用flush方法：</h2>
+<p style="margin-left: 30px;">　　这个问题不属于网络编程的范畴，但却是我们在写socket程序时，很容易犯的一个错误。bufferedWrite是字符缓存流，它的原理其实很简单，在内存中设置一个缓存区，将原本逐个发送的字符缓存起来，批量发送（有很多框架也采用了这种思想，比如kafka的批量发送），flush方法是手动的将我们缓存区中的数据刷出。缓存区中的数据，将会在流关闭之前，进行flush。但是由于我们在发送数据之后，调用了shutdownOutput方法，导致最后close的时候，没办法将缓存区中的数据flush，因此会抛出一个写入失败的异常：<strong>java.net.SocketException: Broken pipe (Write failed)。</strong></p>
+<p style="margin-left: 30px;">UDP是基于数据报的，因此不需要每对连接都建立一组socket，而是只要有一个socket，就能与多个客户端通讯，所以只需要通过创建数据报，然后通过socket发送即可，具体步骤如下：</p>
+<p style="margin-left: 30px;"><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/这可能是最容易入门的socket教程了4.png" alt="" width="414" height="368" /></p>
+<h2>代码（UDP）：</h2>
+<h3>服务器：</h3>
+<div style="margin-left: 30px;">
+<div class="cnblogs_code" style="margin-left: 30px;">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.DatagramPacket;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.IOException;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.DatagramSocket;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * 服务器.
+ *
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> jialin.li
+ * @date 2019-12-10 19:45
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> UdpServer {
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> main(String[] args) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> IOException {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 监听端口，阻塞方法</span>
+        <span style="color: #0000ff;">int</span> port = 8099<span style="color: #000000;">;
+        DatagramSocket socket </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> DatagramSocket(port);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 创建数据报，用于接收客户端发送的数据</span>
+        <span style="color: #0000ff;">byte</span>[] data = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">byte</span>[1024<span style="color: #000000;">];
+        DatagramPacket packet </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> DatagramPacket(data, data.length);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 接收客户端发送的数据</span>
+        System.out.println("Get socket successfully, wait for request..."<span style="color: #000000;">);
+        socket.receive(packet);
+        String message </span>= <span style="color: #0000ff;">new</span> String(data, 0<span style="color: #000000;">, packet.getLength());
+        System.out.printf(</span>"get message from client : %s"<span style="color: #000000;">, message);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 向客户端发送数据</span>
+        <span style="color: #0000ff;">byte</span>[] data2 = "I got your message and the communication is over."<span style="color: #000000;">.getBytes();
+        DatagramPacket packet2 </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> DatagramPacket(data2, data2.length, packet.getAddress(), packet.getPort());
+        socket.send(packet2);
+        socket.close();
+    }
+}</span></pre>
+</div>
+</div>
+<h3>客户端：</h3>
+<div class="cnblogs_code" style="margin-left: 30px;">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.io.IOException;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.DatagramPacket;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.DatagramSocket;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.net.InetAddress;
+
+</span><span style="color: #008000;">/**</span><span style="color: #008000;">
+ * 客户端.
+ *
+ * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> jialin.li
+ * @date 2019-12-11 11:32
+ </span><span style="color: #008000;">*/</span>
+<span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> UdpClient {
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">void</span> main(String[] args) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> IOException {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 封装数据报：ip、端口、数据</span>
+        InetAddress ip = InetAddress.getByName("127.0.0.1"<span style="color: #000000;">);
+        </span><span style="color: #0000ff;">int</span> port = 8099<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">byte</span>[] data = "hello world"<span style="color: #000000;">.getBytes();
+        DatagramPacket packet </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> DatagramPacket(data, data.length, ip, port);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 创建socket，发送数据报</span>
+        DatagramSocket socket = <span style="color: #0000ff;">new</span><span style="color: #000000;"> DatagramSocket();
+        socket.send(packet);
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 读取服务器返回信息</span>
+        <span style="color: #0000ff;">byte</span>[] data2 = <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">byte</span>[1024<span style="color: #000000;">];
+        DatagramPacket packet2 </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> DatagramPacket(data2, data2.length);
+        socket.receive(packet2);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> 读取数据</span>
+        String message = <span style="color: #0000ff;">new</span> String(data2, 0<span style="color: #000000;">, packet2.getLength());
+        System.out.printf(</span>"get message from server : %s"<span style="color: #000000;">, message);
+        </span><span style="color: #008000;">//</span><span style="color: #008000;">关闭资源</span>
+<span style="color: #000000;">        socket.close();
+    }
+}</span></pre>
+</div>
+<h3><span style="font-size: 1.5em; background-color: #ffffff; font-family: 'PingFang SC', 'Helvetica Neue', Helvetica, Arial, sans-serif;">执行结果：</span></h3>
+<p style="margin-left: 30px;">server：</p>
+<p style="margin-left: 30px;">Get socket successfully, wait for request...<br />get message from client : hello world</p>
+<p style="margin-left: 30px;">client：</p>
+<p style="margin-left: 30px;">get message from server : I got your message and the communication is over.</p>
+<p><!--5f39ae17-8c62-4a45-bc43-b32064c9388a:W3siYmxvY2tJZCI6IjEzMzQtMTU3NjA0MDExMDk0OSIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOlt7ImNoYXIiOiLku4AifSx7ImNoYXIiOiLkuYgifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiJzIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLvvJ8ifV0sImlzUmljaFRleHQiOnRydWUsImtlZXBMaW5lQnJlYWsiOnRydWV9fSx7ImJsb2NrSWQiOiIzNzEwLTE1NzYwNDA0OTg5MzAiLCJibG9ja1R5cGUiOiJwYXJhZ3JhcGgiLCJzdHlsZXMiOnsiYWxpZ24iOiJsZWZ0IiwiaW5kZW50IjowLCJ0ZXh0LWluZGVudCI6MCwibGluZS1oZWlnaHQiOjEuNzUsImJhY2stY29sb3IiOiIiLCJwYWRkaW5nIjoiIn0sInR5cGUiOiJwYXJhZ3JhcGgiLCJyaWNoVGV4dCI6eyJkYXRhIjpbeyJjaGFyIjoi5ZyoIn0seyJjaGFyIjoi6K6hIn0seyJjaGFyIjoi566XIn0seyJjaGFyIjoi5py6In0seyJjaGFyIjoi6YCaIn0seyJjaGFyIjoi6K6vIn0seyJjaGFyIjoi6aKGIn0seyJjaGFyIjoi5Z+fIn0seyJjaGFyIjoi77yMIn0seyJjaGFyIjoicyJ9LHsiY2hhciI6Im8ifSx7ImNoYXIiOiJjIn0seyJjaGFyIjoiayJ9LHsiY2hhciI6ImUifSx7ImNoYXIiOiJ0In0seyJjaGFyIjoi6KKrIn0seyJjaGFyIjoi57+7In0seyJjaGFyIjoi6K+RIn0seyJjaGFyIjoi5Li6In0seyJjaGFyIjoi4oCcIn0seyJjaGFyIjoi5aWXIn0seyJjaGFyIjoi5o6lIn0seyJjaGFyIjoi5a2XIn0seyJjaGFyIjoi4oCdIn0seyJjaGFyIjoi44CCIn1dLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiMjExMS0xNTc2MDQwNjgxNTEyIiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6IuS9hiJ9LHsiY2hhciI6IuaYryJ9LHsiY2hhciI6Iui/mSJ9LHsiY2hhciI6IuenjSJ9LHsiY2hhciI6Iue/uyJ9LHsiY2hhciI6IuivkSJ9LHsiY2hhciI6IuaWuSJ9LHsiY2hhciI6IuazlSJ9LHsiY2hhciI6IuWFtiJ9LHsiY2hhciI6IuWuniJ9LHsiY2hhciI6IuaYryJ9LHsiY2hhciI6IuS4jSJ9LHsiY2hhciI6IuS8mCJ9LHsiY2hhciI6IumbhSJ9LHsiY2hhciI6IueahCJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IuWboCJ9LHsiY2hhciI6IuS4uiJ9LHsiY2hhciI6IuS7jiJ9LHsiY2hhciI6IuWtlyJ9LHsiY2hhciI6IumdoiJ9LHsiY2hhciI6IuaEjyJ9LHsiY2hhciI6IuaAnSJ9LHsiY2hhciI6IuadpSJ9LHsiY2hhciI6IueciyJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IuaIkSJ9LHsiY2hhciI6IuS7rCJ9LHsiY2hhciI6IuW5tiJ9LHsiY2hhciI6IuS4jSJ9LHsiY2hhciI6IuiDvSJ9LHsiY2hhciI6IuW+iCJ9LHsiY2hhciI6IuebtCJ9LHsiY2hhciI6IueZvSJ9LHsiY2hhciI6IueahCJ9LHsiY2hhciI6IueQhiJ9LHsiY2hhciI6IuinoyJ9LHsiY2hhciI6InMifSx7ImNoYXIiOiJvIn0seyJjaGFyIjoiYyJ9LHsiY2hhciI6ImsifSx7ImNoYXIiOiJlIn0seyJjaGFyIjoidCJ9LHsiY2hhciI6IueahCJ9LHsiY2hhciI6IuWFtyJ9LHsiY2hhciI6IuS9kyJ9LHsiY2hhciI6IueUqCJ9LHsiY2hhciI6IumAlCJ9LHsiY2hhciI6IuOAgiJ9LHsiY2hhciI6IuWmgiJ9LHsiY2hhciI6IuaenCJ9LHsiY2hhciI6IuWPryJ9LHsiY2hhciI6IuS7pSJ9LHsiY2hhciI6IueahCJ9LHsiY2hhciI6IuivnSJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IuaIkSJ9LHsiY2hhciI6IuabtCJ9LHsiY2hhciI6IuW4jCJ9LHsiY2hhciI6IuacmyJ9LHsiY2hhciI6IuWugyJ9LHsiY2hhciI6IuiiqyJ9LHsiY2hhciI6Iue/uyJ9LHsiY2hhciI6IuivkSJ9LHsiY2hhciI6IuaIkCJ9LHsiY2hhciI6IuKAnCJ9LHsiY2hhciI6IumAmiJ9LHsiY2hhciI6IuiuryJ9LHsiY2hhciI6IuaPkiJ9LHsiY2hhciI6IuWktCJ9LHsiY2hhciI6IuKAnSJ9LHsiY2hhciI6IuOAgiJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19LHsiYmxvY2tJZCI6Ijc4MTYtMTU3NjA0MDcwODUwMCIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOlt7ImNoYXIiOiLmiJEifSx7ImNoYXIiOiLku6wifSx7ImNoYXIiOiLlj68ifSx7ImNoYXIiOiLku6UifSx7ImNoYXIiOiLov5kifSx7ImNoYXIiOiLmoLcifSx7ImNoYXIiOiLmg7MifSx7ImNoYXIiOiLosaEifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLkuIsifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLnjrAifSx7ImNoYXIiOiLlnKgifSx7ImNoYXIiOiLmnIkifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLmoLkifSx7ImNoYXIiOiLigJwifSx7ImNoYXIiOiLnvZEifSx7ImNoYXIiOiLnur8ifSx7ImNoYXIiOiLigJ0ifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLlpLQifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLnnYAifSx7ImNoYXIiOiLlrqIifSx7ImNoYXIiOiLmiLcifSx7ImNoYXIiOiLnq68ifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLlpLQifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLnnYAifSx7ImNoYXIiOiLmnI0ifSx7ImNoYXIiOiLliqEifSx7ImNoYXIiOiLlmagifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlrqIifSx7ImNoYXIiOiLmiLcifSx7ImNoYXIiOiLnq68ifSx7ImNoYXIiOiLlkowifSx7ImNoYXIiOiLmnI0ifSx7ImNoYXIiOiLliqEifSx7ImNoYXIiOiLlmagifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLmlbAifSx7ImNoYXIiOiLmja4ifSx7ImNoYXIiOiLpgJoifSx7ImNoYXIiOiLov4cifSx7ImNoYXIiOiLov5kifSx7ImNoYXIiOiLot58ifSx7ImNoYXIiOiLigJwifSx7ImNoYXIiOiLnvZEifSx7ImNoYXIiOiLnur8ifSx7ImNoYXIiOiLigJ0ifSx7ImNoYXIiOiLmnaUifSx7ImNoYXIiOiLov5sifSx7ImNoYXIiOiLooYwifSx7ImNoYXIiOiLkvKAifSx7ImNoYXIiOiLovpMifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLogIwifSx7ImNoYXIiOiJzIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLkvZwifSx7ImNoYXIiOiLnlKgifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlhbYifSx7ImNoYXIiOiLlrp4ifSx7ImNoYXIiOiLlsLEifSx7ImNoYXIiOiLnm7gifSx7ImNoYXIiOiLlvZMifSx7ImNoYXIiOiLkuo4ifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLnvZEifSx7ImNoYXIiOiLnur8ifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLmj5IifSx7ImNoYXIiOiLlpLQifSx7ImNoYXIiOiLjgIIifSx7ImNoYXIiOiLmiYAifSx7ImNoYXIiOiLku6UifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlnKgifSx7ImNoYXIiOiLpgJoifSx7ImNoYXIiOiLorq8ifSx7ImNoYXIiOiLkuYsifSx7ImNoYXIiOiLliY0ifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlrqIifSx7ImNoYXIiOiLmiLcifSx7ImNoYXIiOiLnq68ifSx7ImNoYXIiOiLlkowifSx7ImNoYXIiOiLmnI0ifSx7ImNoYXIiOiLliqEifSx7ImNoYXIiOiLlmagifSx7ImNoYXIiOiLpg70ifSx7ImNoYXIiOiLopoEifSx7ImNoYXIiOiLlu7oifSx7ImNoYXIiOiLnq4sifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLkuKoifSx7ImNoYXIiOiJzIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLjgIIifV0sImlzUmljaFRleHQiOnRydWUsImtlZXBMaW5lQnJlYWsiOnRydWV9fSx7ImJsb2NrSWQiOiI3MDE2LTE1NzYwNDExMDgzNTkiLCJibG9ja1R5cGUiOiJwYXJhZ3JhcGgiLCJzdHlsZXMiOnsiYWxpZ24iOiJsZWZ0IiwiaW5kZW50IjowLCJ0ZXh0LWluZGVudCI6MCwibGluZS1oZWlnaHQiOjEuNzUsImJhY2stY29sb3IiOiIiLCJwYWRkaW5nIjoiIn0sInR5cGUiOiJwYXJhZ3JhcGgiLCJyaWNoVGV4dCI6eyJkYXRhIjpbeyJjaGFyIjoicyJ9LHsiY2hhciI6Im8ifSx7ImNoYXIiOiJjIn0seyJjaGFyIjoiayJ9LHsiY2hhciI6ImUifSx7ImNoYXIiOiJ0In0seyJjaGFyIjoi5ZyoIn0seyJjaGFyIjoi572RIn0seyJjaGFyIjoi57ucIn0seyJjaGFyIjoi57yWIn0seyJjaGFyIjoi56iLIn0seyJjaGFyIjoi5LitIn0seyJjaGFyIjoi55qEIn0seyJjaGFyIjoi5L2NIn0seyJjaGFyIjoi572uIn1dLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiNzQ2NS0xNTc2MDQxMzIzNzk5IiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6InMifSx7ImNoYXIiOiJvIn0seyJjaGFyIjoiYyJ9LHsiY2hhciI6ImsifSx7ImNoYXIiOiJlIn0seyJjaGFyIjoidCJ9LHsiY2hhciI6IuaYryJ9LHsiY2hhciI6IuWfuiJ9LHsiY2hhciI6IuS6jiJ9LHsiY2hhciI6IlQifSx7ImNoYXIiOiJDIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuOAgSJ9LHsiY2hhciI6IlUifSx7ImNoYXIiOiJEIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuWNjyJ9LHsiY2hhciI6IuiuriJ9LHsiY2hhciI6IueahCJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IuWmgiJ9LHsiY2hhciI6IuaenCJ9LHsiY2hhciI6IuS9oCJ9LHsiY2hhciI6IueGnyJ9LHsiY2hhciI6IuaCiSJ9LHsiY2hhciI6IlQifSx7ImNoYXIiOiJDIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6Ii8ifSx7ImNoYXIiOiJJIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuWNjyJ9LHsiY2hhciI6IuiuriJ9LHsiY2hhciI6IuOAgiJ9LHsiY2hhciI6IuS9oCJ9LHsiY2hhciI6IuWwsSJ9LHsiY2hhciI6IuS8miJ9LHsiY2hhciI6IuefpSJ9LHsiY2hhciI6IumBkyJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IlQifSx7ImNoYXIiOiJDIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuOAgSJ9LHsiY2hhciI6IlUifSx7ImNoYXIiOiJEIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuWxniJ9LHsiY2hhciI6IuS6jiJ9LHsiY2hhciI6IuS8oCJ9LHsiY2hhciI6Iui+kyJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuOAgiJ9LHsiY2hhciI6IueUsSJ9LHsiY2hhciI6IuS6jiJ9LHsiY2hhciI6IuaIkSJ9LHsiY2hhciI6IuS7rCJ9LHsiY2hhciI6IuS4uyJ9LHsiY2hhciI6IuimgSJ9LHsiY2hhciI6IuaYryJ9LHsiY2hhciI6IuWtpiJ9LHsiY2hhciI6IuS5oCJ9LHsiY2hhciI6IlMifSx7ImNoYXIiOiJvIn0seyJjaGFyIjoiYyJ9LHsiY2hhciI6ImsifSx7ImNoYXIiOiJlIn0seyJjaGFyIjoidCJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IuaJgCJ9LHsiY2hhciI6IuS7pSJ9LHsiY2hhciI6Iui/mSJ9LHsiY2hhciI6IumHjCJ9LHsiY2hhciI6IuWPqiJ9LHsiY2hhciI6IuaYryJ9LHsiY2hhciI6IueugCJ9LHsiY2hhciI6IuWNlSJ9LHsiY2hhciI6IuS7iyJ9LHsiY2hhciI6Iue7jSJ9LHsiY2hhciI6IuS4gCJ9LHsiY2hhciI6IuS4iyJ9LHsiY2hhciI6Iui/mSJ9LHsiY2hhciI6IuS4pCJ9LHsiY2hhciI6IuenjSJ9LHsiY2hhciI6IuWNjyJ9LHsiY2hhciI6IuiuriJ9LHsiY2hhciI6Iu+8miJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19LHsiYmxvY2tJZCI6IjkxMTUtMTU3NjA0MTQyMzIxNyIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOlt7ImNoYXIiOiJUIn0seyJjaGFyIjoiQyJ9LHsiY2hhciI6IlAifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiLpnaIifSx7ImNoYXIiOiLlkJEifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLjgIEifSx7ImNoYXIiOiJVIn0seyJjaGFyIjoiRCJ9LHsiY2hhciI6IlAifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiLpnaIifSx7ImNoYXIiOiLlkJEifSx7ImNoYXIiOiLml6AifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLmiYAifSx7ImNoYXIiOiLosJMifSx7ImNoYXIiOiLpnaIifSx7ImNoYXIiOiLlkJEifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLmjIcifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLlsLEifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiLpgJoifSx7ImNoYXIiOiLorq8ifSx7ImNoYXIiOiLlj4wifSx7ImNoYXIiOiLmlrkifSx7ImNoYXIiOiLkvJoifSx7ImNoYXIiOiLnu7QifSx7ImNoYXIiOiLmiqQifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLnu4QifSx7ImNoYXIiOiLnirYifSx7ImNoYXIiOiLmgIEifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLkv50ifSx7ImNoYXIiOiLor4EifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLlj68ifSx7ImNoYXIiOiLpnaAifSx7ImNoYXIiOiLmgKcifSx7ImNoYXIiOiLjgIIifV0sImlzUmljaFRleHQiOnRydWUsImtlZXBMaW5lQnJlYWsiOnRydWV9fSx7ImJsb2NrSWQiOiIyMzg5LTE1NzYwNDE1MjEzMzQiLCJibG9ja1R5cGUiOiJwYXJhZ3JhcGgiLCJzdHlsZXMiOnsiYWxpZ24iOiJsZWZ0IiwiaW5kZW50IjowLCJ0ZXh0LWluZGVudCI6MCwibGluZS1oZWlnaHQiOjEuNzUsImJhY2stY29sb3IiOiIiLCJwYWRkaW5nIjoiIn0sInR5cGUiOiJwYXJhZ3JhcGgiLCJyaWNoVGV4dCI6eyJkYXRhIjpbeyJjaGFyIjoiVCJ9LHsiY2hhciI6IkMifSx7ImNoYXIiOiJQIn0seyJjaGFyIjoi55qEIn0seyJjaGFyIjoi5pWwIn0seyJjaGFyIjoi5o2uIn0seyJjaGFyIjoi5YyFIn0seyJjaGFyIjoi57uTIn0seyJjaGFyIjoi5p6EIn0seyJjaGFyIjoi55u4In0seyJjaGFyIjoi5a+5In0seyJjaGFyIjoi5aSNIn0seyJjaGFyIjoi5p2CIn0seyJjaGFyIjoi77yMIn0seyJjaGFyIjoi6ICMIn0seyJjaGFyIjoiVSJ9LHsiY2hhciI6IkQifSx7ImNoYXIiOiJQIn0seyJjaGFyIjoi5YiZIn0seyJjaGFyIjoi55u4In0seyJjaGFyIjoi5a+5In0seyJjaGFyIjoi566AIn0seyJjaGFyIjoi5Y2VIn0seyJjaGFyIjoi44CCIn0seyJjaGFyIjoi5pegIn0seyJjaGFyIjoi6K66In0seyJjaGFyIjoi5pivIn0seyJjaGFyIjoiVCJ9LHsiY2hhciI6IkMifSx7ImNoYXIiOiJQIn0seyJjaGFyIjoi6L+YIn0seyJjaGFyIjoi5pivIn0seyJjaGFyIjoiVSJ9LHsiY2hhciI6IkQifSx7ImNoYXIiOiJQIn0seyJjaGFyIjoi77yMIn0seyJjaGFyIjoi5LuWIn0seyJjaGFyIjoi5LusIn0seyJjaGFyIjoi55qEIn0seyJjaGFyIjoi5YyFIn0seyJjaGFyIjoi5aS0In0seyJjaGFyIjoi5LiKIn0seyJjaGFyIjoi6YO9In0seyJjaGFyIjoi5bqUIn0seyJjaGFyIjoi6K+lIn0seyJjaGFyIjoi5pyJIn0seyJjaGFyIjoi56uvIn0seyJjaGFyIjoi5Y+jIn0seyJjaGFyIjoi5Y+3In0seyJjaGFyIjoi5ZKMIn0seyJjaGFyIjoi55uuIn0seyJjaGFyIjoi5qCHIn0seyJjaGFyIjoi56uvIn0seyJjaGFyIjoi5Y+jIn0seyJjaGFyIjoi5Y+3In0seyJjaGFyIjoi77yMIn0seyJjaGFyIjoiVCJ9LHsiY2hhciI6IkMifSx7ImNoYXIiOiJQIn0seyJjaGFyIjoi55qEIn0seyJjaGFyIjoi5YyFIn0seyJjaGFyIjoi5aS0In0seyJjaGFyIjoi5LiKIn0seyJjaGFyIjoi5pyJIn0seyJjaGFyIjoi5bqPIn0seyJjaGFyIjoi5Y+3In0seyJjaGFyIjoi77yIIn0seyJjaGFyIjoi6aG6In0seyJjaGFyIjoi5bqPIn0seyJjaGFyIjoi77yJIn0seyJjaGFyIjoi77yMIn0seyJjaGFyIjoi56GuIn0seyJjaGFyIjoi6K6kIn0seyJjaGFyIjoi5bqPIn0seyJjaGFyIjoi5Y+3In0seyJjaGFyIjoi77yIIn0seyJjaGFyIjoi5LiNIn0seyJjaGFyIjoi5LiiIn0seyJjaGFyIjoi5YyFIn0seyJjaGFyIjoi77yJIn0seyJjaGFyIjoi44CBIn0seyJjaGFyIjoi56qXIn0seyJjaGFyIjoi5Y+jIn0seyJjaGFyIjoi5aSnIn0seyJjaGFyIjoi5bCPIn0seyJjaGFyIjoi77yIIn0seyJjaGFyIjoi5rWBIn0seyJjaGFyIjoi6YePIn0seyJjaGFyIjoi5o6nIn0seyJjaGFyIjoi5Yi2In0seyJjaGFyIjoiICJ9LHsiY2hhciI6IiYifSx7ImNoYXIiOiIgIn0seyJjaGFyIjoi5oulIn0seyJjaGFyIjoi5aGeIn0seyJjaGFyIjoi5o6nIn0seyJjaGFyIjoi5Yi2In0seyJjaGFyIjoi77yJIn0seyJjaGFyIjoi44CBIn0seyJjaGFyIjoi54q2In0seyJjaGFyIjoi5oCBIn0seyJjaGFyIjoi56CBIn0seyJjaGFyIjoi77yIIn0seyJjaGFyIjoiRiJ9LHsiY2hhciI6IkkifSx7ImNoYXIiOiJOIn0seyJjaGFyIjoiICJ9LHsiY2hhciI6IkEifSx7ImNoYXIiOiJDIn0seyJjaGFyIjoiSyJ9LHsiY2hhciI6IiAifSx7ImNoYXIiOiJTIn0seyJjaGFyIjoiWSJ9LHsiY2hhciI6Ik4ifSx7ImNoYXIiOiLvvIkifSx7ImNoYXIiOiLnrYkifSx7ImNoYXIiOiLjgIIifSx7ImNoYXIiOiJUIn0seyJjaGFyIjoiQyJ9LHsiY2hhciI6IlAifSx7ImNoYXIiOiLlkowifSx7ImNoYXIiOiJVIn0seyJjaGFyIjoiRCJ9LHsiY2hhciI6IlAifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLljIUifSx7ImNoYXIiOiLlpLQifSx7ImNoYXIiOiLlpoIifSx7ImNoYXIiOiLkuIsifSx7ImNoYXIiOiLlm74ifSx7ImNoYXIiOiLjgIIifV0sImlzUmljaFRleHQiOnRydWUsImtlZXBMaW5lQnJlYWsiOnRydWV9fSx7ImJsb2NrSWQiOiI3NzQwLTE1NzYwNDE0ODg2OTgiLCJibG9ja1R5cGUiOiJwYXJhZ3JhcGgiLCJzdHlsZXMiOnsiYWxpZ24iOiJsZWZ0IiwiaW5kZW50IjowLCJ0ZXh0LWluZGVudCI6MCwibGluZS1oZWlnaHQiOjEuNzUsImJhY2stY29sb3IiOiIiLCJwYWRkaW5nIjoiIn0sInR5cGUiOiJwYXJhZ3JhcGgiLCJyaWNoVGV4dCI6eyJkYXRhIjpbeyJjaGFyIjoiVCJ9LHsiY2hhciI6IkMifSx7ImNoYXIiOiJQIn0seyJjaGFyIjoi5pWwIn0seyJjaGFyIjoi5o2uIn0seyJjaGFyIjoi5LygIn0seyJjaGFyIjoi6L6TIn0seyJjaGFyIjoi5pa5In0seyJjaGFyIjoi5byPIn0seyJjaGFyIjoi5pivIn0seyJjaGFyIjoi5Z+6In0seyJjaGFyIjoi5LqOIn0seyJjaGFyIjoi5pWwIn0seyJjaGFyIjoi5o2uIn0seyJjaGFyIjoi5rWBIn0seyJjaGFyIjoi55qEIn0seyJjaGFyIjoi77yMIn0seyJjaGFyIjoi6ICMIn0seyJjaGFyIjoiVSJ9LHsiY2hhciI6IkQifSx7ImNoYXIiOiJQIn0seyJjaGFyIjoi5YiZIn0seyJjaGFyIjoi5pivIn0seyJjaGFyIjoi5Z+6In0seyJjaGFyIjoi5LqOIn0seyJjaGFyIjoi5pWwIn0seyJjaGFyIjoi5o2uIn0seyJjaGFyIjoi5oqlIn0seyJjaGFyIjoi44CCIn1dLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiODkzNC0xNTc2MDQxODYxNjAwIiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6Iu+8iCJ9LHsiY2hhciI6IuWwhiJ9LHsiY2hhciI6IuWcqCJ9LHsiY2hhciI6IuWFtiJ9LHsiY2hhciI6IuS7liJ9LHsiY2hhciI6IuWNmiJ9LHsiY2hhciI6IuaWhyJ9LHsiY2hhciI6IuS4rSJ9LHsiY2hhciI6IuWvuSJ9LHsiY2hhciI6IlQifSx7ImNoYXIiOiJDIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuWSjCJ9LHsiY2hhciI6IlUifSx7ImNoYXIiOiJEIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6Iui/myJ9LHsiY2hhciI6IuihjCJ9LHsiY2hhciI6IuWFtyJ9LHsiY2hhciI6IuS9kyJ9LHsiY2hhciI6IuiusiJ9LHsiY2hhciI6IuinoyJ9LHsiY2hhciI6Iu+8iSJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19LHsiYmxvY2tJZCI6IjYyMzQtMTU3NjA0MTg5ODA1NiIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOltdLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiOTQyMC0xNTc2MDQxOTE0ODYxIiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6IuS4gCJ9LHsiY2hhciI6IuS4qiJ9LHsiY2hhciI6IuWMhSJ9LHsiY2hhciI6IuWcqCJ9LHsiY2hhciI6Iue9kSJ9LHsiY2hhciI6Iue7nCJ9LHsiY2hhciI6IuS4rSJ9LHsiY2hhciI6IuS8oCJ9LHsiY2hhciI6Iui+kyJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IuS4gCJ9LHsiY2hhciI6IuWumiJ9LHsiY2hhciI6IuS4jSJ9LHsiY2hhciI6IuS8miJ9LHsiY2hhciI6IuaciSJ9LHsiY2hhciI6IuS4iiJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuayoSJ9LHsiY2hhciI6IuS4iyJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuOAgiJ9LHsiY2hhciI6IlQifSx7ImNoYXIiOiJDIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuOAgSJ9LHsiY2hhciI6IlUifSx7ImNoYXIiOiJEIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuWkhCJ9LHsiY2hhciI6IuS6jiJ9LHsiY2hhciI6IuS8oCJ9LHsiY2hhciI6Iui+kyJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IlQifSx7ImNoYXIiOiJDIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6Ii8ifSx7ImNoYXIiOiJJIn0seyJjaGFyIjoiUCJ9LHsiY2hhciI6IuWNjyJ9LHsiY2hhciI6IuiuriJ9LHsiY2hhciI6IuS7jiJ9LHsiY2hhciI6IuS4iiJ9LHsiY2hhciI6IuWIsCJ9LHsiY2hhciI6IuS4iyJ9LHsiY2hhciI6IuWIhiJ9LHsiY2hhciI6IuWIqyJ9LHsiY2hhciI6IuS4uiJ9LHsiY2hhciI6Iu+8miJ9LHsiY2hhciI6IuW6lCJ9LHsiY2hhciI6IueUqCJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuOAgSJ9LHsiY2hhciI6IuS8oCJ9LHsiY2hhciI6Iui+kyJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuOAgSJ9LHsiY2hhciI6Iue9kSJ9LHsiY2hhciI6Iue7nCJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuOAgSJ9LHsiY2hhciI6IumTviJ9LHsiY2hhciI6Iui3ryJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuOAgSJ9LHsiY2hhciI6IueJqSJ9LHsiY2hhciI6IueQhiJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuOAgiJ9LHsiY2hhciI6IuaJgCJ9LHsiY2hhciI6IuS7pSJ9LHsiY2hhciI6IuS4gCJ9LHsiY2hhciI6IuS4qiJ9LHsiY2hhciI6IuWMhSJ9LHsiY2hhciI6IuaDsyJ9LHsiY2hhciI6IuimgSJ9LHsiY2hhciI6IuWcqCJ9LHsiY2hhciI6Iue9kSJ9LHsiY2hhciI6Iue7nCJ9LHsiY2hhciI6IuS4rSJ9LHsiY2hhciI6IuS8oCJ9LHsiY2hhciI6Iui+kyJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IumZpCJ9LHsiY2hhciI6IuS6hiJ9LHsiY2hhciI6IuerryJ9LHsiY2hhciI6IuWPoyJ9LHsiY2hhciI6IuWPtyJ9LHsiY2hhciI6Iu+8jCJ9LHsiY2hhciI6IuaIkSJ9LHsiY2hhciI6IuS7rCJ9LHsiY2hhciI6Iui/mCJ9LHsiY2hhciI6IumcgCJ9LHsiY2hhciI6IuimgSJ9LHsiY2hhciI6Iue9kSJ9LHsiY2hhciI6Iue7nCJ9LHsiY2hhciI6IuWxgiJ9LHsiY2hhciI6IuS4rSJ9LHsiY2hhciI6IueahCJ9LHsiY2hhciI6ImkifSx7ImNoYXIiOiJwIn0seyJjaGFyIjoi5ZywIn0seyJjaGFyIjoi5Z2AIn0seyJjaGFyIjoi44CCIn0seyJjaGFyIjoi5ZugIn0seyJjaGFyIjoi5q2kIn0seyJjaGFyIjoicyJ9LHsiY2hhciI6Im8ifSx7ImNoYXIiOiJjIn0seyJjaGFyIjoiayJ9LHsiY2hhciI6ImUifSx7ImNoYXIiOiJ0In0seyJjaGFyIjoi55qEIn0seyJjaGFyIjoi5YibIn0seyJjaGFyIjoi5bu6In0seyJjaGFyIjoi6ZyAIn0seyJjaGFyIjoi6KaBIn0seyJjaGFyIjoi5o+QIn0seyJjaGFyIjoi5L6bIn0seyJjaGFyIjoi55qEIn0seyJjaGFyIjoi5L+hIn0seyJjaGFyIjoi5oGvIn0seyJjaGFyIjoi5bCxIn0seyJjaGFyIjoi5pivIn0seyJjaGFyIjoiICJ9LHsiY2hhciI6ImkifSx7ImNoYXIiOiJwIn0seyJjaGFyIjoiKyJ9LHsiY2hhciI6IuerryJ9LHsiY2hhciI6IuWPoyJ9LHsiY2hhciI6IuOAgiJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19LHsiYmxvY2tJZCI6IjY5NDktMTU3NjA0MjA1MTk4OCIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOltdLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiOTA4Ny0xNTc2MDQyMTA5NTM4IiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6IuWmgiJ9LHsiY2hhciI6IuS9lSJ9LHsiY2hhciI6IuS9vyJ9LHsiY2hhciI6IueUqCJ9LHsiY2hhciI6InMifSx7ImNoYXIiOiJvIn0seyJjaGFyIjoiYyJ9LHsiY2hhciI6ImsifSx7ImNoYXIiOiJlIn0seyJjaGFyIjoidCJ9LHsiY2hhciI6Iu+8miJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19LHsiYmxvY2tJZCI6Ijc3NzYtMTU3NjA0MjE2OTc1MCIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOlt7ImNoYXIiOiJUIn0seyJjaGFyIjoiQyJ9LHsiY2hhciI6IlAifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiLln7oifSx7ImNoYXIiOiLkuo4ifSx7ImNoYXIiOiLmlbAifSx7ImNoYXIiOiLmja4ifSx7ImNoYXIiOiLmtYEifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLmiYAifSx7ImNoYXIiOiLku6UifSx7ImNoYXIiOiLlpoIifSx7ImNoYXIiOiLmnpwifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiLln7oifSx7ImNoYXIiOiLkuo4ifSx7ImNoYXIiOiJUIn0seyJjaGFyIjoiQyJ9LHsiY2hhciI6IlAifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiJTIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLmiJEifSx7ImNoYXIiOiLku6wifSx7ImNoYXIiOiLlsLEifSx7ImNoYXIiOiLpnIAifSx7ImNoYXIiOiLopoEifSx7ImNoYXIiOiLlu7oifSx7ImNoYXIiOiLnq4sifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLnhLYifSx7ImNoYXIiOiLlkI4ifSx7ImNoYXIiOiLojrcifSx7ImNoYXIiOiLlj5YifSx7ImNoYXIiOiLmlbAifSx7ImNoYXIiOiLmja4ifSx7ImNoYXIiOiLmtYEifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlho0ifSx7ImNoYXIiOiLov5sifSx7ImNoYXIiOiLooYwifSx7ImNoYXIiOiLpgJoifSx7ImNoYXIiOiLorq8ifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLmr48ifSx7ImNoYXIiOiLlr7kifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLpnIAifSx7ImNoYXIiOiLopoEifSx7ImNoYXIiOiLlu7oifSx7ImNoYXIiOiLnq4sifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLnu4QifSx7ImNoYXIiOiJzIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlhbcifSx7ImNoYXIiOiLkvZMifSx7ImNoYXIiOiLmraUifSx7ImNoYXIiOiLpqqQifSx7ImNoYXIiOiLlpoIifSx7ImNoYXIiOiLkuIsifSx7ImNoYXIiOiLvvJoifV0sImlzUmljaFRleHQiOnRydWUsImtlZXBMaW5lQnJlYWsiOnRydWV9fSx7ImJsb2NrSWQiOiIyMDE0LTE1NzYwNDIxNTQzMjEiLCJibG9ja1R5cGUiOiJwYXJhZ3JhcGgiLCJzdHlsZXMiOnsiYWxpZ24iOiJsZWZ0IiwiaW5kZW50IjowLCJ0ZXh0LWluZGVudCI6MCwibGluZS1oZWlnaHQiOjEuNzUsImJhY2stY29sb3IiOiIiLCJwYWRkaW5nIjoiIn0sInR5cGUiOiJwYXJhZ3JhcGgiLCJyaWNoVGV4dCI6eyJkYXRhIjpbeyJjaGFyIjoi5LujIn0seyJjaGFyIjoi56CBIn0seyJjaGFyIjoi77yaIn1dLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiODI1My0xNTc2MDQyMzY5OTQ1IiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6Iui4qSJ9LHsiY2hhciI6IuWdkSJ9LHsiY2hhciI6Iu+8miJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19LHsiYmxvY2tJZCI6IjkwOTEtMTU3NjA0NzA2NjQyOCIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOltdLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiOTAzMC0xNTc2MDQyMjMzMDEyIiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6IuWbviJ9LHsiY2hhciI6IuinoyJ9LHsiY2hhciI6Iu+8miJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19LHsiYmxvY2tJZCI6IjY1NDktMTU3NjA0MjIzNzI1NyIsImJsb2NrVHlwZSI6InBhcmFncmFwaCIsInN0eWxlcyI6eyJhbGlnbiI6ImxlZnQiLCJpbmRlbnQiOjAsInRleHQtaW5kZW50IjowLCJsaW5lLWhlaWdodCI6MS43NSwiYmFjay1jb2xvciI6IiIsInBhZGRpbmciOiIifSwidHlwZSI6InBhcmFncmFwaCIsInJpY2hUZXh0Ijp7ImRhdGEiOlt7ImNoYXIiOiJVIn0seyJjaGFyIjoiRCJ9LHsiY2hhciI6IlAifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiLln7oifSx7ImNoYXIiOiLkuo4ifSx7ImNoYXIiOiLmlbAifSx7ImNoYXIiOiLmja4ifSx7ImNoYXIiOiLmiqUifSx7ImNoYXIiOiLnmoQifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlm6AifSx7ImNoYXIiOiLmraQifSx7ImNoYXIiOiLkuI0ifSx7ImNoYXIiOiLpnIAifSx7ImNoYXIiOiLopoEifSx7ImNoYXIiOiLmr48ifSx7ImNoYXIiOiLlr7kifSx7ImNoYXIiOiLov54ifSx7ImNoYXIiOiLmjqUifSx7ImNoYXIiOiLpg70ifSx7ImNoYXIiOiLlu7oifSx7ImNoYXIiOiLnq4sifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLnu4QifSx7ImNoYXIiOiJzIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLogIwifSx7ImNoYXIiOiLmmK8ifSx7ImNoYXIiOiLlj6oifSx7ImNoYXIiOiLopoEifSx7ImNoYXIiOiLmnIkifSx7ImNoYXIiOiLkuIAifSx7ImNoYXIiOiLkuKoifSx7ImNoYXIiOiJzIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlsLEifSx7ImNoYXIiOiLog70ifSx7ImNoYXIiOiLkuI4ifSx7ImNoYXIiOiLlpJoifSx7ImNoYXIiOiLkuKoifSx7ImNoYXIiOiLlrqIifSx7ImNoYXIiOiLmiLcifSx7ImNoYXIiOiLnq68ifSx7ImNoYXIiOiLpgJoifSx7ImNoYXIiOiLorq8ifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLmiYAifSx7ImNoYXIiOiLku6UifSx7ImNoYXIiOiLlj6oifSx7ImNoYXIiOiLpnIAifSx7ImNoYXIiOiLopoEifSx7ImNoYXIiOiLpgJoifSx7ImNoYXIiOiLov4cifSx7ImNoYXIiOiLliJsifSx7ImNoYXIiOiLlu7oifSx7ImNoYXIiOiLmlbAifSx7ImNoYXIiOiLmja4ifSx7ImNoYXIiOiLmiqUifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLnhLYifSx7ImNoYXIiOiLlkI4ifSx7ImNoYXIiOiLpgJoifSx7ImNoYXIiOiLov4cifSx7ImNoYXIiOiJzIn0seyJjaGFyIjoibyJ9LHsiY2hhciI6ImMifSx7ImNoYXIiOiJrIn0seyJjaGFyIjoiZSJ9LHsiY2hhciI6InQifSx7ImNoYXIiOiLlj5EifSx7ImNoYXIiOiLpgIEifSx7ImNoYXIiOiLljbMifSx7ImNoYXIiOiLlj68ifSx7ImNoYXIiOiLvvIwifSx7ImNoYXIiOiLlhbcifSx7ImNoYXIiOiLkvZMifSx7ImNoYXIiOiLmraUifSx7ImNoYXIiOiLpqqQifSx7ImNoYXIiOiLlpoIifSx7ImNoYXIiOiLkuIsifSx7ImNoYXIiOiLvvJoifV0sImlzUmljaFRleHQiOnRydWUsImtlZXBMaW5lQnJlYWsiOnRydWV9fSx7ImJsb2NrSWQiOiI4Nzc2LTE1NzYwNDIzMTg3MTUiLCJibG9ja1R5cGUiOiJwYXJhZ3JhcGgiLCJzdHlsZXMiOnsiYWxpZ24iOiJsZWZ0IiwiaW5kZW50IjowLCJ0ZXh0LWluZGVudCI6MCwibGluZS1oZWlnaHQiOjEuNzUsImJhY2stY29sb3IiOiIiLCJwYWRkaW5nIjoiIn0sInR5cGUiOiJwYXJhZ3JhcGgiLCJyaWNoVGV4dCI6eyJkYXRhIjpbeyJjaGFyIjoi5LujIn0seyJjaGFyIjoi56CBIn0seyJjaGFyIjoi77yaIn1dLCJpc1JpY2hUZXh0Ijp0cnVlLCJrZWVwTGluZUJyZWFrIjp0cnVlfX0seyJibG9ja0lkIjoiMTI3Ny0xNTc2MDQyMzE4NzE1IiwiYmxvY2tUeXBlIjoicGFyYWdyYXBoIiwic3R5bGVzIjp7ImFsaWduIjoibGVmdCIsImluZGVudCI6MCwidGV4dC1pbmRlbnQiOjAsImxpbmUtaGVpZ2h0IjoxLjc1LCJiYWNrLWNvbG9yIjoiIiwicGFkZGluZyI6IiJ9LCJ0eXBlIjoicGFyYWdyYXBoIiwicmljaFRleHQiOnsiZGF0YSI6W3siY2hhciI6IuWbviJ9LHsiY2hhciI6IuinoyJ9LHsiY2hhciI6Iu+8miJ9XSwiaXNSaWNoVGV4dCI6dHJ1ZSwia2VlcExpbmVCcmVhayI6dHJ1ZX19XQ==--></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

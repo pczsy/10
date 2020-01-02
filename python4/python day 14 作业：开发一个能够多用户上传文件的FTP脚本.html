@@ -1,0 +1,351 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python day 14 作业：开发一个能够多用户上传文件的FTP脚本' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python day 14 作业：开发一个能够多用户上传文件的FTP脚本</center></div><div class='banquan'>原文出处:本文由博客园博主bluestarpin提供。<br/>
+原文连接:https://www.cnblogs.com/lanxing0422/p/pythonday14.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#python-day-14">python day 14</a><ul>
+        <li><a href="#要求">1. 要求</a></li>
+        <li><a href="#自己写的程序目录">2. 自己写的程序目录</a></li>
+        <li><a href="#models模块">3. models模块</a></li>
+        <li><a href="#settings模块">4. settings模块</a></li>
+        <li><a href="#tcp_server模块">5. tcp_server模块</a></li>
+        <li><a href="#client模块">6. client模块</a></li>
+        <li><a href="#后记">7. 后记</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="python-day-14">python day 14</h1>
+<p>2019/10/19</p>
+<p>看了老师的FTP脚本之后，我下面的代码就是a piece of shit。不忍目睹。</p>
+<h2 id="要求">1. 要求</h2>
+<p><img src="./images/python day 14 作业：开发一个能够多用户上传文件的FTP脚本0.png" alt="作业" /></p>
+<p>FTP：<br />
+1，单独功能实现(进度条，断点续传)<br />
+2，整合<br />
+3，bin,config,db,lib程序目录</p>
+<h2 id="自己写的程序目录">2. 自己写的程序目录</h2>
+<p><img src="./images/python day 14 作业：开发一个能够多用户上传文件的FTP脚本1.png" alt="自己花了5个小时写的" /></p>
+<h2 id="models模块">3. models模块</h2>
+<pre><code><code>import os, sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+import socketserver
+import socket
+import hashlib
+import pickle
+from config import settings
+import subprocess
+import chardet
+
+def down_file(conn):
+    conn.sendall(&#39;请输入文件路径&#39;.encode(&#39;utf-8&#39;))
+    filename = conn.recv(1024).decode(&#39;utf-8&#39;)
+    print(filename)
+    path = os.path.join(settings.FILE_DB_DIR, filename)
+    if not os.path.exists(path):
+        conn.sendall(b&#39;1000&#39;)
+        filesize = int(conn.recv(1024).decode(&#39;utf-8&#39;))
+        print(filesize)
+        conn.sendall(b&#39;ack&#39;)
+        has_data = 0
+        content = bytes(&#39;&#39;,encoding=&#39;ISO-8859-1&#39;)
+        while has_data&lt;filesize:
+            ret = conn.recv(1024)
+            # print(chardet.detect(ret))
+            content += ret
+            has_data += len(ret)
+        f = open(path,&#39;wb&#39;)
+        f.write(content)
+        f.close()
+    else:
+        conn.sendall(b&#39;1001&#39;)
+        exist_file_size=os.stat(path).st_size
+        conn.sendall(str(exist_file_size).encode(&#39;utf-8&#39;))
+
+
+
+
+def do_command(conn):
+    conn.sendall(&#39;请输入命令&#39;.encode(&#39;utf-8&#39;))
+    com1 = conn.recv(1024).decode(&#39;utf-8&#39;)  # ipconfig
+    print(com1)
+    result = subprocess.check_output(com1)
+    # linux系统是以utf-8默认编码，windows是以gbk默认编码，所以此处result是以gbk编码的bytes，折腾了两个小时
+    # print(result.decode(&#39;gbk&#39;))
+    conn.sendall(str(len(result)).encode(&#39;utf-8&#39;))  # 1638
+    print(conn.recv(1024))  # b&#39;lan&#39;
+    conn.sendall(&#39;ack&#39;.encode(&#39;utf-8&#39;))
+    print(conn.recv(1024))  # b&#39;ack&#39;
+    result = result.decode(&#39;gb2312&#39;).encode(&#39;utf-8&#39;)
+    # print(chardet.detect(result))
+    conn.sendall(result)
+
+
+def login(conn, name, pwd):
+    m = hashlib.md5(bytes(&#39;lan&#39;, encoding=&#39;utf-8&#39;))
+    m.update(bytes(pwd, encoding=&#39;utf-8&#39;))
+    hex1 = m.hexdigest()
+    path = os.path.join(settings.CLIENT_DB_DIR, name)
+    result = pickle.load(open(path, &#39;rb&#39;))
+    username, password = result.split(&#39;$&#39;)
+    if username == name and password == hex1:
+        conn.sendall(&#39;登录成功&#39;.encode(&#39;utf-8&#39;))
+        return 1
+    else:
+        conn.sendall(&#39;密码错误&#39;.encode(&#39;utf-8&#39;))
+        return 0
+
+
+def register(conn, name, pwd):
+    m = hashlib.md5(bytes(&#39;lan&#39;, encoding=&#39;utf-8&#39;))
+    m.update(bytes(pwd, encoding=&#39;utf-8&#39;))
+    hex1 = m.hexdigest()
+    s1 = &#39;$&#39;.join([name, hex1])
+    print(s1)
+    path = os.path.join(settings.CLIENT_DB_DIR, name)
+    pickle.dump(s1, open(path, &#39;wb&#39;))
+    conn.sendall(&#39;用户{0}注册成功&#39;.format(name).encode(&#39;utf-8&#39;))
+
+
+def connect_user(conn, addr1):
+    inp = &#39;请输入用户名与密码&#39;.encode(&#39;utf-8&#39;)
+    conn.sendall(inp)
+    name = conn.recv(1024).decode(&#39;utf-8&#39;)
+
+    pwd = conn.recv(1024).decode(&#39;utf-8&#39;)
+
+    inp2 = &#39;1是登录；2是注册，请输入数字进行选择&#39;.encode(&#39;utf-8&#39;)
+    conn.sendall(inp2)
+    ret = conn.recv(1024).decode(&#39;utf-8&#39;)
+    print(&#39;来自%s的消息:\n&gt;&gt;&gt;%s&#39; % (addr1[0], ret))
+    if ret == &#39;2&#39;:
+        register(conn, name, pwd)
+    if ret == &#39;1&#39;:
+        result = login(conn, name, pwd)
+
+        if result:
+            while True:
+                inp3 = &#39;3是执行命令；4是上传文件，请输入数字进行选择&#39;.encode(&#39;utf-8&#39;)
+                conn.sendall(inp3)
+                ret2 = conn.recv(1024).decode(&#39;utf-8&#39;)
+                print(&#39;来自%s的消息:\n&gt;&gt;&gt;%s&#39; % (addr1[0], ret2))
+                if ret2 == &#39;3&#39;:
+                    do_command(conn)
+                elif ret2 == &#39;4&#39;:
+                    down_file(conn)
+                elif ret == &#39;q&#39;:
+                    break
+
+
+class MyServer(socketserver.BaseRequestHandler):
+    def handle(self):
+        conn, addr2 = self.request, self.client_address
+        connect_user(conn, addr2)
+        # size_str = conn.recv(1024).decode(&#39;utf-8&#39;)
+        # total_size_int = int(size_str)
+        # print(&#39;来自%s的消息:\n&gt;&gt;&gt;文件大小是%s&#39; % (addr[0], total_size_int))
+        # has_data = 0
+        # file_name = conn.recv(1024).decode(&#39;utf-8&#39;)
+        # print(&#39;来自%s的消息:\n&gt;&gt;&gt;文件名字是%s&#39; % (addr[0], file_name))
+        # conn.sendall(&#39;ack&#39;.encode(&#39;utf-8&#39;))
+        # f = open(file_name, &#39;wb&#39;)
+        # while True:
+        #     if has_data == total_size_int:
+        #         break
+        #     ret = conn.recv(1024)
+        #     f.write(ret)
+        #     has_data += len(ret)
+        # f.close()
+
+
+# class MySocket(socket.socket):
+#     def __init__(self, family=-1, type=-1, proto=-1, fileno=None):
+#         self.name = None
+#         self.pwd = None
+#         super().__init__(family, type, proto, fileno)
+#
+#     def login(self, user, pwd):
+#         if self.name == user and self.pwd == pwd:
+#             return True
+#         else:
+#             return False
+#
+#     def register(self, user, pwd):
+#         self.name = user
+#         m = hashlib.md5()
+#         m.update(bytes(pwd, encoding=&#39;utf-8&#39;))
+#         password = m.hexdigest()
+#         self.pwd = password
+
+
+if __name__ == &#39;__main__&#39;:
+    addr = (&#39;192.168.131.1&#39;, 9999,)
+    tcp_server = socketserver.ThreadingTCPServer(addr, MyServer)
+    tcp_server.serve_forever()</code></pre>
+<h2 id="settings模块">4. settings模块</h2>
+<pre><code><code>import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+CLIENT_DB_DIR = os.path.join(BASE_DIR, &#39;db&#39;, &#39;client&#39;)
+FILE_DB_DIR= os.path.join(BASE_DIR, &#39;db&#39;, &#39;file&#39;)</code></pre>
+<h2 id="tcp_server模块">5. tcp_server模块</h2>
+<pre><code><code>import os, sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+import pickle
+from lib.models import *
+
+
+def main():
+    addr = (&#39;192.168.131.1&#39;, 9999,)
+    tcp_server = socketserver.ThreadingTCPServer(addr, MyServer)
+    tcp_server.serve_forever()
+
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="client模块">6. client模块</h2>
+<pre><code><code>import os, sys
+import socket
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from lib.models import *
+import hashlib
+import getpass
+import chardet
+import pickle
+
+
+def recv_com(obj):
+    file_size = int(obj.recv(1024).decode(&#39;utf-8&#39;))
+    print(file_size)  # 1857
+    has_data = 0
+    obj.sendall(&#39;lan&#39;.encode(&#39;utf-8&#39;))
+    print(obj.recv(1024))  # b&#39;ack
+    obj.sendall(b&#39;ack&#39;)
+    ret3 = &#39;&#39;
+    while has_data &lt; file_size:
+        data = obj.recv(1024)
+        # print(chardet.detect(data))
+        ret3 += data.decode(&#39;utf-8&#39;)
+        has_data += len(data)
+        # has_data = len(obj.recv(1024)) 这里还会再执行一次接收数据动作，所以就是这里卡住了。
+
+    print(ret3)
+
+
+def load_file(obj):
+    command1 = obj.recv(1024).decode(&#39;utf-8&#39;)  # 文件路径
+    print(command1)
+    file_path = input(&#39;文件路径是：\n&gt;&gt;&gt;&#39;).strip()
+    file_name = os.path.split(file_path)[1]
+    obj.sendall(file_name.encode(&#39;utf-8&#39;))
+
+    ret_code = obj.recv(1024)
+    if ret_code ==b&#39;1000&#39;:
+        file_size = os.stat(file_path).st_size  # int类型
+        obj.sendall(str(file_size).encode(&#39;utf-8&#39;))
+        obj.recv(1024)
+        with open(file_path, &#39;rb&#39;) as f:
+            for i in range(1,file_size+1):
+                file_content = f.read(1)
+                obj.sendall(file_content)
+                sys.stdout.write(&#39;\r&#39;)
+                sys.stdout.write(&#39;%.2f%% |%s&#39; % (i / file_size * 100, int(i / file_size * 100) * &#39;#&#39;))
+                sys.stdout.flush()
+    elif ret_code==b&#39;1001&#39;:
+        pass
+
+def connect_server():
+    obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    addr = (&#39;192.168.131.1&#39;, 9999,)
+    obj.connect(addr)
+    ret_str = obj.recv(1024).decode(&#39;utf-8&#39;)
+    print(&#39;来自%s的消息:\r\n&gt;&gt;&gt;%s&#39; % (addr[0], ret_str))
+    user = input(&#39;请输入用户名:&gt;&gt;&gt;&#39;).strip()
+    obj.sendall(user.encode(&#39;utf-8&#39;))
+    pwd = getpass.win_getpass(&#39;password:&#39;)
+    obj.sendall(pwd.encode(&#39;utf-8&#39;))
+
+    result2 = str(obj.recv(1024), encoding=&#39;utf-8&#39;)  # 1是登录；2是注册，请输入数字进行选择
+    print(&#39;来自%s的消息:\r\n&gt;&gt;&gt;%s&#39; % (addr[0], result2,))
+    inp = input(&#39;请输入发送给%s的消息:\n&gt;&gt;&gt;&#39; % addr[0]).strip()  # 1
+    obj.sendall(inp.encode(&#39;utf-8&#39;))
+
+    result2 = str(obj.recv(1024), encoding=&#39;utf-8&#39;)
+    print(&#39;来自%s的消息:\r\n&gt;&gt;&gt;%s&#39; % (addr[0], result2,))  # 登录成功
+
+    while True:
+        result2 = str(obj.recv(1024), encoding=&#39;utf-8&#39;)
+        print(&#39;来自%s的消息:\r\n&gt;&gt;&gt;%s&#39; % (addr[0], result2,))
+        # 3是执行命令；4是上传文件，请输入数字进行选择
+        inp = input(&#39;请输入发送给%s的消息:\n&gt;&gt;&gt;&#39; % addr[0]).strip()
+        obj.sendall(inp.encode(&#39;utf-8&#39;))  # 3
+        if inp == &#39;3&#39;:
+            result2 = str(obj.recv(1024), encoding=&#39;utf-8&#39;)
+            print(&#39;来自%s的消息:\r\n&gt;&gt;&gt;%s&#39; % (addr[0], result2,))  # 请输入命令
+            inp = input(&#39;请输入发送给%s的消息:\n&gt;&gt;&gt;&#39; % addr[0]).strip()
+            obj.sendall(inp.encode(&#39;utf-8&#39;))  # ipconfig
+            recv_com(obj)
+        elif inp == &#39;4&#39;:
+            load_file(obj)
+        elif inp == &#39;q&#39;:
+            obj.close()
+            break
+
+
+def main():
+    &#39;&#39;&#39;
+    客户端主程序
+    :return:
+    &#39;&#39;&#39;
+    connect_server()
+    # ret = obj.recv(1024).decode(&#39;utf-8&#39;)
+    # print(&#39;来自%s的消息:\n&gt;&gt;&gt;%s&#39; % (addr[0], ret))
+    # inp = input(&#39;请输入要传送的文件路径:\n&gt;&gt;&gt;&#39;).strip()
+    # size = str(os.stat(inp).st_size, encoding=&#39;utf-8&#39;)
+    # file_name = os.path.split(inp)[1]
+    # obj.sendall(size.encode(&#39;utf-8&#39;))
+    # obj.sendall(file_name.encode(&#39;utf-8&#39;))
+    # obj.recv(1024)
+    # with open(inp, &#39;rb&#39;) as f:
+    #     for line in f:
+    #         if line:
+    #             obj.sendall(line)
+    #         else:
+    #             print(&#39;传送完毕&#39;)
+    #             break
+    # obj.close()
+
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="后记">7. 后记</h2>
+<p>只实现了多用户md5登录，命令执行，文件传递，进度条显示，并没有实现文件续传功能。<br />
+还需要修改。不过也折腾了近5个小时，在编码的转换问题上折腾了好久。<br />
+<strong>下次一定要记住使用chardet模块的detect方法先检测下编码，然后按照对应的编码方式进行编码与解码。</strong></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

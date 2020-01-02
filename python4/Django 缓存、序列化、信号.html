@@ -1,0 +1,352 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django 缓存、序列化、信号' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django 缓存、序列化、信号</center></div><div class='banquan'>原文出处:本文由博客园博主与鹿逐秋提供。<br/>
+原文连接:https://www.cnblogs.com/wangyueping/p/11427457.html</div><br>
+    <h1 id="一缓存">一、缓存</h1>
+<p>由于Django是动态网站，所有每次请求均会去数据进行相应的操作，当程序访问量大时，耗时必然会更加明显，最简单解决方式是使用：缓存，缓存将一个某个views的返回值保存至内存或者memcache中，5分钟内再有人来访问时，则不再去执行view中的操作，而是直接从内存或者Redis中之前缓存的内容拿到，并返回。</p>
+<p>Django中提供了6种缓存方式：</p>
+<ul>
+<li>开发调试</li>
+<li>内存</li>
+<li>文件</li>
+<li>数据库</li>
+<li>Memcache缓存（python-memcached模块）</li>
+<li>Memcache缓存（pylibmc模块）</li>
+</ul>
+<h2 id="配置">配置</h2>
+<ol>
+<li><p>开发调试</p>
+<pre><code><code># 此为开始调试用，实际内部不做任何操作
+    # 配置：
+        CACHES = {
+            &#39;default&#39;: {
+                &#39;BACKEND&#39;: &#39;django.core.cache.backends.dummy.DummyCache&#39;,     # 引擎
+                &#39;TIMEOUT&#39;: 300,                                               # 缓存超时时间（默认300，None表示永不过期，0表示立即过期）
+                &#39;OPTIONS&#39;:{
+                    &#39;MAX_ENTRIES&#39;: 300,                                       # 最大缓存个数（默认300）
+                    &#39;CULL_FREQUENCY&#39;: 3,                                      # 缓存到达最大个数之后，剔除缓存个数的比例，即：1/CULL_FREQUENCY（默认3）
+                },
+                &#39;KEY_PREFIX&#39;: &#39;&#39;,                                             # 缓存key的前缀（默认空）
+                &#39;VERSION&#39;: 1,                                                 # 缓存key的版本（默认1）
+                &#39;KEY_FUNCTION&#39; 函数名                                          # 生成key的函数（默认函数会生成为：【前缀:版本:key】）
+            }
+        }
+
+
+    # 自定义key
+    def default_key_func(key, key_prefix, version):
+        &quot;&quot;&quot;
+        Default function to generate keys.
+
+        Constructs the key used by all other methods. By default it prepends
+        the `key_prefix&#39;. KEY_FUNCTION can be used to specify an alternate
+        function with custom key making behavior.
+        &quot;&quot;&quot;
+        return &#39;%s:%s:%s&#39; % (key_prefix, version, key)
+
+    def get_key_func(key_func):
+        &quot;&quot;&quot;
+        Function to decide which key function to use.
+
+        Defaults to ``default_key_func``.
+        &quot;&quot;&quot;
+        if key_func is not None:
+            if callable(key_func):
+                return key_func
+            else:
+                return import_string(key_func)
+        return default_key_func</code></pre>
+<p><br></p></li>
+<li><p>内存</p>
+<pre><code><code># 此缓存将内容保存至内存的变量中
+    # 配置：
+        CACHES = {
+            &#39;default&#39;: {
+                &#39;BACKEND&#39;: &#39;django.core.cache.backends.locmem.LocMemCache&#39;,
+                &#39;LOCATION&#39;: &#39;unique-snowflake&#39;,
+            }
+        }
+
+    # 注：其他配置同开发调试版本</code></pre>
+<p><br></p></li>
+<li><p>文件</p>
+<pre><code><code># 此缓存将内容保存至文件
+    # 配置：
+
+        CACHES = {
+            &#39;default&#39;: {
+                &#39;BACKEND&#39;: &#39;django.core.cache.backends.filebased.FileBasedCache&#39;,
+                &#39;LOCATION&#39;: &#39;/var/tmp/django_cache&#39;,
+            }
+        }
+    # 注：其他配置同开发调试版本</code></pre>
+<p><br></p></li>
+<li><p>数据库</p>
+<pre><code><code># 此缓存将内容保存至数据库
+
+    # 配置：
+        CACHES = {
+            &#39;default&#39;: {
+                &#39;BACKEND&#39;: &#39;django.core.cache.backends.db.DatabaseCache&#39;,
+                &#39;LOCATION&#39;: &#39;my_cache_table&#39;, # 数据库表
+            }
+        }
+
+    # 注：执行创建表命令 python manage.py createcachetable</code></pre>
+<p><br></p></li>
+<li><p>Memcache缓存（python-memcached模块）</p>
+<pre><code><code># 此缓存使用python-memcached模块连接memcache
+
+    CACHES = {
+        &#39;default&#39;: {
+            &#39;BACKEND&#39;: &#39;django.core.cache.backends.memcached.MemcachedCache&#39;,
+            &#39;LOCATION&#39;: &#39;127.0.0.1:11211&#39;,
+        }
+    }
+
+    CACHES = {
+        &#39;default&#39;: {
+            &#39;BACKEND&#39;: &#39;django.core.cache.backends.memcached.MemcachedCache&#39;,
+            &#39;LOCATION&#39;: &#39;unix:/tmp/memcached.sock&#39;,
+        }
+    }   
+
+    CACHES = {
+        &#39;default&#39;: {
+            &#39;BACKEND&#39;: &#39;django.core.cache.backends.memcached.MemcachedCache&#39;,
+            &#39;LOCATION&#39;: [
+                &#39;172.19.26.240:11211&#39;,
+                &#39;172.19.26.242:11211&#39;,
+            ]
+        }
+    }</code></pre>
+<p><br></p></li>
+<li><p>Memcache缓存（pylibmc模块）</p>
+<pre><code><code># 此缓存使用pylibmc模块连接memcache
+
+    CACHES = {
+        &#39;default&#39;: {
+            &#39;BACKEND&#39;: &#39;django.core.cache.backends.memcached.PyLibMCCache&#39;,
+            &#39;LOCATION&#39;: &#39;127.0.0.1:11211&#39;,
+        }
+    }
+
+    CACHES = {
+        &#39;default&#39;: {
+            &#39;BACKEND&#39;: &#39;django.core.cache.backends.memcached.PyLibMCCache&#39;,
+            &#39;LOCATION&#39;: &#39;/tmp/memcached.sock&#39;,
+        }
+    }   
+
+    CACHES = {
+        &#39;default&#39;: {
+            &#39;BACKEND&#39;: &#39;django.core.cache.backends.memcached.PyLibMCCache&#39;,
+            &#39;LOCATION&#39;: [
+                &#39;172.19.26.240:11211&#39;,
+                &#39;172.19.26.242:11211&#39;,
+            ]
+        }
+    }</code></pre>
+<p><br></p></li>
+<li><p>Redis缓存（依赖：pip3 install django-redis）</p>
+<pre><code><code>CACHES = {
+    &quot;default&quot;: {
+        &quot;BACKEND&quot;: &quot;django_redis.cache.RedisCache&quot;,
+        &quot;LOCATION&quot;: &quot;redis://127.0.0.1:6379&quot;,
+        &quot;OPTIONS&quot;: {
+            &quot;CLIENT_CLASS&quot;: &quot;django_redis.client.DefaultClient&quot;,
+            &quot;CONNECTION_POOL_KWARGS&quot;: {&quot;max_connections&quot;: 100}
+            # &quot;PASSWORD&quot;: &quot;密码&quot;,
+        }
+    }
+}</code></pre>
+<p><br></p>
+<p>视图中链接并操作</p>
+<pre><code><code>from django_redis import get_redis_connection
+conn = get_redis_connection(&quot;default&quot;)</code></pre>
+<p><br></p></li>
+</ol>
+<h2 id="应用">应用</h2>
+<ol>
+<li><p>全站使用</p>
+<pre><code><code>使用中间件，经过一系列的认证等操作，如果内容在缓存中存在，则使用FetchFromCacheMiddleware获取内容并返回给用户，当返回给用户之前，判断缓存中是否已经存在，如果不存在则UpdateCacheMiddleware会将缓存保存至缓存，从而实现全站缓存
+
+    MIDDLEWARE = [
+        &#39;django.middleware.cache.UpdateCacheMiddleware&#39;,
+        # 其他中间件...
+        &#39;django.middleware.cache.FetchFromCacheMiddleware&#39;,
+    ]
+
+    CACHE_MIDDLEWARE_ALIAS = &quot;&quot;
+    CACHE_MIDDLEWARE_SECONDS = &quot;&quot;
+    CACHE_MIDDLEWARE_KEY_PREFIX = &quot;&quot;</code></pre>
+<p><br></p></li>
+<li><p>单独视图缓存</p>
+<pre><code><code>方式一：
+        from django.views.decorators.cache import cache_page
+
+        @cache_page(60 * 15)
+        def my_view(request):
+            ...
+
+    方式二：
+        from django.views.decorators.cache import cache_page
+
+        urlpatterns = [
+            url(r&#39;^foo/([0-9]{1,2})/$&#39;, cache_page(60 * 15)(my_view)),
+        ]</code></pre>
+<p><br></p></li>
+<li><p>局部视图使用</p>
+<pre><code><code>a. 引入TemplateTag
+
+        {% load cache %}
+
+    b. 使用缓存
+
+        {% cache 5000 缓存key %}
+            缓存内容
+        {% endcache %}</code></pre>
+<p><br></p></li>
+</ol>
+<h1 id="二序列化">二、序列化</h1>
+<p>关于Django中的序列化主要应用在将数据库中检索的数据返回给客户端用户，特别的Ajax请求一般返回的为Json格式。</p>
+<h2 id="serializers">serializers</h2>
+<pre><code><code>from django.core import serializers
+ 
+ret = models.BookType.objects.all()
+ 
+data = serializers.serialize(&quot;json&quot;, ret)</code></pre>
+<p><br></p>
+<h2 id="json.dumps">json.dumps</h2>
+<pre><code><code>import json
+ 
+#ret = models.BookType.objects.all().values(&#39;caption&#39;)
+ret = models.BookType.objects.all().values_list(&#39;caption&#39;)
+ 
+ret=list(ret)
+ 
+result = json.dumps(ret)</code></pre>
+<p><br></p>
+<p>由于json.dumps时无法处理datetime日期，所以可以通过自定义处理器来做扩展，如：</p>
+<pre><code><code>import json 
+from datetime import date 
+from datetime import datetime 
+   
+class JsonCustomEncoder(json.JSONEncoder): 
+    
+    def default(self, field): 
+     
+        if isinstance(field, datetime): 
+            return field.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;) 
+        elif isinstance(field, date): 
+            return field.strftime(&#39;%Y-%m-%d&#39;) 
+        else: 
+            return json.JSONEncoder.default(self, field) 
+   
+   
+# ds = json.dumps(d, cls=JsonCustomEncoder) </code></pre>
+<p><br></p>
+<h1 id="三信号">三、信号</h1>
+<p>Django中提供了“信号调度”，用于在框架执行操作时解耦。通俗来讲，就是一些动作发生的时候，信号允许特定的发送者去提醒一些接受者。</p>
+<h2 id="django内置信号">Django内置信号</h2>
+<pre><code><code>Model signals
+    pre_init                    # django的modal执行其构造方法前，自动触发
+    post_init                   # django的modal执行其构造方法后，自动触发
+    pre_save                    # django的modal对象保存前，自动触发
+    post_save                   # django的modal对象保存后，自动触发
+    pre_delete                  # django的modal对象删除前，自动触发
+    post_delete                 # django的modal对象删除后，自动触发
+    m2m_changed                 # django的modal中使用m2m字段操作第三张表（add,remove,clear）前后，自动触发
+    class_prepared              # 程序启动时，检测已注册的app中modal类，对于每一个类，自动触发
+Management signals
+    pre_migrate                 # 执行migrate命令前，自动触发
+    post_migrate                # 执行migrate命令后，自动触发
+Request/response signals
+    request_started             # 请求到来前，自动触发
+    request_finished            # 请求结束后，自动触发
+    got_request_exception       # 请求异常后，自动触发
+Test signals
+    setting_changed             # 使用test测试修改配置文件时，自动触发
+    template_rendered           # 使用test测试渲染模板时，自动触发
+Database Wrappers
+    connection_created          # 创建数据库连接时，自动触发</code></pre>
+<p><br></p>
+<p>对于Django内置的信号，仅需注册指定信号，当程序执行相应操作时，自动触发注册函数：</p>
+<pre><code><code>from django.core.signals import request_finished
+from django.core.signals import request_started
+from django.core.signals import got_request_exception
+
+from django.db.models.signals import class_prepared
+from django.db.models.signals import pre_init, post_init
+from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_delete, post_delete
+from django.db.models.signals import m2m_changed
+from django.db.models.signals import pre_migrate, post_migrate
+
+from django.test.signals import setting_changed
+from django.test.signals import template_rendered
+
+from django.db.backends.signals import connection_created
+
+
+# 方法一：
+def callback(sender, **kwargs):
+    print(&quot;xxoo_callback&quot;)
+    print(sender,kwargs)
+
+xxoo.connect(callback)
+# xxoo指上述导入的内容
+
+# 方法二：
+from django.dispatch import receiver
+
+@receiver(request_finished)
+def my_callback(sender, **kwargs):
+    print(&quot;Request finished!&quot;)</code></pre>
+<p><del>注：注册完成信号之后应当将其放在__init__文件中</del></p>
+<p><br></p>
+<h2 id="自定义信号">自定义信号</h2>
+<ol>
+<li><p>定义信号</p>
+<pre><code><code>import django.dispatch
+pizza_done = django.dispatch.Signal(providing_args=[&quot;toppings&quot;, &quot;size&quot;])</code></pre>
+<p><br></p></li>
+<li><p>注册信号</p>
+<pre><code><code>def callback(sender, **kwargs):
+    print(&quot;callback&quot;)
+    print(sender,kwargs)
+
+pizza_done.connect(callback)</code></pre>
+<p><br></p></li>
+<li><p>触发信号</p>
+<pre><code><code>from 路径 import pizza_done
+
+pizza_done.send(sender=&#39;seven&#39;,toppings=123, size=456)</code></pre>
+<p><br></p>
+<p>由于内置信号的触发者已经集成到Django中，所以其会自动调用，而对于自定义信号则需要开发者在任意位置触发。</p>
+<p><br></p>
+<p><br></p>
+<p><br></p></li>
+</ol>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

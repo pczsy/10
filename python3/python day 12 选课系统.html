@@ -1,0 +1,415 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python day 12 选课系统' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python day 12 选课系统</center></div><div class='banquan'>原文出处:本文由博客园博主bluestarpin提供。<br/>
+原文连接:https://www.cnblogs.com/lanxing0422/p/pythonday12.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#python-day-12">python day 12</a><ul>
+        <li><a href="#通过类来创建选课系统">1. 通过类来创建选课系统</a><ul>
+        <li><a href="#类库models.py">1.1 类库models.py</a></li>
+        <li><a href="#配置文件setting.py">2. 配置文件setting.py</a></li>
+        <li><a href="#administrator.py">3. administrator.py</a></li>
+        <li><a href="#student.py">4. student.py</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="python-day-12">python day 12</h1>
+<p>2019/10/18</p>
+<p>学习资料来自老男孩教育</p>
+<h2 id="通过类来创建选课系统">1. 通过类来创建选课系统</h2>
+<p>看完视频之后，自己折腾了一天才重新写出来，算是理解了。<br />
+<img src="./images/python day 12 选课系统0.png" alt="程序结构" /></p>
+<h3 id="类库models.py">1.1 类库models.py</h3>
+<pre><code><code>import os, sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+import pickle
+import time
+from config import settings
+import random
+
+
+class Admin(object):
+    &#39;&#39;&#39;封装管理员的相关功能
+
+    &#39;&#39;&#39;
+
+    def __init__(self):
+        self.username = None
+        self.passwd = None
+        self.create_time = None
+
+    def login(self, user, pwd):
+        if self.username == user and self.passwd == pwd:
+            return True
+        else:
+            return False
+
+    def register(self, user, pwd):
+        &#39;&#39;&#39;管理员注册
+
+        :param user:
+        :param pwd:
+        :return:None
+        &#39;&#39;&#39;
+        self.username = user
+        self.passwd = pwd
+        self.create_time = time.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;)
+
+        path = os.path.join(settings.BASE_ADMIN_DIR, user)
+        pickle.dump(self, open(path, &#39;wb&#39;))
+
+
+class Teacher(object):
+    &#39;&#39;&#39;
+    封装老师相关信息
+    &#39;&#39;&#39;
+
+    def __init__(self, name, sex, age, create_admin, asset=0):
+        self.name = name
+        if sex in (&#39;male&#39;, &#39;female&#39;):
+            self.sex = sex
+        self.age = age
+        self.asset = asset
+        self.create_time = time.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;)
+        self.create_admin = create_admin
+
+    def lose_asset(self, account):
+        &#39;&#39;&#39;
+        减少老师资产
+        :param account:
+        :return:
+        &#39;&#39;&#39;
+        self.asset -= account
+        return self.asset
+
+    def gain_asset(self, account):
+        &#39;&#39;&#39;
+        增加资产
+        :param account:
+        :return:
+        &#39;&#39;&#39;
+        self.asset += account
+        list2 = []
+        t_list = pickle.load(open(settings.TEACHER_DB_DIR,&#39;rb&#39;))
+        for t in t_list:
+            if t.name == self.name:
+                t = self
+            list2.append(t)
+        pickle.dump(list2,open(settings.TEACHER_DB_DIR,&#39;wb&#39;))
+        return self.asset
+
+
+class Course(object):
+    &#39;&#39;&#39;
+    封装课程的相关信息
+    &#39;&#39;&#39;
+
+    def __init__(self, name, cost, teacher_obj, create_admin):
+        self.course_name = name
+        self.cost = cost
+        self.teacher = teacher_obj
+        self.create_time = time.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;)
+        self.create_admin = create_admin
+
+    def have_lesson(self):
+        &#39;&#39;&#39;
+        课程上课，自动给相关联的任课老师增加资产
+        :return: 课程内容返回给上课者
+        &#39;&#39;&#39;
+        self.teacher.gain_asset(self.cost)
+        content = random.randrange(10, 100)
+        r = time.strftime(&#39;%Y-%m-%d %H:%M:%S&#39;)
+        temp = &#39;课程：%s，老师：%s,内容：%s,时间：%s&#39; % (self.course_name, self.teacher.name, content, r)
+        return temp
+
+    def absence(self):
+        &#39;&#39;&#39;
+        教学事故
+        :return:
+        &#39;&#39;&#39;
+        self.teacher.lose_asset(self.cost * 2)
+
+
+class Student(object):
+    &#39;&#39;&#39;
+    封装学生相关信息
+    &#39;&#39;&#39;
+
+    def __init__(self):
+        self.username = None
+        self.passwd = None
+        self.course_list = set()
+        self.study_dict = {}
+        self.total_fee = 0
+
+    def select_course(self, course_obj):
+        &#39;&#39;&#39;
+        学生选课
+        :param course:
+        :return:
+        &#39;&#39;&#39;
+        self.course_list.add(course_obj)
+
+
+    def study(self, course_obj):
+        &#39;&#39;&#39;
+        学生上课
+        :param course_obj:
+        :return:
+        &#39;&#39;&#39;
+        class_result = course_obj.have_lesson()
+        self.total_fee += course_obj.cost
+        if course_obj in self.study_dict.keys():
+            self.study_dict[course_obj].append(class_result)
+        else:
+            self.study_dict[course_obj] = [class_result, ]
+
+
+    def login(self, user, pwd):
+        if self.username == user and self.passwd == pwd:
+            return True
+        else:
+            return False
+
+    def register(self, user, pwd):
+        self.username = user
+        self.passwd = pwd
+
+        path = os.path.join(settings.STUDENTS_DB_DIR, user)
+        pickle.dump(self, open(path, &#39;wb&#39;))</code></pre>
+<h3 id="配置文件setting.py">2. 配置文件setting.py</h3>
+<pre><code><code>
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_ADMIN_DIR= os.path.join(BASE_DIR,&#39;db&#39;,&#39;admin&#39;)
+TEACHER_DB_DIR = os.path.join(BASE_DIR,&#39;db&#39;,&#39;teacher_list&#39;)
+COURSE_DB_DIR= os.path.join(BASE_DIR,&#39;db&#39;,&#39;course_list&#39;)
+STUDENTS_DB_DIR= os.path.join(BASE_DIR,&#39;db&#39;,&#39;students&#39;)</code></pre>
+<h3 id="administrator.py">3. administrator.py</h3>
+<pre><code><code>import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from config import settings
+from lib.models import *
+import pickle
+
+
+def create_teacher(admin_obj):
+    teacher_list = []
+    while True:
+        teacher_name = input(&quot;enter teacher&#39;s name(q to quit):&gt;&gt;&gt; &quot;).strip()
+        if teacher_name.lower() == &#39;q&#39;:
+            break
+        teacher_sex = input(&#39;teacher sex:&gt;&gt;&gt;&#39;).strip()
+        teacher_age = int(input(&#39;teacher age:&gt;&gt;&gt;&#39;).strip())
+        teacher_obj = Teacher(teacher_name, teacher_sex,teacher_age, admin_obj)
+        teacher_list.append(teacher_obj)
+    if os.path.exists(settings.TEACHER_DB_DIR):
+        list1 = pickle.load(open(settings.TEACHER_DB_DIR, &#39;rb&#39;))
+        teacher_list.extend(list1)
+    pickle.dump(teacher_list, open(settings.TEACHER_DB_DIR, &#39;wb&#39;))
+
+
+def create_course(admin_obj):
+    course_list = []
+    teacher_list = pickle.load(open(settings.TEACHER_DB_DIR, &#39;rb&#39;))
+    for k, i in enumerate(teacher_list, 1):
+        print(k, i.name, i.sex, i.age, i.create_admin, i.create_time)
+    while True:
+        course_name = input(&#39;course name(q to quit):&gt;&gt;&gt;&#39;).strip()
+        if course_name.lower() == &#39;q&#39;:
+            break
+        cost = int(input(&#39;course cost:&gt;&gt;&gt;&#39;).strip())
+        teacher_obj = teacher_list[int(input(&#39;teacher number:&gt;&gt;&gt;&#39;).strip()) - 1]
+        course_obj = Course(course_name, cost, teacher_obj, admin_obj)
+        course_list.append(course_obj)
+    if os.path.exists(settings.COURSE_DB_DIR):
+        list2 = pickle.load(open(settings.COURSE_DB_DIR, &#39;rb&#39;))
+        course_list.extend(list2)
+    pickle.dump(course_list, open(settings.COURSE_DB_DIR, &#39;wb&#39;))
+
+
+def check_tinfo(admin_obj):
+    if os.path.exists(settings.TEACHER_DB_DIR):
+        t_list = pickle.load(open(settings.TEACHER_DB_DIR, &#39;rb&#39;))
+        inp = input(&#39;请输入要查看的老师名字:&gt;&gt;&gt;&#39;)
+        for i in range(len(t_list)):
+            if t_list[i].name == inp:
+                # sex, age, create_admin, asset = 0
+                print(t_list[i].name, t_list[i].age, t_list[i].create_admin.username, t_list[i].create_time, t_list[i].asset)
+                return True
+
+
+def check_sinfo(admin_obj):
+    if os.path.exists(os.path.join(settings.STUDENTS_DB_DIR, &#39;xiao li&#39;)):
+        stu_obj = pickle.load(open(os.path.join(settings.STUDENTS_DB_DIR, &#39;xiao li&#39;), &#39;rb&#39;))
+        print(stu_obj.username, stu_obj.course_list, stu_obj.study_dict, stu_obj.total_fee)
+
+
+def login(user, pwd):
+    path = os.path.join(settings.BASE_ADMIN_DIR, user)
+    if os.path.exists(path):
+        admin_obj = pickle.load(open(path, &#39;rb&#39;))
+        if admin_obj.login(user, pwd):
+            print(&#39;登陆成功&#39;)
+            while True:
+                inp = input(&#39;1:创建老师;2:创建课程(q退出)；3:查看老师信息；4:查看学生信息:\n&gt;&gt;&gt;&#39;)
+                if inp == &#39;1&#39;:
+                    create_teacher(admin_obj)
+                elif inp == &#39;2&#39;:
+                    create_course(admin_obj)
+                elif inp == &#39;3&#39;:
+                    check_tinfo(admin_obj)
+                elif inp == &#39;4&#39;:
+                    check_sinfo(admin_obj)
+                else:
+                    break
+        else:
+
+            return 1
+    else:
+
+        return 0
+
+
+def register(user, pwd):
+    admin_obj = Admin()
+    admin_obj.register(user, pwd)
+
+
+def main():
+    print(&#39;welcome to the course system&#39;)
+    inp = input(&#39;1：管理员登陆；2：管理员注册(q退出)\n:&gt;&gt;&gt;&#39;).strip()
+    user = input(&#39;enter username:&gt;&gt;&gt;&#39;).strip()
+    pwd = input(&#39;enter password:&gt;&gt;&gt;&#39;).strip()
+
+    if inp == &#39;1&#39;:
+        ret = login(user, pwd)
+        if ret == &#39;1&#39;:
+            print(&#39;密码错误&#39;)
+        elif ret == &#39;0&#39;:
+            print(&#39;没有此用户，请先注册&#39;)
+    elif inp == &#39;2&#39;:
+        register(user, pwd)
+    elif inp == &#39;q&#39;:
+        exit()
+    else:
+        print(&#39;输入非法，请重新输入&#39;)
+
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<h3 id="student.py">4. student.py</h3>
+<pre><code><code>import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from config import settings
+from lib.models import *
+import pickle
+
+
+def check_cinfo(stu_obj):
+    course_list = stu_obj.course_list
+    print(&#39;%s %s %s %s &#39; % (&#39;序号&#39;, &#39;名称&#39;, &#39;费用&#39;, &#39;老师&#39;))
+    for k, v in enumerate(course_list, 1):
+        print(k, v.course_name, v.cost, v.teacher.name)
+
+
+def select_course(stu_obj):
+    if os.path.exists(settings.COURSE_DB_DIR):
+        course_list = pickle.load(open(settings.COURSE_DB_DIR, &#39;rb&#39;))
+        for k, v in enumerate(course_list, 1):
+            print(k, v.course_name, v.cost, v.teacher.name)
+        while True:
+            inp = (input(&#39;请输入课程序列号进行选课:&gt;&gt;&gt;&#39;).strip())
+            if inp == &#39;q&#39;:
+                break
+            stu_obj.select_course(course_list[int(inp) - 1])
+        path = os.path.join(settings.STUDENTS_DB_DIR, stu_obj.username)
+        pickle.dump(stu_obj, open(path, &#39;wb&#39;))
+
+
+def study(stu_obj):
+    if stu_obj.course_list:
+        for k, v in enumerate(list(stu_obj.course_list), 1):
+            print(k, v.course_name,v.teacher.name)
+        while True:
+            inp = (input(&#39;请输入课程序列号进行上课:&gt;&gt;&gt;&#39;).strip())
+            if inp == &#39;q&#39;:
+                break
+            stu_obj.study(list(stu_obj.course_list)[int(inp) - 1])
+    path = os.path.join(settings.STUDENTS_DB_DIR, stu_obj.username)
+    pickle.dump(stu_obj, open(path, &#39;wb&#39;))
+
+
+
+def login(user, pwd):
+    if os.path.exists(os.path.join(settings.STUDENTS_DB_DIR, user)):
+        stu_obj = pickle.load(open(os.path.join(settings.STUDENTS_DB_DIR, user), &#39;rb&#39;))
+        if stu_obj.login(user, pwd):
+            print(&#39;登录成功&#39;)
+            while True:
+                inp = input(&#39;1:选课；2：上课,3:查看课程信息:(q to quit)；\n：&gt;&gt;&gt;&#39;).strip()
+                if inp == &#39;1&#39;:
+                    select_course(stu_obj)
+                elif inp == &#39;2&#39;:
+                    study(stu_obj)
+                elif inp == &#39;3&#39;:
+                    check_cinfo(stu_obj)
+                else:
+                    break
+
+        else:
+            return 1
+    else:
+        return 0
+
+
+def register(user, pwd):
+    student = Student()
+    student.register(user, pwd)
+
+
+def main():
+    inp = input(&#39;1：学生登录；2：学生注册(q退出)\n:&gt;&gt;&gt;&#39;).strip()
+    user = input(&#39;enter name:&gt;&gt;&gt;&#39;).strip()
+    pwd = input(&#39;enter password:&gt;&gt;&gt;&#39;).strip()
+    if inp == &#39;1&#39;:
+        login(user, pwd)
+    elif inp == &#39;2&#39;:
+        register(user, pwd)
+    else:
+        exit()
+
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

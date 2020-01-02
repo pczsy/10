@@ -1,0 +1,95 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django 实现登录后跳转' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django 实现登录后跳转</center></div><div class='banquan'>原文出处:本文由博客园博主xiaobai_ol提供。<br/>
+原文连接:https://www.cnblogs.com/jack-233/p/11428254.html</div><br>
+    <h2 id="说明">说明</h2>
+<blockquote>
+<p>实现网页登录后跳转应该分为两类：即<em>登录成功后跳转</em>和<em>登录失败再次登录成功后跳转</em>。参考网上内容，基本都只实现了第一类。而没有实现第二类。</p>
+</blockquote>
+<h2 id="实现">实现</h2>
+<p>为了能让登录失败后再次登录成功后还能实现跳转。我这里采用了笨办法， 即：<strong>无论登录成功与否，都将跳转链接在前后端进行传递</strong> ,这样跳转链接就不会在登录失败后消失。不多说，上代码</p>
+<h3 id="后端-views.py">后端 views.py</h3>
+<pre><code><code>from django.shortcuts import render, redirect
+
+def login(request):
+    # 当前端点击登录按钮时，提交数据到后端，进入该POST方法
+    if request.method == &quot;POST&quot;:
+        # 获取用户名和密码
+        username = request.POST.get(&quot;username&quot;)
+        passwd = request.POST.get(&quot;password&quot;)
+        # 在前端传回时也将跳转链接传回来
+        next_url = request.POST.get(&quot;next_url&quot;)
+
+        # 对用户进行验证，假设正确的用户名密码为&quot;aaa&quot;, &quot;123&quot;
+        if username == &#39;aaa&#39; and passwd == &#39;123&#39;:
+            # 判断用户一开始是不是从login页面进入的
+            # 如果跳转链接不为空并且跳转页面不是登出页面，则登录成功后跳转，否则直接进入主页
+            if next_url and next_url != &quot;/logout/&quot;:
+                response = redirect(next_url)
+            else:
+                response = redirect(&quot;/index/&quot;)
+            return response
+        # 若用户名或密码失败,则将提示语与跳转链接继续传递到前端
+        else:
+            error_msg = &quot;用户名或密码不正确，请重新尝试&quot;
+            return render(request, &quot;app/login.html&quot;, {
+                &#39;login_error_msg&#39;: error_msg,
+                &#39;next_url&#39;: next_url,
+            })
+    # 若没有进入post方法，则说明是用户刚进入到登录页面。用户访问链接形如下面这样：
+    # http://host:port/login/?next=/next_url/
+    # 拿到跳转链接
+    next_url = request.GET.get(&quot;next&quot;, &#39;&#39;)
+
+    # 直接将跳转链接也传递到后端
+    return render(request, &quot;autotest/login.html&quot;, {
+        &#39;next_url&#39;: next_url,
+    })</code></pre>
+<h3 id="前端页面-login.html">前端页面 login.html</h3>
+<pre class="html"><code>   &lt;form action=&quot;{% url &#39;login&#39; %}&quot; method=&quot;post&quot;&gt;
+                 &lt;h1&gt;请使用xxx登录&lt;/h1&gt;
+                 &lt;div&gt;
+                   &lt;input id=&quot;user&quot; type=&quot;text&quot; class=&quot;form-control&quot; name=&quot;username&quot; placeholder=&quot;账户&quot; required=&quot;&quot; /&gt;
+                 &lt;/div&gt;
+                 &lt;div&gt;
+                   &lt;input id=&quot;pwd&quot; type=&quot;password&quot; class=&quot;form-control&quot; name=&quot;password&quot; placeholder=&quot;密码&quot; required=&quot;&quot; /&gt;
+                 &lt;/div&gt;
+       // 注意这里多了一个input。它用来保存跳转链接，以便每次点击登录按钮时将跳转链接传递回后端
+       // 通过display：none属性将该input元素隐藏起来
+                   &lt;div style=&quot;display: none;&quot;&gt;
+                       &lt;input id=&quot;next&quot; type=&quot;text&quot; name=&quot;next_url&quot; value=&quot;{{ next_url }}&quot; /&gt;
+                   &lt;/div&gt;
+       // 判断是否有错误提示，若有则显示
+                   {% if login_error_msg %}
+                       &lt;div id=&quot;error-msg&quot;&gt;
+                           &lt;span style=&quot;color: rgba(255,53,49,0.8); font-family: cursive;&quot;&gt;{{ login_error_msg }}&lt;/span&gt;
+                       &lt;/div&gt;
+                   {% endif %}
+                 &lt;div&gt;
+                     &lt;button type=&quot;submit&quot; class=&quot;btn btn-default&quot; style=&quot;float: initial; margin-right: 60px&quot;&gt;登录&lt;/button&gt;
+                 &lt;/div&gt;
+   &lt;/form&gt;</code></pre>
+<h2 id="总结">总结</h2>
+<p>其实这种实现方式就是让跳转链接在前后端交互中不损失掉。当然也可以在前端不用form元素，直接用ajax的post形式，然后让跳转在前端的ajax逻辑中执行。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

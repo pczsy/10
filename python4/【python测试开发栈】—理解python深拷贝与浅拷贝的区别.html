@@ -1,0 +1,247 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【python测试开发栈】—理解python深拷贝与浅拷贝的区别' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【python测试开发栈】—理解python深拷贝与浅拷贝的区别</center></div><div class='banquan'>原文出处:本文由博客园博主布道师玄柯提供。<br/>
+原文连接:https://www.cnblogs.com/zhouliweiblog/p/12053081.html</div><br>
+    <p>内存的浅拷贝和深拷贝是面试时经常被问到的问题，如果不能理解其本质原理，有可能会答非所问，给面试官留下不好的印象。另外，理解浅拷贝和深拷贝的原理，还可以帮助我们理解Python内存机制。这篇文章将会通过一些例子，来验证内存拷贝的过程，帮助大家理解内存拷贝的原理。</p>
+<h2 id="python3中的数据类型">Python3中的数据类型</h2>
+<p>我们首先得知道Python3中的数据被分为<strong>可变类型</strong>和<strong>不可变类型</strong></p>
+<ul>
+<li>可变类型：Number(数字)、String(字符串)、Tuple(元祖)</li>
+<li>不可变类型：List(列表)、Dictionary(字典)、Set(集合)</li>
+</ul>
+<p>对于可变类型和不可变类型，它们在浅拷贝和深拷贝中的表现是不一样的，下面我们就通过具体的例子来引出对应的结论。</p>
+<h2 id="浅拷贝">浅拷贝</h2>
+<p>我们先来贴一个例子，然后大家可以先思考下结果会是怎样的。</p>
+<pre><code><code>def shadow_copy_test():
+    &quot;&quot;&quot;
+    对浅copy进行验证
+    :return:
+    &quot;&quot;&quot;
+    # 不可变数据类型
+    param_a = 17
+    param_b = &quot;paramB&quot;
+    param_c = (18, &quot;paramC&quot;)
+
+    copy_param_a = copy.copy(param_a)
+    copy_param_b = copy.copy(param_b)
+    copy_param_c = copy.copy(param_c)
+    print(&quot;验证不可变数据类型&quot;)
+    print(id(param_a))
+    print(id(copy_param_a))
+    print(id(param_b))
+    print(id(copy_param_b))
+    print(id(param_c))
+    print(id(copy_param_c))
+
+    print(&quot;======================&quot;)
+
+    # 可变数据类型
+    param_d = [[2, 3], 18, &quot;paramD&quot;]
+    param_e = {&quot;key1&quot;: 18, &quot;key2&quot;: &quot;paramE&quot;, &quot;key3&quot;: [1, 2]}
+    param_f = {18, &quot;paramF&quot;}
+
+    copy_param_d = copy.copy(param_d)
+    copy_param_e = copy.copy(param_e)
+    copy_param_f = copy.copy(param_f)
+    
+    print(&quot;验证可变数据类型&quot;)
+    print(id(param_d))
+    print(id(copy_param_d))
+    print(id(param_e))
+    print(id(copy_param_e))
+    print(id(param_f))
+    print(id(copy_param_f))
+    
+    # 运行结果
+    验证不可变数据类型
+    4455468864
+    4455468864
+    4457955120
+    4457955120
+    4457945040
+    4457945040
+    ======================
+    验证可变数据类型
+    4458366368
+    4458367168
+    4457911312
+    4457911552
+    4457982144
+    4458284768
+</code></pre>
+<p>由此我们可以看出，对于不可变类型，浅拷贝并不会更改内存地址，而对于可变数据类型，会产生一个新的内存地址。接下来我们再来看看对于可变数据类型，去修改其中的元素会怎么样：</p>
+<pre><code><code>    print(&quot;验证列表中元素&quot;)
+    # 验证列表中第一个元素是否相等
+    print(id(param_d[1]))
+    print(id(copy_param_d[1]))
+    print(id(param_d[0]))
+    print(id(copy_param_d[0]))
+    
+    print(&quot;======================&quot;)
+    # 更改列表中元素的值
+    print(&quot;验证修改可变数据类型元素的值&quot;)
+    param_d[0].append(4)
+    print(param_d)
+    print(copy_param_d)
+    param_d.append(&quot;abc&quot;)
+    print(param_d)
+    print(copy_param_d)
+    param_d[1] = 19
+    print(param_d)
+    print(copy_param_d)
+    
+    # 运行结果
+    验证列表中元素
+    4534525792
+    4534525792
+    4537357968
+    4537357968
+    验证修改可变数据类型元素的值
+    [[2, 3, 4], 18, &#39;paramD&#39;]
+    [[2, 3, 4], 18, &#39;paramD&#39;]
+    [[2, 3, 4], 18, &#39;paramD&#39;, &#39;abc&#39;]
+    [[2, 3, 4], 18, &#39;paramD&#39;]
+    [[2, 3, 4], 19, &#39;paramD&#39;, &#39;abc&#39;]
+    [[2, 3, 4], 18, &#39;paramD&#39;]
+</code></pre>
+<p>我们从上面结果可以看出，对于可变数据结构，他们元素的内存地址没有变化（以List为例，相当于新生成一个List，然后将原来List中元素的值全部copy到新生成的List中），而修改其中的可变数据类型(比如：param_d[0])，copy对象也会同步修改(copy_param_d[0])；而修改不可变元素(比如：param_d[1])，并不会影响其copy对象(copy_param_d[1])。</p>
+<p>综上我们可以得出如下结论（<strong>敲黑板，划重点</strong>）：</p>
+<ul>
+<li>对于<strong>不可变数据类型</strong>，浅拷贝只是复制了<strong>内存引用</strong>（指向内存的地址），并不会开辟新的内存空间（上例中param_a和copy_param_a、param_b和copy_param_b、param_c和copy_param_c内存地址一致）。</li>
+<li>对于<strong>可变数据类型</strong>，浅拷贝会开辟新的内存空间（上例中param_d和copy_param_d内存地址不一致），但是它里面元素的内存地址还是一样的。</li>
+<li>对于<strong>可变数据类型</strong>，改变原始对象中的可变数据类型的值，会同时影响拷贝对象的值（因为它们指向了对一个内存地址）；改变原始对象中的不可变数据类型的值，不会影响拷贝对象的值。</li>
+</ul>
+<p>为了方便大家理解，画了内存地址的简图：</p>
+<p>首先是不可变数据类型，因为其值的内存地址是不可变的，所以在内存中只有这一份：</p>
+<p><img src="./images/【python测试开发栈】—理解python深拷贝与浅拷贝的区别0.png" alt="WX20191215-192332@2x.png" /></p>
+<p>其次是可变数据类型：</p>
+<p><img src="./images/【python测试开发栈】—理解python深拷贝与浅拷贝的区别1.png" alt="WX20191217-102045@2x.png" /></p>
+<h2 id="深拷贝">深拷贝</h2>
+<p>同样的，我们还是先来看例子(代码基本和上面的保持一致，只是修改了深拷贝方法deepcopy)：</p>
+<pre><code><code>def deep_copy_test():
+    &quot;&quot;&quot;
+    对深拷贝进行验证
+    :return:
+    &quot;&quot;&quot;
+    &quot;&quot;&quot;
+       对浅copy进行验证
+       :return:
+       &quot;&quot;&quot;
+    # 不可变数据类型
+    param_a = 17
+    param_b = &quot;paramB&quot;
+    param_c = (18, &quot;paramC&quot;)
+
+    copy_param_a = copy.deepcopy(param_a)
+    copy_param_b = copy.deepcopy(param_b)
+    copy_param_c = copy.deepcopy(param_c)
+    print(&quot;验证不可变数据类型&quot;)
+    print(id(param_a))
+    print(id(copy_param_a))
+    print(id(param_b))
+    print(id(copy_param_b))
+    print(id(param_c))
+    print(id(copy_param_c))
+
+    print(&quot;======================&quot;)
+
+    # 可变数据类型
+    param_d = [[2, 3], 18, &quot;paramD&quot;]
+    param_e = {&quot;key1&quot;: 18, &quot;key2&quot;: &quot;paramE&quot;, &quot;key3&quot;: [1, 2]}
+    param_f = {18, &quot;paramF&quot;}
+
+    copy_param_d = copy.deepcopy(param_d)
+    copy_param_e = copy.deepcopy(param_e)
+    copy_param_f = copy.deepcopy(param_f)
+
+    print(&quot;验证可变数据类型&quot;)
+    print(id(param_d))
+    print(id(copy_param_d))
+    print(id(param_e))
+    print(id(copy_param_e))
+    print(id(param_f))
+    print(id(copy_param_f))
+    print(&quot;======================&quot;)
+    print(&quot;验证列表中元素&quot;)
+    # 验证列表中第一个元素是否相等
+    print(id(param_d[1]))
+    print(id(copy_param_d[1]))
+    print(id(param_d[0]))
+    print(id(copy_param_d[0]))
+    
+        print(&quot;======================&quot;)
+    # 更改列表中元素的值
+    print(&quot;验证修改可变数据类型元素的值&quot;)
+    param_d[0].append(4)
+    print(param_d)
+    print(copy_param_d)
+    param_d.append(&quot;abc&quot;)
+    print(param_d)
+    print(copy_param_d)
+    param_d[1] = 19
+    print(param_d)
+    print(copy_param_d)
+    
+    # 打印结果如下：
+    验证不可变数据类型
+    4438175552
+    4438175552
+    4440636208
+    4440636208
+    4440885840
+    4440885840
+    ======================
+    验证可变数据类型
+    4440987760
+    4441335360
+    4440593344
+    4440594224
+    4440966160
+    4440967840
+    ======================
+    ======================
+    验证列表中元素
+    4438175584
+    4438175584
+    4440628192
+    4441336000
+    验证修改可变数据类型元素的值
+    [[2, 3, 4], 18, &#39;paramD&#39;]
+    [[2, 3], 18, &#39;paramD&#39;]
+    [[2, 3, 4], 18, &#39;paramD&#39;, &#39;abc&#39;]
+    [[2, 3], 18, &#39;paramD&#39;]
+    [[2, 3, 4], 19, &#39;paramD&#39;, &#39;abc&#39;]
+    [[2, 3], 18, &#39;paramD&#39;]</code></pre>
+<p>我们可以和浅拷贝的运行结果做个对比，其中有差别的地方是：浅拷贝时列表中元素的内存地址没变，而深拷贝时列表中元素的内存地址发生了变化(主要针对可变数据类型，比如：param_d[0]和copy_param_d[0])。另外，对于可变数据类型，修改原始数据中的值，并不会影响拷贝数据。</p>
+<p>综上，我们得出如下结论(<strong>敲黑板，划重点</strong>)：</p>
+<ul>
+<li>深拷贝是在浅拷贝的基础上，又对<strong>可变数据类型</strong>的元素进行了递归拷贝，因此拷贝完成时，对于<strong>可变数据类型</strong>的元素，其内存地址全部都不一致。</li>
+<li>深拷贝修改原始对象和拷贝对象的值，相互之间不影响。</li>
+</ul>
+<p>为了大家理解，同样画了一幅内存简图(主要是针对可变数据类型)，可以对比下和浅拷贝时内存简图的区别：</p>
+<p><img src="./images/【python测试开发栈】—理解python深拷贝与浅拷贝的区别2.png" alt="WX20191217-101852@2x.png" /></p>
+<h2 id="总结">总结</h2>
+<p>本文主要介绍了在Python3中内存的深拷贝和浅拷贝机制，大家可以动手写一下文中贴的Python代码，这样更能加深你的理解。总结来说，对于Python的不可变数据类型，深拷贝和浅拷贝的差别不大；主要区别是Python中的可变数据类型，深拷贝会对列表中的子元素进行递归拷贝处理，而浅拷贝则不会。</p>
+<p><img src="./images/【python测试开发栈】—理解python深拷贝与浅拷贝的区别3.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

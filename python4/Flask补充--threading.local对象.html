@@ -1,0 +1,313 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask补充--threading.local对象' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask补充--threading.local对象</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11779686.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#local">Local</a><ul>
+        <li><a href="#局部变量">局部变量</a></li>
+        <li><a href="#全局变量">全局变量</a></li>
+        <li><a href="#使用threading.local">使用threading.local()</a></li>
+        </ul></li>
+        <li><a href="#自定义threading.local">自定义threading.local</a><ul>
+        <li><a href="#函数版">函数版</a></li>
+        <li><a href="#面向对象版">面向对象版</a></li>
+        <li><a href="#通过setattr和getattr实现">通过setattr和getattr实现</a></li>
+        <li><a href="#每个对象有自己的存储空间字典">每个对象有自己的存储空间（字典）</a></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<p>在Flask请求上下文中，我们发现Flask中<code>current_app, g</code>这两个对象以及<code>request,session</code>这两个对象，在整个Flask生命周期中，都只是一个对象，那当请求过来的时候，是怎么区分是哪个用户的呢？</p>
+<pre><code><code>current_app = LocalProxy(_find_app)
+request = LocalProxy(partial(_lookup_req_object, &#39;request&#39;))
+session = LocalProxy(partial(_lookup_req_object, &#39;session&#39;))
+g = LocalProxy(partial(_lookup_app_object, &#39;g&#39;))</code></pre>
+<p>这里面主要用到了一个线程里面的Local对象以及偏函数<code>partial</code></p>
+<h1 id="local">Local</h1>
+<p>在使用threading.local()之前，先了解一下局部变量和全局变量。</p>
+<h2 id="局部变量">局部变量</h2>
+<pre><code><code>import threading
+import time
+
+def foo():
+    x = 0
+    for i in range(100):
+        time.sleep(0.0001)
+        x += 1
+
+    print(threading.current_thread(), x)
+
+
+for i in range(5):
+    threading.Thread(target=foo).start()
+    
+&quot;&quot;&quot;
+运行结果：
+&lt;Thread(Thread-5, started 21732)&gt; 100
+&lt;Thread(Thread-1, started 13300)&gt; 100
+&lt;Thread(Thread-4, started 1568)&gt; 100
+&lt;Thread(Thread-2, started 19864)&gt; 100
+&lt;Thread(Thread-3, started 23984)&gt; 100
+&quot;&quot;&quot;</code></pre>
+<p>上面例子使用多线程，每个子线程完成不同的计算任务，x是局部变量。</p>
+<p>每个子线程都要压栈，每个栈是独立的空间。每次压栈，局部变量x的作用域地址是不同的(线程独享)，计算结果互不干扰。</p>
+<h2 id="全局变量">全局变量</h2>
+<pre><code><code>import threading
+import time
+
+x = 0
+
+def foo():
+    global x
+    x = 0
+    for i in range(100):
+        time.sleep(0.0001)
+        x += 1
+
+    print(threading.current_thread(), x)
+
+
+for i in range(5):
+    threading.Thread(target=foo).start()
+    
+&quot;&quot;&quot;
+运行结果：
+&lt;Thread(Thread-1, started 19492)&gt; 491
+&lt;Thread(Thread-3, started 22692)&gt; 497
+&lt;Thread(Thread-5, started 24344)&gt; 498
+&lt;Thread(Thread-2, started 24428)&gt; 499
+&lt;Thread(Thread-4, started 19000)&gt; 500
+&quot;&quot;&quot;</code></pre>
+<p>上面例子中当主线程中x是全局变量时，就变成了公共资源(也就是同一个对象)，每个子线程互相干扰，最终导致错误的计算结果。</p>
+<p>Python提供了<code>threading.local</code> 类，将这个类实例化得到一个全局对象，但是不同的线程使用这个对象存储的数据其它线程不可见(本质上就是不同的线程使用这个对象时为其创建一个独立的字典)。</p>
+<h2 id="使用threading.local">使用threading.local()</h2>
+<pre><code><code>import threading
+import time
+
+loc = threading.local()
+
+def foo():
+    loc.x = 0
+    for i in range(100):
+        time.sleep(0.0001)
+        loc.x += 1
+
+    print(threading.current_thread(), loc.x)
+
+
+for i in range(5):
+    threading.Thread(target=foo).start()
+    
+&quot;&quot;&quot;
+运行结果：
+&lt;Thread(Thread-1, started 20008)&gt; 100
+&lt;Thread(Thread-2, started 23644)&gt; 100
+&lt;Thread(Thread-5, started 10396)&gt; 100
+&lt;Thread(Thread-4, started 22280)&gt; 100
+&lt;Thread(Thread-3, started 19980)&gt; 100
+&quot;&quot;&quot;</code></pre>
+<p>每个子线程使用全局对象loc，但每个线程定义的属性<code>loc.x</code>是该线程独有的。</p>
+<p>举一个错误的例子:，主线程中使用<code>threading.local</code>定义本地变量x，x在主线程中是独有的，子线程中就访问不到主线程的x的属性。</p>
+<pre><code><code>import threading
+ 
+X=&#39;abc&#39;
+ctx=threading.local()
+ctx.x=123 #主线程中定义x本地属性
+print(ctx,type(ctx),ctx.x)
+ 
+def work():
+    print(X)
+    print(ctx)
+    print(ctx.x) #子线程访问不到
+    print(&#39;Good job&#39;)
+ 
+threading.Thread(target=work).start()
+
+&quot;&quot;&quot;
+运行结果：
+&lt;_thread._local object at 0x000001B22BBAB780&gt; &lt;class &#39;_thread._local&#39;&gt; 123
+abc
+&lt;_thread._local object at 0x000001B22BBAB780&gt;
+Exception in thread Thread-1:
+Traceback (most recent call last):
+  File &quot;E:/Python学习笔记/flask/123.py&quot;, line 13, in work
+    print(ctx.x)  # 子线程访问不到
+AttributeError: &#39;_thread._local&#39; object has no attribute &#39;x&#39;
+&quot;&quot;&quot;</code></pre>
+<p>ctx全局对象对主线程和子线程都是可以使用的，主线程定义了属性x，但子线程在尝试访问属性x时，就相当于访问自己线程内的属性x，而自己线程并没有定义，就会抛出<code>AttributeError</code>异常<code>：'_thread._local' object has no attribute 'x'</code>。</p>
+<h1 id="自定义threading.local">自定义threading.local</h1>
+<h2 id="函数版">函数版</h2>
+<pre><code><code>from threading import get_ident, Thread
+import time
+
+# 定义一个全局字典
+storage = {}
+
+def set(k, v):
+    ident = get_ident()
+    # print(ident)
+    if ident in storage:
+        storage[ident][k] = v
+    else:
+        storage[ident] = {k: v}
+
+def get(k):
+    ident = get_ident()
+    # print(ident)
+    return storage[ident][k]
+
+def task(arg):
+    set(&#39;val&#39;, arg)
+    v = get(&#39;val&#39;)
+    # print(v)
+
+for i in range(10):
+    t = Thread(target=task, args=(i,))
+    t.start()
+
+print(storage) 
+&quot;&quot;&quot;
+{
+    20552: {&#39;val&#39;: 0}, 
+    18496: {&#39;val&#39;: 1}, 
+    24476: {&#39;val&#39;: 2}, 
+    18700: {&#39;val&#39;: 3}, 
+    23740: {&#39;val&#39;: 4}, 
+    22160: {&#39;val&#39;: 5}, 
+    23896: {&#39;val&#39;: 6}, 
+    19204: {&#39;val&#39;: 7}, 
+    19028: {&#39;val&#39;: 8}, 
+    17972: {&#39;val&#39;: 9}
+}
+&quot;&quot;&quot;</code></pre>
+<h2 id="面向对象版">面向对象版</h2>
+<pre><code><code>from threading import get_ident,Thread
+import time
+
+class Local(object):
+    # 定义一个类字典
+    storage = {}
+    
+    def set(self, k, v):
+        ident = get_ident()
+        if ident in Local.storage:
+            Local.storage[ident][k] = v
+        else:
+            Local.storage[ident] = {k: v}
+            
+    def get(self, k):
+        ident = get_ident()
+        return Local.storage[ident][k]
+    
+obj = Local()
+
+def task(arg):
+    obj.set(&#39;val&#39;,arg) 
+    v = obj.get(&#39;val&#39;)
+    print(v)
+    
+for i in range(10):
+    t = Thread(target=task,args=(i,))
+    t.start()
+    
+print(Local.storage)
+&quot;&quot;&quot;
+{
+    19296: {&#39;val&#39;: 0}, 
+    20436: {&#39;val&#39;: 1}, 
+    8240: {&#39;val&#39;: 2}, 
+    19668: {&#39;val&#39;: 3}, 
+    16932: {&#39;val&#39;: 4}
+}
+&quot;&quot;&quot;</code></pre>
+<h2 id="通过setattr和getattr实现">通过setattr和getattr实现</h2>
+<pre><code><code>from threading import get_ident,Thread
+import time
+
+class Local(object):
+    storage = {}
+    
+    def __setattr__(self, k, v):
+        ident = get_ident()
+        if ident in Local.storage:
+            Local.storage[ident][k] = v
+        else:
+            Local.storage[ident] = {k: v}
+            
+    def __getattr__(self, k):
+        ident = get_ident()
+        return Local.storage[ident][k]
+    
+obj = Local()
+def task(arg):
+    obj.val = arg
+    print(obj.val)
+    
+for i in range(10):
+    t = Thread(target=task,args=(i,))
+    t.start()</code></pre>
+<h2 id="每个对象有自己的存储空间字典">每个对象有自己的存储空间（字典）</h2>
+<pre><code><code>from threading import get_ident, Thread
+import time
+
+
+class Local(object):
+
+    def __init__(self):
+        object.__setattr__(self, &#39;storage&#39;, {})
+        # print(1, self.__dict__)
+        # self.aaa = {}
+        # print(self.__dict__)
+
+    def __setattr__(self, k, v):
+        # print(k, v, &#39;&gt;&gt;&gt;&#39;)
+        ident = get_ident()
+        # print(ident)
+        if ident in self.storage:
+            self.storage[ident][k] = v
+        else:
+            self.storage[ident] = {k: v}
+
+    def __getattr__(self, k):
+        ident = get_ident()
+        return self.storage[ident][k]
+
+
+obj = Local()
+# print(2, obj.__dict__)
+
+
+def task(arg):
+    obj.val = arg
+    obj.xxx = arg
+    print(obj.val)
+    # print(obj.__dict__)
+
+
+for i in range(10):
+    t = Thread(target=task, args=(i,))
+    t.start()</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

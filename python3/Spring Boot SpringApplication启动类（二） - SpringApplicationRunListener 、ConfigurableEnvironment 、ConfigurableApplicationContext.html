@@ -1,0 +1,524 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Spring Boot SpringApplication启动类（二） - SpringApplicationRunListener 、ConfigurableEnvironment 、ConfigurableApplicationContext' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Spring Boot SpringApplication启动类（二） - SpringApplicationRunListener 、ConfigurableEnvironment 、ConfigurableApplicationContext</center></div><div class='banquan'>原文出处:本文由博客园博主龙四丶提供。<br/>
+原文连接:https://www.cnblogs.com/loongk/p/12006840.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#前言">前言</a></li>
+        <li><a href="#起源">1、起源</a></li>
+        <li><a href="#springapplication-运行阶段">2、SpringApplication 运行阶段</a><ul>
+        <li><a href="#springapplicationrunlisteners-结构">2.1 SpringApplicationRunListeners 结构</a><ul>
+        <li><a href="#springapplicationrunlistener-事件和监听机制">2.1.1 SpringApplicationRunListener 事件和监听机制</a></li>
+        <li><a href="#simpleapplicationeventmulticaster-广播器">2.1.2 SimpleApplicationEventMulticaster 广播器</a></li>
+        </ul></li>
+        <li><a href="#applicationarguments-加载启动参数">2.2 ApplicationArguments 加载启动参数</a></li>
+        <li><a href="#configurableenvironment-加载外部化配置">2.3 ConfigurableEnvironment 加载外部化配置</a></li>
+        <li><a href="#configurableapplicationcontext-创建-spring-应用上下文">2.4 ConfigurableApplicationContext 创建 Spring 应用上下文</a></li>
+        </ul></li>
+        <li><a href="#总结">3、总结</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="前言">前言</h1>
+<p>        最近在学习Spring Boot相关的课程，过程中以笔记的形式记录下来，方便以后回忆，同时也在这里和大家探讨探讨，文章中有漏的或者有补充的、错误的都希望大家能够及时提出来，本人在此先谢谢了！</p>
+<blockquote>
+<p>开始之前呢，希望大家带着几个问题去学习：<br />
+1、Spring Boot SpringApplication 是什么？<br />
+2、整体流程或结构是怎样的？<br />
+3、重点内容或者核心部分是什么？<br />
+4、怎么实现的？<br />
+5、是怎么和 Spring 关联起来的？<br />
+这是对自我的提问，我认为带着问题去学习，是一种更好的学习方式，有利于加深理解。好了，接下来进入主题。</p>
+</blockquote>
+<h1 id="起源">1、起源</h1>
+<p>        上篇文章我们讲了 <code>SpringApplication</code> 的准备阶段，在这个阶段，完成了运行时所需要准备的资源，如：<code>initializers</code>、<code>listeners</code>等。而这篇文章我们就来讲讲 <code>SpringApplication</code> 的运行阶段，在这个阶段，它是如何启动 <code>Spring</code> 应用上下文的，且如何与 <code>Spring</code> 事件结合起来，形成完整的 <code>SpringApplication</code>生命周期的。</p>
+<blockquote>
+<p>注：本篇文章所用到的 <code>Spring Boot</code>版本是 <code>2.1.6.BUILD-SNAPSHOT</code></p>
+</blockquote>
+<h1 id="springapplication-运行阶段">2、SpringApplication 运行阶段</h1>
+<p>        上篇文章我们讲了 <code>SpringApplication</code> 的构造方法，这里我们就来讲讲 <code>SpringApplication</code> 的核心，也就是run方法，代码如下：</p>
+<pre><code><code>public class SpringApplication {
+
+    ...
+        
+    public ConfigurableApplicationContext run(String... args) {
+        // 这是 Spring 的一个计时器，计算代码的执行时间(ms级别)
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        
+        // 这俩变量在后面赋值处进行说明
+        ConfigurableApplicationContext context = null;
+        Collection&lt;SpringBootExceptionReporter&gt; exceptionReporters = new ArrayList&lt;&gt;();
+        
+        // 用来设置java.awt.headless属性值
+        configureHeadlessProperty();
+        
+        // 该对象属于组合模式的实现，核心是内部关联的 SpringApplicationRunListener 集合，SpringApplicationRunListener 是 Spring Boot 的运行时监听器
+        SpringApplicationRunListeners listeners = getRunListeners(args);
+        // 会在不同的阶段调用对应的方法，这里表示启动run方法被调用
+        listeners.starting();
+        
+        try {
+        
+            // 用来获取 SpringApplication.run(args)传入的参数
+            ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+            
+            // 获取 properties 配置文件
+            ConfigurableEnvironment environment = prepareEnvironment(listeners, applicationArguments);
+            
+            // 设置 spring.beaninfo.ignore 的属性值，判断是否跳过搜索BeanInfo类
+            configureIgnoreBeanInfo(environment);
+            
+            // 这里是项目启动时，控制台打印的 Banner
+            Banner printedBanner = printBanner(environment);
+            
+            // 这里就是创建 Spring 应用上下文
+            context = createApplicationContext();
+            
+            // 获取 spring.factories 中key为 SpringBootExceptionReporter 的类名集合
+            exceptionReporters = getSpringFactoriesInstances(SpringBootExceptionReporter.class,
+                    new Class[] { ConfigurableApplicationContext.class }, context);
+                    
+            // 这里是准备 Spring 应用上下文
+            prepareContext(context, environment, listeners, applicationArguments, printedBanner);
+            
+            // 这里是启动 Spring 应用上下文，底层调用的是 ApplicationContext 的 refresh() 方法，到这里就正式进入了 Spring 的生命周期，同时，SpringBoot的自动装配特性也随之启动
+            refreshContext(context);
+            
+            // 里面是空的，猜测应该是交由开发人员自行扩展
+            afterRefresh(context, applicationArguments);
+            stopWatch.stop();
+            
+            // 这里打印启动信息
+            if (this.logStartupInfo) {
+                new StartupInfoLogger(this.mainApplicationClass).logStarted(getApplicationLog(), stopWatch);
+            }
+            
+            // ApplicationContext 启动时，调用该方法
+            listeners.started(context);
+            
+            // 项目启动后，做的一些操作，开发人员可自行扩展
+            callRunners(context, applicationArguments);
+        }
+        catch (Throwable ex) {
+            handleRunFailure(context, ex, exceptionReporters, listeners);
+            throw new IllegalStateException(ex);
+        }
+    
+        try {
+        
+            // ApplicationContext 启动完成时，调用该方法
+            listeners.running(context);
+        }
+        catch (Throwable ex) {
+            handleRunFailure(context, ex, exceptionReporters, null);
+            throw new IllegalStateException(ex);
+        }
+        return context;
+    }
+    
+    ...
+}</code></pre>
+<p>上面就是整个过程的概览，可以看到，在运行阶段执行的操作比较多，虽然看起来杂乱无章，但其实还是有规律可循的。比如，执行的 <code>SpringApplicationRunListeners</code> 中的阶段方法，刚启动阶段的 <code>starting</code> 、已启动阶段的 <code>started</code> 、启动完成阶段的 <code>running</code> 等。还有对应的 <code>Spring</code> 应用上下文的创建、准备、启动操作等。接下来，就对里面的几个核心对象进行讨论。</p>
+<h2 id="springapplicationrunlisteners-结构">2.1 SpringApplicationRunListeners 结构</h2>
+<p>我们先来看看 <code>SpringApplicationRunListeners</code> 对象，从代码可以看出该对象是由 <code>getRunListeners</code> 方法创建的：</p>
+<pre><code><code>private SpringApplicationRunListeners getRunListeners(String[] args) {
+    Class&lt;?&gt;[] types = new Class&lt;?&gt;[] { SpringApplication.class, String[].class };
+    return new SpringApplicationRunListeners(logger,
+            getSpringFactoriesInstances(SpringApplicationRunListener.class, types, this, args));
+}</code></pre>
+<p>可以看到，通过传入的 <code>getSpringFactoriesInstances</code> 方法的返回值，执行 <code>SpringApplicationRunListeners</code> 的构造方法，进行对象的创建。接着看 <code>getSpringFactoriesInstances</code> 方法：</p>
+<pre><code><code>private &lt;T&gt; Collection&lt;T&gt; getSpringFactoriesInstances(Class&lt;T&gt; type, Class&lt;?&gt;[] parameterTypes, Object... args) {
+    ClassLoader classLoader = getClassLoader();
+    // Use names and ensure unique to protect against duplicates
+    Set&lt;String&gt; names = new LinkedHashSet&lt;&gt;(SpringFactoriesLoader.loadFactoryNames(type, classLoader));
+    List&lt;T&gt; instances = createSpringFactoriesInstances(type, parameterTypes, classLoader, args, names);
+    AnnotationAwareOrderComparator.sort(instances);
+    return instances;
+}</code></pre>
+<p>看到这大家应该比较熟悉了，通过前面几篇文章的讨论我们知道，该方法通过 <code>SpringFactoriesLoader.loadFactoryNames</code> 返回所有 classpass 下的 <code>spring.factories</code> 文件中 key 为 <code>SpringApplicationRunListener</code> 的实现类集合。如 Spring Boot 的内建实现：</p>
+<pre class="properties"><code># Run Listeners
+org.springframework.boot.SpringApplicationRunListener=\
+org.springframework.boot.context.event.EventPublishingRunListener</code></pre>
+<p>最后，就是将该集合传入 <code>SpringApplicationRunListeners</code> 的构造方法：</p>
+<pre><code><code>class SpringApplicationRunListeners {
+
+    ...
+
+    private final List&lt;SpringApplicationRunListener&gt; listeners;
+
+    SpringApplicationRunListeners(Log log, Collection&lt;? extends SpringApplicationRunListener&gt; listeners) {
+        this.log = log;
+        this.listeners = new ArrayList&lt;&gt;(listeners);
+    }
+
+    public void starting() {
+        for (SpringApplicationRunListener listener : this.listeners) {
+            listener.starting();
+        }
+    }
+
+    ...
+
+}</code></pre>
+<p>里面是将集合赋值到 <code>listeners</code> 属性，可以看到 <code>SpringApplicationRunListeners</code> 属于组合模式的实现，核心其实是内部关联的 <code>SpringApplicationRunListener</code> 对象集合，当外部调用该阶段方法时，就会迭代执行集合中 <code>SpringApplicationRunListener</code> 对应的方法。所以接下来我们就来讨论 <code>SpringApplicationRunListener</code>。</p>
+<h3 id="springapplicationrunlistener-事件和监听机制">2.1.1 SpringApplicationRunListener 事件和监听机制</h3>
+<p><code>SpringApplicationRunListener</code> 负责在 <code>SpringBoot</code> 的不同阶段广播相应的事件，然后调用实际的 <code>ApplicationListener</code> 类，在该类的 <code>onApplicationEvent</code> 方法中，根据不同的 <code>Spring Boot</code> 事件执行相应操作。整个过程大概如此，接下来进行详细讨论，先来看看 <code>SpringApplicationRunListener</code> 定义：</p>
+<pre><code><code>public interface SpringApplicationRunListener {
+
+    // 在run()方法开始执行时被调用，表示应用刚刚启动，对应的 Spring Boot 事件为 ApplicationStartingEvent
+    void starting();
+
+    // ConfigurableEnvironment 构建完成时调用，对应的 Spring Boot 事件为 ApplicationEnvironmentPreparedEvent
+    void environmentPrepared(ConfigurableEnvironment environment);
+
+    // ApplicationContext 构建完成时调用，对应的 Spring Boot 事件为 ApplicationContextInitializedEvent
+    void contextPrepared(ConfigurableApplicationContext context);
+
+    // ApplicationContext 完成加载但还未启动时调用，对应的 Spring Boot 事件为 ApplicationPreparedEvent
+    void contextLoaded(ConfigurableApplicationContext context);
+
+    // ApplicationContext 已启动，但 callRunners 还未执行时调用，对应的 Spring Boot 事件为 ApplicationStartedEvent
+    void started(ConfigurableApplicationContext context);
+
+    // ApplicationContext 启动完毕被调用，对应的 Spring Boot 事件为 ApplicationReadyEvent
+    void running(ConfigurableApplicationContext context);
+
+    // 应用出错时被调用，对应的 Spring Boot 事件为 ApplicationFailedEvent
+    void failed(ConfigurableApplicationContext context, Throwable exception);
+
+}</code></pre>
+<p>我们来看看它的实现类，也就是上面加载的 <code>spring.factories</code> 文件中的 <code>EventPublishingRunListener</code> 类，该类也是 <code>Spring Boot</code> 内建的唯一实现类，具体广播事件的操作在该类中进行，代码如下：</p>
+<pre><code><code>public class EventPublishingRunListener implements SpringApplicationRunListener, Ordered {
+
+    private final SpringApplication application;
+
+    private final String[] args;
+
+    private final SimpleApplicationEventMulticaster initialMulticaster;
+
+    public EventPublishingRunListener(SpringApplication application, String[] args) {
+        this.application = application;
+        this.args = args;
+        this.initialMulticaster = new SimpleApplicationEventMulticaster();
+        for (ApplicationListener&lt;?&gt; listener : application.getListeners()) {
+            this.initialMulticaster.addApplicationListener(listener);
+        }
+    }
+
+    @Override
+    public void starting() {
+        this.initialMulticaster.multicastEvent(new ApplicationStartingEvent(this.application, this.args));
+    }
+
+    ...
+
+}</code></pre>
+<p>可以看到，通过构造方法创建 <code>EventPublishingRunListener</code> 实例的过程中，调用了 <code>getListeners</code> 方法，将 <code>SpringApplication</code> 中所有 <code>ApplicationListener</code> 监听器关联到了 <code>initialMulticaster</code> 属性中。没错，这里的 <code>ApplicationListener</code> 监听器就是上篇文章中在 <code>SpringApplication</code> 准备阶段从 <code>spring.factories</code> 文件加载的 key 为 <code>ApplicationListener</code> 的实现类集合，该实现类集合全部重写了 <code>onApplicationEvent</code> 方法。</p>
+<h3 id="simpleapplicationeventmulticaster-广播器">2.1.2 SimpleApplicationEventMulticaster 广播器</h3>
+<p>这里又引出了另一个类， 也就是 <code>SimpleApplicationEventMulticaster</code> ，该类是 <code>Spring</code> 的事件广播器，也就是通过它来广播各种事件。接着，当外部迭代的执行到 <code>EventPublishingRunListener</code> 的 <code>starting</code> 方法时，会通过 <code>SimpleApplicationEventMulticaster</code> 的 <code>multicastEvent</code> 方法进行事件的广播，这里广播的是 <code>ApplicationStartingEvent</code> 事件，我们进入 <code>multicastEvent</code> 方法：</p>
+<pre><code><code>public class SimpleApplicationEventMulticaster extends AbstractApplicationEventMulticaster {
+
+    ...
+    
+    @Override
+    public void multicastEvent(ApplicationEvent event) {
+        multicastEvent(event, resolveDefaultEventType(event));
+    }
+
+    @Override
+    public void multicastEvent(final ApplicationEvent event, @Nullable ResolvableType eventType) {
+        ResolvableType type = (eventType != null ? eventType : resolveDefaultEventType(event));
+        Executor executor = getTaskExecutor();
+        for (ApplicationListener&lt;?&gt; listener : getApplicationListeners(event, type)) {
+            if (executor != null) {
+                executor.execute(() -&gt; invokeListener(listener, event));
+            }
+            else {
+                invokeListener(listener, event);
+            }
+        }
+    }
+}</code></pre>
+<p>通过 <code>getApplicationListeners</code> 方法，根据事件类型返回从上面关联的 <code>ApplicationListener</code> 集合中筛选出匹配的 <code>ApplicationListener</code> 集合，根据 <code>Spring Boot</code> 版本的不同，在这个阶段获取到的监听器也有可能不同，如 <code>2.1.6.BUILD-SNAPSHOT</code> 版本返回的是：<br />
+<img src="./images/Spring Boot SpringApplication启动类（二） - SpringApplicationRunListener 、ConfigurableEnvironment 、ConfigurableApplicationContext0.png" alt="image" /></p>
+<p>然后依次遍历这些监听器，同步或异步的调用 <code>invokeListener</code> 方法：</p>
+<pre><code><code>protected void invokeListener(ApplicationListener&lt;?&gt; listener, ApplicationEvent event) {
+        ErrorHandler errorHandler = getErrorHandler();
+    if (errorHandler != null) {
+        try {
+            doInvokeListener(listener, event);
+        }
+        catch (Throwable err) {
+            errorHandler.handleError(err);
+        }
+    }
+    else {
+        doInvokeListener(listener, event);
+    }
+}
+
+...
+
+private void doInvokeListener(ApplicationListener listener, ApplicationEvent event) {
+        try {
+            listener.onApplicationEvent(event);
+        }
+        catch (ClassCastException ex) {
+            String msg = ex.getMessage();
+            if (msg == null || matchesClassCastMessage(msg, event.getClass())) {
+                // Possibly a lambda-defined listener which we could not resolve the generic event type for
+                // -&gt; let&#39;s suppress the exception and just log a debug message.
+                Log logger = LogFactory.getLog(getClass());
+                if (logger.isTraceEnabled()) {
+                    logger.trace(&quot;Non-matching event type for listener: &quot; + listener, ex);
+                }
+            }
+            else {
+                throw ex;
+            }
+        }
+    }</code></pre>
+<p>可以看到，最终调用的是 <code>doInvokeListener</code> 方法，在该方法中执行了 <code>ApplicationListener</code> 的 <code>onApplicationEvent</code> 方法，入参为广播的事件对象。我们就拿其中一个的监听器来看看 <code>onApplicationEvent</code> 中的实现，如 <code>BackgroundPreinitializer</code> 类：</p>
+<pre><code><code>public class BackgroundPreinitializer implements ApplicationListener&lt;SpringApplicationEvent&gt; {
+
+    ...
+    
+    @Override
+    public void onApplicationEvent(SpringApplicationEvent event) {
+        if (!Boolean.getBoolean(IGNORE_BACKGROUNDPREINITIALIZER_PROPERTY_NAME)
+                &amp;&amp; event instanceof ApplicationStartingEvent &amp;&amp; preinitializationStarted.compareAndSet(false, true)) {
+            performPreinitialization();
+        }
+        if ((event instanceof ApplicationReadyEvent || event instanceof ApplicationFailedEvent)
+                &amp;&amp; preinitializationStarted.get()) {
+            try {
+                preinitializationComplete.await();
+            }
+            catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    
+    ...
+}</code></pre>
+<p>在该方法中，通过 <code>instanceof</code> 判断事件的类型，从而进行相应的操作。该监听器主要的操作是新建一个后台线程去执行那些耗时的初始化工作，包括验证器、消息转换器等。<code>LoggingApplicationListener</code> 监听器则是对 <code>Spring Boot</code> 的日志系统做一些初始化的前置操作。另外两个监听器在该阶段无任何操作。</p>
+<p>至此，<code>SpringBoot</code> 事件机制的整体流程大概如此，我们简要回顾一下几个核心组件：</p>
+<ul>
+<li><p>SpringApplicationRunListeners：首先，在 <code>run</code> 方法的执行过程中，通过该类在 <code>SpringBoot</code> 不同的阶段调用不同的阶段方法，如在刚启动阶段调用的 <code>starting</code> 方法。</p></li>
+<li><p>SpringApplicationRunListener：而 <code>SpringApplicationRunListeners</code> 属于组合模式的实现，它里面关联了 <code>SpringApplicationRunListener</code> 实现类集合，当外部调用阶段方法时，会迭代执行该集合中的阶段方法。实现类集合是 <code>spring.factories</code> 文件中定义好的类。这里是一个扩展点，详细的后面述说。</p></li>
+<li><p>EventPublishingRunListener：该类是 <code>Spring Boot</code> 内置的 <code>SpringApplicationRunListener</code> 唯一实现类，所以，当外部调用各阶段的方法时，真正执行的是该类中的方法。</p></li>
+<li><p>SimpleApplicationEventMulticaster：在阶段方法中，会通过 <code>Spring</code> 的 <code>SimpleApplicationEventMulticaster</code> 事件广播器，广播各个阶段对应的事件，如这里的 <code>starting</code> 方法广播的事件是 <code>ApplicationStartingEvent</code> 。</p></li>
+<li><p>ApplicationListener：最后 <code>ApplicationListener</code> 的实现类也就是 <code>Spring Boot</code> 监听器会监听到广播的事件，根据不同的事件，进行相应的操作。这里的 <code>Spring Boot</code> 监听器是也是在 <code>spring.factories</code> 中定义好的，这里我们也可自行扩展。</p></li>
+</ul>
+<p>到这里 <code>Spring Boot</code> 事件监听机制差不多就结束了，值得注意的是 <code>Spring Boot</code> 监听器实现的是 <code>Spring</code> 的 <code>ApplicationListener</code> 类，事件类最终继承的也是 <code>Spring</code> 的 <code>ApplicationEvent</code> 类，所以，<code>Spring Boot</code> 的事件和监听机制都基于 <code>Spring</code> 而实现的。</p>
+<h2 id="applicationarguments-加载启动参数">2.2 ApplicationArguments 加载启动参数</h2>
+<p>        当执行完 <code>listeners.starting</code> 方法后，接着进入构造 <code>ApplicationArguments</code> 阶段：</p>
+<pre><code><code>public class SpringApplication {
+
+    ...
+    
+    public ConfigurableApplicationContext run(String... args) {
+        
+        ...
+        
+        SpringApplicationRunListeners listeners = getRunListeners(args);
+        listeners.starting();
+        try {
+            ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
+            
+            ...
+        }
+    }
+    
+    ...
+}</code></pre>
+<p>该类是用于简化 <code>Spring Boot</code> 应用启动参数的封装接口，我们启动项目时输入的命令参数会封装在该类中。一种是通过 IDEA 输入的参数，如下：<br />
+<img src="./images/Spring Boot SpringApplication启动类（二） - SpringApplicationRunListener 、ConfigurableEnvironment 、ConfigurableApplicationContext1.png" alt="image" /></p>
+<p>另一种是 <code>springboot</code> jar包运行时传递的参数：cmd中运行<code>java -jar xxx.jar name=张三 pwa=123</code> 。</p>
+<p>然后，可以通过 <code>@Autowired</code> 注入 <code>ApplicationArguments</code> 的方式进行使用：</p>
+<pre><code><code>public class Test {
+
+    @Autowired
+    private ApplicationArguments applicationArguments;
+
+    public void getArgs() {
+        // 获取 args 中的所有 non option 参数
+        applicationArguments.getNonOptionArgs();
+
+        // 获取 args 中所有的 option 参数的 name
+        applicationArguments.getOptionNames();
+
+        // 获取传递给应用程序的原始未处理参数
+        applicationArguments.getSourceArgs();
+
+        // 获取 args 中指定 name 的 option 参数的值
+        applicationArguments.getOptionValues(&quot;nmae&quot;);
+
+        // 判断从参数中解析的 option 参数是否包含指定名称的选项
+        applicationArguments.containsOption(&quot;name&quot;);
+    }
+}</code></pre>
+<h2 id="configurableenvironment-加载外部化配置">2.3 ConfigurableEnvironment 加载外部化配置</h2>
+<p>        接着进入构造 <code>ConfigurableEnvironment</code> 的阶段，该类是用来处理我们外部化配置的，如 <code>properties</code>、<code>YAML</code> 等，提供对配置文件的基础操作。当然，它能处理的外部配置可不仅仅如此，详细的在下篇文章讨论，这里我们进行简要了解即可，进入创建该类的 <code>prepareEnvironment</code> 方法：</p>
+<pre><code><code>private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners,
+            ApplicationArguments applicationArguments) {
+    // Create and configure the environment
+    ConfigurableEnvironment environment = getOrCreateEnvironment();
+    configureEnvironment(environment, applicationArguments.getSourceArgs());
+    listeners.environmentPrepared(environment);
+    bindToSpringApplication(environment);
+    if (!this.isCustomEnvironment) {
+        environment = new EnvironmentConverter(getClassLoader()).convertEnvironmentIfNecessary(environment,
+                deduceEnvironmentClass());
+    }
+    ConfigurationPropertySources.attach(environment);
+    return environment;
+}</code></pre>
+<p>这里通过 <code>getOrCreateEnvironment</code> 方法返回具体的 <code>Environment</code>：</p>
+<pre><code><code>private ConfigurableEnvironment getOrCreateEnvironment() {
+        if (this.environment != null) {
+            return this.environment;
+        }
+        switch (this.webApplicationType) {
+        case SERVLET:
+            return new StandardServletEnvironment();
+        case REACTIVE:
+            return new StandardReactiveWebEnvironment();
+        default:
+            return new StandardEnvironment();
+        }
+    }</code></pre>
+<p>可以看到，这里通过 <code>webApplicationType</code> 属性来判断当前应用的类型，有 <code>Servlet</code> 、 <code>Reactive</code> 、 非Web 3种类型，该属性也是在上篇文章中 <code>SpringApplication</code> 准备阶段确定的，这里我们通常都是 <code>Servlet</code> 类型，返回的是 <code>StandardServletEnvironment</code> 实例。</p>
+<p>之后，还调用了 <code>SpringApplicationRunListeners</code> 的 <code>environmentPrepared</code> 阶段方法，表示 <code>ConfigurableEnvironment</code> 构建完成，同时向 <code>Spring Boot</code> 监听器发布 <code>ApplicationEnvironmentPreparedEvent</code> 事件。监听该事件的监听器有：<br />
+<img src="./images/Spring Boot SpringApplication启动类（二） - SpringApplicationRunListener 、ConfigurableEnvironment 、ConfigurableApplicationContext2.png" alt="image" /></p>
+<h2 id="configurableapplicationcontext-创建-spring-应用上下文">2.4 ConfigurableApplicationContext 创建 Spring 应用上下文</h2>
+<p>        这里通过 <code>createApplicationContext</code> 方法创建 <code>Spring</code> 应用上下文，实际上 <code>Spring</code> 的应用上下文才是驱动 <code>Spring Boot</code> 的核心引擎：</p>
+<pre><code><code>public class SpringApplication {
+
+    ...
+
+    public static final String DEFAULT_CONTEXT_CLASS = &quot;org.springframework.context.&quot;
+            + &quot;annotation.AnnotationConfigApplicationContext&quot;;
+
+    public static final String DEFAULT_SERVLET_WEB_CONTEXT_CLASS = &quot;org.springframework.boot.&quot;
+            + &quot;web.servlet.context.AnnotationConfigServletWebServerApplicationContext&quot;;
+
+    public static final String DEFAULT_REACTIVE_WEB_CONTEXT_CLASS = &quot;org.springframework.&quot;
+            + &quot;boot.web.reactive.context.AnnotationConfigReactiveWebServerApplicationContext&quot;;
+
+    ...
+
+    protected ConfigurableApplicationContext createApplicationContext() {
+        Class&lt;?&gt; contextClass = this.applicationContextClass;
+        if (contextClass == null) {
+            try {
+                switch (this.webApplicationType) {
+                case SERVLET:
+                    contextClass = Class.forName(DEFAULT_SERVLET_WEB_CONTEXT_CLASS);
+                    break;
+                case REACTIVE:
+                    contextClass = Class.forName(DEFAULT_REACTIVE_WEB_CONTEXT_CLASS);
+                    break;
+                default:
+                    contextClass = Class.forName(DEFAULT_CONTEXT_CLASS);
+                }
+            }
+            catch (ClassNotFoundException ex) {
+                throw new IllegalStateException(
+                        &quot;Unable create a default ApplicationContext, &quot; + &quot;please specify an ApplicationContextClass&quot;,
+                        ex);
+            }
+        }
+        return (ConfigurableApplicationContext) BeanUtils.instantiateClass(contextClass);
+    }
+    
+    ...
+}</code></pre>
+<p>这里也是通过 <code>webApplicationType</code> 属性来确定应用类型从而创建 <code>String</code> 上下文，上篇文章说到该属性值是在 <code>Spring Boot</code> 准备阶段推导出来的。这里我们的应用类型是 <code>Servlet</code> ，所以创建的是 <code>AnnotationConfigServletWebServerApplicationContext</code> 对象。创建完 <code>Spring</code> 应用上下文之后，执行 <code>prepareContext</code> 方法进入准备上下文阶段：</p>
+<pre><code><code>private void prepareContext(ConfigurableApplicationContext context, ConfigurableEnvironment environment,
+            SpringApplicationRunListeners listeners, ApplicationArguments applicationArguments, Banner printedBanner) {
+    context.setEnvironment(environment);
+    postProcessApplicationContext(context);
+    applyInitializers(context);
+    listeners.contextPrepared(context);
+    if (this.logStartupInfo) {
+        logStartupInfo(context.getParent() == null);
+        logStartupProfileInfo(context);
+    }
+    // Add boot specific singleton beans
+    ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
+    beanFactory.registerSingleton(&quot;springApplicationArguments&quot;, applicationArguments);
+    if (printedBanner != null) {
+        beanFactory.registerSingleton(&quot;springBootBanner&quot;, printedBanner);
+    }
+    if (beanFactory instanceof DefaultListableBeanFactory) {
+        ((DefaultListableBeanFactory) beanFactory)
+                .setAllowBeanDefinitionOverriding(this.allowBeanDefinitionOverriding);
+    }
+    // Load the sources
+    Set&lt;Object&gt; sources = getAllSources();
+    Assert.notEmpty(sources, &quot;Sources must not be empty&quot;);
+    load(context, sources.toArray(new Object[0]));
+    listeners.contextLoaded(context);
+}</code></pre>
+<p>我们来看看主要做了哪些操作：</p>
+<ol>
+<li><p>设置了 <code>Spring</code> 应用上下文的 <code>ApplicationArguments</code>，上面说过是处理外部化配置的，具体类型为 <code>StandardServletEnvironment</code> 。</p></li>
+<li><p><code>Spring</code> 应用上下文后置处理，主要是覆盖当前 <code>Spring</code> 应用上下文默认所关联的 <code>ResourceLoader</code> 和 <code>ClassLoader</code> 。</p></li>
+<li><p>执行 <code>Spring</code> 的初始化器，上篇文章说过在 <code>Spring Boot</code> 准备阶段初始化了一批在 <code>spring.factories</code> 文件中定义好的 <code>ApplicationContextInitializer</code> ，这里就是执行它们的 <code>initialize</code> 方法，同时这里也是一个扩展点，后面详细讨论。</p></li>
+<li><p>执行 <code>SpringApplicationRunListeners</code> 的 <code>contextPrepared</code> 阶段方法，表示 <code>ApplicationContext</code> 准备完成，同时向 <code>Spring Boot</code> 监听器发布 <code>ApplicationContextInitializedEvent</code> 事件 。</p></li>
+<li><p>将 <code>springApplicationArguments</code> 和 <code>springBootBanner</code> 注册为 <code>Bean</code>。</p></li>
+<li><p>加载 <code>Spring</code> 应用上下文的配置源，也是在上篇文章 <code>Spring Boot</code> 准备阶段获取的 <code>primarySources</code> 和 <code>sources</code> ，<code>primarySources</code> 来源于 <code>SpringApplication</code> 构造器参数，<code>sources</code> 则来源于自定义配置的 <code>setSources</code> 方法。</p></li>
+<li><p>最后执行 <code>SpringApplicationRunListeners</code> 的 <code>contextLoaded</code> 阶段方法，表示 <code>ApplicationContext</code> 完成加载但还未启动，同时向 <code>Spring Boot</code> 监听器发布 <code>ApplicationPreparedEvent</code> 事件 。</p></li>
+</ol>
+<p>接下来就是真正启动阶段，执行的是 <code>refreshContext</code> 方法：</p>
+<pre><code><code>private void refreshContext(ConfigurableApplicationContext context) {
+    refresh(context);
+    if (this.registerShutdownHook) {
+        try {
+            context.registerShutdownHook();
+        }
+        catch (AccessControlException ex) {
+            // Not allowed in some environments.
+        }
+    }
+}</code></pre>
+<pre><code><code>protected void refresh(ApplicationContext applicationContext) {
+        Assert.isInstanceOf(AbstractApplicationContext.class, applicationContext);
+    ((AbstractApplicationContext) applicationContext).refresh();
+}</code></pre>
+<p>可以看到，底层调用的是 <code>AbstractApplicationContext</code> 的 <code>refresh</code> 方法，到这里 <code>Spring</code> 应用正式启动，<code>Spring Boot</code> 核心特性也随之启动，如自动装配。随后执行 <code>SpringApplicationRunListeners</code> 的 <code>started</code> 阶段方法，表示 <code>ApplicationContext</code> 已启动，同时向 <code>Spring Boot</code> 监听器发布 <code>ApplicationStartedEvent</code> 事件 。但还未启动完成，后面还有一个 <code>callRunners</code> 方法，一般来讲，里面执行一些我们自定义的操作。之后 <code>Spring</code> 应用才算启动完成，随后调用 <code>running</code> 方法，发布 <code>ApplicationReadyEvent</code> 事件。至此，<code>SpringApplication</code> 运行阶段结束。</p>
+<h1 id="总结">3、总结</h1>
+<p>        最后来对 <code>SpringApplication</code> 运行阶段做一个总结。这个阶段核心还是以启动 <code>Spring</code> 应用上下文为主，同时根据应用类型来初始化不同的上下文对象，但这些对象的基类都是 <code>Spring</code>的 <code>ConfigurableApplicationContext</code> 类。且在启动的各个阶段中，使用 <code>SpringApplicationRunListeners</code> 进行事件广播，回调 <code>Spring Boot</code> 的监听器。同时还初始化了 <code>ApplicationArguments</code> 、<code>ConfigurableEnvironment</code> 等几个组件。下篇文章我们就来讨论 <code>Spring Boot</code> 的外部化配置部分，来看看为什么外部的各个组件，如 <code>Redis</code>、<code>Dubbo</code> 等在 <code>properties</code> 文件中进行相应配置后，就可以正常使用。</p>
+<p>以上就是本章的内容，如过文章中有错误或者需要补充的请及时提出，本人感激不尽。 <br/><br/><br/><br />
+参考：</p>
+<p>《Spring Boot 编程思想》<br />
+https://www.cnblogs.com/youzhibing/p/9603119.html<br />
+https://www.jianshu.com/p/b86a7c8b3442<br />
+https://www.cnblogs.com/duanxz/p/11243271.html<br />
+https://www.jianshu.com/p/7a674c59d76e</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

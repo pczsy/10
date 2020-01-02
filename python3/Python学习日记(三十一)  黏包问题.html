@@ -1,0 +1,719 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python学习日记(三十一)  黏包问题' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python学习日记(三十一)  黏包问题</center></div><div class='banquan'>原文出处:本文由博客园博主Fantac提供。<br/>
+原文连接:https://www.cnblogs.com/Fantac/p/11527758.html</div><br>
+    <div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> subprocess
+
+res </span>= subprocess.Popen(<span style="color: #800000;">'</span><span style="color: #800000;">dir</span><span style="color: #800000;">'</span>,shell=True,stdout=subprocess.PIPE,stderr=<span style="color: #000000;">subprocess.PIPE)
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Stdout:</span><span style="color: #800000;">'</span>,res.stdout.read().decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Stderr:</span><span style="color: #800000;">'</span>,res.stderr.read().decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span>))</pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">PIPE把输出的东西装到一个'水管'里,如果在windows中的编码格式是gbk,执行结果:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">Stdout:  驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+</span>2019/09/16  13:48    &lt;DIR&gt;<span style="color: #000000;">          .
+</span>2019/09/16  13:48    &lt;DIR&gt;<span style="color: #000000;">          ..
+</span>2019/09/16  13:47    &lt;DIR&gt;<span style="color: #000000;">          .idea
+</span>2019/09/16  13:46                21<span style="color: #000000;"> Client1.py
+</span>2019/09/16  13:42<span style="color: #000000;">                 0 Client2.py
+</span>2019/09/16  13:48               207<span style="color: #000000;"> Sever1.py
+</span>2019/09/16  01:41                70<span style="color: #000000;"> time_test.py
+</span>2019/09/14  23:51    &lt;DIR&gt;<span style="color: #000000;">          venv
+               </span>4 个文件            298<span style="color: #000000;"> 字节
+               </span>4 个目录 45,863,636,992<span style="color: #000000;"> 可用字节
+
+Stderr: </span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">在这里也可以使用os.popen()但是它会不管正确和错误的结果都放在一起,而用subprocess能够分别拿到正确和错误的信息</span></p>
+<p>&nbsp;</p>
+<p><strong><span style="font-family: 宋体; font-size: 18px; background-color: #ff0000; color: #ffffff;">基于TCP实现的黏包</span></strong></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.bind((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8092<span style="color: #000000;">))
+sk.listen()
+conn,addr </span>=<span style="color: #000000;"> sk.accept()
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    cmd </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">&lt;&lt;&lt;</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    conn.send(cmd.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    ret </span>= conn.recv(1024).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(ret)
+conn.close()
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> subprocess
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.connect((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8092<span style="color: #000000;">))
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    cmd </span>= sk.recv(1024).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    ret </span>= subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=<span style="color: #000000;">subprocess.PIPE)
+    std_out </span>= <span style="color: #800000;">'</span><span style="color: #800000;">stdout:</span><span style="color: #800000;">'</span> + (ret.stdout.read()).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    std_err </span>= <span style="color: #800000;">'</span><span style="color: #800000;">stderr:</span><span style="color: #800000;">'</span> + (ret.stderr.read()).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(std_out)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(std_err)
+    sk.send(std_out.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    sk.send(std_err.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+sk.close()</span></pre>
+</div>
+<p><strong><span style="font-family: 宋体; font-size: 18px;">执行结果:</span></strong></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code>&lt;&lt;&lt;<span style="color: #000000;">dir;ls
+stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">ipconfig
+stderr:找不到文件
+
+</span>&lt;&lt;&lt;</pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+
+stderr:找不到文件
+
+stdout:
+Windows IP 配置
+
+
+以太网适配器 Bluetooth 网络连接 </span>2<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+以太网适配器 本地连接:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+无线局域网适配器 无线网络连接:
+
+   连接特定的 DNS 后缀 . . . . . . . : 
+   本地链接 IPv6 地址. . . . . . . . : fe80::8c6:36a9:6fa6:</span>8018%14<span style="color: #000000;">
+   IPv4 地址 . . . . . . . . . . . . : </span>192.168.43.216<span style="color: #000000;">
+   子网掩码  . . . . . . . . . . . . : </span>255.255.255.0<span style="color: #000000;">
+   默认网关. . . . . . . . . . . . . : </span>192.168.43.1<span style="color: #000000;">
+
+隧道适配器 本地连接</span>* 3<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+stderr:</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">当我们在sever端输入dir;ls命令时,只有stdout的结果跑出来,而当我们输入ipconfig这个命令时,系统将上一次dir;ls未执行完的stderr的结果给跑出来。像这样没有接受完全或者接受多了的就是黏包现象。</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">TCP会有黏包现象但是它不丢包。</span></p>
+<p>&nbsp;</p>
+<p><span style="font-family: 宋体; font-size: 18px; background-color: #ff0000; color: #ffffff;">基于UDP实现的黏包</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+sk </span>= socket.socket(type=<span style="color: #000000;">socket.SOCK_DGRAM)
+sk.bind((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8092<span style="color: #000000;">))
+msg,addr </span>= sk.recvfrom(10240<span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">while</span> 1<span style="color: #000000;">:
+    cmd </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">&lt;&lt;&lt;</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">if</span> cmd == <span style="color: #800000;">'</span><span style="color: #800000;">q</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+    sk.sendto(cmd.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">),addr)
+    msg,addr </span>= sk.recvfrom(10240<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(msg.decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> subprocess
+sk </span>= socket.socket(type=<span style="color: #000000;">socket.SOCK_DGRAM)
+addr </span>= (<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8092<span style="color: #000000;">)
+sk.sendto(</span><span style="color: #800000;">'</span><span style="color: #800000;">Start</span><span style="color: #800000;">'</span>.encode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">),addr)
+</span><span style="color: #0000ff;">while</span> 1<span style="color: #000000;">:
+    cmd,addr </span>= sk.recvfrom(10240<span style="color: #000000;">)
+    ret </span>= subprocess.Popen(cmd.decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span>),shell=True,stderr=subprocess.PIPE,stdout=<span style="color: #000000;">subprocess.PIPE)
+    std_out </span>= <span style="color: #800000;">'</span><span style="color: #800000;">Stdout:</span><span style="color: #800000;">'</span> + (ret.stdout.read()).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    std_err </span>= <span style="color: #800000;">'</span><span style="color: #800000;">Stderr:</span><span style="color: #800000;">'</span> + (ret.stderr.read()).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(std_out)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(std_err)
+    sk.sendto(std_out.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">),addr)
+    sk.sendto(std_err.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">),addr)
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;"><strong>执行结果:</strong></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code>&lt;&lt;&lt;<span style="color: #000000;">dir;ls
+Stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">dir
+Stderr:找不到文件
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">ipconfig
+Stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+</span>2019/09/16  14:43    &lt;DIR&gt;<span style="color: #000000;">          .
+</span>2019/09/16  14:43    &lt;DIR&gt;<span style="color: #000000;">          ..
+</span>2019/09/16  14:37    &lt;DIR&gt;<span style="color: #000000;">          .idea
+</span>2019/09/16  14:43               553<span style="color: #000000;"> Client1.py
+</span>2019/09/16  13:42<span style="color: #000000;">                 0 Client2.py
+</span>2019/09/16  14:43               306<span style="color: #000000;"> Sever1.py
+</span>2019/09/16  01:41                70<span style="color: #000000;"> time_test.py
+</span>2019/09/14  23:51    &lt;DIR&gt;<span style="color: #000000;">          venv
+               </span>4 个文件            929<span style="color: #000000;"> 字节
+               </span>4 个目录 45,855,449,088<span style="color: #000000;"> 可用字节
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">pwd
+Stderr:
+</span>&lt;&lt;&lt;<span style="color: #000000;">ip
+Stdout:
+Windows IP 配置
+
+
+以太网适配器 Bluetooth 网络连接 </span>2<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+以太网适配器 本地连接:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+无线局域网适配器 无线网络连接:
+
+   连接特定的 DNS 后缀 . . . . . . . : 
+   本地链接 IPv6 地址. . . . . . . . : fe80::8c6:36a9:6fa6:</span>8018%14<span style="color: #000000;">
+   IPv4 地址 . . . . . . . . . . . . : </span>192.168.43.216<span style="color: #000000;">
+   子网掩码  . . . . . . . . . . . . : </span>255.255.255.0<span style="color: #000000;">
+   默认网关. . . . . . . . . . . . . : </span>192.168.43.1<span style="color: #000000;">
+
+隧道适配器 本地连接</span>* 3<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+</span>&lt;&lt;&lt;</pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">Stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+
+Stderr:找不到文件
+
+Stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+</span>2019/09/16  14:43    &lt;DIR&gt;<span style="color: #000000;">          .
+</span>2019/09/16  14:43    &lt;DIR&gt;<span style="color: #000000;">          ..
+</span>2019/09/16  14:37    &lt;DIR&gt;<span style="color: #000000;">          .idea
+</span>2019/09/16  14:43               553<span style="color: #000000;"> Client1.py
+</span>2019/09/16  13:42<span style="color: #000000;">                 0 Client2.py
+</span>2019/09/16  14:43               306<span style="color: #000000;"> Sever1.py
+</span>2019/09/16  01:41                70<span style="color: #000000;"> time_test.py
+</span>2019/09/14  23:51    &lt;DIR&gt;<span style="color: #000000;">          venv
+               </span>4 个文件            929<span style="color: #000000;"> 字节
+               </span>4 个目录 45,855,449,088<span style="color: #000000;"> 可用字节
+
+Stderr:
+Stdout:
+Windows IP 配置
+
+
+以太网适配器 Bluetooth 网络连接 </span>2<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+以太网适配器 本地连接:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+无线局域网适配器 无线网络连接:
+
+   连接特定的 DNS 后缀 . . . . . . . : 
+   本地链接 IPv6 地址. . . . . . . . : fe80::8c6:36a9:6fa6:</span>8018%14<span style="color: #000000;">
+   IPv4 地址 . . . . . . . . . . . . : </span>192.168.43.216<span style="color: #000000;">
+   子网掩码  . . . . . . . . . . . . : </span>255.255.255.0<span style="color: #000000;">
+   默认网关. . . . . . . . . . . . . : </span>192.168.43.1<span style="color: #000000;">
+
+隧道适配器 本地连接</span>* 3<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+Stderr:
+Stdout:
+Stderr:</span><span style="color: #800000;">'</span><span style="color: #800000;">pwd</span><span style="color: #800000;">'</span><span style="color: #000000;"> 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+
+Stdout:
+Stderr:</span><span style="color: #800000;">'</span><span style="color: #800000;">ip</span><span style="color: #800000;">'</span><span style="color: #000000;"> 不是内部或外部命令，也不是可运行的程序
+或批处理文件。</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">可以看出UDP不会有黏包现象,会产生丢包现象,没发完就不发了,不完整也不可靠。</span></p>
+<p>&nbsp;</p>
+<p><strong><span style="font-family: 宋体; font-size: 18px; background-color: #ff0000; color: #ffffff;">黏包成因</span></strong></p>
+<p><span style="font-family: 宋体; font-size: 18px;">TCP协议的数据传送</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><strong>拆包机制</strong></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">当发送端缓冲区的长度大于网卡的MTU时,TCP会将这次发送的数据拆成几个数据包发送出去。MTU是Maximum Transmission Unit的缩写,意思是网络上传送最大数据包,MTU是字节单位,大部分网络设备的MTU都是1500.<em><strong>如果本机的MTU比网关的MTU大,大的数据包就会被拆开来传送,这样会产生很多数据包碎片,增加丢包率,降低网络速度。</strong></em></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">在正常情况下它的拆包可理解为:</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><img src="./images/Python学习日记(三十一)  黏包问题0.png" alt="" width="596" height="104" /></span></p>
+<p><strong><span style="font-family: 宋体; font-size: 18px;">面向流的通信特点和Nagle算法</span></strong></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><span style="font-family: 宋体; font-size: 18px;">TCP(transport control protocol,传输控制协议),是面向连接的,面向流的,提供高可靠性的服务。收发两端(客户端和服务端)都要有一一成对的socket,因此发送端为了将多个发往接收端的包,更有效地发往对方,使用了优化算法(Nagle算法),将多次间隔较小且数据量小的数据,合并成一个大的数据块,然后进行封包。这样接收端就难于分辨出来了,必须提供科学的拆包机制。即面向流的通信是无消息保护边界的。</span></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><span style="font-family: 宋体; font-size: 18px;"><span style="font-family: 宋体; font-size: 18px;">对于空消息:TCP是基于数据流的,于是收发消息不能为空,这就需要在客户端和服务端都添加空消息的处理机制,防止程序卡住,而UDP协议是基于数据报的,即便是你输入的是空内容(直接回车),也可以被发送,UDP协议会帮你封装上消息然后发出去。</span></span></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><span style="font-family: 宋体; font-size: 18px;"><span style="font-family: 宋体; font-size: 18px;"><span style="font-family: 宋体; font-size: 18px;">可靠黏包的TCP协议:TCP协议数据不会丢,没有收完包,就会下次接收,会继续上次继续接受。</span></span></span></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><strong>基于tcp协议特点的黏包现象成因</strong></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><strong><img src="./images/Python学习日记(三十一)  黏包问题1.png" alt="" width="402" height="240" /></strong></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">当我们在socket服务端发送值1、2,然后根据优化算法,它会把1先放到这个缓存当中等一等,然后再把2一起封装起来,然后再发出去,因此我们看到的就是黏包现象</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">这种现象的表面现象是两个send太近且发送的消息太短</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">发送端可以使1K1K地发送数据,而接收端的应用程序可以两K两K地提走数据,当然也有可能一次提走3K或6K数据,或者一次只提走几个字节的数据。也就是说,应用程序所看到的数据是一个整体,或者说是一个流(stream),一条消息有多少字节对应程序是不可见的,因此TCP协议是面向流的协议,这也是容易出现黏包问题的原因。而UDP协议是面向消息的协议,每个UDP段都是一条消息,应用程序必须以消息单位提取数据,不能一次提取任意字节的数据,这一点和TCP是很不同的。</span></p>
+<p>&nbsp;</p>
+<p><span style="background-color: #ff0000; color: #ffffff; font-family: 宋体; font-size: 18px;"><strong>解决黏包的方法</strong></span></p>
+<p><em><strong><span style="font-family: 宋体; font-size: 18px;">解决方案一:</span></strong></em></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.bind((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8080<span style="color: #000000;">))
+sk.listen()
+conn,addr </span>=<span style="color: #000000;"> sk.accept()
+
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    cmd </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">&lt;&lt;&lt;</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">if</span> cmd == <span style="color: #800000;">'</span><span style="color: #800000;">q</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        conn.send(b</span><span style="color: #800000;">'</span><span style="color: #800000;">q</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+    conn.send(cmd.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    num </span>= conn.recv(1024).decode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    conn.send(b</span><span style="color: #800000;">'</span><span style="color: #800000;">ok</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    res </span>= conn.recv(int(num)).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(res)
+
+conn.close()
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> subprocess
+
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.connect((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8080<span style="color: #000000;">))
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    cmd </span>= sk.recv(1024).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">if</span> cmd == <span style="color: #800000;">'</span><span style="color: #800000;">q</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+    res </span>= subprocess.Popen(cmd,shell=<span style="color: #000000;">True,
+                           stdout</span>=<span style="color: #000000;">subprocess.PIPE,
+                           stderr</span>=<span style="color: #000000;">subprocess.PIPE)
+    std_out </span>=<span style="color: #000000;"> res.stdout.read()
+    std_err </span>=<span style="color: #000000;"> res.stderr.read()
+    sk.send(str(len(std_out) </span>+ len(std_err)).encode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    sk.recv(</span>1024<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Stdout:</span><span style="color: #800000;">'</span> + std_out.decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Stderr:</span><span style="color: #800000;">'</span> + std_err.decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    sk.send(std_out)
+    sk.send(std_err)
+
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">执行结果:</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code>&lt;&lt;&lt;<span style="color: #000000;">dir
+ 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+</span>2019/09/17  15:33    &lt;DIR&gt;<span style="color: #000000;">          .
+</span>2019/09/17  15:33    &lt;DIR&gt;<span style="color: #000000;">          ..
+</span>2019/09/17  15:31    &lt;DIR&gt;<span style="color: #000000;">          .idea
+</span>2019/09/17  15:33               623<span style="color: #000000;"> Client1.py
+</span>2019/09/16  13:42<span style="color: #000000;">                 0 Client2.py
+</span>2019/09/17  15:21               389<span style="color: #000000;"> Sever1.py
+</span>2019/09/16  01:41                70<span style="color: #000000;"> time_test.py
+</span>2019/09/14  23:51    &lt;DIR&gt;<span style="color: #000000;">          venv
+               </span>4 个文件          1,082<span style="color: #000000;"> 字节
+               </span>4 个目录 45,031,833,600<span style="color: #000000;"> 可用字节
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">ls
+</span><span style="color: #800000;">'</span><span style="color: #800000;">ls</span><span style="color: #800000;">'</span><span style="color: #000000;"> 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">ipconfig
+
+Windows IP 配置
+
+
+以太网适配器 Bluetooth 网络连接 </span>2<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+以太网适配器 本地连接:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+无线局域网适配器 无线网络连接:
+
+   连接特定的 DNS 后缀 . . . . . . . : 
+   本地链接 IPv6 地址. . . . . . . . : fe80::8c6:36a9:6fa6:</span>8018%14<span style="color: #000000;">
+   IPv4 地址 . . . . . . . . . . . . : </span>192.168.43.216<span style="color: #000000;">
+   子网掩码  . . . . . . . . . . . . : </span>255.255.255.0<span style="color: #000000;">
+   默认网关. . . . . . . . . . . . . : </span>192.168.43.1<span style="color: #000000;">
+
+隧道适配器 本地连接</span>* 3<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+</span>&lt;&lt;&lt;</pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">Stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+</span>2019/09/17  15:33    &lt;DIR&gt;<span style="color: #000000;">          .
+</span>2019/09/17  15:33    &lt;DIR&gt;<span style="color: #000000;">          ..
+</span>2019/09/17  15:31    &lt;DIR&gt;<span style="color: #000000;">          .idea
+</span>2019/09/17  15:33               623<span style="color: #000000;"> Client1.py
+</span>2019/09/16  13:42<span style="color: #000000;">                 0 Client2.py
+</span>2019/09/17  15:21               389<span style="color: #000000;"> Sever1.py
+</span>2019/09/16  01:41                70<span style="color: #000000;"> time_test.py
+</span>2019/09/14  23:51    &lt;DIR&gt;<span style="color: #000000;">          venv
+               </span>4 个文件          1,082<span style="color: #000000;"> 字节
+               </span>4 个目录 45,031,833,600<span style="color: #000000;"> 可用字节
+
+Stderr:
+Stdout:
+Stderr:</span><span style="color: #800000;">'</span><span style="color: #800000;">ls</span><span style="color: #800000;">'</span><span style="color: #000000;"> 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+
+Stdout:
+Windows IP 配置
+
+
+以太网适配器 Bluetooth 网络连接 </span>2<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+以太网适配器 本地连接:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+无线局域网适配器 无线网络连接:
+
+   连接特定的 DNS 后缀 . . . . . . . : 
+   本地链接 IPv6 地址. . . . . . . . : fe80::8c6:36a9:6fa6:</span>8018%14<span style="color: #000000;">
+   IPv4 地址 . . . . . . . . . . . . : </span>192.168.43.216<span style="color: #000000;">
+   子网掩码  . . . . . . . . . . . . : </span>255.255.255.0<span style="color: #000000;">
+   默认网关. . . . . . . . . . . . . : </span>192.168.43.1<span style="color: #000000;">
+
+隧道适配器 本地连接</span>* 3<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+Stderr:</span></pre>
+</div>
+<p><span style="font-family: 宋体;"><span style="font-size: 18px;">这种写法的好处就是能确定Sever到底要接受多少数据,不好的地方就是多了一次交互</span></span></p>
+<p><em><strong><span style="font-family: 宋体;"><span style="font-size: 18px;">解决方案二:</span></span><span style="font-family: 宋体;"><span style="font-size: 18px;">使用struct模块</span></span></strong></em></p>
+<p><span style="font-family: 宋体; font-size: 18px;">用struct模块我们能把一个数据类型转换成固定长度的bytes</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;"><img src="./images/Python学习日记(三十一)  黏包问题2.png" alt="" width="597" height="374" /></span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">这里以数字类型举例,'i'代表int类型:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> struct
+</span><span style="color: #0000ff;">print</span>(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,2048),len(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,2048)))         <span style="color: #008000;">#</span><span style="color: #008000;">b'\x00\x08\x00\x00'    4</span>
+<span style="color: #0000ff;">print</span>(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,204800),len(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,204800)))     <span style="color: #008000;">#</span><span style="color: #008000;">b'\x00 \x03\x00'       4</span>
+<span style="color: #0000ff;">print</span>(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,2048000),len(struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span>,2048000)))   <span style="color: #008000;">#</span><span style="color: #008000;">b'\x00@\x1f\x00'       4</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">当后面的数值戳过一定范围的时候程序就会报错</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> struct
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.bind((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8080<span style="color: #000000;">))
+sk.listen()
+conn,addr </span>=<span style="color: #000000;"> sk.accept()
+
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    cmd </span>= input(<span style="color: #800000;">'</span><span style="color: #800000;">&lt;&lt;&lt;</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">if</span> cmd == <span style="color: #800000;">'</span><span style="color: #800000;">q</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        conn.send(b</span><span style="color: #800000;">'</span><span style="color: #800000;">q</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+    conn.send(cmd.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    num </span>= conn.recv(4<span style="color: #000000;">)
+    num </span>= struct.unpack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">,num)[0]
+    res </span>= conn.recv(int(num)).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(res)
+
+conn.close()
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> subprocess
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> struct
+
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.connect((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8080<span style="color: #000000;">))
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    cmd </span>= sk.recv(1024).decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">if</span> cmd == <span style="color: #800000;">'</span><span style="color: #800000;">q</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+    res </span>= subprocess.Popen(cmd,shell=<span style="color: #000000;">True,
+                           stdout</span>=<span style="color: #000000;">subprocess.PIPE,
+                           stderr</span>=<span style="color: #000000;">subprocess.PIPE)
+    std_out </span>=<span style="color: #000000;"> res.stdout.read()
+    std_err </span>=<span style="color: #000000;"> res.stderr.read()
+    len_num </span>= len(std_out) +<span style="color: #000000;"> len(std_err)
+    num_by </span>= struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">,len_num)
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Stdout:</span><span style="color: #800000;">'</span> + std_out.decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">Stderr:</span><span style="color: #800000;">'</span> + std_err.decode(<span style="color: #800000;">'</span><span style="color: #800000;">gbk</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    sk.send(num_by)
+    sk.send(std_out)
+    sk.send(std_err)
+
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">执行结果:</span></p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('ce80cc04-f571-4d3d-94df-5e8bbfa5c7ea')"><img id="code_img_closed_ce80cc04-f571-4d3d-94df-5e8bbfa5c7ea" class="code_img_closed" src="./images/Python学习日记(三十一)  黏包问题3.png" alt="" /><img id="code_img_opened_ce80cc04-f571-4d3d-94df-5e8bbfa5c7ea" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('ce80cc04-f571-4d3d-94df-5e8bbfa5c7ea',event)" src="./images/Python学习日记(三十一)  黏包问题4.png" alt="" />
+<div id="cnblogs_code_open_ce80cc04-f571-4d3d-94df-5e8bbfa5c7ea" class="cnblogs_code_hide">
+<pre><code>&lt;&lt;&lt;<span style="color: #000000;">dir
+ 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+</span>2019/09/17  16:25    &lt;DIR&gt;<span style="color: #000000;">          .
+</span>2019/09/17  16:25    &lt;DIR&gt;<span style="color: #000000;">          ..
+</span>2019/09/17  16:23    &lt;DIR&gt;<span style="color: #000000;">          .idea
+</span>2019/09/17  16:25               659<span style="color: #000000;"> Client1.py
+</span>2019/09/16  13:42<span style="color: #000000;">                 0 Client2.py
+</span>2019/09/17  16:22               400<span style="color: #000000;"> Sever1.py
+</span>2019/09/17  16:08               288<span style="color: #000000;"> time_test.py
+</span>2019/09/14  23:51    &lt;DIR&gt;<span style="color: #000000;">          venv
+               </span>4 个文件          1,347<span style="color: #000000;"> 字节
+               </span>4 个目录 45,025,951,744<span style="color: #000000;"> 可用字节
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">configip
+</span><span style="color: #800000;">'</span><span style="color: #800000;">configip</span><span style="color: #800000;">'</span><span style="color: #000000;"> 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+
+</span>&lt;&lt;&lt;<span style="color: #000000;">ipconfig
+
+Windows IP 配置
+
+
+以太网适配器 Bluetooth 网络连接 </span>2<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+以太网适配器 本地连接:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+无线局域网适配器 无线网络连接:
+
+   连接特定的 DNS 后缀 . . . . . . . : 
+   本地链接 IPv6 地址. . . . . . . . : fe80::8c6:36a9:6fa6:</span>8018%14<span style="color: #000000;">
+   IPv4 地址 . . . . . . . . . . . . : </span>192.168.43.216<span style="color: #000000;">
+   子网掩码  . . . . . . . . . . . . : </span>255.255.255.0<span style="color: #000000;">
+   默认网关. . . . . . . . . . . . . : </span>192.168.43.1<span style="color: #000000;">
+
+隧道适配器 本地连接</span>* 3<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+</span>&lt;&lt;&lt;</pre>
+</div>
+<span class="cnblogs_code_collapse">Sever执行结果</span></div>
+<div class="cnblogs_code" onclick="cnblogs_code_show('6182044c-7157-426a-ba1a-c3efe35be5fd')"><img id="code_img_closed_6182044c-7157-426a-ba1a-c3efe35be5fd" class="code_img_closed" src="./images/Python学习日记(三十一)  黏包问题3.png" alt="" /><img id="code_img_opened_6182044c-7157-426a-ba1a-c3efe35be5fd" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('6182044c-7157-426a-ba1a-c3efe35be5fd',event)" src="./images/Python学习日记(三十一)  黏包问题4.png" alt="" />
+<div id="cnblogs_code_open_6182044c-7157-426a-ba1a-c3efe35be5fd" class="cnblogs_code_hide">
+<pre><code><span style="color: #000000;">Stdout: 驱动器 C 中的卷是 系统
+ 卷的序列号是 85C0</span>-<span style="color: #000000;">669A
+
+ C:\Users\Administrator\PycharmProjects\Internet_program 的目录
+
+</span>2019/09/17  16:25    &lt;DIR&gt;<span style="color: #000000;">          .
+</span>2019/09/17  16:25    &lt;DIR&gt;<span style="color: #000000;">          ..
+</span>2019/09/17  16:23    &lt;DIR&gt;<span style="color: #000000;">          .idea
+</span>2019/09/17  16:25               659<span style="color: #000000;"> Client1.py
+</span>2019/09/16  13:42<span style="color: #000000;">                 0 Client2.py
+</span>2019/09/17  16:22               400<span style="color: #000000;"> Sever1.py
+</span>2019/09/17  16:08               288<span style="color: #000000;"> time_test.py
+</span>2019/09/14  23:51    &lt;DIR&gt;<span style="color: #000000;">          venv
+               </span>4 个文件          1,347<span style="color: #000000;"> 字节
+               </span>4 个目录 45,025,951,744<span style="color: #000000;"> 可用字节
+
+Stderr:
+Stdout:
+Stderr:</span><span style="color: #800000;">'</span><span style="color: #800000;">configip</span><span style="color: #800000;">'</span><span style="color: #000000;"> 不是内部或外部命令，也不是可运行的程序
+或批处理文件。
+
+Stdout:
+Windows IP 配置
+
+
+以太网适配器 Bluetooth 网络连接 </span>2<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+以太网适配器 本地连接:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+无线局域网适配器 无线网络连接:
+
+   连接特定的 DNS 后缀 . . . . . . . : 
+   本地链接 IPv6 地址. . . . . . . . : fe80::8c6:36a9:6fa6:</span>8018%14<span style="color: #000000;">
+   IPv4 地址 . . . . . . . . . . . . : </span>192.168.43.216<span style="color: #000000;">
+   子网掩码  . . . . . . . . . . . . : </span>255.255.255.0<span style="color: #000000;">
+   默认网关. . . . . . . . . . . . . : </span>192.168.43.1<span style="color: #000000;">
+
+隧道适配器 本地连接</span>* 3<span style="color: #000000;">:
+
+   媒体状态  . . . . . . . . . . . . : 媒体已断开
+   连接特定的 DNS 后缀 . . . . . . . : 
+
+Stderr:</span></pre>
+</div>
+<span class="cnblogs_code_collapse">Client执行结果</span></div>
+<p><strong><span style="font-family: 宋体; font-size: 18px; background-color: #ff0000; color: #ffffff;">实现一个大文件的传输和下载</span></strong></p>
+<p><span style="font-family: 宋体; font-size: 18px;">当我们在网络上传输所有数据时,这些数据都叫数据包,数据包里的所有数据都叫报文,报文里不止有你的数据还有IP地址、MAC地址、端口号等,所有的报文都有报头,这是由协议规定的。所有在网络上传播数据包的协议里都有一个报头。什么时候需要自己定制报文?比如说复杂的应用上就会应用到、传输文件的时候(文件名、文件大小、文件类型、存储路径等)...</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">其实在网络传输的过程当中处处有协议,协议就是一堆报头和报文(都由字节组成)。</span></p>
+<p><span style="font-family: 宋体; font-size: 18px;">Sever:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> struct
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+buffer </span>= 1024<span style="color: #000000;">
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.bind((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8080<span style="color: #000000;">))
+sk.listen()
+
+conn,addr </span>=<span style="color: #000000;"> sk.accept()
+
+head_len </span>= conn.recv(4<span style="color: #000000;">)
+struct.unpack(</span><span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">,head_len)[0]
+json_head </span>= conn.recv(head_len).decode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+head </span>=<span style="color: #000000;"> json.loads(json_head)
+file_size </span>= head[<span style="color: #800000;">'</span><span style="color: #800000;">fileSize</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+
+with open(r</span><span style="color: #800000;">'</span><span style="color: #800000;">dir\%s</span><span style="color: #800000;">'</span>%head[<span style="color: #800000;">'</span><span style="color: #800000;">fileName</span><span style="color: #800000;">'</span>],<span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> file_size:
+        </span><span style="color: #0000ff;">if</span> file_size &gt;=<span style="color: #000000;"> buffer:
+            content </span>=<span style="color: #000000;"> conn.recv(buffer)
+            f.write(content)
+            file_size </span>-=<span style="color: #000000;"> buffer
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            content </span>=<span style="color: #000000;"> conn.recv(buffer)
+            f.write(content)
+            </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+conn.close()
+sk.close()</span></pre>
+</div>
+<p><span style="font-family: 宋体; font-size: 18px;">Client:</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> struct
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+
+sk </span>=<span style="color: #000000;"> socket.socket()
+sk.connect((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8080<span style="color: #000000;">))
+buffer </span>= 1024<span style="color: #000000;">
+head </span>= {<span style="color: #800000;">'</span><span style="color: #800000;">filePath</span><span style="color: #800000;">'</span> : r<span style="color: #800000;">'</span><span style="color: #800000;">C:\Users\Administrator\Desktop\专题\海報資料夾\专题海报</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">fileName</span><span style="color: #800000;">'</span> : r<span style="color: #800000;">'</span><span style="color: #800000;">专题海报</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+        </span><span style="color: #800000;">'</span><span style="color: #800000;">fileSize</span><span style="color: #800000;">'</span><span style="color: #000000;"> : None}
+file_path </span>= os.path.join(head[<span style="color: #800000;">'</span><span style="color: #800000;">filePath</span><span style="color: #800000;">'</span>],head[<span style="color: #800000;">'</span><span style="color: #800000;">fileName</span><span style="color: #800000;">'</span><span style="color: #000000;">])
+file_size </span>=<span style="color: #000000;"> os.path.getsize(file_path)
+
+head[</span><span style="color: #800000;">'</span><span style="color: #800000;">fileSize</span><span style="color: #800000;">'</span>] =<span style="color: #000000;"> file_size
+json_head </span>= json.dumps(head)                            <span style="color: #008000;">#</span><span style="color: #008000;">字典转成字典</span>
+bytes_head = json_head.encode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span>)                  <span style="color: #008000;">#</span><span style="color: #008000;">字符串转bytes</span>
+<span style="color: #000000;">
+head_len </span>= len(bytes_head)                              <span style="color: #008000;">#</span><span style="color: #008000;">报头的长度</span>
+pack_len = struct.pack(<span style="color: #800000;">'</span><span style="color: #800000;">i</span><span style="color: #800000;">'</span><span style="color: #000000;">,head_len)
+
+sk.send(pack_len)                                       </span><span style="color: #008000;">#</span><span style="color: #008000;">先发报头的长度</span>
+sk.send(bytes_head)                                     <span style="color: #008000;">#</span><span style="color: #008000;">再发bytes类型的报头</span>
+with open(r<span style="color: #800000;">'</span><span style="color: #800000;">dir\%s</span><span style="color: #800000;">'</span>%file_path,<span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> file_size:
+                </span><span style="color: #0000ff;">if</span> file_size &gt;=<span style="color: #000000;"> buffer:
+                        content </span>= f.read(buffer)  <span style="color: #008000;">#</span><span style="color: #008000;"> 每次文件读出的内容</span>
+<span style="color: #000000;">                        sk.send(content)
+                        file_size </span>-=<span style="color: #000000;"> buffer
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+                        content </span>=<span style="color: #000000;"> f.read(file_size)
+                        sk.send(content)
+                        </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+sk.close()</span></pre>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

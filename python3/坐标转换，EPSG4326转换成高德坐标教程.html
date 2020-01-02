@@ -1,0 +1,154 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修坐标转换，EPSG4326转换成高德坐标教程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>坐标转换，EPSG4326转换成高德坐标教程</center></div><div class='banquan'>原文出处:本文由博客园博主小猪噜噜提供。<br/>
+原文连接:https://www.cnblogs.com/ixzll/p/11534542.html</div><br>
+    <p>这里先给大家介绍几个坐标系：</p>
+<p>1.WGS84：国际坐标系，为一种大地坐标系，也是目前广泛使用的GPS全球卫星定位系统使用的坐标系。<br />2.GCJ02：火星坐标系，是由中国国家测绘局制订的地理信息系统的坐标系统。由WGS84坐标系经加密后的坐标系。</p>
+<p>工作中有时需要将shape数据转换成高德坐标数据，由于目前数据大部分都是WGS84国际坐标系，因此需要通过使用高德地图提供的API将84坐标转换成GCJ02即火星坐标系。</p>
+<p>第一步：准备数据</p>
+<p>方法1：</p>
+<p>从shape图上随机提取一些点，根据shape图形大小提取，如果图形较大，建议多提取一些。一般在拐点和图形的四周均匀选择。</p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程0.png" alt="" /></p>
+<p>点提取完成后获取坐标点的经纬度值。可以使用Arcgis的计算工具获取x,y值。画红框的地方需要注意，要选择十进制表示的经纬度。</p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程1.png" alt="" /></p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程2.png" alt="" width="994" height="556" /></p>
+<p>坐标提取完成后新建一个excel表，将x,y值分别复制黏贴在excel表中的前两列。</p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程3.png" alt="" /></p>
+<p>方法2：</p>
+<p>将shape数据存入postgresql，并使用postgis提供的函数随机从shape上提取点，并取出其x,y值。此方法是随机选择，因此选择的点未必均匀分布在图形四周和拐点处。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">SELECT</span> ST_X(geom), ST_Y(geom) <span style="color: #0000ff;">from</span><span style="color: #000000;">(
+</span><span style="color: #008080;">2</span>     <span style="color: #0000ff;">SELECT</span>
+<span style="color: #008080;">3</span>         (ST_Dump (ST_GeneratePoints (nanjing.geom, <span style="color: #800000; font-weight: bold;">20</span>))).geom <span style="color: #0000ff;">AS</span><span style="color: #000000;"> geom,
+</span><span style="color: #008080;">4</span>          md5((random()<span style="color: #808080;">*</span>random())::<span style="color: #0000ff;">text</span>) <span style="color: #0000ff;">as</span><span style="color: #000000;"> id,
+</span><span style="color: #008080;">5</span>          random()<span style="color: #808080;">*</span><span style="color: #800000; font-weight: bold;">1000</span> <span style="color: #0000ff;">as</span><span style="color: #000000;"> val
+</span><span style="color: #008080;">6</span>          <span style="color: #0000ff;">FROM</span> nanjing <span style="color: #0000ff;">where</span> name <span style="color: #808080;">=</span> <span style="color: #ff0000;">'</span><span style="color: #ff0000;">浦口区</span><span style="color: #ff0000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">7</span>          k1</pre>
+</div>
+<p>第二步：执行下面的python代码调取高德API进行坐标转换</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> xlrd
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">from</span> xlutils.copy <span style="color: #0000ff;">import</span><span style="color: #000000;"> copy
+</span><span style="color: #008080;"> 3</span> <span style="color: #0000ff;">from</span> urllib <span style="color: #0000ff;">import</span><span style="color: #000000;"> request
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #008080;"> 5</span> 
+<span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> ToGd():
+</span><span style="color: #008080;"> 8</span>     <span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span>(self, key, coordsys=<span style="color: #800000;">'</span><span style="color: #800000;">gps</span><span style="color: #800000;">'</span>, output=<span style="color: #800000;">'</span><span style="color: #800000;">JSON</span><span style="color: #800000;">'</span><span style="color: #000000;">):
+</span><span style="color: #008080;"> 9</span>         self.key = key  <span style="color: #008000;">#</span><span style="color: #008000;"> 高德应用的key</span>
+<span style="color: #008080;">10</span>         self.coordsys = coordsys  <span style="color: #008000;">#</span><span style="color: #008000;"> 原坐标系，默认选择gps，此处实际对应4326的坐标系</span>
+<span style="color: #008080;">11</span>         self.output = output  <span style="color: #008000;">#</span><span style="color: #008000;"> 设置高德api数据返回类型，可选JSON和xml</span>
+<span style="color: #008080;">12</span>         self.file_path = input(<span style="color: #800000;">'</span><span style="color: #800000;">请输入你的文件路径</span><span style="color: #800000;">'</span>)  <span style="color: #008000;">#</span><span style="color: #008000;"> 获取文件路径，即上面新建的excel文件名称</span>
+<span style="color: #008080;">13</span> 
+<span style="color: #008080;">14</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> split_li(self, locations_li):
+</span><span style="color: #008080;">15</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 拆分坐标列表</span>
+<span style="color: #008080;">16</span>         li =<span style="color: #000000;"> list()
+</span><span style="color: #008080;">17</span>         <span style="color: #0000ff;">for</span> location <span style="color: #0000ff;">in</span><span style="color: #000000;"> locations_li:
+</span><span style="color: #008080;">18</span>             location_li = location.split(<span style="color: #800000;">'</span><span style="color: #800000;">,</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">19</span>             <span style="color: #008000;">#</span><span style="color: #008000;"> print(location_li)</span>
+<span style="color: #008080;">20</span> <span style="color: #000000;">            li.append(location_li)
+</span><span style="color: #008080;">21</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> print(li)</span>
+<span style="color: #008080;">22</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> li
+</span><span style="color: #008080;">23</span> 
+<span style="color: #008080;">24</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> locations(self):
+</span><span style="color: #008080;">25</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 读取文件中的数据并返回locations字符串及原坐标列表</span>
+<span style="color: #008080;">26</span>         f =<span style="color: #000000;"> xlrd.open_workbook(self.file_path)
+</span><span style="color: #008080;">27</span>         index =<span style="color: #000000;"> f.sheet_names()[0]
+</span><span style="color: #008080;">28</span>         sheet =<span style="color: #000000;"> f.sheet_by_name(index)
+</span><span style="color: #008080;">29</span>         nrows =<span style="color: #000000;"> sheet.nrows
+</span><span style="color: #008080;">30</span>         data_str = <span style="color: #800000;">''</span>
+<span style="color: #008080;">31</span>         old_locations_li =<span style="color: #000000;"> list()
+</span><span style="color: #008080;">32</span>         <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(nrows):
+</span><span style="color: #008080;">33</span>             <span style="color: #0000ff;">if</span> i == (nrows - 1<span style="color: #000000;">):
+</span><span style="color: #008080;">34</span>                 data_li = str(sheet.row_values(i)[0]) + <span style="color: #800000;">'</span><span style="color: #800000;">,</span><span style="color: #800000;">'</span> + str(sheet.row_values(i)[1<span style="color: #000000;">])
+</span><span style="color: #008080;">35</span>             <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">36</span>                 data_li = str(sheet.row_values(i)[0]) + <span style="color: #800000;">'</span><span style="color: #800000;">,</span><span style="color: #800000;">'</span> + str(sheet.row_values(i)[1]) + <span style="color: #800000;">'</span><span style="color: #800000;">|</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">37</span>             data_str +=<span style="color: #000000;"> data_li
+</span><span style="color: #008080;">38</span> <span style="color: #000000;">            old_locations_li.append(sheet.row_values(i))
+</span><span style="color: #008080;">39</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> data_str, old_locations_li
+</span><span style="color: #008080;">40</span> 
+<span style="color: #008080;">41</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> make_response(self, locations):
+</span><span style="color: #008080;">42</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 构造请求url，并获取响应数据，返回拆分后的坐标列表</span>
+<span style="color: #008080;">43</span>         url = <span style="color: #800000;">'</span><span style="color: #800000;">https://restapi.amap.com/v3/assistant/coordinate/convert?locations=%s&amp;coordsys=%s&amp;output=%s&amp;key=%s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> \
+</span><span style="color: #008080;">44</span> <span style="color: #000000;">              (locations, self.coordsys, self.output, self.key)
+</span><span style="color: #008080;">45</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 返回值为json</span>
+<span style="color: #008080;">46</span>         resp_json =<span style="color: #000000;"> request.urlopen(url)
+</span><span style="color: #008080;">47</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> json转换成字典</span>
+<span style="color: #008080;">48</span>         resp_dict =<span style="color: #000000;"> json.loads(resp_json.read().decode())
+</span><span style="color: #008080;">49</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 提取转换为高德坐标后的坐标</span>
+<span style="color: #008080;">50</span>         locations_str = resp_dict.get(<span style="color: #800000;">'</span><span style="color: #800000;">locations</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">51</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 字符串分割</span>
+<span style="color: #008080;">52</span>         locations_li = locations_str.split(<span style="color: #800000;">'</span><span style="color: #800000;">;</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">53</span>         new_locations_li =<span style="color: #000000;"> self.split_li(locations_li)
+</span><span style="color: #008080;">54</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> new_locations_li
+</span><span style="color: #008080;">55</span> 
+<span style="color: #008080;">56</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> save(self, old_locations_li, new_locations_li):
+</span><span style="color: #008080;">57</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> 保存成excel或txt文件</span>
+<span style="color: #008080;">58</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> new_file = copy(f)</span>
+<span style="color: #008080;">59</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> new_sheet = new_file.get_sheet(0)</span>
+<span style="color: #008080;">60</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> for m in range(len(locations_li)):</span>
+<span style="color: #008080;">61</span>         <span style="color: #008000;">#</span><span style="color: #008000;">     for n in range(len(locations_li[m])):</span>
+<span style="color: #008080;">62</span>         <span style="color: #008000;">#</span><span style="color: #008000;">         new_sheet.write(m, n + 2, locations_li[m][n])</span>
+<span style="color: #008080;">63</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> file_path = self.file_path + '2'</span>
+<span style="color: #008080;">64</span>         <span style="color: #008000;">#</span><span style="color: #008000;"> new_file.save(file_path)</span>
+<span style="color: #008080;">65</span>         file_path = <span style="color: #800000;">'</span><span style="color: #800000;">result.txt</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">66</span>         with open(file_path, <span style="color: #800000;">'</span><span style="color: #800000;">w</span><span style="color: #800000;">'</span>, encoding=<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)as f:
+</span><span style="color: #008080;">67</span>             <span style="color: #0000ff;">for</span> m <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(len(new_locations_li)):
+</span><span style="color: #008080;">68</span>                 <span style="color: #008000;">#</span><span style="color: #008000;"> for n in range(len(new_locations_li[m])):</span>
+<span style="color: #008080;">69</span> <span style="color: #000000;">                f.write(str(old_locations_li[m][0]))
+</span><span style="color: #008080;">70</span>                 f.write(<span style="color: #800000;">'</span> <span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">71</span>                 f.write(str(old_locations_li[m][1<span style="color: #000000;">]))
+</span><span style="color: #008080;">72</span>                 f.write(<span style="color: #800000;">'</span> <span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">73</span> <span style="color: #000000;">                f.write(str(new_locations_li[m][0]))
+</span><span style="color: #008080;">74</span>                 f.write(<span style="color: #800000;">'</span> <span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">75</span>                 f.write(str(new_locations_li[m][1<span style="color: #000000;">]))
+</span><span style="color: #008080;">76</span>                 f.write(<span style="color: #800000;">'</span><span style="color: #800000;">\n</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">77</span> 
+<span style="color: #008080;">78</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+</span><span style="color: #008080;">79</span>         data_str, old_locations_li =<span style="color: #000000;"> self.locations()
+</span><span style="color: #008080;">80</span>         new_locations_li =<span style="color: #000000;"> self.make_response(data_str)
+</span><span style="color: #008080;">81</span> <span style="color: #000000;">        self.save(old_locations_li, new_locations_li)
+</span><span style="color: #008080;">82</span> 
+<span style="color: #008080;">83</span> 
+<span style="color: #008080;">84</span> <span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+</span><span style="color: #008080;">85</span>     test = ToGd(<span style="color: #800000;">'</span><span style="color: #800000;">154c586add07ef456b90b079935f47a4</span><span style="color: #800000;">'</span><span style="color: #000000;">)  # 输入高德应用的key，实例化对象
+</span><span style="color: #008080;">86</span>     test.run()</pre>
+</div>
+<p>代码由我自己编写，水平不高还请理解。</p>
+<p>执行上面的代码需要申请高德应用的key，相关申请方法可查看https://lbs.amap.com/dev/key</p>
+<p>代码执行完成后会在本地生成一个result.txt的文件，下面需要用这个文件做空间校正。</p>
+<p>第三步：空间校正</p>
+<p>在Arcgis中对需要做坐标转换的数据开启编辑功能，打开空间校正工具栏，输入连接文件。连接文件即第二步得出的result.txt文件。</p>
+<p>可以点击View Link Table查看误差值，如果误差值太大，需要重新做连接文件。</p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程4.png" alt="" /></p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程5.png" alt="" /></p>
+<p>选择需要校正的数据。</p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程6.png" alt="" /></p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程7.png" alt="" /></p>
+<p>点击校正。</p>
+<p><img src="./images/坐标转换，EPSG4326转换成高德坐标教程8.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;校正完成后即可得到与高德地图匹配的shape数据。</p>
+<p>上述方法只能用于小范围测试使用，未做精度评估。如需大规模商业化使用，还需再想别的方法。</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

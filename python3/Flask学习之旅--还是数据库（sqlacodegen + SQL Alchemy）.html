@@ -1,0 +1,197 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask学习之旅--还是数据库（sqlacodegen + SQL Alchemy）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask学习之旅--还是数据库（sqlacodegen + SQL Alchemy）</center></div><div class='banquan'>原文出处:本文由博客园博主TM0831提供。<br/>
+原文连接:https://www.cnblogs.com/TM0831/p/11555345.html</div><br>
+    <h2>一、写在前面</h2>
+<p>　　其实之前已经写过一篇关于 Flask 中使用数据库的博客了，不过那一篇博客主要是记录我在使用 Flask + MySQL8.0 时所遇到的一些问题（如果用的不是 MySQL8.0估计就没有这么多问题了！）。然后这一篇可以算作一份学习笔记了，也是关于在 Flask 中进行数据库操作的，感觉写这种学习笔记还是比较有用的，可以再学习一遍也就能更好的掌握了。</p>
+<p>　　在使用 Flask 的时候，一般都会创建一个 model.py，然后在里面继承和创建模型，再迁移到数据库中，最后进行一些增删改查等操作。但是如果数据库表已经建立好了呢？有没有办法将这些数据库表引入到 Flask 中呢？</p>
+<p>&nbsp;</p>
+<h2>二、sqlacodegen</h2>
+<h3>1.sqlacodegen简介</h3>
+<p>　　sqlacodegen pypi：<a href="https://pypi.org/project/sqlacodegen/">https://pypi.org/project/sqlacodegen/</a>。</p>
+<p>　　其中对 sqlacodegen 的介绍是：这是一个工具，它读取现有数据库的结构并生成相应的 SQLAlchemy 模型代码，如果可能，使用声明式样式。</p>
+<p>　　sqlacodegen 的几个主要特性为：</p>
+<p>　　1）支持 SQLAlchemy 0.8.x - 1.3.x。</p>
+<p>　　2）生成几乎看起来像是手写的声明性代码。</p>
+<p>　　3）生成符合&nbsp;<a href="http://www.python.org/dev/peps/pep-0008/" rel="nofollow">PEP 8</a>&nbsp;标准的代码。</p>
+<p>　　4）准确地确定关系，包括多对多，一对一。</p>
+<p>　　5）自动检测连接表继承。</p>
+<h3>2.sqlacodegen安装</h3>
+<p>　　使用 pip 安装即可：</p>
+<blockquote>
+<p><span>pip install sqlacodegen</span></p>
+</blockquote>
+<h3>3.sqlacodegen用法</h3>
+<p>　　下面是一个 sqlacodegen 用法示例：</p>
+<blockquote>
+<p>sqlacodegen mysql+pymysql://root:qwer1234@127.0.0.1/mydb --tables users,roles,phone &gt;models.py</p>
+</blockquote>
+<p>&nbsp;　　首先是一个 sqlacodegen 命令，后面接上连接数据库的语句，然后可以使用 --tables 指定要导入的数据表，最后用 &gt;models.py 输出到 models.py 中，如果不指定输出文件，会将 python 代码直接打印出来。下面是生成的 models.py 中的代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> coding: utf-8</span>
+<span style="color: #008080;"> 2</span> <span style="color: #0000ff;">from</span> sqlalchemy <span style="color: #0000ff;">import</span><span style="color: #000000;"> Column, ForeignKey, String
+</span><span style="color: #008080;"> 3</span> <span style="color: #0000ff;">from</span> sqlalchemy.dialects.mysql <span style="color: #0000ff;">import</span><span style="color: #000000;"> INTEGER
+</span><span style="color: #008080;"> 4</span> <span style="color: #0000ff;">from</span> sqlalchemy.orm <span style="color: #0000ff;">import</span><span style="color: #000000;"> relationship
+</span><span style="color: #008080;"> 5</span> <span style="color: #0000ff;">from</span> sqlalchemy.ext.declarative <span style="color: #0000ff;">import</span><span style="color: #000000;"> declarative_base
+</span><span style="color: #008080;"> 6</span> 
+<span style="color: #008080;"> 7</span> Base =<span style="color: #000000;"> declarative_base()
+</span><span style="color: #008080;"> 8</span> metadata =<span style="color: #000000;"> Base.metadata
+</span><span style="color: #008080;"> 9</span> 
+<span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Phone(Base):
+</span><span style="color: #008080;">12</span>     <span style="color: #800080;">__tablename__</span> = <span style="color: #800000;">'</span><span style="color: #800000;">phone</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">13</span> 
+<span style="color: #008080;">14</span>     phone = Column(String(11), primary_key=<span style="color: #000000;">True)
+</span><span style="color: #008080;">15</span>     phone_address = Column(String(40<span style="color: #000000;">))
+</span><span style="color: #008080;">16</span> 
+<span style="color: #008080;">17</span> 
+<span style="color: #008080;">18</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Role(Base):
+</span><span style="color: #008080;">19</span>     <span style="color: #800080;">__tablename__</span> = <span style="color: #800000;">'</span><span style="color: #800000;">roles</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">20</span> 
+<span style="color: #008080;">21</span>     role_id = Column(INTEGER(11), primary_key=<span style="color: #000000;">True)
+</span><span style="color: #008080;">22</span>     role_name = Column(String(45<span style="color: #000000;">))
+</span><span style="color: #008080;">23</span> 
+<span style="color: #008080;">24</span> 
+<span style="color: #008080;">25</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> User(Base):
+</span><span style="color: #008080;">26</span>     <span style="color: #800080;">__tablename__</span> = <span style="color: #800000;">'</span><span style="color: #800000;">users</span><span style="color: #800000;">'</span>
+<span style="color: #008080;">27</span> 
+<span style="color: #008080;">28</span>     user = Column(String(10), primary_key=<span style="color: #000000;">True)
+</span><span style="color: #008080;">29</span>     sex = Column(String(10<span style="color: #000000;">))
+</span><span style="color: #008080;">30</span>     email = Column(String(45<span style="color: #000000;">))
+</span><span style="color: #008080;">31</span>     phone = Column(String(11<span style="color: #000000;">))
+</span><span style="color: #008080;">32</span>     role_id = Column(ForeignKey(<span style="color: #800000;">'</span><span style="color: #800000;">roles.role_id</span><span style="color: #800000;">'</span>), index=<span style="color: #000000;">True)
+</span><span style="color: #008080;">33</span> 
+<span style="color: #008080;">34</span>     role = relationship(<span style="color: #800000;">'</span><span style="color: #800000;">Role</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<h2>三、SQL Alchemy</h2>
+<h3>1.SQL Alchemy简介</h3>
+<p>　　SQL Alchemy pypi：<a href="https://pypi.org/project/SQLAlchemy/">https://pypi.org/project/SQLAlchemy/</a>。</p>
+<p>　　SQL Alchemy 是 Python SQL 工具包和对象关系映射器，它为应用程序开发人员提供了SQL的全部功能和灵活性。</p>
+<p>　　在写<a href="https://www.cnblogs.com/TM0831/p/11081576.html" target="_blank">上篇博客</a>的时候简单介绍过&nbsp;<strong>Flask-SQLAlchemy</strong>，当时说到它将对 SQL Alchemy 的支持添加到 Flask 应用程序中，因此我们通过简单设置之后就能在 Flask 中队数据库进行操作了，可那是当我们在把定义好的模型映射到数据库中时所用的。如果数据库表已经建好了，还怎么用 Flask-SQLAlchemy 来操作呢？这时候就需要使用 SQL Alchemy 了！</p>
+<h3>2.SQL Alchemy安装</h3>
+<p>　　使用 pip 安装即可：</p>
+<blockquote>
+<p>pip install SQLAlchemy</p>
+</blockquote>
+<h3>3.SQL Alchemy架构</h3>
+<p>　　<img src="./images/Flask学习之旅--还是数据库（sqlacodegen + SQL Alchemy）0.png" alt="" width="674" height="440" /></p>
+<div>
+<div>
+<p><code>　　1）Schema / Types</code> 定义了类到表之间的映射框架(规则)。</p>
+<p><code>　　2）SQL Expression Language</code> 封装好的 SQL 语句。</p>
+<p><code>　　3）Engine</code> 操作者。</p>
+<p><code>　　4）Connection Pooling</code> 连接池。</p>
+<code>　　5）Dialect</code> 根据用户的配置，调用不同的数据库 API(如：Mysql) 并执行对应的 SQL 语句。</div>
+</div>
+<h3>4.SQL Alchemy用法</h3>
+<h4>（1）连接数据库</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">from</span> sqlalchemy <span style="color: #0000ff;">import</span><span style="color: #000000;"> create_engine
+</span><span style="color: #008080;">2</span> 
+<span style="color: #008080;">3</span> 
+<span style="color: #008080;">4</span> engine = create_engine(<span style="color: #800000;">"</span><span style="color: #800000;">mysql+pymysql://root:qwer1234@127.0.0.1:3306/mydb</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>　　create_engine() 会返回一个引擎实例，它代表着数据库的接口。这个引擎实例可以执行 SQL 语句，例如：</p>
+<blockquote>
+<p>engine.execute("show tables")</p>
+</blockquote>
+<h4>（2）创建会话</h4>
+<p>&nbsp;　　光有这个数据库的引擎还不够，还需要建立会话才行，这里要使用引擎来创建一个 Session 类的实例，代码为：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">from</span> sqlalchemy <span style="color: #0000ff;">import</span><span style="color: #000000;"> create_engine
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">from</span> sqlalchemy.orm <span style="color: #0000ff;">import</span><span style="color: #000000;"> sessionmaker
+</span><span style="color: #008080;"> 3</span> 
+<span style="color: #008080;"> 4</span> 
+<span style="color: #008080;"> 5</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 创建引擎</span>
+<span style="color: #008080;"> 6</span> engine = create_engine(<span style="color: #800000;">"</span><span style="color: #800000;">mysql+pymysql://root:qwer1234@127.0.0.1:3306/mydb</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;"> 7</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 使用引擎创建Session</span>
+<span style="color: #008080;"> 8</span> DB_Session = sessionmaker(bind=<span style="color: #000000;">engine)
+</span><span style="color: #008080;"> 9</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 实例化</span>
+<span style="color: #008080;">10</span> db_session = DB_Session()</pre>
+</div>
+<h4>（3）单表 CRUD</h4>
+<p>　　<strong>插入数据：</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 插入</span>
+<span style="color: #008080;">2</span> db_session.execute(<span style="color: #800000;">"</span><span style="color: #800000;">insert into roles values(%d,%s)</span><span style="color: #800000;">"</span> % (1, <span style="color: #800000;">"</span><span style="color: #800000;">'admin'</span><span style="color: #800000;">"</span><span style="color: #000000;">))
+</span><span style="color: #008080;">3</span> db_session.execute(<span style="color: #800000;">"</span><span style="color: #800000;">insert into users values(%s,%s,%s,%s,%d)</span><span style="color: #800000;">"</span> % (<span style="color: #800000;">"</span><span style="color: #800000;">'user1'</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">'man'</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">'user1@163.com'</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">'12233445566'</span><span style="color: #800000;">"</span>, 1<span style="color: #000000;">))
+</span><span style="color: #008080;">4</span> db_session.commit()</pre>
+</div>
+<p>　　插入数据可以使用 SQL 语句来完成，在插入数据之后要使用 commit()，这一点不能忘记。</p>
+<p>　　<strong>查询数据：</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 查询</span>
+<span style="color: #008080;">2</span> result = db_session.query(User).filter(User.user == <span style="color: #800000;">"</span><span style="color: #800000;">user1</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">3</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(result.all())
+</span><span style="color: #008080;">4</span> usr =<span style="color: #000000;"> result.all()[0]
+</span><span style="color: #008080;">5</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(usr.email)
+</span><span style="color: #008080;">6</span> 
+<span style="color: #008080;">7</span> <span style="color: #008000;">#</span><span style="color: #008000;"> [&lt;SQlAlchemy.models.User object at 0x0000028D33D7CDD8&gt;]</span>
+<span style="color: #008080;">8</span> <span style="color: #008000;">#</span><span style="color: #008000;"> user1@163.com</span></pre>
+</div>
+<p>　　在查询的时候需要使用 query()&nbsp; 和 filter()，返回的结果是一个列表，如果列表为空就表示数据库中没有该记录。对于返回的这个结果，使用 all() 返回所有记录，使用 one() 返回第一条记录。</p>
+<p>　　<strong>更新数据：</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 更新</span>
+<span style="color: #008080;">2</span> db_session.query(User).filter(User.user == <span style="color: #800000;">"</span><span style="color: #800000;">user1</span><span style="color: #800000;">"</span>).update({User.email: <span style="color: #800000;">'</span><span style="color: #800000;">user1user1@163.com</span><span style="color: #800000;">'</span><span style="color: #000000;">})
+</span><span style="color: #008080;">3</span> <span style="color: #000000;">db_session.commit()
+</span><span style="color: #008080;">4</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 查询</span>
+<span style="color: #008080;">5</span> result = db_session.query(User).filter(User.user == <span style="color: #800000;">"</span><span style="color: #800000;">user1</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">6</span> usr =<span style="color: #000000;"> result.one()
+</span><span style="color: #008080;">7</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(usr.email)
+</span><span style="color: #008080;">8</span> 
+<span style="color: #008080;">9</span> <span style="color: #008000;">#</span><span style="color: #008000;"> user1user1@163.com</span></pre>
+</div>
+<p>　　更新数据可以使用 update() 方法，不过要接在 filter() 之后，使用这种方法即使数据库中没有记录也不会报错。</p>
+<p>　　<strong>删除数据：</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 删除</span>
+<span style="color: #008080;">2</span> db_session.query(User).filter(User.user == <span style="color: #800000;">"</span><span style="color: #800000;">user1</span><span style="color: #800000;">"</span><span style="color: #000000;">).delete()
+</span><span style="color: #008080;">3</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 查询</span>
+<span style="color: #008080;">4</span> result = db_session.query(User).filter(User.user == <span style="color: #800000;">"</span><span style="color: #800000;">user1</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">5</span> usr =<span style="color: #000000;"> result.one()
+</span><span style="color: #008080;">6</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(usr.email)
+</span><span style="color: #008080;">7</span> 
+<span style="color: #008080;">8</span> <span style="color: #008000;">#</span><span style="color: #008000;"> sqlalchemy.orm.exc.NoResultFound: No row was found for one()</span></pre>
+</div>
+<p>　　删除数据的使用方法和更新数据类似，只不过是在 filter() 之后使用 delete() 方法。</p>
+<h4>（4）多表查询</h4>
+<p>&nbsp;　　假设要查询 phone 为"12233445566"的用户名称和电话所在地址，就需要将 users 表和 phone 表联合起来进行查询，方法是使用多个 filter()：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> res = db_session.query(User, Phone).filter(User.phone == <span style="color: #800000;">"</span><span style="color: #800000;">12233445566</span><span style="color: #800000;">"</span>).filter(Phone.phone == <span style="color: #800000;">"</span><span style="color: #800000;">12233445566</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">2</span> u, p =<span style="color: #000000;"> res.one()
+</span><span style="color: #008080;">3</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(u.user, p.phone_address)
+</span><span style="color: #008080;">4</span> 
+<span style="color: #008080;">5</span> <span style="color: #008000;">#</span><span style="color: #008000;"> user1 A</span></pre>
+</div>
+<p>　　假设要查询 user 为"user1"的用户的角色信息，就需要将 users 表和 roles 表联合起来进行查询，因为有外键的关系，所以可以使用 join()：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> res = db_session.query(User).join(Role).filter(User.user == <span style="color: #800000;">"</span><span style="color: #800000;">user1</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">2</span> u =<span style="color: #000000;"> res.one()
+</span><span style="color: #008080;">3</span> <span style="color: #0000ff;">print</span><span style="color: #000000;">(u.user, u.role.role_name)
+</span><span style="color: #008080;">4</span> 
+<span style="color: #008080;">5</span> <span style="color: #008000;">#</span><span style="color: #008000;"> user1 admin</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

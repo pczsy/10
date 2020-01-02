@@ -1,0 +1,294 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修javaWeb学习总结——文件上传、下载' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>javaWeb学习总结——文件上传、下载</center></div><div class='banquan'>原文出处:本文由博客园博主宜春提供。<br/>
+原文连接:https://www.cnblogs.com/yichunguo/p/11990928.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#文件上传环境搭建">1、文件上传环境搭建</a></li>
+        <li><a href="#文件上传代码实现">2、文件上传代码实现</a></li>
+        <li><a href="#关于下载">3、关于下载</a></li>
+        </ul>
+    </div>
+</div>
+<p>@<br />
+嘿，熊dei，你不得不知道在Web开发中，文件上传和下载功能是非常常用的功能，关于文件上传，浏览器上传【文件以流的形式传输】——&gt;服务器端——&gt;Servlet获取上传文件的输入流——&gt;解析请求参数，这一系列过程下来我这佩奇脑壳都疼，因此我更<strong>推荐用apache的开源工具common-fileupload这个文件上传组件</strong>，common-fileupload上传组件的jar包可以去apache官网上面下载，也可以在struts的lib文件夹下面找到（不要问我为什么，因为就算你问我我也不会告诉你struts上传功能就是基于这个实现，当然你也不一定用过Struts【现在不用去学，用的少了】，再者你也不会这么闲去lib目录找），其次<font color=red><strong>common-fileupload</strong></font>依赖于<font color=red><strong>common-io</strong></font>包，所以需要一起下载使用！</p>
+<h2 id="文件上传环境搭建">1、文件上传环境搭建</h2>
+<p>jar包下载，可以直接搜索apche官网进行下载，不过现在比较流行mawen管理jar包(不懂mawen?加油吧，要学的东西还很多，mawen是一定要学的而且也很易学，用了mawen你就停不下来，这玩意太便捷了，学会了mawen，你就会明白妈妈为什么再也不用担心小明拿U盘去拷小红的jar包了)<br />
+<img src="./images/javaWeb学习总结——文件上传、下载0.png" alt="在这里插入图片描述" /><br />
+<img src="./images/javaWeb学习总结——文件上传、下载1.png" alt="在这里插入图片描述" /><br />
+<img src="./images/javaWeb学习总结——文件上传、下载2.png" alt="在这里插入图片描述" /><br />
+这个时候common-fileupload依赖的common-io包同样的操作进行下载，之后创建项目，引入jar包<br />
+<img src="./images/javaWeb学习总结——文件上传、下载3.png" alt="在这里插入图片描述" /></p>
+<h2 id="文件上传代码实现">2、文件上传代码实现</h2>
+<h4 id="jsp代码">2.1JSP代码</h4>
+<pre><code><code>&lt;%@ page language=&quot;java&quot; contentType=&quot;text/html; charset=UTF-8&quot;
+    pageEncoding=&quot;UTF-8&quot;%&gt;
+&lt;!DOCTYPE html PUBLIC &quot;-//W3C//DTD HTML 4.01 Transitional//EN&quot; &quot;http://www.w3.org/TR/html4/loose.dtd&quot;&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=UTF-8&quot;&gt;
+&lt;title&gt;Insert title here&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;                                          
+        &lt;form action=&quot;UploadServet&quot; method=&quot;post&quot;  enctype=&quot;multipart/form-data&quot;&gt;
+            学号：&lt;input name=&quot;sno&quot; /&gt;&lt;br/&gt;
+            姓名：&lt;input name=&quot;sname&quot; /&gt;&lt;br/&gt;
+            上传照片: &lt;input type=&quot;file&quot;  name=&quot;spicture&quot;/&gt;
+            &lt;br/&gt;
+            &lt;input type=&quot;submit&quot; value=&quot;注册&quot;/&gt;
+        &lt;/form&gt;
+        &lt;a href=&quot;DownloadServlet?filename=MIME.png&quot;&gt;MIME&lt;/a&gt;
+        
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p><img src="./images/javaWeb学习总结——文件上传、下载4.png" alt="在这里插入图片描述" /></p>
+<h4 id="servlet代码">2.2Servlet代码</h4>
+<pre><code><code>package org.student.servlet;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileItemFactory;
+import org.apache.commons.fileupload.FileUploadBase;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+
+/**
+ * Servlet implementation class UploadServet
+ */
+public class UploadServet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
+    public UploadServet() {
+        super();
+    }
+
+    /**
+     * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
+     *      response)
+     */
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        request.setCharacterEncoding(&quot;utf-8&quot;);
+        response.setCharacterEncoding(&quot;utf-8&quot;);
+        response.setContentType(&quot;text/html; charset=UTF-8&quot;);
+        // 上传
+        // request.getParameter(&quot;sname&quot;)
+        try {
+            boolean isMultipart = ServletFileUpload.isMultipartContent(request);
+            if (isMultipart) {// 判断前台的form是否有 mutipart属性
+//              FileItemFactory factory = new DiskFileItemFactory();
+                DiskFileItemFactory factory = new DiskFileItemFactory();
+                
+                ServletFileUpload upload = new ServletFileUpload(factory);
+                
+                //设置上传文件时 用到的临时文件的大小DiskFileItemFactory
+                factory.setSizeThreshold(10240);//设置临时的缓冲文件大小为10
+                factory.setRepository(new File(&quot;D:\\study\\uploadtemp&quot;));//设置临时文件的目录
+                //控制上传单个文件的大小  20KB ServletFileUpload
+                upload.setSizeMax(20480);//字节B
+                Thread.sleep(3000);
+                
+                // 通过parseRequest解析form中的所有请求字段，并保存到 items集合中（即前台传递的sno sname
+                // spicture此时就保存在了items中）
+                List&lt;FileItem&gt; items = upload.parseRequest(request);
+                // 遍历items中的数据（item=sno sname spicture）
+                Iterator&lt;FileItem&gt; iter = items.iterator();
+                while (iter.hasNext()) {
+                    FileItem item = iter.next();
+                    String itemName = item.getFieldName();
+                    int sno = -1;
+                    String sname = null;
+                    // 判断前台字段 是普通form表单字段(sno sname)，还是文件字段
+
+                    // request.getParameter() -- iter.getString()
+                    if (item.isFormField()) {
+                        if (itemName.equals(&quot;sno&quot;)) {// 根据name属性 判断item是sno sname 还是spicture?
+                            sno = Integer.parseInt(item.getString(&quot;UTF-8&quot;));
+                        } else if (itemName.equals(&quot;sname&quot;)) {
+                            sname = item.getString(&quot;UTF-8&quot;);
+                        } else {
+                            System.out.println(&quot;其他字段xxx.....&quot;);
+                        }
+                    } else {// spicture 123
+                            // 文件 上传
+                            // 文件名 getFieldName是获取 普通表单字段的Name值
+                            // getName()是获取 文件名
+                        String fileName = item.getName();//a.txt   a.docx   a.png
+                        String ext = fileName.substring(  fileName.indexOf(&quot;.&quot;)+1 ) ;
+                        if(!(ext.equals(&quot;png&quot;) || ext.equals(&quot;gif&quot;) ||ext.equals(&quot;jpg&quot;))) {
+                            System.out.println(&quot;图片类型有误！格式只能是 png gif  jpg&quot;);
+                            return ;//终止
+                        }
+                        // 获取文件内容 并上传
+                        // 定义文件路径：指定上传的位置(服务器路径)
+                        // 获取服务器路径D:\\study\\apache-tomcat-8.5.30\\wtpwebapps\\UpAndDown\\upload
+                        // String path =request.getSession().getServletContext().getRealPath(&quot;upload&quot;) ;
+                        String path = &quot;D:\\study\\upload&quot;;
+
+                        File file = new File(path, fileName);
+                        
+                    
+
+                        item.write(file);// 上传
+                        System.out.println(fileName + &quot;上传成功！&quot;);
+                        return;
+                    }
+                }
+
+            }
+
+        }
+        catch (FileUploadBase.SizeLimitExceededException e) {//SizeLimitExceededException是FileUploadException的一个子类
+            System.out.println(&quot;上传文件大小超过限制！最大20KB&quot;);
+        }
+        catch (FileUploadException e) 
+        {
+            e.printStackTrace();
+            
+        }
+        
+        // 解析请求
+        catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
+     *      response)
+     */
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        // TODO Auto-generated method stub
+        doGet(request, response);
+    }
+
+}
+</code></pre>
+<p>#### 2.3 文件上传注意的问题：<br />
+1、为保证服务器安全，上传文件应该放在外界无法直接访问的目录下，比如放于WEB-INF目录下。</p>
+<p>　　2、为防止文件覆盖的现象发生，要为上传文件产生一个唯一的文件名。<br />
+　　<br />
+3、如果上传的目录在Tomcat目录中的wtpwebapps下的新建文件夹名为upload ，如下：</p>
+<p><img src="./images/javaWeb学习总结——文件上传、下载5.png" alt="在这里插入图片描述" /><br />
+则需要注意：<br />
+3.1.<strong>如果修改代码，则在tomcat重新启动时 会被删除</strong><br />
+原因：当修改代码的时候,tomcat会重新编译一份新的class 并且重新部署（重新创建各种目录）</p>
+<p>3.2.<strong>如果不修改代码，则不会删除</strong><br />
+原因： 没有修改代码，class仍然是之前的class<br />
+<img src="./images/javaWeb学习总结——文件上传、下载6.png" alt="在这里插入图片描述" /><br />
+因此，<strong>为了防止 上传目录丢失</strong>： a.<font color=red><strong>虚拟路径</strong></font><br />
+<img src="./images/javaWeb学习总结——文件上传、下载7.png" alt="在这里插入图片描述" /><br />
+b.<font color=red>直接更换上传目录到<strong>非tomcat目录</strong></font><br />
+<img src="./images/javaWeb学习总结——文件上传、下载8.png" alt="在这里插入图片描述" /><br />
+4、限制上传：限制类型、限制大小。注意 <strong>对文件的限制条件 写在parseRequest之前</strong><br />
+<img src="./images/javaWeb学习总结——文件上传、下载9.png" alt="在这里插入图片描述" /></p>
+<h2 id="关于下载">3、关于下载</h2>
+<p>下载：不需要依赖任何jar<br />
+a.请求（地址a form），请求Servlet<br />
+b.Servlet通过文件的地址 将文件转为输入流 读到Servlet中<br />
+c.通过输出流 将 刚才已经转为输入流的文件 输出给用户<br />
+注意：下载文件 需要设置2个 响应头：</p>
+<pre><code><code>response.addHeader(&quot;content-Type&quot;,&quot;application/octet-stream&quot; );//MIME类型:二进制文件（任意文件）
+response.addHeader(&quot;content-Disposition&quot;,&quot;attachement;filename=&quot;+fileName );//fileName包含了文件后缀：abc.txt</code></pre>
+<p>文件下载代码：</p>
+<pre><code><code>package org.student.servlet;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+/**
+ * Servlet implementation class DownloadServlet
+ */
+public class DownloadServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+       
+    /**
+     * @see HttpServlet#HttpServlet()
+     */
+    public DownloadServlet() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
+
+    /**
+     * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
+     */
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        request.setCharacterEncoding(&quot;utf-8&quot;);
+        //获取需要下载的文件名
+        String fileName = request.getParameter(&quot;filename&quot;) ;//form  、a  href、 ...Server?a=b
+        
+        
+        //下载文件：需要设置 消息头
+        response.addHeader(&quot;content-Type&quot;,&quot;application/octet-stream&quot; );//MIME类型:二进制文件（任意文件）
+        response.addHeader(&quot;content-Disposition&quot;,&quot;attachement;filename=&quot;+fileName );//fileName包含了文件后缀：abc.txt
+        
+        //Servlet通过文件的地址  将文件转为输入流 读到Servlet中
+        InputStream in = getServletContext().getResourceAsStream(&quot;/res/MIME.png&quot;) ;
+        
+        //通过输出流 将 刚才已经转为输入流的文件  输出给用户
+        ServletOutputStream out = response.getOutputStream() ;
+        byte[] bs = new byte[10];
+        int len=-1 ;
+        while(  (len=in.read(bs)) != -1) {
+            out.write(bs,0,len);
+        }
+        out.close();
+        in.close();
+        
+    }
+
+    /**
+     * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+     */
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // TODO Auto-generated method stub
+        doGet(request, response);
+    }
+
+}
+</code></pre>
+<p>到这里，到了最开心的时刻了！！！关于文件上传下载的源码与笔记已经打包好了QnQ：<br />
+链接：https://pan.baidu.com/s/1oyyEkctcvY3AvTsJNkiuuQ 提取码：30e7</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

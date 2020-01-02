@@ -1,0 +1,330 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修LRU算法与增强' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>LRU算法与增强</center></div><div class='banquan'>原文出处:本文由博客园博主GGGong提供。<br/>
+原文连接:https://www.cnblogs.com/GGGong/p/12053442.html</div><br>
+    <p>概要<br />本文的想法来自于本人学习MySQL时的一个知识点:MySQL Innodb引擎中对缓冲区的处理。虽然没有仔细研究其源码实现，但其设计仍然启发了我。</p>
+<p>本文针对LRU存在的问题，思考一种增强算法来避免或降低缓存污染，主要办法是对原始LRU空间划分出young与old两段区域 ，通过命中数（或block时间）来控制，并用一个0.37的百分比系数规定old的大小。<br />内容分以下几小节，实现代码为Java：</p>
+<p>1.LRU基本概念<br />2.LRU存在问题与LRUG设计<br />3.LRUG详细说明<br />4.完整示例代码</p>
+<p>&nbsp;</p>
+<p><strong>1.LRU基本概念</strong><br />LRU（Least recently used，最近最少使用）算法根据数据的历史访问记录来进行淘汰数据。常用于一些缓冲区置换，页面置换等处理。</p>
+<p>一个典型的双向链表+HashMap的LRU如下：</p>
+<p><img src="./images/LRU算法与增强0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><strong>2.LRU存在问题与LRUG设计</strong></p>
+<p>LRU的问题是无法回避突发性的热噪数据，造成缓存数据的污染。对此有些LRU的变种，如LRU-K、2Q、MQ等，通过维护两个或多个队列来控制缓存数据的更新淘汰。我把本文讨论的算法叫LRUG，仅是我写代码时随便想的一个名字。</p>
+<p>LRUG使用HashMap和双向链表，没有其他的维护队列，而是在双向链表上划分young，old区域，young段在old段之前，有新数据时不会马上插入到young段，而是先放入old段，若该数据持续命中，次数超过一定数量（也可以是锁定一段时间）后再进行插入首部的动作。两段以37%为界，即满载后old段的大小最多占总容量的37%。（图1）<br /><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/LRU算法与增强1.png" alt="" width="535" height="373" /></p>
+<p style="text-align: center;">（图1）</p>
+<p style="text-align: center;">&nbsp;</p>
+<p><strong>3.LRUG详细说明</strong></p>
+<p>3.1首先给出双向链表的节点结构，其中hitNum是命中次数：</p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;">    <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span> Node&lt;K,V&gt;<span style="color: #000000;">{
+        </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> hitNum;
+        K key;
+        V value;
+        Node</span>&lt;K,V&gt;<span style="color: #000000;"> prev;
+        Node</span>&lt;K,V&gt;<span style="color: #000000;"> next;
+
+        Node(K key,V value){
+            </span><span style="color: #0000ff;">this</span>.key=<span style="color: #000000;">key;
+            </span><span style="color: #0000ff;">this</span>.value=<span style="color: #000000;">value;
+            hitNum</span>=0<span style="color: #000000;">;
+        }
+    }</span></span></pre>
+</div>
+<p>&nbsp;</p>
+<p>3.2在加载阶段，数据以先后顺序加入链表，半满载时，young段已满，新数据以插入方式加入到old段，如图2所示。注意半满载时，也可能有madeYoung操作，把old区的数据提到young头。</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/LRU算法与增强2.png" alt="" /></p>
+<p style="text-align: center;">（图2）</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;">    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> put(K key,V value){
+        Node</span>&lt;K,V&gt; node=<span style="color: #000000;">caches.get(key);
+
+        </span><span style="color: #0000ff;">if</span>(node==<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            </span><span style="color: #0000ff;">if</span>(caches.size()&gt;=<span style="color: #000000;">capcity){
+                caches.remove(last.key);
+                removeLast();
+            }
+            node</span>=<span style="color: #0000ff;">new</span><span style="color: #000000;"> Node(key,value);
+
+            </span><span style="color: #0000ff;">if</span>(caches.size()&gt;=<span style="color: #000000;">pointBorder){
+                madeOld(node);
+            }</span><span style="color: #0000ff;">else</span><span style="color: #000000;">{
+                madeYoung(node);
+            }
+        }</span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            node.value</span>=<span style="color: #000000;">value;
+            </span><span style="color: #0000ff;">if</span>(++node.hitNum&gt;<span style="color: #000000;">BLOCK_HIT_NUM){
+                madeYoung(node);
+            }
+        }
+        caches.put(key,node);
+    }</span></span></pre>
+</div>
+<p>&nbsp;</p>
+<p style="text-align: left;">&nbsp;</p>
+<p style="text-align: left;"><br />3.3当数据命中时，如果位于young区，命中数+1后进行常规的madeYoung操作，把该项提到链表首部。如图3</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/LRU算法与增强3.png" alt="" /></p>
+<p style="text-align: center;">（图3）</p>
+<p style="text-align: left;">&nbsp;</p>
+<p style="text-align: left;">&nbsp;</p>
+<p style="text-align: left;">如果命中项位于old区，对命中数+1后与BLOCK_HIT_NUM设置的值做判断，超过设定值说明该项数据可能不是突发数据，进行madeYoung操作提到链表首部，否则不做处理。<br />特别的，如果命中项正好是point，则point应该往后退一项，指向原point的下一项，此时young区膨胀了一项，而old区缩小了一项。极端情况下，ponit项持续被命中并进行madeYoung，point不断后退直到尾巴，此时young区占有100%容量，而old区为0，设置point指向last，意味着新数据项加入时，淘汰掉young区的末尾，而新数据项放在末尾成为old区。如图4</p>
+<p><img style="display: block; margin-left: auto; margin-right: auto;" src="./images/LRU算法与增强4.png" alt="" width="1026" height="520" /></p>
+<p style="text-align: center;">（图4）</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;">    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> madeYoung(Node node){
+        </span><span style="color: #0000ff;">if</span>(first==<span style="color: #000000;">node){
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;">;
+        }
+        </span><span style="color: #0000ff;">if</span>(node==<span style="color: #000000;">point){
+            point</span>=<span style="color: #000000;">node.next;
+            </span><span style="color: #0000ff;">if</span>(point==<span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                point</span>=<span style="color: #000000;">last;
+            }
+        }
+        </span><span style="color: #0000ff;">if</span>(node.next!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            node.next.prev</span>=<span style="color: #000000;">node.prev;
+        }
+        </span><span style="color: #0000ff;">if</span>(node.prev!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            node.prev.next</span>=<span style="color: #000000;">node.next;
+        }
+        </span><span style="color: #0000ff;">if</span>(node==<span style="color: #000000;">last){
+            last</span>=<span style="color: #000000;">node.prev;
+        }
+        </span><span style="color: #0000ff;">if</span>(first==<span style="color: #0000ff;">null</span>||last==<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            first</span>=last=<span style="color: #000000;">node;
+            point</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;">;
+        }
+
+        node.next</span>=<span style="color: #000000;">first;
+        first.prev</span>=<span style="color: #000000;">node;
+        first</span>=<span style="color: #000000;">node;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> madeOld(Node node){
+        </span><span style="color: #0000ff;">if</span>(point.prev!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            point.prev.next</span>=<span style="color: #000000;">node;
+            node.prev</span>=<span style="color: #000000;">point.prev;
+        }
+        </span><span style="color: #0000ff;">if</span>(point.next!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            node.next</span>=<span style="color: #000000;">point.next;
+            point.next.prev</span>=<span style="color: #000000;">node;
+        }
+        point</span>=<span style="color: #000000;">node;
+    }</span></span></pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>3.4需要一个清理的方法。也可以设置一些监测方法，如一段时间内的命中数（监测命中率）等，这与本篇主要内容无关就不写在这了。</p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;">    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> removeLast(){
+        </span><span style="color: #0000ff;">if</span>(last!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            </span><span style="color: #0000ff;">if</span>(last==<span style="color: #000000;">point) {
+                point</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            }
+
+            last</span>=<span style="color: #000000;">last.prev;
+            </span><span style="color: #0000ff;">if</span>(last==<span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                first</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            }</span><span style="color: #0000ff;">else</span><span style="color: #000000;">{
+                last.next</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            }
+        }
+    }</span></span></pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p style="text-align: left;"><strong>&nbsp;4.示例代码</strong></p>
+<p style="text-align: left;">主要代码如下，时间仓促，可能一些地方会考虑不周，读者如发现，欢迎指出。</p>
+<div class="cnblogs_code">
+<pre><code><span style="font-size: 16px;"><span style="color: #0000ff;">package</span><span style="color: #000000;"> com.company;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> java.util.HashMap;
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> LRUNum&lt;K,V&gt;<span style="color: #000000;"> {
+    </span><span style="color: #0000ff;">private</span> HashMap&lt;K,Node&gt;<span style="color: #000000;"> caches;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Node first;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Node last;
+    </span><span style="color: #0000ff;">private</span><span style="color: #000000;"> Node point;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> size;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> capcity;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">int</span> BLOCK_HIT_NUM=2<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">float</span> MID_POINT=0.37f<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">int</span><span style="color: #000000;"> pointBorder;
+
+    </span><span style="color: #0000ff;">public</span> LRUNum(<span style="color: #0000ff;">int</span><span style="color: #000000;"> capcity){
+        </span><span style="color: #0000ff;">this</span>.size=0<span style="color: #000000;">;
+        </span><span style="color: #0000ff;">this</span>.capcity=<span style="color: #000000;">capcity;
+        </span><span style="color: #0000ff;">this</span>.caches=<span style="color: #0000ff;">new</span> HashMap&lt;K,Node&gt;<span style="color: #000000;">(capcity);
+
+        </span><span style="color: #0000ff;">this</span>.pointBorder=<span style="color: #0000ff;">this</span>.capcity-(<span style="color: #0000ff;">int</span>)(<span style="color: #0000ff;">this</span>.capcity*<span style="color: #0000ff;">this</span><span style="color: #000000;">.MID_POINT);
+    }
+
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> put(K key,V value){
+        Node</span>&lt;K,V&gt; node=<span style="color: #000000;">caches.get(key);
+
+        </span><span style="color: #0000ff;">if</span>(node==<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            </span><span style="color: #0000ff;">if</span>(caches.size()&gt;=<span style="color: #000000;">capcity){
+                caches.remove(last.key);
+                removeLast();
+            }
+            node</span>=<span style="color: #0000ff;">new</span><span style="color: #000000;"> Node(key,value);
+
+            </span><span style="color: #0000ff;">if</span>(caches.size()&gt;=<span style="color: #000000;">pointBorder){
+                madeOld(node);
+            }</span><span style="color: #0000ff;">else</span><span style="color: #000000;">{
+                madeYoung(node);
+            }
+        }</span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            node.value</span>=<span style="color: #000000;">value;
+            </span><span style="color: #0000ff;">if</span>(++node.hitNum&gt;<span style="color: #000000;">BLOCK_HIT_NUM){
+                madeYoung(node);
+            }
+        }
+        caches.put(key,node);
+    }
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> V get(K key){
+        Node</span>&lt;K,V&gt; node =<span style="color: #000000;">caches.get(key);
+        </span><span style="color: #0000ff;">if</span>(node==<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        }
+        </span><span style="color: #0000ff;">if</span>(++node.hitNum&gt;<span style="color: #000000;">BLOCK_HIT_NUM){
+            madeYoung(node);
+        }
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> node.value;
+    }
+
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Object remove(K key){
+        Node</span>&lt;K,V&gt; node =<span style="color: #000000;">caches.get(key);
+
+        </span><span style="color: #0000ff;">if</span>(node!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            </span><span style="color: #0000ff;">if</span>(node.prev!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+                node.prev.next</span>=<span style="color: #000000;">node.next;
+            }
+            </span><span style="color: #0000ff;">if</span>(node.next!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+                node.next.prev</span>=<span style="color: #000000;">node.prev;
+            }
+            </span><span style="color: #0000ff;">if</span>(node==<span style="color: #000000;">first){
+                first</span>=<span style="color: #000000;">node.next;
+            }
+            </span><span style="color: #0000ff;">if</span>(node==<span style="color: #000000;">last){
+                last</span>=<span style="color: #000000;">node.prev;
+            }
+        }
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> caches.remove(key);
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> removeLast(){
+        </span><span style="color: #0000ff;">if</span>(last!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            </span><span style="color: #0000ff;">if</span>(last==<span style="color: #000000;">point) {
+                point</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            }
+
+            last</span>=<span style="color: #000000;">last.prev;
+            </span><span style="color: #0000ff;">if</span>(last==<span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                first</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            }</span><span style="color: #0000ff;">else</span><span style="color: #000000;">{
+                last.next</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            }
+        }
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> clear(){
+        first</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        last</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        point</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        caches.clear();
+    }
+
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> madeYoung(Node node){
+        </span><span style="color: #0000ff;">if</span>(first==<span style="color: #000000;">node){
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;">;
+        }
+        </span><span style="color: #0000ff;">if</span>(node==<span style="color: #000000;">point){
+            point</span>=<span style="color: #000000;">node.next;
+            </span><span style="color: #0000ff;">if</span>(point==<span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                point</span>=<span style="color: #000000;">last;
+            }
+        }
+        </span><span style="color: #0000ff;">if</span>(node.next!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            node.next.prev</span>=<span style="color: #000000;">node.prev;
+        }
+        </span><span style="color: #0000ff;">if</span>(node.prev!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            node.prev.next</span>=<span style="color: #000000;">node.next;
+        }
+        </span><span style="color: #0000ff;">if</span>(node==<span style="color: #000000;">last){
+            last</span>=<span style="color: #000000;">node.prev;
+        }
+        </span><span style="color: #0000ff;">if</span>(first==<span style="color: #0000ff;">null</span>||last==<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            first</span>=last=<span style="color: #000000;">node;
+            point</span>=<span style="color: #0000ff;">null</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;">;
+        }
+
+        node.next</span>=<span style="color: #000000;">first;
+        first.prev</span>=<span style="color: #000000;">node;
+        first</span>=<span style="color: #000000;">node;
+    }
+
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> madeOld(Node node){
+        </span><span style="color: #0000ff;">if</span>(point.prev!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            point.prev.next</span>=<span style="color: #000000;">node;
+            node.prev</span>=<span style="color: #000000;">point.prev;
+        }
+        </span><span style="color: #0000ff;">if</span>(point.next!=<span style="color: #0000ff;">null</span><span style="color: #000000;">){
+            node.next</span>=<span style="color: #000000;">point.next;
+            point.next.prev</span>=<span style="color: #000000;">node;
+        }
+        point</span>=<span style="color: #000000;">node;
+    }
+
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">class</span> Node&lt;K,V&gt;<span style="color: #000000;">{
+        </span><span style="color: #0000ff;">int</span><span style="color: #000000;"> hitNum;
+        K key;
+        V value;
+        Node</span>&lt;K,V&gt;<span style="color: #000000;"> prev;
+        Node</span>&lt;K,V&gt;<span style="color: #000000;"> next;
+
+        Node(K key,V value){
+            </span><span style="color: #0000ff;">this</span>.key=<span style="color: #000000;">key;
+            </span><span style="color: #0000ff;">this</span>.value=<span style="color: #000000;">value;
+            hitNum</span>=0<span style="color: #000000;">;
+        }
+    }
+
+
+}</span></span></pre>
+</div>
+<p>&nbsp;</p>
+<p style="text-align: left;">&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

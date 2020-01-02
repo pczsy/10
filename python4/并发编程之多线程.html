@@ -1,0 +1,585 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修并发编程之多线程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>并发编程之多线程</center></div><div class='banquan'>原文出处:本文由博客园博主Hyyyy提供。<br/>
+原文连接:https://www.cnblogs.com/Hybb/p/11512011.html</div><br>
+    <h1 id="并发编程">并发编程</h1>
+<ul>
+<li>并发（伪）：由于执行速度特别快，人感觉不到</li>
+<li>并行（真）：创建10个人同时操作</li>
+</ul>
+<h2 id="线程">线程</h2>
+<p>开销非常小<br />
+是操作系统可以调度的最小单位(内存共享) 能利用多个CPU 由操作系统控制</p>
+<blockquote>
+<p>Cpython解释器下 由于GIL(全局解释器锁)的问题导致了一个进程中的多个线程无法利用多核</p>
+<p>数据不安全 += -= *= /= 多个线程同时操作全局/内存外部的变量 需要自己加锁,在+= 操作前后添加lock.acquire()和lock.release()即可</p>
+<p>append pop extend 你能想到的基础数据类型自带的方法都是数据安全的同时操作全局内存中的数据会产生数据的不安全</p>
+</blockquote>
+<ol>
+<li><p>单进程,单线程的应用程序</p>
+<ul>
+<li>print('666')</li>
+</ul></li>
+<li><p>到底什么是线程？什么是进程</p>
+<ul>
+<li>Python自己没有这玩意，Python中调用的操作系统的线程和进程（伪线程）</li>
+</ul></li>
+<li><p>多线程</p>
+<ul>
+<li><p>工作的最小单元</p></li>
+<li><p>共享进程中所有资源</p></li>
+<li><p>每个线程可以分担一点任务，最终完成最后的结果</p></li>
+</ul></li>
+</ol>
+<p>python多线程原理：python的多线程实际是一个假的多线程（多个线程在1核CPU上运行，进行快速的切换导致错觉为同时执行）</p>
+<p>代码</p>
+<pre><code><code>import threading
+def func(arg):
+    print(arg)
+    
+th = threading.Thread(target=func)
+th.start()
+print(&#39;end&#39;)</code></pre>
+<p>一个应用程序：软件</p>
+<ul>
+<li>默认一个程序只有一个进程</li>
+<li>可以有多个进程（默认只有一个），一个进程可以创建多个线程（默认一个）。</li>
+</ul>
+<p>Python多线程情况下：</p>
+<ul>
+<li>计算密集型操作：效率低（GIL锁）</li>
+<li>IO操作：效率高</li>
+</ul>
+<p>Python多进程情况下：</p>
+<ul>
+<li>计算密集型操作：效率高（浪费空间）</li>
+<li>IO操作：效率高（浪费资源）</li>
+</ul>
+<p>以后写Python时：</p>
+<ul>
+<li>IO密集型用多线程：文件/输入输出/socket</li>
+<li>计算密集型用多进程：</li>
+</ul>
+<h2 id="进程">进程</h2>
+<ul>
+<li>独立开辟内存</li>
+<li>进程之间的数据隔离</li>
+</ul>
+<p>注意：进程是为了提供环境让线程工作</p>
+<h2 id="python中线程和进程gil锁">Python中线程和进程（GIL锁）</h2>
+<p>GIL锁，全局解释器锁。用于限制一个进程中同一个时刻只有一个线程被CPU调度</p>
+<p>扩展：默认GIL锁在执行<strong>100</strong>个cpu指令后（过期时间）。</p>
+<h2 id="线程的使用">线程的使用</h2>
+<h3 id="多线程基本使用">多线程基本使用</h3>
+<ul>
+<li>基础例子</li>
+</ul>
+<pre><code><code>import threading
+def func(arg):
+    print(arg)
+    
+th = threading.Thread(target=func)
+th.start()
+print(&#39;end&#39;)</code></pre>
+<ul>
+<li>测试例子（主线程默认会先执行自己的代码，然后等子线程执行完毕后，才会结束）</li>
+</ul>
+<pre><code><code>import time
+import threading
+
+def func(arg):
+    time.sleep(arg)
+    print(arg)
+
+t1 = threading.Thread(target=func,args=(3,))
+t1.start()
+
+t2 = threading.Thread(target=func,args=(9,))
+t2.start()
+
+print(&#39;end&#39;)</code></pre>
+<ul>
+<li>jojn方法：</li>
+</ul>
+<pre><code><code>import time
+import threading
+
+def func(arg):
+    time.sleep(3)
+    print(arg)
+
+print(&#39;开始执行t1&#39;)
+t1 = threading.Thread(target=func,args=(3,))
+t1.start()
+# 无参：让主线程等待，等到子线程t1执行完毕后，才能往下执行
+# 有参：让主线程在这里最多等待n秒,无论执行完毕与否，会继续往下走
+t1.join(2)
+
+print(&#39;开始执行t2&#39;)
+t2 = threading.Thread(target=func,args=(9,))
+t2.start()
+t2.join()   # 让主线程等待，等到子线程t1执行完毕后，才能往下执行
+
+print(&#39;end&#39;)</code></pre>
+<ul>
+<li>线程名称获取</li>
+</ul>
+<pre><code><code>import threading
+
+def func(arg):
+    # 获取当前执行该函数的线程的对象
+    t = threading.current_thread()
+    # 根据当前线程对象，获取当前线程名称
+    name = t.getName()
+    print(name,arg)
+
+t1 = threading.Thread(target=func,args=(3,))
+t1.setName(&#39;mhy&#39;)
+t1.start()
+
+t2 = threading.Thread(target=func,args=(9,))
+t2.setName(&#39;zz&#39;)
+t2.start()
+
+print(&#39;end&#39;)</code></pre>
+<ul>
+<li>线程本质</li>
+</ul>
+<pre><code><code># 先打印3还是end？
+import threading
+
+def func(arg):
+    print(arg)
+
+t1 = threading.Thread(target=func,args=(3,))
+# start是开始线程嘛？不是
+# start是告诉cpu,我已准备就绪，你可以调度我了。
+t1.start()
+
+print(&#39;end&#39;)</code></pre>
+<ul>
+<li>面向对象式子多线程使用</li>
+</ul>
+<pre><code><code>import threading
+class MyThread(threading.Thread):
+    def run(self):
+        print(123,self._args,self._kwargs)
+
+
+t1 = MyThread(args=(11,))
+t1.start()
+
+t2 = MyThread(args=(12,))
+t2.start()</code></pre>
+<ul>
+<li>计算密集型多线程（作用不大）</li>
+</ul>
+<pre><code><code>import threading
+def func(lis,num):
+    et = [i+num for i in lis]
+    print(et)
+
+t1 = threading.Thread(target=func,args=([11,22,33],1))
+t1.start()
+
+t2 = threading.Thread(target=func,args=([44,55,66],100))
+t2.start()</code></pre>
+<ul>
+<li>实例代码</li>
+</ul>
+<pre><code><code>import threading
+import time
+
+#定义类继承Thread线程
+class CodingThread(threading.Thread):
+    def run(self):
+        for x in range(3):
+            print(&#39;正在写代码%s&#39; % threading.current_thread())
+            time.sleep(1)
+
+class DrawingThread(threading.Thread):
+    def run(self):
+        for x in range(3):
+            print(&#39;正在画图%s&#39; % threading.current_thread())
+            time.sleep(1)
+
+def main():
+    t1 = CodingThread()
+    t2 = DrawingThread()
+
+    t1.start()
+    t2.start()
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="线程安全lock">线程安全（Lock）</h2>
+<ul>
+<li>线程安全，多线程操作时，内部会让所有线程排队处理，如：list/dict/Queue</li>
+<li>线程不安全 + 人（LOCK） = 排队处理</li>
+</ul>
+<h3 id="简介">简介：</h3>
+<p>Python自带的解释器是CPython。CPython解释器的多线程实际上是一个假的多线程（在多核CPU中，只能利用一核，不能利用多核）。同一时刻只有一个线程在执行，为了保证同一时刻只有一个线程在执行，在CPython解释器中有一个东西叫做GIL（Global Intepreter Lock），叫做全局解释器锁。这个解释器锁是有必要的。因为CPython解释器的内存管理不是线程安全的。当然除了CPython解释器，还有其他的解释器，有些解释器是没有GIL锁的，见下面：</p>
+<ol>
+<li>Jython：用Java实现的Python解释器。不存在GIL锁。</li>
+<li>IronPython：用.net实现的Python解释器。不存在GIL锁。</li>
+<li>PyPy：用Python实现的Python解释器。存在GIL锁。</li>
+</ol>
+<p>虽然是一个假的多线程。但是在处理一些IO操作（比如文件读写和网络请求）还是可以在很大程度上提高效率的。在IO操作上建议使用多线程提高效率。在一些CPU计算操作上不建议使用多线程，而建议使用多进程。</p>
+<h3 id="不安全例子"><strong>不安全例子</strong></h3>
+<pre><code><code>import time
+import threading
+
+lit = []
+def func(arg):
+    lit.append(arg)
+    time.sleep(0.04)
+    m = lit[-1]
+    print(arg,m)  # m和arg应该是一个值
+
+for num in range(10):
+    t1 = threading.Thread(target=func,args=(num,))
+    t1.start()</code></pre>
+<h3 id="锁机制原理">锁机制原理</h3>
+<p>多线程同时执行，会导致数据同时执行，获取数据不符合结果。</p>
+<p>线程先获得执行权时，将会将执行过程锁起来，其他线程不能使用，必须要等该线程执行完，其他线程才可获取执行权，执行线程，将解决数据不统一的方法</p>
+<h3 id="lock-锁一次放行一个"><strong>Lock 锁</strong>（一次放行一个）</h3>
+<pre><code><code>import time
+import threading
+
+lit = []
+lock = threading.Lock()  # 创建一个锁
+
+def func(arg):
+    lock.acquire() # 将该行代码以下代码锁起来，直到遇到release释放
+    lit.append(arg)
+    time.sleep(0.04)
+    m = lit[-1]
+    print(arg,m)
+    lock.release()  # 释放锁
+
+for num in range(10):
+    t1 = threading.Thread(target=func,args=(num,))
+    t1.start()</code></pre>
+<h3 id="rlock-递归锁一次放行多个"><strong>RLock 递归锁</strong>（一次放行多个），</h3>
+<p>因为lock锁如果有多层锁机制，会造成<code>死锁</code>现象，所以有了<code>Rlock</code>（递归锁）</p>
+<p>代码如下：</p>
+<pre><code><code>import time
+import threading
+
+lit = []
+lock = threading.RLock()  # 创建一个递归锁
+
+def func(arg):
+    # Lock只能解开一个锁，会造成死锁线程
+    # RLock可以解开两个锁,解决了下面问题
+    lock.acquire() # 将该行代码以下代码锁起来，直到遇到release释放
+    lock.acquire()
+    lit.append(arg)
+    time.sleep(0.04)
+    m = lit[-1]
+    print(arg,m)
+    lock.release()  # 释放锁
+    lock.release()  # 释放锁
+
+for num in range(10):
+    t1 = threading.Thread(target=func,args=(num,))
+    t1.start()</code></pre>
+<h3 id="boundedsemaphore一次放n个信号量"><strong>BoundedSemaphore</strong>(一次放N个)信号量</h3>
+<pre><code><code>import time
+import threading
+
+# 创建一个锁，这个可以支持你同时进行几次锁，默认为1次
+lock = threading.BoundedSemaphore(3)
+
+def func(arg):
+    lock.acquire() 
+    print(arg)
+    time.sleep(1)
+    lock.release()
+
+for num in range(20):
+    t = threading.Thread(target=func,args=(num,))
+    t.start()</code></pre>
+<h3 id="condition1次放x个数动态输入">Condition（1次放x个数）动态输入</h3>
+<p>Lock版本的生产者与消费者模式可以正常的运行，但是存在一个不足，在消费者中，总是通过While True死循环并且上锁的方式去判断钱够不够，上锁是一个很耗费CPU资源的行为，因此这种方式不是最好的，还有一种更好的方式便是使用Threading.condition来实现，threading.condition可以在没有数据的时候处于堵塞等待状态，一旦有合适的数据了，还可以使用notify相关的函数来通知其他处于等待状态的线程。这样可以不用做一些无用的上锁和解锁的操作。可以提高程序的性能。首先对threading.Condition相关的函数做个介绍，threading.Condition类似threading.Lock，可以在修改全局数据的时候进行上锁，也可以在修改完毕后进行解锁。以下将一些常用的函数做个简单的介绍：</p>
+<ol>
+<li><p>acquire：上锁</p></li>
+<li><p>release：解锁</p></li>
+<li><p>wait：将当前线程处于等待状态，并且会释放锁。可以被其他线程使用notify和notify_all函数唤醒。被唤醒后继续等待上锁，上锁后执行下面的代码。</p></li>
+<li><p>notify：通知某个等待的线程，默认是第1个等待的线程。</p></li>
+<li><p>notify_all：通知正在等待的线程。notify和notify_all不会释放锁。并且需要在release之前调用。</p></li>
+</ol>
+<pre><code><code># 方法一
+import time
+import threading
+
+# 创建一个锁，这个可以支持你同时进行几次锁，默认为1次
+lock = threading.Condition()
+
+def func(arg):
+    print(&#39;线程进来了&#39;)
+    lock.acquire()
+    lock.wait()
+
+    print(arg)
+    time.sleep(1)
+    lock.release()
+
+for num in range(3):
+    t = threading.Thread(target=func,args=(num,))
+    t.start()
+
+while True:
+    num = int(input(&#39;&gt;&gt;&gt;:&#39;))
+    lock.acquire()
+    lock.notify(num)
+    lock.release()
+    
+# 方法二
+import time
+import threading
+
+# 创建一个锁，这个可以支持你同时进行几次锁，默认为1次
+lock = threading.Condition()
+
+def xxx():
+    print(&#39;来执行函数了&#39;)
+    input(&#39;&gt;&gt;&gt;:&#39;)
+    return True
+
+def func(arg):
+    print(&#39;线程进来了&#39;)
+    lock.wait_for(xxx)
+    print(arg)
+    time.sleep(1)
+
+for num in range(3):
+    t = threading.Thread(target=func,args=(num,))
+    t.start()</code></pre>
+<h3 id="event事件1次放所有">event（事件）1次放所有</h3>
+<pre><code><code>import threading
+
+# 创建一个锁，这个可以支持你同时进行几次锁，默认为1次
+lock = threading.Event()
+
+def func(arg):
+    print(&#39;线程进来了&#39;)
+    lock.wait()  # 变红灯
+    print(arg)
+
+for num in range(10):
+    t = threading.Thread(target=func,args=(num,))
+    t.start()
+
+input(&#39;&gt;&gt;&gt;&#39;)
+lock.set()   # 变绿灯
+input(&#39;&gt;&gt;&gt;&#39;)
+
+# 重新回归 红灯状态
+lock.clear()
+for num in range(10):
+    t = threading.Thread(target=func,args=(num,))
+    t.start()
+
+input(&#39;&gt;&gt;&gt;&#39;)
+lock.set()   # 变绿灯
+input(&#39;&gt;&gt;&gt;&#39;)</code></pre>
+<h3 id="线程总结">线程总结</h3>
+<p>线程安全：列表和字典就是线程安全；</p>
+<p>为什么要加锁？</p>
+<ul>
+<li>非线程安全</li>
+<li>控制一段代码的时候，每次只能最多同时执行几个</li>
+</ul>
+<h2 id="threading.local">threading.local</h2>
+<p>为每一个线程创建一个字典键值对，为数据进行隔离</p>
+<p>示例代码：</p>
+<pre><code><code>import time
+import threading
+
+pond = threading.local()
+
+def func(arg):
+    # 内部会为当前线程创建一个空间用于存储，phone = 自己的值 ，将数据隔离开
+    pond.phone = arg 
+    time.sleep(2)
+    # 取当前线程自己空间取值
+    print(pond.phone,arg)  
+
+for num in range(10):
+    t = threading.Thread(target=func,args=(num,))
+    t.start()</code></pre>
+<h2 id="线程池">线程池</h2>
+<p>使用<code>concurrent</code>来创建线程池，使用线程池可以有效的解决线程无止境的问题，用户每一次一个请求都会创建一个线程，这样线程一堆积也会造成程序缓慢，所以，线程池就可以帮我们解决这个问题，线程池可以设定，最多同时执行n个线程，由自己设定。</p>
+<p><strong>示例代码：</strong></p>
+<pre><code><code>import time
+from concurrent.futures import ThreadPoolExecutor
+
+# 创建一个线程池，(最多同时执行5个线程)
+pool = ThreadPoolExecutor(5)
+
+def func(arg1,arg2):
+    time.sleep(1)
+    print(arg1,arg2)
+
+for num in range(5):
+    # 去线程池申请一个线程，让线程执行func函数
+    pool.submit(func,num,8)</code></pre>
+<h2 id="queue线程安全队列">Queue线程安全队列：</h2>
+<p>在线程中，访问一些全局变量，加锁是一个经常的过程。如果你是想把一些数据存储到某个队列中，那么Python内置了一个线程安全的模块叫做queue模块。Python中的queue模块中提供了同步的、线程安全的队列类，包括FIFO（先进先出）队列Queue，LIFO（后入先出）队列LifoQueue。这些队列都实现了锁原语（可以理解为原子操作，即要么不做，要么都做完），能够在多线程中直接使用。可以使用队列来实现线程间的同步。相关的函数如下：</p>
+<ol>
+<li>初始化Queue(maxsize)：创建一个先进先出的队列。</li>
+<li>qsize()：返回队列的大小。</li>
+<li>empty()：判断队列是否为空。</li>
+<li>full()：判断队列是否满了。</li>
+<li>get()：从队列中取最后一个数据。</li>
+<li>put()：将一个数据放到队列中。</li>
+</ol>
+<p><strong>示例代码</strong></p>
+<pre><code><code> #encoding:utf-8
+
+from queue import Queue
+import threading
+import time
+
+# q = Queue(4)  # 添加4个队列
+# q.put(10)   #第1个队列插入一条数据
+# q.put(4)    #第2个队列插入一条数据
+
+# for x in range(4):
+#     q.put(x)
+#
+# for x in range(4):
+#     print(q.get())
+# print(q.empty())
+# print(q.full())
+# print(q.qsize())
+
+def set_value(q):
+    index = 0
+    while True:
+        q.put(index)
+        index +=1
+        time.sleep(2)
+def get_value(q):
+    while True:
+        print(q.get())
+
+def main():
+    q = Queue(4)
+    t1 = threading.Thread(target=set_value,args=[q])
+    t2 = threading.Thread(target=get_value,args=[q])
+
+    t1.start()
+    t2.start()
+
+if __name__ == &#39;__main__&#39;:
+    main()</code></pre>
+<h2 id="生产者消费者模型">生产者消费者模型</h2>
+<h3 id="模型三部件">模型三部件</h3>
+<ul>
+<li>生产者
+<ul>
+<li>队列：先进先出</li>
+<li>栈：后进先出</li>
+</ul></li>
+<li>消费者</li>
+<li>队列</li>
+</ul>
+<p>生产者和消费者模型解决了 不用一直等待的问题</p>
+<p><strong>使用Queue创建队列</strong></p>
+<p><strong>示例代码：</strong></p>
+<pre><code><code>import time
+import threading
+from queue import Queue
+
+q = Queue()
+
+def producer(id):
+    &#39;&#39;&#39;生产者&#39;&#39;&#39;
+    while True:
+        time.sleep(2)
+        q.put(&#39;包子&#39;)
+        print(&#39;厨师 %s 生产了一个包子&#39;%id)
+
+def consumer(id):
+    &#39;&#39;&#39;消费者&#39;&#39;&#39;
+    while True:
+        time.sleep(1)
+        v1 = q.get()
+        print(&#39;顾客 %s 吃了一个包子&#39;%id)
+
+for produce in range(1,4):
+    t1 = threading.Thread(target=producer,args=(produce,))
+    t1.start()
+
+for consu in range(1,3):
+    t2 = threading.Thread(target=consumer,args=(consu,))
+    t2.start()</code></pre>
+<h2 id="总结">总结：</h2>
+<ol>
+<li>操作系统帮助开发者操作硬件</li>
+<li>程序员写好代码在操作系统上运行（依赖解释器）</li>
+<li><p>任务特别多。</p>
+<p>以前一个一个执行，(串行)，现在可以使用多线程</p></li>
+</ol>
+<p>为什么创建线程？</p>
+<ul>
+<li>由于线程是cpu工作的最小单元，创建线程可以利用多核优势实现并行操作(java,C#)</li>
+</ul>
+<p>为啥创建进程？</p>
+<ul>
+<li>进程和进程之间做数据隔离(java/C)</li>
+</ul>
+<p>Python</p>
+<ul>
+<li><p>Python中存在一个GIL锁。</p>
+<ul>
+<li>造成：多线程无法利用多核优势</li>
+<li><p>解决：开多进程处理(浪费资源)</p></li>
+<li>总结：
+<ul>
+<li>IO密集型：多线程</li>
+<li>计算密集型：多进程</li>
+</ul></li>
+</ul></li>
+<li><p>线程的创建</p>
+<ul>
+<li>Thread</li>
+<li>面向对象继承(Threading.Thread)</li>
+</ul></li>
+<li><p>其他</p>
+<ul>
+<li>jojn</li>
+<li>setDeanon</li>
+<li>setName</li>
+<li>threading.current_thread()</li>
+</ul></li>
+<li><p>锁</p>
+<ul>
+<li>获得</li>
+<li>释放</li>
+</ul></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

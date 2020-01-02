@@ -1,0 +1,610 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django之视图' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django之视图</center></div><div class='banquan'>原文出处:本文由博客园博主YifChan提供。<br/>
+原文连接:https://www.cnblogs.com/yifchan/p/python-1-27.html</div><br>
+    <p>Django1.8.2中文文档：<a href="https://yiyibooks.cn/xx/django_182/index.html" target="_blank">Django1.8.2中文文档</a></p>
+<h2>视图</h2>
+<p><strong>视图的功能</strong></p>
+<p>接收请求，进行处理，与M和T进行交互，返回应答。<br />返回html内容 HttpResponse，也可能重定向 redirect,还可以返回json数据。</p>
+<p>&nbsp;</p>
+<h3>视图函数的使用</h3>
+<h4>使用</h4>
+<p><strong>1)定义视图函数</strong><br />request参数必须有。是一个HttpRequest类型的对象。参数名可以变化，但最好不要更改。<br /><strong>2)配置url</strong><br />建立url和视图函数之间的对应关系。</p>
+<p>&nbsp;</p>
+<h4>url配置的过程</h4>
+<ul>
+<li>1)在项目的urls文件中包含具体应用的urls文件，在具体应用的urls文件中包含具体url和视图的对应关系。</li>
+<li>2)url配置项是定义在一个名叫urlpatterns的列表中，其中的每一个元素就是一个配置项，每一个配置项都调用url函数。</li>
+
+
+
+
+
+
+</ul>
+<p>如下</p>
+<p>test1000/url.py</p>
+<div class="cnblogs_code">
+<pre><code>urlpatterns =<span style="color: #000000;"> [
+    url(r</span><span style="color: #800000;">'</span><span style="color: #800000;">^admin/</span><span style="color: #800000;">'</span><span style="color: #000000;">, admin.site.urls),
+    url(r</span><span style="color: #800000;">'</span><span style="color: #800000;">^</span><span style="color: #800000;">'</span>, include(<span style="color: #800000;">'</span><span style="color: #800000;">booktest.urls</span><span style="color: #800000;">'</span>)),  <span style="color: #008000;">#</span><span style="color: #008000;"> 包含booktest应用中的路由文件</span>
+]</pre>
+</div>
+<p>booktest/url.py</p>
+<div class="cnblogs_code">
+<pre><code>urlpatterns =<span style="color: #000000;"> [
+    url(r</span><span style="color: #800000;">'</span><span style="color: #800000;">^index/</span><span style="color: #800000;">'</span>, views.index),  <span style="color: #008000;">#</span><span style="color: #008000;"> 显示图书信息</span>
+    url(r<span style="color: #800000;">'</span><span style="color: #800000;">^create/</span><span style="color: #800000;">'</span>, views.create),  <span style="color: #008000;">#</span><span style="color: #008000;"> 添加一本书籍</span>
+    url(r<span style="color: #800000;">'</span><span style="color: #800000;">^delete(\d+)/</span><span style="color: #800000;">'</span>, views.delete),  <span style="color: #008000;">#</span><span style="color: #008000;"> 删除一本书籍</span>
+]</pre>
+</div>
+<p>&nbsp;</p>
+<h3>url匹配的过程</h3>
+<p>url匹配图解</p>
+<p><img src="./images/Django之视图0.png" alt="" width="610" height="399" /></p>
+<p>匹配示例：</p>
+<p>url:http://127.0.0.1:8000/aindex?a=1</p>
+<ul>
+<li>1) 去除域名和后面的参数，剩下/aindex,再把前面的/去掉，剩下aindex</li>
+<li>2) 拿aindex先到项目的url.py文件中进行从上到下的匹配，匹配成功之后执行后面对应的处理动作，就是把匹配成功的部分a字符去除，然后拿剩下的部分index到应用的urls.py文件中再进行从上到下的匹配。</li>
+<li>3) 如果匹配成功则调用相应的视图产生内容返回给客户端。如果匹配失败则产生404错误。</li>
+</ul>
+<p>&nbsp;</p>
+<h3>错误视图</h3>
+<p>当我们在开发时，可以设置settings文件里面的DEBUG=True，但当我们要上线产品时，应该设置为False，否则会把网站的信息暴露出来。<br />开发时：</p>
+<div class="cnblogs_code">
+<pre><code>DEBUG =<span style="color: #000000;"> True
+ALLOWED_HOSTS </span>= []</pre>
+</div>
+<p>要上线时：</p>
+<div class="cnblogs_code">
+<pre><code>DEBUG =<span style="color: #000000;"> True
+ALLOWED_HOSTS </span>= [<span style="color: #800000;">'</span><span style="color: #800000;">*</span><span style="color: #800000;">'</span>]</pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>404: 找不到页面。可能原因</strong></p>
+<ul>
+<li>a)url没有配置</li>
+<li>b)url配置错误</li>
+<li>c)浏览器url&rsquo;/&rsquo;问题</li>
+</ul>
+<p><strong>500: 服务器端的错误。<strong>可能原因</strong></strong></p>
+<ul>
+<li>a)视图出错</li>
+</ul>
+<p>&nbsp;</p>
+<h4>自定义404页面</h4>
+<p>修改为上线模式后，在templates下新建并编写一个404.html，即可。<br />在使用这个页面的过程中，Django会传过来一个模板变量，<strong>{{ request_path }}，表示用户请求路径。</strong></p>
+<p>500错误页面同理。</p>
+<p>&nbsp;</p>
+<h3>捕捉url参数</h3>
+<p>进行url匹配时，把所需要的捕获的部分设置成一个正则表达式组，这样django框架就会自动把匹配成功后相应组的内容作为参数传递给视图函数。<br /><strong>1)位置参数</strong><br />位置参数，参数名可以随意指定</p>
+<p><br /><strong>2)关键字参数</strong>：在位置参数的基础上给正则表达式组命名即可。<br /><strong>?P&lt;组名&gt;</strong><br />关键字参数，视图中参数名必须和正则表达式组名一致.</p>
+<p>&nbsp;</p>
+<p>捕获url参数示例：</p>
+<div class="cnblogs_code">
+<pre><code>url(r<span style="color: #800000;">'</span><span style="color: #800000;">^delete(\d+)/</span><span style="color: #800000;">'</span>, views.delete),  <span style="color: #008000;">#</span><span style="color: #008000;"> 捕获url参数：位置参数</span>
+url(r<span style="color: #800000;">'</span><span style="color: #800000;">^delete(?P&lt;bid&gt;\d+)/</span><span style="color: #800000;">'</span>, views.delete),  <span style="color: #008000;">#</span><span style="color: #008000;"> 捕获url参数：关键字参数</span>
+
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> delete(request, bid):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">删除一本书籍</span><span style="color: #800000;">"""</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 1.获取书籍对象</span>
+    book = models.BookInfo.objects.get(id=<span style="color: #000000;">bid)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 2.删除书籍</span>
+<span style="color: #000000;">    book.delete()
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 3.重定向</span>
+    <span style="color: #0000ff;">return</span> redirect(<span style="color: #800000;">'</span><span style="color: #800000;">/index</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>注意，使用关键字参数时，视图中的参数名应该和正则表达式中的参数名一致</p>
+<p>&nbsp;</p>
+<h3>普通登录案例</h3>
+<h4>普通登录案例项目分析</h4>
+<p><strong>1)显示出登录页面</strong></p>
+<ul>
+<li>a)设计url，通过浏览器访问 http://127.0.0.1:8000/login 时显示登录页面。</li>
+<li>b)设计url对应的视图函数login。</li>
+<li>c)编写模板文件login.html。</li>
+</ul>
+<table style="height: 53px; width: 412px;" border="0">
+<tbody>
+<tr>
+<td>url</td>
+<td>视图</td>
+<td>模板文件</td>
+</tr>
+<tr>
+<td>/login</td>
+<td>login</td>
+<td>login.html</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<p><strong>2)登录校验功能</strong></p>
+<ul>
+<li>a)设计url,点击登录页的登录按钮发起请求http://127.0.0.1:8000/login_check时进行登录校验。</li>
+<li>b)设计url对应的视图函数login_check。</li>
+</ul>
+<ol>
+<li>接收表单提交过来的数据。</li>
+<li>进行登录校验，若用户名密码正确则跳转到登录成功页。若失败在跳转到登录页面。</li>
+</ol>
+<ul>
+<li>c)登录成功后跳转到首页。</li>
+</ul>
+<table style="height: 51px; width: 413px;" border="0">
+<tbody>
+<tr>
+<td>url</td>
+<td>视图</td>
+<td>模板文件</td>
+</tr>
+<tr>
+<td>/login_check</td>
+<td>login_check</td>
+<td>无</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<h4>普通登录示例代码&nbsp;</h4>
+<p>定义login.html页面</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('a4c3ae43-8b6e-4be1-b120-44c365074e69')"><img id="code_img_closed_a4c3ae43-8b6e-4be1-b120-44c365074e69" class="code_img_closed" src="./images/Django之视图1.png" alt="" /><img id="code_img_opened_a4c3ae43-8b6e-4be1-b120-44c365074e69" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('a4c3ae43-8b6e-4be1-b120-44c365074e69',event)" src="./images/Django之视图2.png" alt="" />
+<div id="cnblogs_code_open_a4c3ae43-8b6e-4be1-b120-44c365074e69" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">&lt;!</span><span style="color: #ff00ff;">DOCTYPE html</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">html </span><span style="color: #ff0000;">lang</span><span style="color: #0000ff;">="en"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">charset</span><span style="color: #0000ff;">="UTF-8"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>Login<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">name</span><span style="color: #0000ff;">="viewport"</span><span style="color: #ff0000;"> content</span><span style="color: #0000ff;">="width=device-width, initial-scale=1"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">form </span><span style="color: #ff0000;">action</span><span style="color: #0000ff;">="/login_check/"</span><span style="color: #ff0000;"> method</span><span style="color: #0000ff;">="post"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">label </span><span style="color: #ff0000;">for</span><span style="color: #0000ff;">="username"</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">用户:
+        </span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="text"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="username"</span><span style="color: #ff0000;"> name</span><span style="color: #0000ff;">="username"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">label</span><span style="color: #0000ff;">&gt;&lt;</span><span style="color: #800000;">br </span><span style="color: #0000ff;">/&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">label </span><span style="color: #ff0000;">for</span><span style="color: #0000ff;">="password"</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">密码:
+        </span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="password"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="password"</span><span style="color: #ff0000;"> name</span><span style="color: #0000ff;">="password"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">label</span><span style="color: #0000ff;">&gt;&lt;</span><span style="color: #800000;">br </span><span style="color: #0000ff;">/&gt;</span>
+    
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="submit"</span><span style="color: #ff0000;"> value</span><span style="color: #0000ff;">="登录"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">form</span><span style="color: #0000ff;">&gt;</span>
+
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">html</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<span class="cnblogs_code_collapse">index.html</span></div>
+<p>编写login函数</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> login(request):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">登录处理函数</span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">return</span> render(request, <span style="color: #800000;">"</span><span style="color: #800000;">booktest/login.html</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>配置login和login_check路由</p>
+<div class="cnblogs_code">
+<pre><code>url(r<span style="color: #800000;">'</span><span style="color: #800000;">^login/$</span><span style="color: #800000;">'</span>, views.login),</pre>
+<pre><code>url(r'^login_check/$', views.login_check),</pre>
+</div>
+<p>编写login_check函数</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> login_check(request):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 1.获取用户名和密码</span>
+    username = request.POST.get(<span style="color: #800000;">"</span><span style="color: #800000;">username</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    password </span>= request.POST.get(<span style="color: #800000;">"</span><span style="color: #800000;">password</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 2.进行校验</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 3.返回应答</span>
+    <span style="color: #0000ff;">if</span> username == <span style="color: #800000;">"</span><span style="color: #800000;">yifchan</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">and</span> password == <span style="color: #800000;">"</span><span style="color: #800000;">yifchan</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span> redirect(<span style="color: #800000;">"</span><span style="color: #800000;">/index</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span> HttpResponse(<span style="color: #800000;">"</span><span style="color: #800000;">账号或密码错误</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>HttpReqeust对象</h2>
+<p>服务器接收到http协议的请求后，会根据报文创建HttpRequest对象，这个对象不需要我们创建，直接使用服务器构造好的对象就可以。<br /><strong>视图的第一个参数必须是HttpRequest对象，即reques</strong>t，在django.http模块中定义了HttpRequest对象的API。</p>
+<h3><strong>属性</strong></h3>
+<p>下面除非特别说明，属性都是只读的。</p>
+<table style="height: 262px; width: 768px;" border="0">
+<tbody>
+<tr>
+<td>path</td>
+<td>一个字符串，表示请求的页面的完整路径，不包含域名和参数部分。</td>
+
+
+
+
+</tr>
+<tr>
+<td>method</td>
+<td>一个字符串，表示请求使用的HTTP方法，常用值包括：'GET'、'POST'。<br />在浏览器中给出地址发出请求采用get方式，如超链接。<br />在浏览器中点击表单的提交按钮发起请求，如果表单的method设置为post则为post请求。</td>
+
+
+
+
+</tr>
+<tr>
+<td>encoding</td>
+<td>
+<p>一个字符串，表示提交的数据的编码方式。如果为None则表示使用浏览器的默认设置，一般为utf-8。</p>
+<p>这个属性是可写的，可以通过修改它来修改访问表单数据使用的编码，接下来对属性的任何访问将使用新的encoding值。</p>
+
+
+
+
+</td>
+
+
+
+
+</tr>
+<tr>
+<td>GET</td>
+<td>QueryDict类型对象，类似于字典，包含get请求方式的所有参数。</td>
+
+
+
+
+</tr>
+<tr>
+<td>POST</td>
+<td>QueryDict类型对象，类似于字典，包含post请求方式的所有参数。</td>
+
+
+
+
+</tr>
+<tr>
+<td>FILES</td>
+<td>一个类似于字典的对象，包含所有的上传文件。</td>
+
+
+
+
+</tr>
+<tr>
+<td>COOKIES</td>
+<td>一个标准的Python字典，包含所有的cookie，键和值都为字符串。</td>
+
+
+
+
+</tr>
+<tr>
+<td>session</td>
+<td>一个既可读又可写的类似于字典的对象，表示当前的会话，只有当Django 启用会话的支持时才可用，详细内容见"状态保持"。</td>
+
+
+
+
+</tr>
+
+
+
+
+</tbody>
+
+
+
+
+</table>
+<p>&nbsp;</p>
+<h3>QueryDict对象</h3>
+<ul>
+<li>定义在django.http.QueryDict</li>
+<li>HttpRequest对象的属性GET、POST都是QueryDict类型的对象</li>
+<li>与python字典不同，QueryDict类型的对象用来处理同一个键带有多个值的情况</li>
+
+
+
+
+</ul>
+<h4>方法get()</h4>
+<p>根据键获取值</p>
+<p>如果一个键同时拥有多个值将获取最后一个值</p>
+<p>如果键不存在则返回None值，可以设置默认值进行后续处理</p>
+<div class="cnblogs_code">
+<pre><code>dict.get(<span style="color: #800000;">'</span><span style="color: #800000;">键</span><span style="color: #800000;">'</span><span style="color: #000000;">,默认值)
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 可简写为</span>
+dict[<span style="color: #800000;">'</span><span style="color: #800000;">键</span><span style="color: #800000;">'</span>]</pre>
+</div>
+<p>&nbsp;</p>
+<h4>方法getlist()</h4>
+<p>根据键获取值，值以列表返回，可以获取指定键的所有值<br />如果键不存在则返回空列表[]，可以设置默认值进行后续处理</p>
+<div class="cnblogs_code">
+<pre><code>dict.getlist(<span style="color: #800000;">'</span><span style="color: #800000;">键</span><span style="color: #800000;">'</span>,默认值)</pre>
+</div>
+<p>&nbsp;</p>
+<h4>方法dict['键']</h4>
+<p>根据键获取值<br />和get()方法差不多，但没有值的时候会报错；</p>
+<p>&nbsp;</p>
+<p><strong>取QueryDict值示例</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.http.request <span style="color: #0000ff;">import</span><span style="color: #000000;"> QueryDict
+q </span>= QueryDict(<span style="color: #800000;">'</span><span style="color: #800000;">a=1&amp;b=2&amp;c=3</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+q[</span><span style="color: #800000;">'</span><span style="color: #800000;">a</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+q[</span><span style="color: #800000;">'</span><span style="color: #800000;">b</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+q.get(</span><span style="color: #800000;">'</span><span style="color: #800000;">a</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+q.get(</span><span style="color: #800000;">'</span><span style="color: #800000;">c</span><span style="color: #800000;">'</span>, default=<span style="color: #800000;">""</span>)</pre>
+</div>
+<p>应注意使用[]取值时如果没有值会报错，而get只会返回一个none，不会报错，所以一般使用get；</p>
+<p>此外，QueryDict和字典的不同之处在于可以一个key对应多个value，但会取后面的那个value，<br />想要获取该key所有的value，可以通过dict.getlist('键',默认值)进行获取。</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>ajax请求</h2>
+<p>ajax，即异步的javascript。在不全部加载某一个页面部的情况下，对页面进行局的刷新，ajax请求都在后台。<br />图片，css文件，js文件都是静态文件。</p>
+<p><img src="./images/Django之视图3.png" alt="" width="588" height="482" /></p>
+<p>1)发起ajax请求：jquery发起<br />2)执行相应的视图函数，返回json内容<br />3)执行相应的回调函数。通过判断json内容，进行相应处理。</p>
+<p>&nbsp;</p>
+<h3>python和ajax结合使用</h3>
+<p>因为要引入jquery，一般对于这些静态文件，我们会创建static文件，将静态文件放入里面，在settings文件里面进行配置。</p>
+<div class="cnblogs_code">
+<pre><code>STATIC_URL = <span style="color: #800000;">'</span><span style="color: #800000;">/static/</span><span style="color: #800000;">'</span><span style="color: #000000;">
+STATICFILES_DIRS </span>= [os.path.join(BASE_DIR, <span style="color: #800000;">'</span><span style="color: #800000;">static</span><span style="color: #800000;">'</span>)] <span style="color: #008000;">#</span><span style="color: #008000;"> 设置静态文件的保存目录</span></pre>
+</div>
+<p>在static文件夹下新建js，css等文件；<br />在js中引入jquery文件；<br />编写ajax_test.html</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('aa297b6c-b2d3-4c86-8f1a-b98e4eba0634')"><img id="code_img_closed_aa297b6c-b2d3-4c86-8f1a-b98e4eba0634" class="code_img_closed" src="./images/Django之视图1.png" alt="" /><img id="code_img_opened_aa297b6c-b2d3-4c86-8f1a-b98e4eba0634" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('aa297b6c-b2d3-4c86-8f1a-b98e4eba0634',event)" src="./images/Django之视图2.png" alt="" />
+<div id="cnblogs_code_open_aa297b6c-b2d3-4c86-8f1a-b98e4eba0634" class="cnblogs_code_hide">
+<pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=<span style="color: #800000;">"</span><span style="color: #800000;">en</span><span style="color: #800000;">"</span>&gt;
+&lt;head&gt;
+    &lt;meta charset=<span style="color: #800000;">"</span><span style="color: #800000;">UTF-8</span><span style="color: #800000;">"</span>&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+    &lt;meta name=<span style="color: #800000;">"</span><span style="color: #800000;">viewport</span><span style="color: #800000;">"</span> content=<span style="color: #800000;">"</span><span style="color: #800000;">width=device-width, initial-scale=1</span><span style="color: #800000;">"</span>&gt;
+    &lt;script src=<span style="color: #800000;">"</span><span style="color: #800000;">/static/js/jquery-3.3.1.js</span><span style="color: #800000;">"</span>&gt;&lt;/script&gt;
+    &lt;script&gt;<span style="color: #000000;">
+        $(function () {
+        {</span><span style="color: #008000;">#</span><span style="color: #008000;">    绑定btnAjax的click事件#}</span>
+            $(<span style="color: #800000;">'</span><span style="color: #800000;">#btnAjax</span><span style="color: #800000;">'</span><span style="color: #000000;">).click(function () {
+                $.ajax({
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">url</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">/ajax_handle</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">type</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">get</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+                    </span><span style="color: #800000;">'</span><span style="color: #800000;">datatype</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">json</span><span style="color: #800000;">'</span><span style="color: #000000;">
+                }).done(function (data) {
+                    </span>//<span style="color: #000000;"> 处理后端拿过来的数据
+                    </span>//<span style="color: #000000;"> console.log(data.res);
+                    </span><span style="color: #0000ff;">if</span> (data.res == <span style="color: #800000;">'</span><span style="color: #800000;">1</span><span style="color: #800000;">'</span><span style="color: #000000;">) {
+                        $(</span><span style="color: #800000;">'</span><span style="color: #800000;">#message</span><span style="color: #800000;">'</span>).show().html(<span style="color: #800000;">"</span><span style="color: #800000;">提示信息</span><span style="color: #800000;">"</span><span style="color: #000000;">);
+                    }
+                })
+            })
+        })
+    </span>&lt;/script&gt;
+    &lt;style&gt;
+        <span style="color: #008000;">#</span><span style="color: #008000;">message {display: none;color: red;}</span>
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;input type=<span style="color: #800000;">"</span><span style="color: #800000;">button</span><span style="color: #800000;">"</span> id=<span style="color: #800000;">"</span><span style="color: #800000;">btnAjax</span><span style="color: #800000;">"</span> value=<span style="color: #800000;">"</span><span style="color: #800000;">ajax请求</span><span style="color: #800000;">"</span>&gt;
+&lt;div id=<span style="color: #800000;">"</span><span style="color: #800000;">message</span><span style="color: #800000;">"</span>&gt;&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+</div>
+<span class="cnblogs_code_collapse">ajax_test.html</span></div>
+<p>编写ajax_test函数</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> ajax_test(request):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">返回ajax页面</span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">return</span> render(request, <span style="color: #800000;">"</span><span style="color: #800000;">booktest/ajax_test.html</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>设计ajax_test，ajax_handle的url</p>
+<div class="cnblogs_code">
+<pre><code>url(r<span style="color: #800000;">'</span><span style="color: #800000;">^ajax_test/$</span><span style="color: #800000;">'</span>, views.ajax_test),<br />url(r'^ajax_handle/$', views.ajax_handle),</pre>
+</div>
+<p>编写ajax_handle处理函数</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> ajax_handle(request):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">ajax处理函数</span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">return</span> JsonResponse({<span style="color: #800000;">"</span><span style="color: #800000;">res</span><span style="color: #800000;">"</span>: 1})</pre>
+</div>
+<p>关于ajax调试，可以使用浏览器的network窗口，如果出现问题，就到network窗口，点击出错的请求，再点击response，就会有报错详情了；</p>
+<p>&nbsp;</p>
+<h3>ajax同步和异步</h3>
+<p>同步：等别人执行完再执行；<br />异步：不管别人有没有执行完，就执行；</p>
+<p>ajax默认是异步的，即不等ajax请求返回数据，就执行ajax后面的代码，如果想要实现ajax通过不，可以添加'async': false：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">$.ajax({
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">url</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">/ajax_handle</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">dataType</span><span style="color: #800000;">'</span>: <span style="color: #800000;">'</span><span style="color: #800000;">json</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">async</span><span style="color: #800000;">'</span>: false, //<span style="color: #000000;"> 同步的ajax请求，默认为True
+})</span></pre>
+</div>
+<p>ajax默认是异步的请求</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('a007c3c5-f3f5-4473-805d-4c4adb8bef6a')"><img id="code_img_closed_a007c3c5-f3f5-4473-805d-4c4adb8bef6a" class="code_img_closed" src="./images/Django之视图1.png" alt="" /><img id="code_img_opened_a007c3c5-f3f5-4473-805d-4c4adb8bef6a" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('a007c3c5-f3f5-4473-805d-4c4adb8bef6a',event)" src="./images/Django之视图2.png" alt="" />
+<div id="cnblogs_code_open_a007c3c5-f3f5-4473-805d-4c4adb8bef6a" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">&lt;!</span><span style="color: #ff00ff;">DOCTYPE html</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">html </span><span style="color: #ff0000;">lang</span><span style="color: #0000ff;">="en"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">charset</span><span style="color: #0000ff;">="UTF-8"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>Title<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">name</span><span style="color: #0000ff;">="viewport"</span><span style="color: #ff0000;"> content</span><span style="color: #0000ff;">="width=device-width, initial-scale=1"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">script </span><span style="color: #ff0000;">src</span><span style="color: #0000ff;">="/static/js/jquery-3.3.1.js"</span><span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span><span style="background-color: #f5f5f5; color: #000000;">
+        $(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> () {
+            </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 绑定btnAjax的click事件</span>
+<span style="background-color: #f5f5f5; color: #000000;">            $(</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">#btnAjax</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">).click(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> () {
+                console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">1</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+                $.ajax({
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">url</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">/ajax_handle</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">type</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">get</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">datatype</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">json</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">
+                }).done(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> (data) {
+                    </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 处理后端拿过来的数据</span>
+<span style="background-color: #f5f5f5; color: #000000;">                    console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">2</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+                })
+                console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">3</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+            })
+        })
+    </span><span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">style</span><span style="color: #0000ff;">&gt;</span><span style="background-color: #f5f5f5; color: #800000;">
+        #message </span><span style="background-color: #f5f5f5; color: #000000;">{</span><span style="background-color: #f5f5f5; color: #ff0000;">display</span><span style="background-color: #f5f5f5; color: #000000;">:</span><span style="background-color: #f5f5f5; color: #0000ff;"> none</span><span style="background-color: #f5f5f5; color: #000000;">;</span><span style="background-color: #f5f5f5; color: #ff0000;">color</span><span style="background-color: #f5f5f5; color: #000000;">:</span><span style="background-color: #f5f5f5; color: #0000ff;"> red</span><span style="background-color: #f5f5f5; color: #000000;">;</span><span style="background-color: #f5f5f5; color: #000000;">}</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">style</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="button"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="btnAjax"</span><span style="color: #ff0000;"> value</span><span style="color: #0000ff;">="ajax请求"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">id</span><span style="color: #0000ff;">="message"</span><span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">html</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<span class="cnblogs_code_collapse">ajax异步示例代码</span></div>
+<p>这个时候，是默认的异步ajax，就会依次弹出1,3,2；</p>
+<p>&nbsp;</p>
+<p>同步的ajax请求，需要在ajax中添加 'async': false,</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('aa45d3f1-d02b-4d4e-9576-dbddf4522e16')"><img id="code_img_closed_aa45d3f1-d02b-4d4e-9576-dbddf4522e16" class="code_img_closed" src="./images/Django之视图1.png" alt="" /><img id="code_img_opened_aa45d3f1-d02b-4d4e-9576-dbddf4522e16" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('aa45d3f1-d02b-4d4e-9576-dbddf4522e16',event)" src="./images/Django之视图2.png" alt="" />
+<div id="cnblogs_code_open_aa45d3f1-d02b-4d4e-9576-dbddf4522e16" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">&lt;!</span><span style="color: #ff00ff;">DOCTYPE html</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">html </span><span style="color: #ff0000;">lang</span><span style="color: #0000ff;">="en"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">charset</span><span style="color: #0000ff;">="UTF-8"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>Title<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">name</span><span style="color: #0000ff;">="viewport"</span><span style="color: #ff0000;"> content</span><span style="color: #0000ff;">="width=device-width, initial-scale=1"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">script </span><span style="color: #ff0000;">src</span><span style="color: #0000ff;">="/static/js/jquery-3.3.1.js"</span><span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span><span style="background-color: #f5f5f5; color: #000000;">
+        $(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> () {
+            </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 绑定btnAjax的click事件</span>
+<span style="background-color: #f5f5f5; color: #000000;">            $(</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">#btnAjax</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">).click(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> () {
+                console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">1</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+                $.ajax({
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">url</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">/ajax_handle</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">type</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">get</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">datatype</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">json</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">async</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #0000ff;">false</span><span style="background-color: #f5f5f5; color: #000000;">, </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 同步的ajax请求，默认为True</span>
+<span style="background-color: #f5f5f5; color: #000000;">                }).done(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> (data) {
+                    </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 处理后端拿过来的数据</span>
+<span style="background-color: #f5f5f5; color: #000000;">                    console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">2</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+                })
+                console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">3</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+            })
+        })
+    </span><span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">style</span><span style="color: #0000ff;">&gt;</span><span style="background-color: #f5f5f5; color: #800000;">
+        #message </span><span style="background-color: #f5f5f5; color: #000000;">{</span><span style="background-color: #f5f5f5; color: #ff0000;">display</span><span style="background-color: #f5f5f5; color: #000000;">:</span><span style="background-color: #f5f5f5; color: #0000ff;"> none</span><span style="background-color: #f5f5f5; color: #000000;">;</span><span style="background-color: #f5f5f5; color: #ff0000;">color</span><span style="background-color: #f5f5f5; color: #000000;">:</span><span style="background-color: #f5f5f5; color: #0000ff;"> red</span><span style="background-color: #f5f5f5; color: #000000;">;</span><span style="background-color: #f5f5f5; color: #000000;">}</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">style</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="button"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="btnAjax"</span><span style="color: #ff0000;"> value</span><span style="color: #0000ff;">="ajax请求"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">id</span><span style="color: #0000ff;">="message"</span><span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">html</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<span class="cnblogs_code_collapse">ajax同步示例代码</span></div>
+<p>这个时候，是同步的ajax，就会依次弹出1,2,3；</p>
+<p>&nbsp;</p>
+<h3>ajax登录案例</h3>
+<p>编写login_ajax.html页面</p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('e418020f-6c1c-4943-aa0f-2a9b11a693f2')"><img id="code_img_closed_e418020f-6c1c-4943-aa0f-2a9b11a693f2" class="code_img_closed" src="./images/Django之视图1.png" alt="" /><img id="code_img_opened_e418020f-6c1c-4943-aa0f-2a9b11a693f2" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('e418020f-6c1c-4943-aa0f-2a9b11a693f2',event)" src="./images/Django之视图2.png" alt="" />
+<div id="cnblogs_code_open_e418020f-6c1c-4943-aa0f-2a9b11a693f2" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">&lt;!</span><span style="color: #ff00ff;">DOCTYPE html</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">html </span><span style="color: #ff0000;">lang</span><span style="color: #0000ff;">="en"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">charset</span><span style="color: #0000ff;">="UTF-8"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>Login<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">title</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">meta </span><span style="color: #ff0000;">name</span><span style="color: #0000ff;">="viewport"</span><span style="color: #ff0000;"> content</span><span style="color: #0000ff;">="width=device-width, initial-scale=1"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">script </span><span style="color: #ff0000;">src</span><span style="color: #0000ff;">="/static/js/jquery-3.3.1.js"</span><span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span><span style="background-color: #f5f5f5; color: #000000;">
+        $(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> () {
+            </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 绑定btnLogin的click事件</span>
+<span style="background-color: #f5f5f5; color: #000000;">            $(</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">#btnLogin</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">).click(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> () {
+                </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 1.获取用户输入的用户名和密码</span>
+<span style="background-color: #f5f5f5; color: #000000;">                $username </span><span style="background-color: #f5f5f5; color: #000000;">=</span><span style="background-color: #f5f5f5; color: #000000;"> $(</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">#username</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">).val();
+                $password </span><span style="background-color: #f5f5f5; color: #000000;">=</span><span style="background-color: #f5f5f5; color: #000000;"> $(</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">#password</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">).val();
+                </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 2.携带用户名和密码，发起ajax请求，login_ajax_check</span>
+<span style="background-color: #f5f5f5; color: #000000;">                $.ajax({
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">url</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">/login_ajax_check/</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">type</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">post</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">data</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: {</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">username</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: $username, </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">password</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: $password},
+                    </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">datatype</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">: </span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">json</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">,
+                }).done(</span><span style="background-color: #f5f5f5; color: #0000ff;">function</span><span style="background-color: #f5f5f5; color: #000000;"> (data) {
+                    </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 登录成功，{'res': 1}</span>
+                    <span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 登录失败，{'res': 0}</span>
+                    <span style="background-color: #f5f5f5; color: #0000ff;">if</span><span style="background-color: #f5f5f5; color: #000000;"> (data.res </span><span style="background-color: #f5f5f5; color: #000000;">==</span> <span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">0</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">) {
+                        console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">res0</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+                        $(</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">#error_message</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">).show()
+                    }
+                    </span><span style="background-color: #f5f5f5; color: #0000ff;">else</span><span style="background-color: #f5f5f5; color: #000000;"> {
+                        </span><span style="background-color: #f5f5f5; color: #008000;">//</span><span style="background-color: #f5f5f5; color: #008000;"> 登录成功则跳转到首页</span>
+<span style="background-color: #f5f5f5; color: #000000;">                        console.log(</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">res1</span><span style="background-color: #f5f5f5; color: #000000;">"</span><span style="background-color: #f5f5f5; color: #000000;">);
+                        location.href </span><span style="background-color: #f5f5f5; color: #000000;">=</span> <span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">/index</span><span style="background-color: #f5f5f5; color: #000000;">'</span><span style="background-color: #f5f5f5; color: #000000;">;
+                    }
+                });
+            })
+        })
+    </span><span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">script</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">style</span><span style="color: #0000ff;">&gt;</span><span style="background-color: #f5f5f5; color: #800000;">
+        #error_message </span><span style="background-color: #f5f5f5; color: #000000;">{</span><span style="background-color: #f5f5f5; color: #ff0000;">
+            display</span><span style="background-color: #f5f5f5; color: #000000;">:</span><span style="background-color: #f5f5f5; color: #0000ff;"> none</span><span style="background-color: #f5f5f5; color: #000000;">;</span><span style="background-color: #f5f5f5; color: #ff0000;">
+            color</span><span style="background-color: #f5f5f5; color: #000000;">:</span><span style="background-color: #f5f5f5; color: #0000ff;"> red</span><span style="background-color: #f5f5f5; color: #000000;">;</span>
+        <span style="background-color: #f5f5f5; color: #000000;">}</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">style</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">head</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+
+<span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">label </span><span style="color: #ff0000;">for</span><span style="color: #0000ff;">="username"</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">用户:
+        </span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="text"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="username"</span><span style="color: #ff0000;"> name</span><span style="color: #0000ff;">="username"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">label</span><span style="color: #0000ff;">&gt;&lt;</span><span style="color: #800000;">br </span><span style="color: #0000ff;">/&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">label </span><span style="color: #ff0000;">for</span><span style="color: #0000ff;">="password"</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">密码:
+        </span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="password"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="password"</span><span style="color: #ff0000;"> name</span><span style="color: #0000ff;">="password"</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">label</span><span style="color: #0000ff;">&gt;&lt;</span><span style="color: #800000;">br </span><span style="color: #0000ff;">/&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">div </span><span style="color: #ff0000;">id</span><span style="color: #0000ff;">="error_message"</span><span style="color: #0000ff;">&gt;</span>账号名或密码错误<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">input </span><span style="color: #ff0000;">type</span><span style="color: #0000ff;">="button"</span><span style="color: #ff0000;"> id</span><span style="color: #0000ff;">="btnLogin"</span><span style="color: #ff0000;"> value</span><span style="color: #0000ff;">="登录"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">div</span><span style="color: #0000ff;">&gt;</span>
+
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">body</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">html</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<span class="cnblogs_code_collapse">login_ajax.html</span></div>
+<p>编写login_ajax函数</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> login_ajax(request):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">返回ajax登录页面</span><span style="color: #800000;">"""</span>
+    <span style="color: #0000ff;">return</span> render(request, <span style="color: #800000;">"</span><span style="color: #800000;">booktest/login_ajax.html</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>设计login_ajax路由：</p>
+<div class="cnblogs_code">
+<pre><code>url(r<span style="color: #800000;">'</span><span style="color: #800000;">^login_ajax/$</span><span style="color: #800000;">'</span>, views.login_ajax),</pre>
+</div>
+<p>点击登录后ajax发送消息给后端路由，</p>
+<p>编写login_ajax_check登录校验函数</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> login_ajax_check(request):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 1.获取用户名和密码</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 如果是ajax提交的，那么这里的get中的值应该和ajax发过来的值一样；</span>
+    username = request.POST.get(<span style="color: #800000;">"</span><span style="color: #800000;">username</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    password </span>= request.POST.get(<span style="color: #800000;">"</span><span style="color: #800000;">password</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 2.进行校验</span>
+    <span style="color: #008000;">#</span><span style="color: #008000;"> 3.返回应答</span>
+    <span style="color: #0000ff;">if</span> username == <span style="color: #800000;">"</span><span style="color: #800000;">yifchan</span><span style="color: #800000;">"</span> <span style="color: #0000ff;">and</span> password == <span style="color: #800000;">"</span><span style="color: #800000;">yifchan</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span> JsonResponse({<span style="color: #800000;">"</span><span style="color: #800000;">res</span><span style="color: #800000;">"</span>: 1<span style="color: #000000;">})
+    </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+        </span><span style="color: #0000ff;">return</span> JsonResponse({<span style="color: #800000;">"</span><span style="color: #800000;">res</span><span style="color: #800000;">"</span>: 0})</pre>
+</div>
+<p>设计 login_ajax_check 路由：</p>
+<div class="cnblogs_code">
+<pre><code>url(r<span style="color: #800000;">'</span><span style="color: #800000;">^login_ajax_check/$</span><span style="color: #800000;">'</span>, views.login_ajax_check),</pre>
+</div>
+<p>注意：ajax的请求在后台，不要返回页面或重定向，无效；比如当前端发登录的ajax给后端，后端校验用户名密码正确后，不能直接重定向到index页面，而是返回状态码，经过ajax判断状态码后重定向到index页面，即由前端重定向；</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

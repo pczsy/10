@@ -1,0 +1,180 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Linux文档整理之【Jenkins+Docker自动化部署.Net Core】' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Linux文档整理之【Jenkins+Docker自动化部署.Net Core】</center></div><div class='banquan'>原文出处:本文由博客园博主Cfan1236提供。<br/>
+原文连接:https://www.cnblogs.com/rui1236/p/12092775.html</div><br>
+    <p>这次整理的文档是Jenkins+Docker实现自动化部署，很早之前就写的，今天有时间就搬到博客园做个记录。</p>
+<p>Jenkins是基于Java开发的一种持续集成工具，主要用于持续、自动的构建/测试软件等相关项目。在Java开发中我们经常能看到使用jenkins来部署，.Net core目前还是比较少见的，但是好的东西我们就应该要拿来使用、借鉴。</p>
+<h1><span style="font-size: 16px;">1. 安装JenKins</span></h1>
+<p><span style="font-size: 16px;"><em>这里使用Docker来安装</em></span>JenKins，<span style="font-size: 16px;"><em>当然也可以直接安装到Linux中。</em></span></p>
+<p><span style="font-size: 16px;">创建jenkins工作目录</span></p>
+<p><span style="font-size: 16px;"><strong>mkdir /usr/local/jenkins</strong></span></p>
+<p><span style="font-size: 16px;">拉取jenkins镜像</span></p>
+<p><span style="font-size: 16px;"><strong>docker pull jenkins</strong></span></p>
+<p><span style="font-size: 16px;">这里有个小插曲，我用的是jenkins镜像，默认也是latest一般意味着最后最新版本。很多官方最新镜像也都是如此命名；直到后来安装配置完成后，登录进去提示我不是最新版本，让我更新，并且很多插件已经不支持此版本了。发现当前版本和最新版本还相差好几个。心想这不是官方镜像吗 怎么还是这么旧的版本，最后通过搜索发现，Jenkins官方最新镜像现在已改为jenkins/jenkins的了。</span></p>
+<p><span style="font-size: 16px;">所以最新版是:<strong>jenkins/jenkins</strong></span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;"><strong>我们拉取最新lts版本。</strong></span></p>
+<p><span style="font-size: 16px;"><strong>docker pull jenkins/jenkins:lts</strong></span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】1.png" alt="" /></p>
+<p><span style="font-size: 16px;">看如下图<strong>jenkins</strong>和<strong>jenkins/jenkins</strong>两个镜像的差别，发现常规下的latest版本并不最新的了，它们的创建时间已经是1年以前了。而jenkins/jenkins 则创建时间在2天不到。</span></p>
+<p><span style="font-size: 16px;">所以常规的latest并不意味着最新版本。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】2.png" alt="" /></p>
+<p><span style="font-size: 16px;">修改jenkins目录和docker目录权限,这里1000是容器中Jenkins 的用户 uid</span></p>
+<p><span style="font-size: 16px;"><strong>chown -R 1000:1000 /usr/local/Jenkins</strong></span></p>
+<p><span style="font-size: 16px;"><strong>sudo chown -R 1000:1000 /var/run/docker.sock</strong></span></p>
+<p><span style="font-size: 16px;">尤其docker.sock 这个权限很重要，到时候容器里的Jenkins需要执行docker命令需要的</span></p>
+<p><span style="font-size: 16px;">运行Jenkins 注意后面的镜像名称和版本lts</span></p>
+<p><span style="font-size: 16px;"><strong>docker run -itd -p 8080:8080 -p 50000:50000 --name jenkins --privileged=true&nbsp; -v /usr/local/jenkins:/var/jenkins_home -v /usr/bin/docker:/bin/docker&nbsp; -v /var/run/docker.sock:/var/run/docker.sock jenkins/jenkins:lts&nbsp;</strong></span></p>
+<p><span style="font-size: 16px;"><em>参数解释：</em></span></p>
+<p><span style="font-size: 16px;"><strong>-p 8080:8080 -p 50000:50000 --</strong>映射jenkins端口</span></p>
+<p><span style="font-size: 16px;"><strong>--name jenkins --</strong>容器名称自己命名</span></p>
+<p><span style="font-size: 16px;"><strong>privileged=true --</strong>授予容器管理员权限</span></p>
+<p><span style="font-size: 16px;"><strong>-v /usr/local/jenkins:/var/jenkins_home --</strong>映射jenkins目录</span></p>
+<p><span style="font-size: 16px;"><strong>-v /usr/bin/docker:/bin/docker --</strong>映射docke目录 到时候需要在容器里执行docker命令</span></p>
+<p><span style="font-size: 16px;"><strong>-v /var/run/docker.sock:/var/run/docker.sock --</strong>映射docker执行命令 到时候需要容器里执行docker命令。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】3.png" alt="" width="1564" height="62" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">容器是否启动成功最好还是通过docker ps 或者netstat &ndash;ntlp |grep 8080 (查看我们容器映射的端口是否监听成功) 查看当前容器是否运行成功。</span></p>
+<p><span style="font-size: 16px;">某些情况下，如权限没有配对，启动会不成功的。</span></p>
+<p><span style="font-size: 16px;">查看正在运行的容器。</span></p>
+<p><span style="font-size: 16px;"><strong>docker ps</strong></span></p>
+<p><span style="font-size: 16px;"><strong><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】4.png" alt="" /></strong></span></p>
+<p>&nbsp;</p>
+<h1><span style="font-size: 16px;">2. 配置JenKins</span></h1>
+<p><span style="font-size: 16px;">查看容器启动成功后，我们可以通过地址+端口访问刚刚运行的Jenkins</span></p>
+<p><span style="font-size: 16px;">例如http://192.168.1.101:8080&nbsp; &nbsp;</span></p>
+<p><span style="font-size: 16px;">安装成功访问后会如下图所示。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】5.png" alt="" /></p>
+<p><span style="font-size: 16px;">提示首次访问需要密码，我们通过刚刚映射的Jenkins目录里查看这个默认密码。</span></p>
+<p><span style="font-size: 16px;">默认密码路径：<strong>/usr/local/jenkins/secrets/ </strong>&nbsp;<em>(</em><em>注意前面usr/local/jenkins路径就是刚刚自己映射的目录)</em></span></p>
+<p><span style="font-size: 16px;"><em><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】6.png" alt="" /></em></span></p>
+<p><span style="font-size: 16px;">查看密码文件</span></p>
+<p><span style="font-size: 16px;"><strong>cat initialAdminPassword</strong></span></p>
+<p><span style="font-size: 16px;"><strong><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】7.png" alt="" /></strong></span></p>
+<p><span style="font-size: 16px;">输入密码然后继续下一步。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】8.png" alt="" /></p>
+<p><span style="font-size: 16px;">下一步如果有出现404的，如下图</span></p>
+<p><span style="font-size: 16px;">网上搜索了解听说是Jenkins的一个bug；部分版本存在。</span></p>
+<p>&nbsp;</p>
+<p>&nbsp;<img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】9.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">解决办法(<em>以下步骤是解决登录404的；如果没有404则可以跳过</em>)</span></p>
+<p><span style="font-size: 16px;">首先回到Jenkins主目录找到config.xml文件并打开。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】10.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">将&lt;useSecurity&gt; 修改为false</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】11.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">停止并重新运行jenkins</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】12.png" alt="" /></span></p>
+<p><span style="font-size: 16px;"><em>重启后一定要重新查看默认密码，否则旧密码是登录不成功的。</em></span></p>
+<p><span style="font-size: 16px;">登录进去以后这里默认选择推荐的插件。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】13.png" alt="" /></p>
+<p><span style="font-size: 16px;">接下来就是等待安装，这里需要注意，如果jenkins版本比较老，则可能很多插件安装失败，直接红色的。此时可以跳过该界面进入首页。会有提示让你升级最新Jenkins版本。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】14.png" alt="" /></p>
+<p><span style="font-size: 16px;">安装完成后创建一个用户名和密码，即可完成安装进入首页。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】15.png" alt="" /></p>
+<p>&nbsp;</p>
+<h1><span style="font-size: 16px;">3. 创建项目</span></h1>
+<p><strong><span style="font-size: 16px;">1、源代码编译发布工程</span></strong></p>
+<p><span style="font-size: 16px;">源代码发布工程即将源代码提交到git服务器，jenkins通过git拉取最新的源代码，并通过Dockerfile里的配置进行编译发布过程。然后通过Docker构建此镜像并运行到容器。</span></p>
+<p><span style="font-size: 16px;">创建一个.Net Core Web项目。</span></p>
+<p><span style="font-size: 16px;">创建项目的时候可以选择启用Docker支持。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】16.png" alt="" width="759" height="506" /></span></p>
+<p><span style="font-size: 16px;">对于之前的项目可以右键添加Docker支持。</span></p>
+<p><span style="font-size: 16px;">项目目录</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】17.png" alt="" /></p>
+<p><span style="font-size: 16px;">默认的Dockerfile是有帮我们进行代码编译并发布动作的。所以默认的Dockerfile文件是适合和代码一起提交到服务器然后使用Docker进行构建镜像。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】18.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">项目创建完成后随代码一起提交到git服务器。(svn等也都可以)</span></p>
+<p><span style="font-size: 16px;">git项目目录，注意将Dockerfile复制到根目录。由于到时候构建镜像的时候就是从根目录执行的。git目录如下所示。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】19.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><strong><span style="font-size: 16px;">2、已编译的<span lang="EN-US">Release工程</span></span></strong></p>
+<p><span style="font-size: 16px;">已编译的Release工程，此种方式适合git或svn在局域网的；又不希望源代码不暴露到外网的需要。此种方式是将项目工程进行进行发布打包操作。例如java常见的打包成一个war包文件。.Net 就是生成对应的DLL 文件。</span></p>
+<p><span style="font-size: 16px;">项目在发布之前我们对项目的Dockerfile文件属性做个更改，以便在发布时将此文件复制到发布时的目录。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】20.png" alt="" /></p>
+<p><span style="font-size: 16px;">选择上面建立的WebTest项目右键发布，选择发布到指定文件夹。</span></p>
+<p><span style="font-size: 16px;">将发布文件发布到自己的git(或svn)目录，如下图所示的，一定要包含Dockerfile文件。发布后的文件，可以根据自己需要将没有更新DLL或者appsetting.json等文件剔除掉。只保留本次要更新的文件即可。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】21.png" alt="" /></p>
+<p><span style="font-size: 16px;">修改Dockerfile文件，因为默认的Dockerfile文件是包含编译发布的命令，所以这里要将这些相关命令操作删除掉；保留如下命令配置即可。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】22.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">保存然后提交到所有文件到git服务器。</span></p>
+<p><span style="font-size: 16px;">提交后的git目录。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】23.png" alt="" /></p>
+<p><span style="font-size: 16px;">建议：无论是代码编译发布工程还是已编译的Release工程，第一次使用Docker部署时最好先自己手动将这些文件拷贝到服务器，并手动构建对象并运行容器看是否成功；能否访问网站。也就是先不用Jenkins将这些流程自己手动走一遍，确保一些目录包括Dockerfile等都是配置正确的。</span></p>
+<h1><span style="font-size: 16px;">4.&nbsp; 创建JenKins任务</span></h1>
+<p><span style="font-size: 16px;">项目工程创建完成并提交到git服务器后，开始在Jenkins里面创建任务。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】24.png" alt="" width="704" height="482" /></p>
+<p><span style="font-size: 16px;">输入项目描述，源代码管理选择自己对应的即可。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】25.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">我这里选择的git。第一次添加项目时需要添加一种授权方式点击右边添加按钮即可。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】26.png" alt="" width="687" height="234" /></span></p>
+<p><span style="font-size: 16px;">选择添加授权方式 常用的就是用户名加密码或者SSH方式。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】27.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">下一步设置构建环境</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】28.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">设置触发器，这里主要是设置自动触发条件，有定时构建、远程触发构建、轮询SCM。</span></p>
+<p><span style="font-size: 16px;">这里只设置轮询SCM形式的，很简单的方式。意思是在指定间隔时间内会去轮询git或svn中版本是否有变化。如果有就立即构建该项目。其实就是做到只要代码提交了 则立刻就能自动构建项目进行发布；不在需要其他任何操作了。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】29.png" alt="" /></p>
+<p><span style="font-size: 16px;">选择构建&mdash;&gt;执行shell;当然我们这里是linux服务器所有多数选择执行shell。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】30.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">添加shell 命令。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】31.png" alt="" /></span></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">注意下面的webtest 改为自己的容器名称和对应镜像名称即可。</span></p>
+<div class="cnblogs_code">
+<pre><code>#!/bin/<span style="color: #000000;">bash
+# 获取短版本号
+GITHASH</span>=`git rev-parse --<span style="color: #0000ff;">short</span><span style="color: #000000;"> HEAD`
+docker stop webtest
+docker </span><span style="color: #0000ff;">rm</span><span style="color: #000000;"> webtest
+</span><span style="color: #0000ff;">echo</span> ---------------Building Docker Image...------------------<span style="color: #000000;">
+docker build </span>-<span style="color: #000000;">t webtest:$GITHASH .
+docker tag webtest:$GITHASH webtest:latest
+</span><span style="color: #0000ff;">echo</span> ---------------Launching Container...------------------<span style="color: #000000;">
+docker run </span>--name webtest -d -p <span style="color: #800080;">8005</span>:<span style="color: #800080;">80</span> webtest:latest&nbsp;</pre>
+</div>
+<p><span style="font-size: 16px;">使用git提交代码进行测试。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】32.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">自动开始构建了 注意jenkins这里时间是默认是utc时间。utc时间转换我们北京时间是要+8小时的。</span></p>
+<p><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】33.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">蓝色图标代表构建成功，如果失败会是红色</span></p>
+<p>&nbsp;<img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】34.png" alt="" /></p>
+<p><span style="font-size: 16px;">查看控制台输出信息，尤其构建失败时能够从里面获取到失败原因等。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】35.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">控制输出如下图所示</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】36.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">构建成功后我们到服务器检查下是否有刚刚构建的镜像和运行的容器。(当然一般情况下只要构建成功这两步可以不用检查)</span></p>
+<p><span style="font-size: 16px;">查看镜像</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】37.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">查看运行的容器</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】38.png" alt="" /></span></p>
+<p><span style="font-size: 16px;">访问站点看能否访问成功。</span></p>
+<p><span style="font-size: 16px;"><img src="./images/Linux文档整理之【Jenkins+Docker自动化部署.Net Core】39.png" alt="" /></span></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

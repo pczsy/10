@@ -1,0 +1,89 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修drf--权限组件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>drf--权限组件</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11715629.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#权限简介">权限简介</a></li>
+        <li><a href="#局部使用">局部使用</a></li>
+        <li><a href="#全局使用">全局使用</a></li>
+        <li><a href="#源码分析">源码分析</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="权限简介">权限简介</h1>
+<p>权限就是某些功能只对特定的用户开放，比如django中创建用户可分为超级用户和普通用户，此时超级用户就有权限进入后台管理系统，而普通用户就没有权限，这是怎么做到的呢？</p>
+<p>这就是权限组件的作用。</p>
+<h1 id="局部使用">局部使用</h1>
+<pre><code><code>from rest_framework.permissions import BasePermission
+
+class UserPermission(BasePermission):
+    &quot;&quot;&quot;自定义权限类:继承BasePermission，重写has_permission方法&quot;&quot;&quot;
+    message = &#39;不是超级用户，查看不了&#39;
+    
+    def has_permission(self, request, view):
+        # user_type = request.user.get_user_type_display()
+        # if user_type == &#39;超级用户&#39;:
+        user_type = request.user.user_type
+        print(user_type)
+        if user_type == 1:
+            return True
+        else:
+            return False
+        
+        
+class Course(APIView):
+    authentication_classes = [TokenAuth, ]
+    permission_classes = [UserPermission,]
+
+    def get(self, request):
+        return HttpResponse(&#39;get&#39;)
+
+    def post(self, request):
+        return HttpResponse(&#39;post&#39;)</code></pre>
+<p>局部使用只需要在视图类里加入：</p>
+<pre><code><code>permission_classes = [UserPermission,]</code></pre>
+<h1 id="全局使用">全局使用</h1>
+<pre><code><code># 在settings.py中进行设置
+
+REST_FRAMEWORK={
+    &quot;DEFAULT_AUTHENTICATION_CLASSES&quot;:[&quot;app01.service.auth.Authentication&quot;,],
+    &quot;DEFAULT_PERMISSION_CLASSES&quot;:[&quot;app01.service.permissions.SVIPPermission&quot;,]
+}</code></pre>
+<h1 id="源码分析">源码分析</h1>
+<pre><code><code># permission.py
+
+def check_permissions(self, request):
+    for permission in self.get_permissions():
+        if not permission.has_permission(request, self):
+            self.permission_denied(
+                request, message=getattr(permission, &#39;message&#39;, None)
+                )</code></pre>
+<pre><code><code># self.get_permissions()
+
+def get_permissions(self):
+     return [permission() for permission in self.permission_classes]</code></pre>
+<p><strong>权限类使用顺序：先用视图类中的权限类，再用settings里配置的权限类，最后用默认的权限类</strong></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

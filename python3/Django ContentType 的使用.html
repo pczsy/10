@@ -1,0 +1,232 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django ContentType 的使用' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django ContentType 的使用</center></div><div class='banquan'>原文出处:本文由博客园博主Nolinked提供。<br/>
+原文连接:https://www.cnblogs.com/pungchur/p/12047720.html</div><br>
+    <h2>引入</h2>
+<p>一切优化，最终都是关于需求的优化。本文介绍需求确定之后的数据库表结构设计优化。</p>
+<p>程序员应该都知道，编程是数据结构和算法的结合。所谓数据就是用户需要访问和操作的资源，比如购物类App里面的商品，图书、衣服、鞋帽等等。算法就是我们通过一系列的获取数据、过滤数据、汇总并编排数据并最终展现给用户的一个过程。</p>
+<p>算法的实现复杂度非常重要，因为它直接关乎到用户体验，算法实现简单则用户体验好，反则用户体验差，而算法的实现复杂度直接与数据的存储结构相关，数据的存储结构如果设计的非常好，那么向用户展示数据的算法可能会非常简单，反之，则将异常复杂。</p>
+<p>因此，数据结构或者说，数据库表结构的设计是至关重要的。</p>
+<p>现在的应用程序，持久存储数据采用的是关系数据库，即Oracle，MySQL等等数据库软件，而用户需要的数据，则是存储到数据库表中，不同的人，设计出来的表结构不同，导致算法的实现过程会有非常明显的差别。</p>
+<h3 id="概念">概念</h3>
+<p>Django有一个用来跟踪所以已安装App的&nbsp;<span class="cnblogs_code">models</span>&nbsp;的框架，名为&nbsp;<span class="cnblogs_code">contenttypes</span>&nbsp;。</p>
+<p><strong>ContentType</strong>其实是Django原生App之一，也是&nbsp;<span class="cnblogs_code">contenttypes</span>&nbsp;的实现基础。</p>
+<p>该应用提供了一种高级的、通用的接口用来管理和维护我们应用程序的&nbsp;<span class="cnblogs_code">models</span>&nbsp;。</p>
+<p>拿之前的DRF项目来举例，该框架会为每一个APP的&nbsp;<span class="cnblogs_code">models</span>&nbsp;创建对应的信息，该信息存储在&nbsp;<span class="cnblogs_code">content_type</span>&nbsp;表中，请看下图：</p>
+<p><img src="./images/Django ContentType 的使用0.png" alt="" /></p>
+<p><span style="font-family: 'Microsoft YaHei';">如上图所示，每一个App对应多个&nbsp;<span class="cnblogs_code">model</span>&nbsp;, 存储在名为&nbsp;<span class="cnblogs_code">django_content_type</span>&nbsp;的表中，该表只有&nbsp;<span class="cnblogs_code">id</span>&nbsp;, &nbsp;<span class="cnblogs_code">app_label</span>&nbsp;和&nbsp;<span class="cnblogs_code">model</span>&nbsp;三个字段。第一个字段存储的是&nbsp;<span class="cnblogs_code">model</span>&nbsp;的序号，下文中，&nbsp;<span class="cnblogs_code">contenttypes</span>&nbsp;框架正是通过&nbsp;<span class="cnblogs_code">model</span>&nbsp;的&nbsp;<span class="cnblogs_code">id</span>&nbsp;找到该&nbsp;<span class="cnblogs_code">model</span>&nbsp;，&nbsp;<span class="cnblogs_code">app_label</span>&nbsp;存储的是App的名称，而&nbsp;<span class="cnblogs_code">model</span>&nbsp;字段则存储的是每一个&nbsp;<span class="cnblogs_code">model</span>&nbsp;的名称。</span></p>
+<h2 id="安装使用">安装使用</h2>
+<p>使用&nbsp;<span class="cnblogs_code">django-admin startproject</span>&nbsp;命令创建一个Django项目后，在&nbsp;<span class="cnblogs_code">INSTALLED_APPS</span>&nbsp;列表中会出现该框架，如下图所示：</p>
+<p><img src="./images/Django ContentType 的使用1.png" alt="" /></p>
+<h3 id="什么时候需要用到该框架">什么时候需要用到该框架</h3>
+<p>如果查看官方文档，你只会发现一些官方的对于该框架的解释，但是在什么地方能够发挥它的最大价值，官方文档中并没有详细说明，接下来，设计一个需求，并根据这个需求的优化，来一步步学习&nbsp;<span class="cnblogs_code">contenttypes</span>&nbsp;框架。</p>
+<h3 id="一个简单的需求">一个简单的需求</h3>
+<p>假设现在需要开发一个课程App，该app共有如下课程表：</p>
+<p><img src="./images/Django ContentType 的使用2.png" alt="" /></p>
+<p>共四个课程表：操作系统基础，Python基础，面向对象，Web框架。</p>
+<h3 id="需求">需求</h3>
+<p>学生学完每个课程的最后一门课后，会获得该门课程的优惠券和该课程的总优惠券，比如学生学完操作系统原理课程后，会获得操作系统原理通关优惠券和操作系统基础课程优惠券两张优惠券。</p>
+<p><img src="./images/Django ContentType 的使用3.png" alt="" /></p>
+<h3 id="第一次优化">第一次优化</h3>
+<p>看到如此多的优惠券表，作为程序员，这不能忍，要好好优化优化，不然，这就是给自己挖了一个巨大的坑，以后扩展和维护肯定会特别不方便。如何优化呢？</p>
+<p>是否可以将如此多的优惠券表合成一张表呢？</p>
+<p><img src="./images/Django ContentType 的使用4.png" alt="" /></p>
+<p>这样就实现了使用一张优惠券表来存储所有的优惠券和对应的课程的关系信息（使用了课程id），注意每个课程id字典都是该优惠券表的一个外键字段。</p>
+<h3 id="第二次优化">第二次优化</h3>
+<p>经过第一次优化，表数量减少了，但是对这样的表进行增删改查操作将会非常麻烦，经过优化，对这个表的增删改查操作速度有了非常明显的提升。</p>
+<p>仔细想想，设计优惠券和课程之间的关系，无非就是为了增删改查这些操作，只要能够通过课程id找到它所对应的所有优惠券，或者通过优惠券能唯一定位到某一个具体的课程，这就是本质需求。</p>
+<p><img src="./images/Django ContentType 的使用5.png" alt="" /></p>
+<p>现在的问题是，课程&nbsp;<span class="cnblogs_code">id</span>&nbsp;是重复的，每一个表里面的&nbsp;<span class="cnblogs_code">id</span>&nbsp;都是从1开始计数，而优惠券里面的&nbsp;<span class="cnblogs_code">id</span>&nbsp;如果仅仅只是存储课程&nbsp;<span class="cnblogs_code">id</span>&nbsp;，很显然，就无法唯一定位到具体的课程。那么，通过什么方式来唯一定位&nbsp;<span class="cnblogs_code">id</span>&nbsp;呢？</p>
+<p>请看下图的优化：</p>
+<p><img src="./images/Django ContentType 的使用6.png" alt="" /></p>
+<p>看到了吗？使用的&nbsp;<span class="cnblogs_code">table_id</span>&nbsp;和&nbsp;<span class="cnblogs_code">table_row_id</span>&nbsp;来唯一定义某个课程表中的某一个课程，首先，必须通过某一个信息定位到具体的表，然后再通过课程id来定位具体的课程。</p>
+<p>那么，&nbsp;<span class="cnblogs_code">table_id</span>&nbsp;从哪里来呢？</p>
+<p>上面的&nbsp;<span class="cnblogs_code">django_content_type</span>&nbsp;表吗？它里面有三个字段，其中id字段存储的就是整个Django项目中所有表的序号id。</p>
+<p>优惠券表共有四个字段，&nbsp;<span class="cnblogs_code">id</span>&nbsp;字段，&nbsp;<span class="cnblogs_code">coupon_name</span>&nbsp;字段存储优惠券信息，&nbsp;<span class="cnblogs_code">table_id</span>&nbsp;字段存储的是课程表的&nbsp;<span class="cnblogs_code">id</span>&nbsp;，它应该是一个外键，关联到&nbsp;<span class="cnblogs_code">django_content_type</span>&nbsp;表，&nbsp;<span class="cnblogs_code">table_row_id</span>&nbsp;字段，该字段的性质也是外键，但是不能具体指向某一个表，因为，该字段存储的是所有表的&nbsp;<span class="cnblogs_code">id</span>&nbsp;。</p>
+<p>优化到这里，差不多了，算是比较合适的表结构设计了。但是看起来还有点麻烦，特别是&nbsp;<span class="cnblogs_code">table_row_id</span>&nbsp;字段。不是特别好实现，下面就到&nbsp;<span class="cnblogs_code">contenttypes</span>&nbsp;的使用了。</p>
+<h3 id="使用contenttypes建表">使用contenttypes建表</h3>
+<p>1.导入模块</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.db <span style="color: #0000ff;">import</span><span style="color: #000000;"> models
+</span><span style="color: #0000ff;">from</span> django.contrib.contenttypes.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> ContentType
+</span><span style="color: #0000ff;">from</span> django.contrib.contenttypes.fields <span style="color: #0000ff;">import</span> GenericForeignKey, GenericRelation</pre>
+</div>
+<p>2.建立模型类</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> OperationSystem(models.Model):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    id    course_name
+    1     "计算机基础"
+    2     "计算机组成原理"
+    3     "操作系统原理"
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    course_name </span>= models.CharField(max_length=32<span style="color: #000000;">)
+    coupons </span>= GenericRelation(to=<span style="color: #800000;">"</span><span style="color: #800000;">Coupon</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__str__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.course_name
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> PythonBasic(models.Model):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    id   course_name
+    1    "数据类型"
+    2    "字符编码"
+    3    "文件操作"
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    course_name </span>= models.CharField(max_length=32<span style="color: #000000;">)
+    coupons </span>= GenericRelation(to=<span style="color: #800000;">"</span><span style="color: #800000;">Coupon</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__str__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.course_name
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Oop(models.Model):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    id   course_name
+    1    "面向对象三大特性"
+    2    "元类"
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    course_name </span>= models.CharField(max_length=32<span style="color: #000000;">)
+    coupons </span>= GenericRelation(to=<span style="color: #800000;">"</span><span style="color: #800000;">Coupon</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__str__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.course_name
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> WebFramework(models.Model):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    id   course_name
+    1    "web框架原理"
+    2    "ORM"
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    course_name </span>= models.CharField(max_length=32<span style="color: #000000;">)
+    coupons </span>= GenericRelation(to=<span style="color: #800000;">"</span><span style="color: #800000;">Coupon</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__str__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> self.course_name
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> Coupon(models.Model):
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">
+    id   name                 content_type_id    object_id
+    1    "操作系统优惠券"            9                 2
+    2    "Python 优惠券"            9                2
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+    coupon_name </span>= models.CharField(max_length=32<span style="color: #000000;">)
+    content_type </span>= models.ForeignKey(ContentType, verbose_name=<span style="color: #800000;">"</span><span style="color: #800000;">关联到django的ContentType表</span><span style="color: #800000;">"</span>, on_delete=<span style="color: #000000;">models.CASCADE)
+    object_id </span>= models.PositiveIntegerField(verbose_name=<span style="color: #800000;">"</span><span style="color: #800000;">关联表中的数据行ID</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+    content_object </span>= GenericForeignKey(<span style="color: #800000;">"</span><span style="color: #800000;">content_type</span><span style="color: #800000;">"</span>, <span style="color: #800000;">"</span><span style="color: #800000;">object_id</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__str__</span><span style="color: #000000;">(self):
+        </span><span style="color: #0000ff;">return</span> self.coupon_name</pre>
+</div>
+<p><strong>使用方式：</strong></p>
+<ul>
+<li>导入模块一个是&nbsp;<span class="cnblogs_code">ContentType</span>&nbsp;这个&nbsp;<span class="cnblogs_code">model</span>&nbsp;</li>
+<li>另一个是&nbsp;<span class="cnblogs_code">GenericForeignKey</span>&nbsp;和&nbsp;<span class="cnblogs_code">GenericRelation</span>&nbsp;</li>
+</ul>
+<p>优惠券表包含&nbsp;<span class="cnblogs_code">coupon_name</span>&nbsp;, 该字段是一个外键，关联到&nbsp;<span class="cnblogs_code">ContentType</span>&nbsp;表；</p>
+<p>还包含&nbsp;<span class="cnblogs_code">object_id</span>&nbsp;字段, 该字段存储课程id；</p>
+<p>这两个字段的默认名称分别为&nbsp;<span class="cnblogs_code">content_type</span>&nbsp;, &nbsp;<span class="cnblogs_code">object_id</span>&nbsp;；</p>
+<p>另外最重要的是&nbsp;<span class="cnblogs_code">content_object</span>&nbsp;字段，它是&nbsp;<span class="cnblogs_code">GenericForeignKey</span>&nbsp;这个类的实例化对象，创建这个对象时，需要把上面两个字段作为参数传递给它。</p>
+<p>对于优惠券表的所有数据操作，只要是涉及到需要查找优惠券对应的课程，或者通过课程查找其对应的优惠券，都是通过&nbsp;<span class="cnblogs_code">content_object</span>&nbsp;来进行的。</p>
+<p>值得注意的是，该字段并不真实存在表中，&nbsp;<span class="cnblogs_code">Coupon</span>&nbsp;表结构如下图所示：</p>
+<p><img src="./images/Django ContentType 的使用7.png" alt="" /></p>
+<h2 id="基本数据操作">基本数据操作</h2>
+<p>先插入一些基础数据，也就是第一张图中展示的数据。</p>
+<h3 id="操作ContentType">操作ContentType</h3>
+<p>上文提到，&nbsp;<span class="cnblogs_code">ContentType</span>&nbsp;是一个表，这个表提供一些方法以便进行数据操作：</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> django.contrib.contenttypes.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> ContentType
+
+</span>&gt;&gt;&gt; course_type = ContentType.objects.get(app_label=<span style="color: #800000;">"</span><span style="color: #800000;">course</span><span style="color: #800000;">"</span>, model=<span style="color: #800000;">"</span><span style="color: #800000;">oop</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+</span>&gt;&gt;&gt;<span style="color: #000000;"> course_type
+Out[</span>7]: &lt;ContentType: oop&gt;
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 获取类名：字符串形式</span>
+&gt;&gt;&gt;<span style="color: #000000;"> course_type.model
+Out[</span>8]: <span style="color: #800000;">'</span><span style="color: #800000;">oop</span><span style="color: #800000;">'</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;"> 获取model，之后可以通过objects.all来查询数据</span>
+&gt;&gt;&gt;<span style="color: #000000;"> course_type.model_class()
+Out[</span>9<span style="color: #000000;">]: course.models.Oop
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 查询数据</span>
+&gt;&gt;&gt; course_type.get_object_for_this_type(course_name=<span style="color: #800000;">"</span><span style="color: #800000;">元类</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+Out[</span>10]: &lt;Oop: 元类&gt;</pre>
+</div>
+<p><span style="font-size: 14px;">给课程</span><strong style="font-size: 14px;">字符编码</strong><span style="font-size: 14px;">添加一个</span><strong style="font-size: 14px;">字符编码通关优惠券</strong><span style="font-size: 14px;">：</span></p>
+<h3>添加数据</h3>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> course.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> PythonBasic
+
+</span>&gt;&gt;&gt; pb_obj = PythonBasic.objects.get(id=2<span style="color: #000000;">)
+
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> course.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> Coupon
+
+</span>&gt;&gt;&gt; Coupon.objects.create(coupon_name=<span style="color: #800000;">"</span><span style="color: #800000;">字符编码通关优惠券</span><span style="color: #800000;">"</span>, content_object=<span style="color: #000000;">pb_obj)
+Out[</span>15]: &lt;Coupon: 字符编码通关优惠券&gt;</pre>
+</div>
+<p>查看数据是否添加成功：</p>
+<p><img src="./images/Django ContentType 的使用8.png" alt="" /></p>
+<p>可以看到，是第九张表的第二行数据，查看&nbsp;<span class="cnblogs_code">django_content_type</span>&nbsp;表发现，该课程所在的表&nbsp;<span class="cnblogs_code">Python</span>&nbsp;<em>基础表</em>，在整个项目中的确是第九张表，而且该课程在该表中是第二行数据，&nbsp;<span class="cnblogs_code">id</span>&nbsp;为2。</p>
+<p>这样，就可以通过表的&nbsp;<span class="cnblogs_code">id</span>&nbsp;和数据&nbsp;<span class="cnblogs_code">id</span>&nbsp;具体定位到某一个课程，然后给该课程绑定一个优惠券。当然还可以给它绑定多个优惠券。</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> course.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> Coupon
+</span>&gt;&gt;&gt; <span style="color: #0000ff;">from</span> course.models <span style="color: #0000ff;">import</span><span style="color: #000000;"> PythonBasic
+</span>&gt;&gt;&gt; pb_obj = PythonBasic.objects.get(id=2<span style="color: #000000;">)
+</span>&gt;&gt;&gt; Coupon.objects.create(coupon_name=<span style="color: #800000;">"</span><span style="color: #800000;">字符编码通关优惠券</span><span style="color: #800000;">"</span>, content_object=pb_obj)</pre>
+</div>
+<p><img src="./images/Django ContentType 的使用9.png" alt="" /></p>
+<p>可以看到，定位具体的课程信息是通过&nbsp;<span class="cnblogs_code">content_object</span>&nbsp;这个并不存在&nbsp;<span class="cnblogs_code">Coupon</span>&nbsp;表中的字段来操作的。</p>
+<h3 id="删除数据">删除数据</h3>
+<p>删除<em>字符编码通关优惠券</em>对应的所有课程</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; Coupon.objects.filter(coupon_name=<span style="color: #800000;">"</span><span style="color: #800000;">字符编码通关优惠券</span><span style="color: #800000;">"</span>).delete()</pre>
+</div>
+<p>或者</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; pb_obj = PythonBasic.objects.get(id=2<span style="color: #000000;">)
+</span>&gt;&gt;&gt; ob_obj.coupons.all().delete()</pre>
+</div>
+<h3>修改数据</h3>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; Coupon.objects.filter(coupon_name=<span style="color: #800000;">"</span><span style="color: #800000;">字符编码通关优惠券</span><span style="color: #800000;">"</span>).update(coupon_name=<span style="color: #800000;">"</span><span style="color: #800000;">编码通关优惠券</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<h3 id="查询数据">查询数据</h3>
+<p>查询面向对象通关优惠券绑定了那些课程</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; coupon_obj = Coupon.objects.filter(coupon_name=<span style="color: #800000;">"</span><span style="color: #800000;">面向对象通关优惠券</span><span style="color: #800000;">"</span><span style="color: #000000;">).first()
+</span>&gt;&gt;&gt; coupon_obj.content_type <span style="color: #008000;">#</span><span style="color: #008000;"> &lt;PythonBasic: 字符编码&gt;</span></pre>
+</div>
+<p>使用反向查询字段查看字符编码课程共有哪些优惠券</p>
+<div class="cnblogs_code">
+<pre><code>&gt;&gt;&gt; pb_obj = PythonBasic.objects.get(id=2<span style="color: #000000;">)
+</span>&gt;&gt;&gt;<span style="color: #000000;"> pb_obj.coupons.all()
+Out[</span>35]: &lt;QuerySet [&lt;Coupon: 字符编码通关优惠券&gt;, &lt;Coupon: 面向对象通关优惠券&gt;]&gt;</pre>
+</div>
+<p><span style="color: #00ffff;"><strong>~&gt;.&lt;~</strong></span></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

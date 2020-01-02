@@ -1,0 +1,273 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修SpringBoot日志处理之Logback' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>SpringBoot日志处理之Logback</center></div><div class='banquan'>原文出处:本文由博客园博主空夜提供。<br/>
+原文连接:https://www.cnblogs.com/eknown/p/12010502.html</div><br>
+    <hr />
+<p>日志处理是一个正式项目必备的功能，日志要能够根据时间、类型等要素，根据指定格式来保存指定的日志，方便我们观察程序运行情况、定位程序bug。</p>
+<p>SpringBoot中推荐使用Logback日志框架。</p>
+<p>本节示例项目在<a href="https://github.com/laolunsi/spring-boot-examples" class="uri">https://github.com/laolunsi/spring-boot-examples</a></p>
+<hr />
+<p>slf4j：一个针对各类Java日志框架的统一facade抽象。</p>
+<p>java常见日志框架：java.util.logging, log4j, logback, commons-logging</p>
+<p>logback是log4j的作者开发的新一代日志框架，目前应用最广泛。SpringBoot默认使用logback，默认INFO级别</p>
+<p>Logback：</p>
+<p>日志加载顺序：logback.xml -&gt; application.properties -&gt; logback-spring.xml</p>
+<hr />
+<h2 id="一日志级别">一、日志级别</h2>
+<p>log4j定义的日志级别：debug/info/warn/error/fatal</p>
+<p>warn，潜在错误；error，错误，可能导致程序退出；fatal，严重错误，程序会退出</p>
+<p>还有两个特殊的级别：OFF-最高级别，ALL-最低级别</p>
+<p>log4j建议仅使用debug/info/warn/error四个级别</p>
+<p>日志级别：ERROR -&gt; WARN -&gt; INFO -&gt; DEBUG</p>
+<p>如配置日志级别为INFO，则INFO及以上级别的日志会输出，而比INFO级别低的日志（debug日志）不会被输出。</p>
+<hr />
+<h2 id="二springboot引入logger">二、SpringBoot引入logger</h2>
+<p>直接引入：</p>
+<pre><code><code>    &lt;dependency&gt;
+      &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+      &lt;artifactId&gt;spring-boot-starter-logging&lt;/artifactId&gt;
+      &lt;version&gt;2.1.11.RELEASE&lt;/version&gt;
+      &lt;scope&gt;compile&lt;/scope&gt;
+    &lt;/dependency&gt;</code></pre>
+<p>间接引入：</p>
+<p>引入spring-boot-starter，会自动引入spring-boot-starter-logging</p>
+<p>引入spring-boot-starter-web，会自动引入spring-boot-starter</p>
+<hr />
+<h2 id="三通过springboot配置文件配置logback">三、通过springboot配置文件配置logback</h2>
+<p>配置输出日志到文件：</p>
+<pre class="yaml"><code>logging:
+  file: logback-demo.log # 输出到项目目录下</code></pre>
+<p>默认是叠加输出，即每次启动项目不会删除之前的日志文件，也不会将当前使用的日志文件清空，而是在下面另起一行。</p>
+<p>日志级别：<code>logging.level.*: level-name</code></p>
+<p>*指包名或日志名，日志名如root，表示系统日志</p>
+<p>level-name指日志级别，常用debug/info/warn/error</p>
+<p>比如：</p>
+<pre class="yaml"><code>logging:
+  level:
+    com.example.logbackdemo: debug # 指定包下日志以debug级别输出
+    #root: warn # root日志以warn级别输出，不要用debug级别！！---会卡的！</code></pre>
+<hr />
+<h2 id="四通过xml文件自定义logback配置">四、通过XMl文件自定义logback配置</h2>
+<p>上面的配置确实将日志保存到文件中，但是对于实际项目来说用处不大。</p>
+<p>比如：日志文件非常庞大，每天产生的日志大小在数百MB，单个文件能处理么？日志需要分类型进行保存怎么办呢？定制日志格式怎么办呢？</p>
+<p>这些都是问题。</p>
+<p>幸好，包括logback在内的日志框架大多提供了配置文件功能，最常见的是使用xml文件进行配置。</p>
+<p>日志框架默认配置文件：</p>
+<blockquote>
+<ul>
+<li>Logback：logback-spring.xml, logback-spring.groovy, logback.xml, logback.groovy</li>
+<li>Log4j：log4j-spring.properties, log4j-spring.xml, log4j.properties, log4j.xml</li>
+<li>Log4j2：log4j2-spring.xml, log4j2.xml</li>
+<li>JDK (Java Util Logging)：logging.properties</li>
+</ul>
+</blockquote>
+<p>日志加载顺序：logback.xml -&gt; application.properties -&gt; logback-spring.xml</p>
+<p>logback框架下：</p>
+<p>建议使用logback-spring.xml，也可以在application中通过logging.config=classpath:xxx.xml来指定配置文件。</p>
+<p>示例：</p>
+<pre><code><code>&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
+&lt;configuration&gt;
+    &lt;contextName&gt;logback-spring-demo-dev&lt;/contextName&gt;
+    &lt;property name=&quot;pattern&quot; value=&quot;%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg %n&quot;/&gt;
+    &lt;property name=&quot;pattern-color&quot; value=&quot;%yellow(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%thread] %highlight(%-5level) %green(%logger{50}) - %highlight(%msg) %n&quot;/&gt;
+    &lt;property name=&quot;LOG_HOME&quot; value=&quot;logs&quot;/&gt;
+
+    &lt;!-- 控制台输出 --&gt;
+    &lt;appender name=&quot;CONSOLE&quot; class=&quot;ch.qos.logback.core.ConsoleAppender&quot;&gt;
+        &lt;encoder class=&quot;ch.qos.logback.classic.encoder.PatternLayoutEncoder&quot;&gt;
+            &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+        &lt;/encoder&gt;
+    &lt;/appender&gt;
+
+    &lt;!-- 控制台输出-带颜色 --&gt;
+    &lt;appender name=&quot;CONSOLE-WITH-COLOR&quot; class=&quot;ch.qos.logback.core.ConsoleAppender&quot;&gt;
+        &lt;encoder class=&quot;ch.qos.logback.classic.encoder.PatternLayoutEncoder&quot;&gt;
+            &lt;pattern&gt;${pattern-color}&lt;/pattern&gt;
+        &lt;/encoder&gt;
+    &lt;/appender&gt;
+
+    &lt;!-- 文件输出 --&gt;
+    &lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;&gt;
+        &lt;rollingPolicy class=&quot;ch.qos.logback.core.rolling.TimeBasedRollingPolicy&quot;&gt;
+            &lt;fileNamePattern&gt;${LOG_HOME}/all.%d.%i.log&lt;/fileNamePattern&gt;
+            &lt;timeBasedFileNamingAndTriggeringPolicy class=&quot;ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP&quot;&gt;
+                &lt;maxFileSize&gt;10MB&lt;/maxFileSize&gt;
+            &lt;/timeBasedFileNamingAndTriggeringPolicy&gt;
+            &lt;maxHistory&gt;30&lt;/maxHistory&gt;
+        &lt;/rollingPolicy&gt;
+
+        &lt;encoder&gt;
+            &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+        &lt;/encoder&gt;
+    &lt;/appender&gt;
+
+
+    &lt;root level=&quot;INFO&quot;&gt;
+        &lt;appender-ref ref=&quot;CONSOLE-WITH-COLOR&quot;/&gt;
+        &lt;appender-ref ref=&quot;FILE&quot;/&gt;
+    &lt;/root&gt;
+
+    &lt;logger name=&quot;com.example.logbackdemo.IndexAction&quot; level=&quot;info&quot; additivity=&quot;false&quot;&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot;/&gt;
+    &lt;/logger&gt;
+
+&lt;/configuration&gt;</code></pre>
+<p>下面具体描述一下logback.xml中的配置项：</p>
+<blockquote>
+<p>共有两种属性和三个节点:</p>
+<ol>
+<li>两种属性：contextName和property</li>
+<li>三个节点：appender、root、logger</li>
+</ol>
+</blockquote>
+<hr />
+<h3 id="contextname属性">4.1 contextName属性</h3>
+<p>contextName：日志名，可以使用%contextName来引用</p>
+<p>如果同时存在logback.xml和logback-spring.xml，或者同时存在logback.xml和自定义的配置文件，则会先加载logback.xml，再根据application配置加载指定配置文件，或加载logback-spring,xml。如果这两个配置文件的contextName不同，就会报错：</p>
+<pre class="properties"><code>ERROR in ch.qos.logback.classic.joran.action.ContextNameAction - Failed to rename context [logback-demo] as [logback-spring-demo-dev] java.lang.IllegalStateException: Context has been already given a name</code></pre>
+<hr />
+<h3 id="property属性">4.2 property属性</h3>
+<p>property标签可用于自定义属性，比如定义一个<property name="LOG_HOME" value="logs"/>，然后使用${LOG_HOME}去引用它</p>
+<hr />
+<h3 id="appender节点">4.3 appender节点</h3>
+<p>appender的意思是追加器，在这里可以理解为一个日志的渲染器。比如渲染console日志为某种格式，渲染文件日志为另一种格式。</p>
+<p>appender中有name和class两个属性，有rollingPolicy和encoder两个子节点。</p>
+<p>name表示该渲染器的名字，class表示使用的输出策略，常见的有控制台输出策略和文件输出策略。</p>
+<h4 id="控制台输出appender">4.3.1 控制台输出appender</h4>
+<pre><code><code>&lt;property name=&quot;pattern&quot; value=&quot;%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg %n&quot;/&gt;
+
+&lt;appender name=&quot;CONSOLE&quot; class=&quot;ch.qos.logback.core.ConsoleAppender&quot;&gt;
+    &lt;encoder class=&quot;ch.qos.logback.classic.encoder.PatternLayoutEncoder&quot;&gt;
+    &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+  &lt;/encoder&gt;
+&lt;/appender&gt;</code></pre>
+<p>encoder表示输出格式，具体说明如下：</p>
+<p>%d表示时间</p>
+<p>%thread表示线程名</p>
+<p>%-5level 表示日志级别，允许以五个字符长度输出</p>
+<p>%logger{50}表示具体的日志输出者，比如类名，括号内表示长度</p>
+<p>%msg表示具体的日志消息，就是logger.info(&quot;xxx&quot;)中的xxx</p>
+<p>%n表示换行</p>
+<p>还可以定义颜色高亮，比如讲pattern定义为如下：</p>
+<pre><code><code>&lt;property name=&quot;pattern-color&quot; value=&quot;%yellow(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%thread] %highlight(%-5level) %green(%logger{50}) - %highlight(%msg) %n&quot;/&gt;
+</code></pre>
+<p>即使用%color(xxx)来指定对应列的输出颜色，可以实现控制台输出的颜色高亮。</p>
+<h4 id="文件输入appender">4.3.2 文件输入appender</h4>
+<p>文件输出主要包括配置：以指定格式将日志输出到指定文件夹下的文件中，可以配置该文件的名称、最大大小、保存时间</p>
+<p>例如：</p>
+<pre><code><code>&lt;property name=&quot;LOG_HOME&quot; value=&quot;logs&quot;/&gt;
+&lt;property name=&quot;pattern&quot; value=&quot;%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg %n&quot;/&gt;
+
+&lt;appender name=&quot;FILE&quot; class=&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;&gt;
+  &lt;rollingPolicy class=&quot;ch.qos.logback.core.rolling.TimeBasedRollingPolicy&quot;&gt;
+    &lt;fileNamePattern&gt;${LOG_HOME}/all.%d.%i.log&lt;/fileNamePattern&gt;
+    &lt;timeBasedFileNamingAndTriggeringPolicy class=&quot;ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP&quot;&gt;
+        &lt;maxFileSize&gt;10MB&lt;/maxFileSize&gt;
+    &lt;/timeBasedFileNamingAndTriggeringPolicy&gt;
+    &lt;maxHistory&gt;30&lt;/maxHistory&gt;
+  &lt;/rollingPolicy&gt;
+
+  &lt;encoder&gt;
+    &lt;pattern&gt;${pattern}&lt;/pattern&gt;
+    &lt;/encoder&gt;
+&lt;/appender&gt;</code></pre>
+<p>上述配置的主要内容是：以指定的格式向logs文件下的文件输出日志，文件名称格式被指定为logs/all.日期.索引号.log，日志文件最大大小为10MB，超出则创建新文件，日志文件保留三十天</p>
+<p>索引从0开始递增</p>
+<p>rollingPolicy指滚动粗略，具体配置如上。</p>
+<p>关于日志文件大小限制也可以使用<totalSizeCap>1GB</totalSizeCap>配置。</p>
+<hr />
+<h3 id="root节点-启用配置">4.4 root节点-启用配置</h3>
+<p>root节点实际上是配置启用哪种appender，可以添加多个appender。</p>
+<p>比如：</p>
+<pre><code><code>&lt;root level=&quot;INFO&quot;&gt;
+    &lt;appender-ref ref=&quot;CONSOLE-WITH-COLOR&quot;/&gt;
+  &lt;appender-ref ref=&quot;FILE&quot;/&gt;
+&lt;/root&gt;
+</code></pre>
+<p>表示level为info级别，启用渲染器CONSOLE-WITH-COLOR和FILE。</p>
+<p>按照这样配置，输出日志时，控制台会按照CONSOLE定义的格式输出，而日志文件会按照CONSOLE-WITH-COLOR的配置去输出。</p>
+<hr />
+<h3 id="logger节点">4.5 logger节点</h3>
+<p>对单个包或类添加配置：</p>
+<pre><code><code>    &lt;!-- logger节点可以指定具体包或类的日志配置 --&gt;
+    &lt;!-- name属性为必选，指定要配置的包或类，level和additivity为可选，有缺省值 --&gt;
+    &lt;!-- level表示日志级别，这里配置info级别，表示info及以上级别的日志被输出 --&gt;
+    &lt;!-- additivity表示日志是否传递到上一级，默认为true --&gt;
+    &lt;logger name=&quot;com.example.logbackdemo.IndexAction&quot; level=&quot;info&quot; additivity=&quot;false&quot;&gt;
+        &lt;appender-ref ref=&quot;CONSOLE&quot;/&gt;
+    &lt;/logger&gt;
+</code></pre>
+<p>这里我们添加了一个测试接口类：</p>
+<pre class="java"><code>@RestController
+@RequestMapping(value = &quot;log&quot;)
+public class IndexAction {
+
+    private Logger logger = LoggerFactory.getLogger(IndexAction.class);
+
+    @GetMapping(value = &quot;&quot;)
+    public String testLoggerTag() {
+        logger.debug(&quot;测试logger标签&quot;);
+        logger.info(&quot;测试logger标签&quot;);
+        logger.warn(&quot;测试logger标签&quot;);
+        logger.error(&quot;测试logger标签&quot;);
+        return &quot;this is spring-boot-logback-demo projects.&quot;;
+    }
+}
+</code></pre>
+<p>启动项目，调用接口测试一下：<br />
+<img src="./images/SpringBoot日志处理之Logback0.png" alt="file" /></p>
+<p>发现IndexAction类的控制台日志输出是无颜色的，即logger配置生效。additivity设为true后，发现控制台输出了两遍相同的内容。<br />
+<img src="./images/SpringBoot日志处理之Logback1.png" alt="file" /></p>
+<p>此外，还有一个用于指定springboot配置文件对应日志配置的springProfile标签，在下面会讲到其应用。</p>
+<hr />
+<h3 id="指定启用那些日志配置">4.6 指定启用那些日志配置</h3>
+<ol>
+<li><p>springboot指定启用哪个xml</p>
+<p>我们可以在springboot的配置文件中指明使用哪个xml作为logger的配置，比如：logging.config=classpath:logback-spring-dev.xml。</p>
+<p>如果不指定，则会按照logback.xml-&gt;application.yml-&gt;logback-spring.xml的顺序去查找是否存在默认的配置。</p></li>
+<li><p>xml中使用springProfile标签指定哪些环境下应该使用哪些配置</p>
+<p>我们也可以在具体的日志配置xml文件中指定在哪些环境下使用哪些配置，比如：</p>
+<pre><code><code>&lt;springProfile name=&quot;local,dev&quot;&gt;
+ &lt;root level=&quot;INFO&quot;&gt;
+     &lt;appender-ref ref=&quot;CONSOLE-WITH-COLOR&quot;/&gt;
+     &lt;appender-ref ref=&quot;FILE&quot;/&gt;
+ &lt;/root&gt;
+&lt;/springProfile&gt;
+
+&lt;springProfile name=&quot;prod&quot;&gt;
+ &lt;root level=&quot;INFO&quot;&gt;
+     &lt;appender-ref ref=&quot;CONSOLE-WITH-COLOR&quot;/&gt;
+     &lt;appender-ref ref=&quot;FILE&quot;/&gt;
+ &lt;/root&gt;
+&lt;/springProfile&gt;
+</code></pre></li>
+</ol>
+<p>这样的话，就不需要建议多个xml文件了，使用一个默认的logback-spring.xml即可。</p>
+<hr />
+<p>参考：</p>
+<p>https://mrbird.cc/Spring-Boot-logback.html</p>
+<p>https://www.jianshu.com/p/b3dedb8fb61e</p>
+<p>https://blog.csdn.net/lchq1995/article/details/80080642</p>
+<p>https://blog.csdn.net/Rogger_chen/article/details/50587920</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,540 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修requests库核心API源码分析' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>requests库核心API源码分析</center></div><div class='banquan'>原文出处:本文由博客园博主pypypypy提供。<br/>
+原文连接:https://www.cnblogs.com/pypypy/p/12003908.html</div><br>
+    <p data-spm-anchor-id="a2c4e.11153940.0.i1.3b365a94B7WWUs">requests库是python爬虫使用频率最高的库，在网络请求中发挥着重要的作用，这边文章浅析requests的ＡＰＩ源码。</p>
+<p>该库文件结构如图：</p>
+<p>&nbsp;<img src="./images/requests库核心API源码分析0.png" alt="" /></p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i3.3b365a94B7WWUs">提供的核心接口在__init__文件中，如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> . <span style="color: #0000ff;">import</span><span style="color: #000000;"> utils
+</span><span style="color: #0000ff;">from</span> . <span style="color: #0000ff;">import</span><span style="color: #000000;"> packages
+</span><span style="color: #0000ff;">from</span> .models <span style="color: #0000ff;">import</span><span style="color: #000000;"> Request, Response, PreparedRequest
+</span><span style="color: #0000ff;">from</span> .api <span style="color: #0000ff;">import</span><span style="color: #000000;"> request, get, head, post, patch, put, delete, options
+</span><span style="color: #0000ff;">from</span> .sessions <span style="color: #0000ff;">import</span><span style="color: #000000;"> session, Session
+</span><span style="color: #0000ff;">from</span> .status_codes <span style="color: #0000ff;">import</span><span style="color: #000000;"> codes
+</span><span style="color: #0000ff;">from</span> .exceptions <span style="color: #0000ff;">import</span><span style="color: #000000;"> (
+
+    RequestException, Timeout, URLRequired,
+
+    TooManyRedirects, HTTPError, ConnectionError,
+
+    FileModeWarning, ConnectTimeout, ReadTimeout
+
+)</span></pre>
+</div>
+<p data-spm-anchor-id="a2c4e.11153940.0.i7.3b365a94B7WWUs">ｒｅｑｕｅｓｔｓ常用方法在api.py文件中，源码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> -*- coding: utf-8 -*-</span>
+
+<span style="color: #800000;">"""</span><span style="color: #800000;">
+
+requests.api
+
+~~~~~~~~~~~~
+
+
+This module implements the Requests API.
+
+
+:copyright: (c) 2012 by Kenneth Reitz.
+
+:license: Apache2, see LICENSE for more details.
+
+</span><span style="color: #800000;">"""</span>
+
+<span style="color: #0000ff;">from</span> . <span style="color: #0000ff;">import</span><span style="color: #000000;"> sessions
+
+
+</span><span style="color: #0000ff;">def</span> request(method, url, **<span style="color: #000000;">kwargs):
+
+    </span><span style="color: #800000;">"""</span><span style="color: #800000;">Constructs and sends a :class:`Request &lt;Request&gt;`.
+
+
+    :param method: method for the new :class:`Request` object.
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param params: (optional) Dictionary, list of tuples or bytes to send
+
+        in the body of the :class:`Request`.
+
+    :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+
+        object to send in the body of the :class:`Request`.
+
+    :param json: (optional) A JSON serializable Python object to send in the body of the :class:`Request`.
+
+    :param headers: (optional) Dictionary of HTTP Headers to send with the :class:`Request`.
+
+    :param cookies: (optional) Dict or CookieJar object to send with the :class:`Request`.
+
+    :param files: (optional) Dictionary of ``'name': file-like-objects`` (or ``{'name': file-tuple}``) for multipart encoding upload.
+
+        ``file-tuple`` can be a 2-tuple ``('filename', fileobj)``, 3-tuple ``('filename', fileobj, 'content_type')``
+
+        or a 4-tuple ``('filename', fileobj, 'content_type', custom_headers)``, where ``'content-type'`` is a string
+
+        defining the content type of the given file and ``custom_headers`` a dict-like object containing additional headers
+
+        to add for the file.
+
+    :param auth: (optional) Auth tuple to enable Basic/Digest/Custom HTTP Auth.
+
+    :param timeout: (optional) How many seconds to wait for the server to send data
+
+        before giving up, as a float, or a :ref:`(connect timeout, read
+
+        timeout) &lt;timeouts&gt;` tuple.
+
+    :type timeout: float or tuple
+
+    :param allow_redirects: (optional) Boolean. Enable/disable GET/OPTIONS/POST/PUT/PATCH/DELETE/HEAD redirection. Defaults to ``True``.
+
+    :type allow_redirects: bool
+
+    :param proxies: (optional) Dictionary mapping protocol to the URL of the proxy.
+
+    :param verify: (optional) Either a boolean, in which case it controls whether we verify
+
+            the server's TLS certificate, or a string, in which case it must be a path
+
+            to a CA bundle to use. Defaults to ``True``.
+
+    :param stream: (optional) if ``False``, the response content will be immediately downloaded.
+
+    :param cert: (optional) if String, path to ssl client cert file (.pem). If Tuple, ('cert', 'key') pair.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+
+    Usage::
+
+
+      &gt;&gt;&gt; import requests
+
+      &gt;&gt;&gt; req = requests.request('GET', 'https://httpbin.org/get')
+
+      &lt;Response [200]&gt;
+
+    </span><span style="color: #800000;">"""</span>
+
+
+    <span style="color: #008000;">#</span><span style="color: #008000;"> By using the 'with' statement we are sure the session is closed, thus we</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;"> avoid leaving sockets open which can trigger a ResourceWarning in some</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;"> cases, and look like a memory leak in others.</span>
+<span style="color: #000000;">
+    with sessions.Session() as session:
+
+        </span><span style="color: #0000ff;">return</span> session.request(method=method, url=url, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">def</span> get(url, params=None, **<span style="color: #000000;">kwargs):
+
+    r</span><span style="color: #800000;">"""</span><span style="color: #800000;">Sends a GET request.
+
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param params: (optional) Dictionary, list of tuples or bytes to send
+
+        in the body of the :class:`Request`.
+
+    :param \*\*kwargs: Optional arguments that ``request`` takes.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+
+
+    kwargs.setdefault(</span><span style="color: #800000;">'</span><span style="color: #800000;">allow_redirects</span><span style="color: #800000;">'</span><span style="color: #000000;">, True)
+
+    </span><span style="color: #0000ff;">return</span> request(<span style="color: #800000;">'</span><span style="color: #800000;">get</span><span style="color: #800000;">'</span>, url, params=params, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">def</span> options(url, **<span style="color: #000000;">kwargs):
+
+    r</span><span style="color: #800000;">"""</span><span style="color: #800000;">Sends an OPTIONS request.
+
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param \*\*kwargs: Optional arguments that ``request`` takes.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+
+
+    kwargs.setdefault(</span><span style="color: #800000;">'</span><span style="color: #800000;">allow_redirects</span><span style="color: #800000;">'</span><span style="color: #000000;">, True)
+
+    </span><span style="color: #0000ff;">return</span> request(<span style="color: #800000;">'</span><span style="color: #800000;">options</span><span style="color: #800000;">'</span>, url, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">def</span> head(url, **<span style="color: #000000;">kwargs):
+
+    r</span><span style="color: #800000;">"""</span><span style="color: #800000;">Sends a HEAD request.
+
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param \*\*kwargs: Optional arguments that ``request`` takes.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+    </span><span style="color: #800000;">"""</span><span style="color: #000000;">
+
+
+    kwargs.setdefault(</span><span style="color: #800000;">'</span><span style="color: #800000;">allow_redirects</span><span style="color: #800000;">'</span><span style="color: #000000;">, False)
+
+    </span><span style="color: #0000ff;">return</span> request(<span style="color: #800000;">'</span><span style="color: #800000;">head</span><span style="color: #800000;">'</span>, url, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">def</span> post(url, data=None, json=None, **<span style="color: #000000;">kwargs):
+
+    r</span><span style="color: #800000;">"""</span><span style="color: #800000;">Sends a POST request.
+
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+
+        object to send in the body of the :class:`Request`.
+
+    :param json: (optional) json data to send in the body of the :class:`Request`.
+
+    :param \*\*kwargs: Optional arguments that ``request`` takes.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+    </span><span style="color: #800000;">"""</span>
+
+
+    <span style="color: #0000ff;">return</span> request(<span style="color: #800000;">'</span><span style="color: #800000;">post</span><span style="color: #800000;">'</span>, url, data=data, json=json, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">def</span> put(url, data=None, **<span style="color: #000000;">kwargs):
+
+    r</span><span style="color: #800000;">"""</span><span style="color: #800000;">Sends a PUT request.
+
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+
+        object to send in the body of the :class:`Request`.
+
+    :param json: (optional) json data to send in the body of the :class:`Request`.
+
+    :param \*\*kwargs: Optional arguments that ``request`` takes.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+    </span><span style="color: #800000;">"""</span>
+
+
+    <span style="color: #0000ff;">return</span> request(<span style="color: #800000;">'</span><span style="color: #800000;">put</span><span style="color: #800000;">'</span>, url, data=data, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">def</span> patch(url, data=None, **<span style="color: #000000;">kwargs):
+
+    r</span><span style="color: #800000;">"""</span><span style="color: #800000;">Sends a PATCH request.
+
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+
+        object to send in the body of the :class:`Request`.
+
+    :param json: (optional) json data to send in the body of the :class:`Request`.
+
+    :param \*\*kwargs: Optional arguments that ``request`` takes.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+    </span><span style="color: #800000;">"""</span>
+
+
+    <span style="color: #0000ff;">return</span> request(<span style="color: #800000;">'</span><span style="color: #800000;">patch</span><span style="color: #800000;">'</span>, url, data=data, **<span style="color: #000000;">kwargs)
+
+
+</span><span style="color: #0000ff;">def</span> delete(url, **<span style="color: #000000;">kwargs):
+
+    r</span><span style="color: #800000;">"""</span><span style="color: #800000;">Sends a DELETE request.
+
+
+    :param url: URL for the new :class:`Request` object.
+
+    :param \*\*kwargs: Optional arguments that ``request`` takes.
+
+    :return: :class:`Response &lt;Response&gt;` object
+
+    :rtype: requests.Response
+
+    </span><span style="color: #800000;">"""</span>
+
+
+    <span style="color: #0000ff;">return</span> request(<span style="color: #800000;">'</span><span style="color: #800000;">delete</span><span style="color: #800000;">'</span>, url, **kwargs)</pre>
+</div>
+<p data-spm-anchor-id="a2c4e.11153940.0.i8.3b365a94B7WWUs">常用的get、post、put、optins、delete方法都在该文件中实现，这些方法都是使用内部封装的一个模块：request，而request是对session.request内部模块的封装，提供一个上下文管理。</p>
+<p>继续看最为核心的session.request模块源码:</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> request(self, method, url,
+
+       &middot;&middot;&middot;&middot;&middot;&middot;&middot;
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Create the Request.</span>
+<span style="color: #000000;">
+        req </span>=<span style="color: #000000;"> Request(
+
+            method</span>=<span style="color: #000000;">method.upper(),
+
+            url</span>=<span style="color: #000000;">url,
+
+            headers</span>=<span style="color: #000000;">headers,
+
+            files</span>=<span style="color: #000000;">files,
+
+            data</span>=data <span style="color: #0000ff;">or</span><span style="color: #000000;"> {},
+
+            json</span>=<span style="color: #000000;">json,
+
+            params</span>=params <span style="color: #0000ff;">or</span><span style="color: #000000;"> {},
+
+            auth</span>=<span style="color: #000000;">auth,
+
+            cookies</span>=<span style="color: #000000;">cookies,
+
+            hooks</span>=<span style="color: #000000;">hooks,
+
+        )
+
+        prep </span>=<span style="color: #000000;"> self.prepare_request(req)
+
+
+        proxies </span>= proxies <span style="color: #0000ff;">or</span><span style="color: #000000;"> {}
+
+
+        settings </span>=<span style="color: #000000;"> self.merge_environment_settings(
+
+            prep.url, proxies, stream, verify, cert
+
+        )
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Send the request.</span>
+<span style="color: #000000;">
+        send_kwargs </span>=<span style="color: #000000;"> {
+
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">timeout</span><span style="color: #800000;">'</span><span style="color: #000000;">: timeout,
+
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">allow_redirects</span><span style="color: #800000;">'</span><span style="color: #000000;">: allow_redirects,
+
+        }
+
+        send_kwargs.update(settings)
+
+        resp </span>= self.send(prep, **<span style="color: #000000;">send_kwargs)
+
+
+        </span><span style="color: #0000ff;">return</span> resp</pre>
+</div>
+<p>在这里提交过来的请求信息将组装成Request请求对象，并对其中的配置参数进行合并，然后将Request请求和配置参数发送给self.send，来请求下载，继续看self.send</p>
+<div class="cnblogs_code">
+<pre><code> <span style="color: #0000ff;">def</span> send(self, request, **<span style="color: #000000;">kwargs):
+
+        </span><span style="color: #800000;">"""</span><span style="color: #800000;">Send a given PreparedRequest.
+
+
+        :rtype: requests.Response
+
+        </span><span style="color: #800000;">"""</span>
+
+        <span style="color: #008000;">#</span><span style="color: #008000;"> Set defaults that the hooks can utilize to ensure they always have</span>
+
+        <span style="color: #008000;">#</span><span style="color: #008000;"> the correct parameters to reproduce the previous request.</span>
+<span style="color: #000000;">
+        kwargs.setdefault(</span><span style="color: #800000;">'</span><span style="color: #800000;">stream</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.stream)
+
+        kwargs.setdefault(</span><span style="color: #800000;">'</span><span style="color: #800000;">verify</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.verify)
+
+        kwargs.setdefault(</span><span style="color: #800000;">'</span><span style="color: #800000;">cert</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.cert)
+
+        kwargs.setdefault(</span><span style="color: #800000;">'</span><span style="color: #800000;">proxies</span><span style="color: #800000;">'</span><span style="color: #000000;">, self.proxies)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> It's possible that users might accidentally send a Request object.</span>
+
+        <span style="color: #008000;">#</span><span style="color: #008000;"> Guard against that specific failure case.</span>
+
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> isinstance(request, Request):
+
+            </span><span style="color: #0000ff;">raise</span> ValueError(<span style="color: #800000;">'</span><span style="color: #800000;">You can only send PreparedRequests.</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Set up variables needed for resolve_redirects and dispatching of hooks</span>
+<span style="color: #000000;">
+        allow_redirects </span>= kwargs.pop(<span style="color: #800000;">'</span><span style="color: #800000;">allow_redirects</span><span style="color: #800000;">'</span><span style="color: #000000;">, True)
+
+        stream </span>= kwargs.get(<span style="color: #800000;">'</span><span style="color: #800000;">stream</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+
+        hooks </span>=<span style="color: #000000;"> request.hooks
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Get the appropriate adapter to use</span>
+<span style="color: #000000;">
+        adapter </span>= self.get_adapter(url=<span style="color: #000000;">request.url)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Start time (approximately) of the request</span>
+<span style="color: #000000;">
+        start </span>=<span style="color: #000000;"> preferred_clock()
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Send the request</span>
+<span style="color: #000000;">
+        r </span>= adapter.send(request, **<span style="color: #000000;">kwargs)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Total elapsed time of the request (approximately)</span>
+<span style="color: #000000;">
+        elapsed </span>= preferred_clock() -<span style="color: #000000;"> start
+
+        r.elapsed </span>= timedelta(seconds=<span style="color: #000000;">elapsed)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Response manipulation hooks</span>
+<span style="color: #000000;">
+        r </span>= dispatch_hook(<span style="color: #800000;">'</span><span style="color: #800000;">response</span><span style="color: #800000;">'</span>, hooks, r, **<span style="color: #000000;">kwargs)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Persist cookies</span>
+
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> r.history:
+
+
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> If the hooks create history then we want those cookies too</span>
+
+            <span style="color: #0000ff;">for</span> resp <span style="color: #0000ff;">in</span><span style="color: #000000;"> r.history:
+
+                extract_cookies_to_jar(self.cookies, resp.request, resp.raw)
+
+
+        extract_cookies_to_jar(self.cookies, request, r.raw)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Redirect resolving generator.</span>
+<span style="color: #000000;">
+        gen </span>= self.resolve_redirects(r, request, **<span style="color: #000000;">kwargs)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Resolve redirects if allowed.</span>
+<span style="color: #000000;">
+        history </span>= [resp <span style="color: #0000ff;">for</span> resp <span style="color: #0000ff;">in</span> gen] <span style="color: #0000ff;">if</span> allow_redirects <span style="color: #0000ff;">else</span><span style="color: #000000;"> []
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Shuffle things around if there's history.</span>
+
+        <span style="color: #0000ff;">if</span><span style="color: #000000;"> history:
+
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> Insert the first (original) request at the start</span>
+<span style="color: #000000;">
+            history.insert(0, r)
+
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> Get the last request made</span>
+<span style="color: #000000;">
+            r </span>=<span style="color: #000000;"> history.pop()
+
+            r.history </span>=<span style="color: #000000;"> history
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> If redirects aren't being followed, store the response on the Request for Response.next().</span>
+
+        <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> allow_redirects:
+
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+
+                r._next </span>= next(self.resolve_redirects(r, request, yield_requests=True, **<span style="color: #000000;">kwargs))
+
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> StopIteration:
+
+                </span><span style="color: #0000ff;">pass</span>
+
+
+        <span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> stream:
+
+            r.content
+
+
+        </span><span style="color: #0000ff;">return</span> r</pre>
+</div>
+<p data-spm-anchor-id="a2c4e.11153940.0.i13.3b365a94B7WWUs">当然在self.send中核心的是下面几行行代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">#</span><span style="color: #008000;"> Start time (approximately) of the request</span>
+<span style="color: #000000;">
+        start </span>=<span style="color: #000000;"> preferred_clock()
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Send the request</span>
+<span style="color: #000000;">
+        r </span>= adapter.send(request, **<span style="color: #000000;">kwargs)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Total elapsed time of the request (approximately)</span>
+<span style="color: #000000;">
+        elapsed </span>= preferred_clock() -<span style="color: #000000;"> start
+
+        r.elapsed </span>= timedelta(seconds=<span style="color: #000000;">elapsed)
+
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> Response manipulation hooks</span>
+<span style="color: #000000;">
+        r </span>= dispatch_hook(<span style="color: #800000;">'</span><span style="color: #800000;">response</span><span style="color: #800000;">'</span>, hooks, r, **kwargs)</pre>
+</div>
+<p data-spm-anchor-id="a2c4e.11153940.0.i25.3b365a94B7WWUs">如果还有问题未能得到解决，搜索887934385交流群，进入后下载资料工具安装包等。最后，感谢观看！</p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i25.3b365a94B7WWUs">分别进行请求，并将请求响应内容构造成响应对象r,其中又引入本地模块adapter，该模块主要负责请求处理及其响应内容。</p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i14.3b365a94B7WWUs">requests库实现很巧妙，对cookie保持、代理问题、SSL验证问题都做了处理，功能很全，其中细节不仔细去研读很难理解，这里只是对其实现过程做一个浅析，如果有感兴趣的同学，可以仔细研读每个模块和功能，其中有奥妙。</p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i7.3b365a94B7WWUs">&nbsp;</p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i7.3b365a94B7WWUs">&nbsp;</p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i7.3b365a94B7WWUs">&nbsp;</p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i7.3b365a94B7WWUs">&nbsp;</p>
+<p data-spm-anchor-id="a2c4e.11153940.0.i7.3b365a94B7WWUs">&nbsp;</p>
+<pre><code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

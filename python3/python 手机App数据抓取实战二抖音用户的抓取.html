@@ -1,0 +1,329 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python 手机App数据抓取实战二抖音用户的抓取' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python 手机App数据抓取实战二抖音用户的抓取</center></div><div class='banquan'>原文出处:本文由博客园博主风，又奈何提供。<br/>
+原文连接:https://www.cnblogs.com/CYHISTW/p/11626990.html</div><br>
+    <h1>前言</h1>
+<p>什么？你问我国庆七天假期干了什么？说出来你可能不信，我爬取了cxk坤坤的抖音粉丝数据，我也不知道我为什么这么无聊。</p>
+<p>本文主要记录如何使用appium自动化工具实现抖音App模拟滑动，然后分析数据得到粉丝用户信息。</p>
+<hr />
+<p>&nbsp;</p>
+<h2>环境准备</h2>
+<ul>
+<li>fiddler</li>
+<li>appium</li>
+<li>mitmproxy(mitmdump)</li>
+<li>python3.6</li>
+<li>自带root的安卓虚拟机</li>
+<li>Android SDK</li>
+</ul>
+<p><span style="color: #ff0000;">安卓模拟器需要安装xposed框架并安装JustTrustMe组件，因为抖音会有ssl验证，会导致我们在将数据发送到我们的抓包工具的时候无法联网，所以需要安装这个组件来关闭ssl验证</span></p>
+<p>mitmproxy、AndroidSDK需要加入环境变量，这步就不再叙述</p>
+<hr />
+<h2>项目准备</h2>
+<h3>首先我们需要给虚拟机安装fiddler、mitmproxy的证书</h3>
+<p><strong>1)fiddler 主要设置如下</strong></p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取0.png" alt="" width="404" height="274" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取1.png" alt="" width="405" height="274" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取2.png" alt="" width="406" height="275" /></p>
+<p>端口设置可以随意更改，本文设置为8889</p>
+<p>电脑主机打开命令行 输入ipconfig查看本机IP</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取3.png" alt="" width="501" height="121" /></p>
+<p>设置模拟器的代理</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取4.png" alt="" width="253" height="464" /></p>
+<p>接下来打开浏览器，输入 ip:prot 如本机为 117.90.211.134:8889 下载安装fiddler证书&nbsp; 如下步骤</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取5.png" alt="" width="263" height="483" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取6.png" alt="" width="262" height="482" /></p>
+<p>接下来我们就可以使用fiddler正确的抓取手机数据包了</p>
+<p><strong>2）mitmproxy证书</strong></p>
+<p>我们在Windows系统上常用的是mitmproxy的mitmdump 打开cmd输入mitmdump -p 端口号 就可以启动服务</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取7.png" alt="" width="745" height="248" /></p>
+<p>为了方便我们将端口号也设置为8889 但是开启这个的时候需要先关闭fiddler 不然会端口冲突，然后打开模拟器的浏览器看看能否接受数据</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取8.png" alt="" width="775" height="387" /></p>
+<p>我们发现出问题了，发现现在直接提示空的响应而不是证书的问题，看到mitmdump报的错误是&nbsp;killed by block_global 是什么原因呢？</p>
+<p>这是mitmdump的自我保护措施，它防止全球网络的连接，意思就是如果是本地局域网它不会阻拦，那该怎么办呢？</p>
+<p>有两种解决办法：第一种，将模拟器的网络连接设置为桥接模式，这样就不会出现问题；</p>
+<p>第二种办法是启动的时候加入参数&nbsp;mitmdump -p 8889 <span style="color: #ff0000;">--set block_global=false</span><span>&nbsp;如下图</span></p>
+<p><span><img src="./images/python 手机App数据抓取实战二抖音用户的抓取9.png" alt="" width="758" height="445" /></span></p>
+<p>&nbsp;</p>
+<p><span>接下来 安装mitmproxy的证书&nbsp; 浏览器输入网址 mitm.it 然后安装证书</span></p>
+<p><span><img src="./images/python 手机App数据抓取实战二抖音用户的抓取10.png" alt="" width="305" height="560" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取11.png" alt="" width="305" height="561" /></span></p>
+<p>&nbsp;</p>
+<p><span>现在再打开网页就不会出现证书的提醒了</span></p>
+<p><span>这时候我们需要用的主要两个抓包工具的证书就安装完成了，<span style="color: #ff0000;">需要注意的是我们每次测试都可能需要重新安装证书，因为我们的主机IP可能会变</span></span></p>
+<hr />
+<p>&nbsp;</p>
+<h2>App分析</h2>
+<p>首先呢我们先确认模拟器中的xposed框架的JustTrustMe组件是否开启 不然我们抖音App不能正常访问网络</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取12.png" alt="" width="356" height="315" /></p>
+<p>注意<span style="color: #ff0000;">以下步骤只能在网络桥接模式下使用（或者使用真机与电脑在同一个网络） 否则fiddler无法抓取到所有的包</span></p>
+<p>首先使用fiddler分析，打开fiddler 并打开抖音进行操作&nbsp;&nbsp;本项目是爬取cxk坤坤的粉丝数据，所以我们先进入他的抖音主页点进粉丝列表</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取13.png" alt="" width="925" height="536" /></p>
+<p>粉丝好多，我们接下来向下滑动，看看当向下滑动刷新出更多粉丝的时候 fiddler会抓取到什么数据</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取14.png" alt="" width="902" height="516" /></p>
+<p>会发现每次向下滑动的时候都会有一个含有&nbsp;aweme/v1/user/follower/list/ 的网址，我们怀疑这就是粉丝数据的接口 我们把这个网址返回来的数据放入 json.cn 看看</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取15.png" alt="" width="666" height="338" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取16.png" alt="" width="388" height="335" /></p>
+<p>还真的就是粉丝数据，会发现每次滑动更新的是二十个粉丝，所以我们就找对了方向，下面我们来分析这个请求</p>
+<div class="cnblogs_code">
+<pre><code>GET https:<span style="color: #008000;">//</span><span style="color: #008000;">aweme-hl.snssdk.com/aweme/v1/user/follower/list/?user_id=103313639528&amp;sec_user_id=MS4wLjABAAAAxj2Cuu75g3I2pGOs7jtw5XN6WMiCKbA-jfIjlONRRvM&amp;max_time=1570336550&amp;count=20&amp;offset=0&amp;source_type=1&amp;address_book_access=1&amp;gps_access=1&amp;openudid=3ca06768d1f58615&amp;version_name=8.1.1&amp;ts=1570336895&amp;device_type=OPPO%20R11&amp;ssmix=a&amp;iid=87664447665&amp;app_type=normal&amp;os_api=19&amp;mcc_mnc=46007&amp;device_id=68799320259&amp;resolution=720*1280&amp;device_brand=OPPO&amp;aid=1128&amp;manifest_version_code=811&amp;app_name=aweme&amp;_rticket=1570336895512&amp;os_version=4.4.2&amp;device_platform=android&amp;version_code=811&amp;update_version_code=8112&amp;ac=wifi&amp;dpi=240&amp;uuid=866174010601603&amp;language=zh&amp;channel=tengxun_new HTTP/1.1</span></pre>
+</div>
+<p>我们会发现这个请求的url带有很多很多的参数，没错，这是抖音自身的加密方法，要破解这个可得好一会了，所以我们无法使用requests直接构造请求来获得数据了，那我们该如何获取数据呢？</p>
+<p>没错就是使用mitmdump，mitmdump有个最大的好处就是可以与python文件交互，我们可以直接使用python写好命令，使用mitmdump抓包，我们手动的滑动就可以解析出数据了</p>
+<p>编写douyin_mitmdump.py文件 代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">函数名必须这样写 这是mitmdump规则</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> response(flow):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">下面这个网址是通过fiddler获取到的 但是有些数据我们无法解密，所以需要用mitmdump捕获数据包然后做分析</span>
+    <span style="color: #0000ff;">if</span> <span style="color: #800000;">'</span><span style="color: #800000;">aweme-hl.snssdk.com/aweme/v1/user/follower/list</span><span style="color: #800000;">'</span> <span style="color: #0000ff;">in</span><span style="color: #000000;"> flow.request.url:
+        </span><span style="color: #0000ff;">for</span> user <span style="color: #0000ff;">in</span> json.loads(flow.response.text)[<span style="color: #800000;">'</span><span style="color: #800000;">followers</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+            user_info</span>=<span style="color: #000000;">{}
+            user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">nickname</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">nickname</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">share_id</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">uid</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">douyin_id</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">short_id</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">有的用户修改了抖音号</span>
+            <span style="color: #0000ff;">if</span> user_info[<span style="color: #800000;">'</span><span style="color: #800000;">douyin_id</span><span style="color: #800000;">'</span>] == <span style="color: #800000;">'</span><span style="color: #800000;">0</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+                user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">douyin_id</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">unique_id</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            </span><span style="color: #0000ff;">print</span>(user_info)</pre>
+</div>
+<p>现在打开cmd并切换到项目目录下 执行命令 mitmdump -p 8889 -s douyin_mitmdump.py</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取17.png" alt="" width="670" height="193" /></p>
+<p>接下来手动滑动界面看看会不会解析数据</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取18.png" alt="" width="1065" height="585" /></p>
+<p>好的 现在我们已经成功的分析出来了粉丝数据，但是我们总不能一直鼠标滑动吧？所以我们现在需要使用Appium进行自动化测试模拟滑动</p>
+<hr />
+<p>&nbsp;</p>
+<h2>Appium自动化测试模拟滑动</h2>
+<h3>配置信息</h3>
+<p>&nbsp;Appium是一个开源测试自动化框架，可用于原生，混合和移动Web应用程序测试。 它使用WebDriver协议驱动iOS，Android和Windows应用程序。</p>
+<p>比如本文我们就使用appium来实现从点开程序到模拟滑动的全部操作。</p>
+<p>首先我们需要在电脑上安装Appium</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取19.png" alt="" width="422" height="394" /></p>
+<p>这个相当于appium服务端，我们在执行自动化测试的时候需要先在电脑上打开服务端，然后我们使用程序连接虚拟机或真机执行脚本进行自动化测试&nbsp;点击start server打开服务端&nbsp;</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取20.png" alt="" width="606" height="267" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>我们首先使用appium 自带的测试程序来试一下如何操作 点击右上角的放大镜符号</p>
+<p>进入配置选项界面 开始填写选项信息</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取21.png" alt="" width="764" height="527" /></p>
+<p>下面我来解释每个参数都是如何得到的</p>
+<p>1）platformName&nbsp; 这是平台名称 我们填写 Andriod 相信不用过多解释</p>
+<p>2）platformVersion 这是问平台版本信息，根据各个手机不同自主填写，本文使用的是 Andriod4.4.2</p>
+<p>3）deviceName 这个是设备的名称，我们如何获取呢？</p>
+<p>　　这个时候就用到了我们AndroidSDK中的adb工具了 adb是用来连接电脑与手机的工具 我们把手机进入开发者选项并打开允许USB调试，然后打开命令行输入命令 adb devices看看有没有输出</p>
+<p>　　<img src="./images/python 手机App数据抓取实战二抖音用户的抓取22.png" alt="" width="719" height="349" /></p>
+<p>　　返回的127.0.0.1:52001就是设备名称 这个是模拟器的名称，使用真机会不同 （如果没有返回就关闭开发者模式重新打开USB调试多试几次）</p>
+<p>4）appPackage、appActivity这俩个参数非常重要，它指定了我们自动化测试的app，这两个参数获取有点麻烦，下面详解如何获取</p>
+<p>　　首先手机打开App，本文就是抖音了，然后电脑命令行输入 adb shell 进入交互界面 然后输入命令&nbsp;dumpsys activity | grep mFocusedActivity&nbsp;</p>
+<p>　　<img src="./images/python 手机App数据抓取实战二抖音用户的抓取23.png" alt="" width="948" height="147" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;　　第一个就是包名，第二个就是activity名 我们记下来一会编写进去（activity名称前要跟着包名）</p>
+<p>　　即 包名com.ss.android.ugc.aweme&nbsp; &nbsp;activity名com.ss.android.ugc.aweme.main.MainActivity</p>
+<p>5）noReset unicodekeyboard resetkeyboard解释会在一会的程序中</p>
+<p>然后点击右下方保存配置信息并start session 如果点击start session发现手机自动打开抖音时，就说明我们的配置信息写对了，就可以开始使用了</p>
+<p>这些配置信息一会要在我们的python脚本中使用，所以一定要填写正确</p>
+<hr />
+<p>&nbsp;</p>
+<h3>内容分析</h3>
+<p>其实app自动化测试跟网页爬虫很相似，首先分析我们该怎么做&nbsp;</p>
+<p>点开抖音这一步已经不用我们去做 然后我们需要依次点左上角放大镜按钮、点击搜索框输入抖音号、点击搜索、点击用户、点击进入主页、点击粉丝、向上滑动</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取24.png" alt="" width="273" height="482" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取25.png" alt="" width="262" height="482" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取26.png" alt="" width="261" height="480" /></p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取27.png" alt="" width="271" height="498" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取28.png" alt="" width="270" height="496" /><img src="./images/python 手机App数据抓取实战二抖音用户的抓取29.png" alt="" width="270" height="496" /></p>
+<p>我们该如何定位按钮以及输入信息呢？</p>
+<p>这又得使用AndroidSDK中的工具了 这次使用 AndroidSDK\tools\monitor.bat 中的monitor 可能有的小伙伴会问 为什么不使用可以查看xpath的魔改版的uiautomatorviewer呢?这是因为我在测试的时候发现现在抖音加入了某种时钟，我们都知道uiautomatorviewer无法获取动态页面的数据，而我发现monitor有的界面却可以，所以使用monitor，下面开始</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取30.png" alt="" width="819" height="404" /></p>
+<p>首先用鼠标点击左边画蓝色圈的地方获取当前手机界面数据，然后鼠标点击我们需要的控件，之后右边出现的就是我们需要的信息，我们可以通过resource-id查找指定数据</p>
+<p>现在先来编写douyin_appium.py文件测试下能否自动打开抖音并点击左上方放大镜按钮</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> appium <span style="color: #0000ff;">import</span><span style="color: #000000;"> webdriver
+</span><span style="color: #008000;">#</span><span style="color: #008000;">WebDriverWait用来加入时间判断，有时候控件元素需要过一段时间才会出现</span>
+<span style="color: #0000ff;">from</span> selenium.webdriver.support.ui <span style="color: #0000ff;">import</span><span style="color: #000000;"> WebDriverWait
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">配置信息</span>
+option=<span style="color: #000000;">{
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">platformName</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Android</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">platformVersion</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">deviceName</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">127.0.0.1:52001</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">自动化测试包名</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">appPackage</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">com.ss.android.ugc.aweme</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">自动化测试Activity</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">appActivity</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">com.ss.android.ugc.aweme.main.MainActivity</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">再次启动不需要再次安装</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">noReset</span><span style="color: #800000;">"</span><span style="color: #000000;">: True,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">unicode键盘 我们可以输入中文</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">unicodekeyboard</span><span style="color: #800000;">"</span><span style="color: #000000;">: True,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">操作之后还原回原先的输入法</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">resetkeyboard</span><span style="color: #800000;">"</span><span style="color: #000000;">:True
+}
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">其中的4723就是appium服务启动时的端口号</span>
+driver = webdriver.Remote(<span style="color: #800000;">"</span><span style="color: #800000;">http://localhost:4723/wd/hub</span><span style="color: #800000;">"</span><span style="color: #000000;">,option)
+
+</span><span style="color: #008000;">#放大镜</span><span style="color: #008000;">按钮</span>
+<span style="color: #0000ff;">try</span><span style="color: #000000;">:
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">使用resource-id查找按钮</span>
+    <span style="color: #0000ff;">if</span> WebDriverWait(driver,5).until(<span style="color: #0000ff;">lambda</span> x:x.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/b3o</span><span style="color: #800000;">'</span><span style="color: #000000;">)):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">点击按钮</span>
+        driver.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/b3o</span><span style="color: #800000;">'</span><span style="color: #000000;">).click()
+</span><span style="color: #0000ff;">except</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">pass</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>运行之前首先要开启 appium 服务端，即start server</p>
+<p>然后运行python文件</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取31.png" alt="" width="870" height="479" /></p>
+<p>好的我们发现已经可以自动的点击放大镜按钮了，那么接下来只需要继续编写文件即可以完成自动化操作了 代码如下</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> appium <span style="color: #0000ff;">import</span><span style="color: #000000;"> webdriver
+</span><span style="color: #008000;">#</span><span style="color: #008000;">WebDriverWait用来加入时间判断，有时候控件元素需要过一段时间才会出现</span>
+<span style="color: #0000ff;">from</span> selenium.webdriver.support.ui <span style="color: #0000ff;">import</span><span style="color: #000000;"> WebDriverWait
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">配置信息</span>
+option=<span style="color: #000000;">{
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">platformName</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">Android</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">platformVersion</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">4.4.2</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #800000;">"</span><span style="color: #800000;">deviceName</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">127.0.0.1:52001</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">自动化测试包名</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">appPackage</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">com.ss.android.ugc.aweme</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">自动化测试Activity</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">appActivity</span><span style="color: #800000;">"</span>: <span style="color: #800000;">"</span><span style="color: #800000;">com.ss.android.ugc.aweme.main.MainActivity</span><span style="color: #800000;">"</span><span style="color: #000000;">,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">再次启动不需要再次安装</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">noReset</span><span style="color: #800000;">"</span><span style="color: #000000;">: True,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">unicode键盘 我们可以输入中文</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">unicodekeyboard</span><span style="color: #800000;">"</span><span style="color: #000000;">: True,
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">操作之后还原回原先的输入法</span>
+    <span style="color: #800000;">"</span><span style="color: #800000;">resetkeyboard</span><span style="color: #800000;">"</span><span style="color: #000000;">:True
+}
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">其中的4723就是appium服务启动时的端口号</span>
+driver = webdriver.Remote(<span style="color: #800000;">"</span><span style="color: #800000;">http://localhost:4723/wd/hub</span><span style="color: #800000;">"</span><span style="color: #000000;">,option)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">放大镜按钮</span>
+<span style="color: #0000ff;">try</span><span style="color: #000000;">:
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">使用resource-id查找按钮</span>
+    <span style="color: #0000ff;">if</span> WebDriverWait(driver,5).until(<span style="color: #0000ff;">lambda</span> x:x.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/b3o</span><span style="color: #800000;">'</span><span style="color: #000000;">)):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">点击按钮</span>
+        driver.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/b3o</span><span style="color: #800000;">'</span><span style="color: #000000;">).click()
+</span><span style="color: #0000ff;">except</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">pass</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;">得到窗口大小</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> get_size():
+    x</span>=driver.get_window_size()[<span style="color: #800000;">'</span><span style="color: #800000;">width</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+    y</span>=driver.get_window_size()[<span style="color: #800000;">'</span><span style="color: #800000;">height</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+    </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> (x,y)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">搜索框</span>
+<span style="color: #0000ff;">try</span><span style="color: #000000;">:
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> 定位搜索框</span>
+    <span style="color: #0000ff;">if</span> WebDriverWait(driver,3).until(<span style="color: #0000ff;">lambda</span> x:x.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/ad1</span><span style="color: #800000;">'</span><span style="color: #000000;">)):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">点击搜索框</span>
+        driver.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/ad1</span><span style="color: #800000;">'</span><span style="color: #000000;">).click()
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">输入抖音号并点解搜索</span>
+        driver.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/ad1</span><span style="color: #800000;">'</span>).send_keys(<span style="color: #800000;">"</span><span style="color: #800000;">1307311292</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+        driver.find_element_by_id(</span><span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/dy8</span><span style="color: #800000;">'</span><span style="color: #000000;">).click()
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">点击用户 注意写法 这个控件由于无法获取resource_id与xpath的值 所以只能通过text来查找</span>
+        driver.find_element_by_android_uiautomator(<span style="color: #800000;">"</span><span style="color: #800000;">text(\"用户\")</span><span style="color: #800000;">"</span><span style="color: #000000;">).click()
+</span><span style="color: #0000ff;">except</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">pass</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;">点进去具体界面</span>
+<span style="color: #0000ff;">try</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">if</span> WebDriverWait(driver,5).until(<span style="color: #0000ff;">lambda</span> x:x.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/bck</span><span style="color: #800000;">'</span><span style="color: #000000;">)):
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">进入用户信息界面</span>
+        driver.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/bck</span><span style="color: #800000;">'</span><span style="color: #000000;">).click()
+        time.sleep(</span>2<span style="color: #000000;">)
+        </span><span style="color: #008000;">#</span><span style="color: #008000;">点击粉丝数</span>
+        driver.find_element_by_id(<span style="color: #800000;">'</span><span style="color: #800000;">com.ss.android.ugc.aweme:id/akf</span><span style="color: #800000;">'</span><span style="color: #000000;">).click()
+</span><span style="color: #0000ff;">except</span><span style="color: #000000;">:
+    </span><span style="color: #0000ff;">pass</span>
+
+<span style="color: #008000;">#</span><span style="color: #008000;">得到屏幕尺寸</span>
+size =<span style="color: #000000;"> get_size()
+</span><span style="color: #008000;">#</span><span style="color: #008000;">定义滑动</span>
+x1 = int(size[0]*0.5<span style="color: #000000;">)
+x2 </span>= int(size[0]*0.7<span style="color: #000000;">)
+y1 </span>= int(size[1]*0.9<span style="color: #000000;">)
+y2 </span>= int(size[1]*0.2<span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;">(True):
+    time.sleep(</span>0.5<span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">模拟滑动</span>
+    driver.swipe(x1, y1, x2, y2)</pre>
+</div>
+<p>效果如下gif图 可以实现从打开抖音到滑动的模拟操作</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取32.png" alt="" width="741" height="489" /></p>
+<hr />
+<p>&nbsp;</p>
+<h2>数据入库</h2>
+<p>现在我们已经完成了appium的自动化模拟滑动，同时我们最开始又写了获取粉丝数据的mitmdump脚本，现在我们将这两个脚本结合起来就可以实现自动分析数据了</p>
+<p>第一步运行mitmdump脚本 即到项目目录下运行命令</p>
+<div class="cnblogs_code">
+<pre><code>D:\pythonwork\AppSpiders\douyin_test&gt;mitmdump -s douyin_mitmdump.py -p <span style="color: #800080;">8889</span> --set block_global=<span style="color: #0000ff;">false</span></pre>
+</div>
+<p>--set block_global=false如果手机和电脑在同一个局域网可以不加这条指令</p>
+<p>然后将手机连接代理到我们主机 ，接着运行douyin_appium.py 现在就可以完成自动拉取粉丝数据了</p>
+<p>效果如下图</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取33.png" alt="" /></p>
+<p>我们还差什么呢?我们总不能在命令行看粉丝数据吧，所以我们需要把抓取到的数据放入本地mongo数据库，首先编写一个douyin_db.py 代码如下</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> pymongo
+</span><span style="color: #0000ff;">from</span> pymongo.collection <span style="color: #0000ff;">import</span><span style="color: #000000;"> Collection
+
+client </span>= pymongo.MongoClient(host=<span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,port=27017<span style="color: #000000;">)
+</span><span style="color: #008000;">#</span><span style="color: #008000;">数据库名</span>
+db = client[<span style="color: #800000;">'</span><span style="color: #800000;">douyin_test</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">存入获取的粉丝数据部分信息</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> save_task(item):
+    task_id_collection </span>= Collection(db, <span style="color: #800000;">'</span><span style="color: #800000;">task_id</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">updata方法，如果存在相同的share_id就更新，不存在就构建</span>
+    task_id_collection.update({<span style="color: #800000;">'</span><span style="color: #800000;">share_id</span><span style="color: #800000;">'</span>:item[<span style="color: #800000;">'</span><span style="color: #800000;">share_id</span><span style="color: #800000;">'</span>]},item,True)</pre>
+</div>
+<p>然后我们在 douyin_mitmdump.py中引用这个刚刚编写的入库函数&nbsp; douyin_mitmdump.py引用如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> json
+</span><span style="color: #008000;">#</span><span style="color: #008000;">导入编写的入库函数</span>
+<span style="color: #0000ff;">from</span> douyin_test.douyin_db <span style="color: #0000ff;">import</span><span style="color: #000000;"> save_task
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;">函数名必须这样写 这是mitmdump规则</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> response(flow):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">下面这个网址是通过fiddler获取到的 但是有些数据我们无法解密，所以需要用mitmdump捕获数据包然后做分析</span>
+    <span style="color: #0000ff;">if</span> <span style="color: #800000;">'</span><span style="color: #800000;">aweme-hl.snssdk.com/aweme/v1/user/follower/list</span><span style="color: #800000;">'</span> <span style="color: #0000ff;">in</span><span style="color: #000000;"> flow.request.url:
+        </span><span style="color: #0000ff;">for</span> user <span style="color: #0000ff;">in</span> json.loads(flow.response.text)[<span style="color: #800000;">'</span><span style="color: #800000;">followers</span><span style="color: #800000;">'</span><span style="color: #000000;">]:
+            user_info</span>=<span style="color: #000000;">{}
+            user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">nickname</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">nickname</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">share_id</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">uid</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">douyin_id</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">short_id</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">有的用户修改了抖音号</span>
+            <span style="color: #0000ff;">if</span> user_info[<span style="color: #800000;">'</span><span style="color: #800000;">douyin_id</span><span style="color: #800000;">'</span>] == <span style="color: #800000;">'</span><span style="color: #800000;">0</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+                user_info[</span><span style="color: #800000;">'</span><span style="color: #800000;">douyin_id</span><span style="color: #800000;">'</span>] = user[<span style="color: #800000;">'</span><span style="color: #800000;">unique_id</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+            </span><span style="color: #008000;">#</span><span style="color: #008000;">数据入库</span>
+            save_task(user_info)</pre>
+</div>
+<p>再次运行mitmdump命令与douyin_appium.py 现在就可以实现数据入库了，结果如下&nbsp;</p>
+<p><img src="./images/python 手机App数据抓取实战二抖音用户的抓取34.png" alt="" width="723" height="485" /></p>
+<p>以上就是我们爬取到的cxk的粉丝数据，有小伙伴可能会说这种模拟滑动的很慢，可是有些app做了很高级别的加密，我们迫不得已只能用这种方式爬取，本次教程到此结束</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

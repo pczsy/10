@@ -1,0 +1,914 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修SpringCache自定义过期时间及自动刷新' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>SpringCache自定义过期时间及自动刷新</center></div><div class='banquan'>原文出处:本文由博客园博主半天想不出昵称的斌提供。<br/>
+原文连接:https://www.cnblogs.com/top-housekeeper/p/11980973.html</div><br>
+    <h1>背景前提</h1>
+<h2>阅读说明（十分重要）</h2>
+<p>对于Cache和SpringCache原理不太清楚的朋友，可以看我之前写的文章：<a title="Springboot中的缓存Cache和CacheManager原理介绍" href="https://www.cnblogs.com/top-housekeeper/p/11865399.html" target="_blank">Springboot中的缓存Cache和CacheManager原理介绍</a></p>
+<p>能关注SpringCache，想了解过期实现和自动刷新的朋友，肯定有一定Java基础的，所以先了解我的思想，达成共识比直接看代码重要许多</p>
+<p>你可能只需要我里面其中一个点而不是原搬照抄</p>
+<p>我在实现过程遇到三大坑，先跟大家说下，兴许对你有帮助</p>
+<h3>坑一：自己造轮子</h3>
+<p>对SpringCache不怎么了解，直接百度缓存看到Redis后，就直接使用RedisTemple开始工具类的搭建（说白了就是自己撸一个增删查改功能的类，然后到处使用）</p>
+<p>自己造轮子不仅重复了前人的工作，还做的没别人好... ，不让Spring帮忙管理就享受不到@Cacheable这些注解等一系列福利</p>
+<p>对于管理，扩展，使用方便程度都不友好</p>
+<p>结论：不能放弃别人写好的工具类（我用Redis做缓存，那么对应的就是RedisCache、RedisManager和SpringCache注解等一套要用上）</p>
+<h3>坑二：<span style="color: #ff0000;">Cache的设计思想不对（最重要）</span></h3>
+<p>在了解了SpringCache后，我十分愉快的用上了RedisCache和RedisCacheManager，真的十分简单方便</p>
+<p>但跟看这边文章的你们一样，不满足于此，想着如果一个频繁访问缓存，到时候过期一个或多个过期了，是不是就缓存雪崩了</p>
+<p>可当时我<strong>纠结的粗粒度太细</strong>了：</p>
+<hr />
+<p>我希望每个缓存里的每个数据都能控制过期时间</p>
+<p>比如：CacheName为systemCache的Cache里有a，b两个数据，我希望a数据5分钟过期，b数据10分钟过期</p>
+<p>结论：这是完全没必要的，我们控制过期时间，应该以Cache为最小单位，而不是以里面单个数据</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;实际中缓存数据是不需要精细到单独处理的，都是一组一组的，如这几个数据在30分钟内失效，那一组数据是在</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 1小时内失效等等</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;例如：systemCache的ttl（详见1.2的CacheConfig）设置为半小时，那么它里面所有的数据都为离存入时间间隔30分钟后过期</p>
+<hr />
+<p>我希望数据能纯自动刷新（不需要外在的触发条件）</p>
+<p>比如：跑个线程，隔断时间自动扫描数据，进行纯自动更新</p>
+<p>结论：目前没办法实现缓存纯自动更新，必须要使用到该缓存拿数据才能触发更新检查</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;纯自动更新没有意义，假设一个数据放了半小时没人访问要过期了，那就过期吧</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;因为缓存前提是一段时间频繁访问的数据，如果都没人访问了，就不能称之为缓存</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;不然就是一个系统长期存在的动态变量，不适用于缓存</p>
+<h3>坑三：对@Cacheble的理解太浅</h3>
+<p>于是想缓存数据能在过期前的几分钟里自动刷新一下，那就很不错</p>
+<p>着手实现就想拦截@Cacheble，因为我们把@Cacheble放在访问数据库的方法上，那么做个切面针对@Cacheble，在调用目标方法前判断一下储存的时间，快过期就重新取数据，不过期就不执行方法不就行了（不得不吐槽SpringCache对于过期设计有点考虑不足，封装的死死的，没向外暴露任何接口）</p>
+<p><strong>结果@Cacheble的代理类的逻辑是这样的：</strong></p>
+<p>发现系统需要此缓存数据 -&gt; 自动尝试get方法获得缓存 -&gt; 存在则返回</p>
+<p>发现系统需要此缓存数据 -&gt; 自动尝试get方法获得缓存 -&gt; 不存在才调用目标方法</p>
+<p><span style="color: #ff0000;">所以切面切@Cacheble压根没用，别人是在缓存失效的情况下才进入目标方法，这个过程才会被你写的切面切！！&nbsp;</span></p>
+<h2><span style="color: #000000;">我的设计</span></h2>
+<p><span style="color: #000000;">网上有个比较好的自动刷新的实现（参考）：<a href="https://www.jianshu.com/p/275cb42080d9" target="_blank">https://www.jianshu.com/p/275cb42080d9</a>&nbsp; 但是不太喜欢</span></p>
+<p>原因主要是不喜欢在@Cacheable里面的变量做文章（会对原来已有的注解有影响），关键还会覆盖，以第一个</p>
+<p>@Cacheble写的时间为准，代码开发一段时间，天知道这个Cache哪个地方第一次指定</p>
+<p><span style="color: #ff0000;"><strong>在这阐述下设计逻辑，大家看看下面内容不懂的时候可以回来这里看看</strong></span></p>
+<p>&nbsp;[中括号为涉及到的类]</p>
+<p>&nbsp;<img src="./images/SpringCache自定义过期时间及自动刷新0.png" alt="" /></p>
+<p><span style="color: #000000;">涉及到如下8个类：</span></p>
+<p><span>&nbsp; &nbsp;<em><strong>系统更新缓存的注解：</strong></em></span></p>
+<p><span>&nbsp; &nbsp; &nbsp; &nbsp;@UpdataCache：是缓存自动更新的标志，在Cache的get方法上表明，然后每次get数据时就会在切面判断是否快要过期</span></p>
+<p><span>&nbsp;&nbsp;<em><strong>&nbsp;系统缓存管理器的接口：</strong></em></span></p>
+<p><span>&nbsp; &nbsp; &nbsp; &nbsp;I_SystemCacheMgr：此接口继承CacheManager，自定义缓存管理器需要实现此接口，需要实现里面一些更新缓存相关的方法</span></p>
+<p><span style="color: #000000;">&nbsp; &nbsp;<strong><em>Spring中的<strong><em>Cache接口和</em></strong>CacheManager的实现：</em></strong></span></p>
+<p><span style="color: #000000;">&nbsp; &nbsp; &nbsp; &nbsp;RedisCacheEnhance：继承RedisCache，对其增强</span></p>
+<p><span style="color: #000000;">&nbsp; &nbsp; &nbsp; &nbsp;RedisCacheMgr：继承RedisManager，对其增强（说白了就是增加些自己的方法，改写方法）</span></p>
+<p><span style="color: #000000;">&nbsp; &nbsp;<em><strong>系统缓存管理器的注册类（向Spring注册）：</strong></em></span></p>
+<p><span style="color: #000000;"><em><strong>&nbsp; &nbsp; &nbsp; </strong></em>&nbsp;CacheConfig：Spring初始化时，向其注册管理类，里面写自己实现的注册逻辑</span></p>
+<p><span>&nbsp; &nbsp;<em><strong>目标方法记载类：</strong></em></span></p>
+<p><span>&nbsp; &nbsp; &nbsp; &nbsp;CacheInvocation：为了能自动更新，那目标获得数据的方法要记录下来，才能要调用的时候主动调用</span></p>
+<p>&nbsp;&nbsp;<em><strong>&nbsp;系统更新缓存的线程</strong></em>：</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;UpdateDataTask：实现Callable接口的线程类，负责数据更新时执行目标方法，写入缓存</p>
+<p><span style="color: #000000;">&nbsp; &nbsp;<em><strong>系统缓存管理：</strong></em></span></p>
+<p><span style="color: #000000;">&nbsp; &nbsp; &nbsp; &nbsp;SystemCacheMgr：缓存数据存储信息在此保存，也负责管理I_SystemCacheMgr的实现类，进行更新操作的调用</span></p>
+<p>&nbsp; &nbsp;<em><strong>系统缓存AOP切面：</strong></em></p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;CacheAspect：对@Cacheable拦截，进行获取数据的方法注册。对@UpdateCache注解进行拦截，进行自动更新判</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp;断</p>
+<p>&nbsp; &nbsp;接下来将依次展示代码，说下关键点</p>
+<h1>代码展示</h1>
+<h2>@UpdataCache</h2>
+<p>该注解主要是对Cache的get方法进行标记，然后用AOP切面进行更新检查</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;"> * @description: 缓存更新接口，在Cache实现类的get方法上注解即可
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;"> * @date 2019/11/18 8:56
+</span><span style="color: #008080;"> 5</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 6</span> <span style="color: #000000;">@Target({ElementType.METHOD, ElementType.TYPE})
+</span><span style="color: #008080;"> 7</span> <span style="color: #000000;">@Retention(RetentionPolicy.RUNTIME)
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">@Inherited
+</span><span style="color: #008080;"> 9</span> <span style="color: #0000ff;">public</span> @<span style="color: #0000ff;">interface</span><span style="color: #000000;"> UpdateCache {
+</span><span style="color: #008080;">10</span> }</pre>
+</div>
+<h2>I_SystemCacheMgr</h2>
+<p>主要是规定了系统缓存管理器应该有的行为</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;"> * 本系统的缓存接口，SystemCacheMgr统一保存数据记录的时间和控制缓存自动刷新流程
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;"> *
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;"> * 为了实现数据快过期前的自动刷新，需要以下操作：
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;"> * 1.实现此接口
+</span><span style="color: #008080;"> 6</span> <span style="color: #008000;"> *   如果用如RedisCacheManager这种写好的类，需要子类继承再实现此接口
+</span><span style="color: #008080;"> 7</span> <span style="color: #008000;"> *   如果Cache是CacheManager内部生成的，还需要重写createCache方法
+</span><span style="color: #008080;"> 8</span> <span style="color: #008000;"> *   使生成的Cache走一遍Spring初始化Bean的过程，交给Spring管理
+</span><span style="color: #008080;"> 9</span> <span style="color: #008000;"> *   这里主要为了Spring帮忙生成代理类，让注解生效
+</span><span style="color: #008080;">10</span> <span style="color: #008000;"> * 2.实现了 {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> Cache} 接口的类在get方法上加上注解 {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> UpdateCache} 才有更新效果，所以如果要用如RedisCache
+</span><span style="color: #008080;">11</span> <span style="color: #008000;"> *   这种写好的类，需要子类继承，并重写get方法
+</span><span style="color: #008080;">12</span> <span style="color: #008000;"> *   然后在get方法上加@UpdateCache
+</span><span style="color: #008080;">13</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;">14</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span> I_SystemCacheMgr <span style="color: #0000ff;">extends</span><span style="color: #000000;"> CacheManager{
+</span><span style="color: #008080;">15</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">16</span> <span style="color: #008000;">     * 该数据是否过期
+</span><span style="color: #008080;">17</span> <span style="color: #008000;">     * true为已经过期
+</span><span style="color: #008080;">18</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheName 缓存名字
+</span><span style="color: #008080;">19</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id 数据id
+</span><span style="color: #008080;">20</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> saveTime 该缓存内该数据的存储时间
+</span><span style="color: #008080;">21</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;">22</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> Exception
+</span><span style="color: #008080;">23</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">24</span>     <span style="color: #0000ff;">boolean</span> isApproachExpire(String cacheName, Object id, Timestamp saveTime) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception;
+</span><span style="color: #008080;">25</span> 
+<span style="color: #008080;">26</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">27</span> <span style="color: #008000;">     * 删除指定Cache里的指定数据
+</span><span style="color: #008080;">28</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheName
+</span><span style="color: #008080;">29</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id
+</span><span style="color: #008080;">30</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> Exception
+</span><span style="color: #008080;">31</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">32</span>     <span style="color: #0000ff;">void</span> remove(String cacheName, Object id) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception;
+</span><span style="color: #008080;">33</span> 
+<span style="color: #008080;">34</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">35</span> <span style="color: #008000;">     * 清除所有缓存内容
+</span><span style="color: #008080;">36</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> Exception
+</span><span style="color: #008080;">37</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">38</span>     <span style="color: #0000ff;">void</span> clearAll() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception;
+</span><span style="color: #008080;">39</span> 
+<span style="color: #008080;">40</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">41</span> <span style="color: #008000;">     * 获得所有的Cache
+</span><span style="color: #008080;">42</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;">43</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">44</span>     ConcurrentMap&lt;String, Cache&gt;<span style="color: #000000;"> getAllCaches();
+</span><span style="color: #008080;">45</span> }</pre>
+</div>
+<h2>RedisCacheEnhance</h2>
+<p>写上@UpdateCache后，才能被AOP切入</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;"> * @description:    增强RedisCache
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;"> *                  为了能在get方法写上@Update注解，实现自动刷新
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;"> * @date 2019/7/4 13:24
+</span><span style="color: #008080;"> 6</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 7</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> RedisCacheEnhance <span style="color: #0000ff;">extends</span><span style="color: #000000;"> RedisCache {
+</span><span style="color: #008080;"> 8</span> 
+<span style="color: #008080;"> 9</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">10</span> <span style="color: #008000;">     * Create new {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> RedisCacheEnhance}.
+</span><span style="color: #008080;">11</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;">12</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> name        must not be {</span><span style="color: #808080;">@literal</span><span style="color: #008000;"> null}.
+</span><span style="color: #008080;">13</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheWriter must not be {</span><span style="color: #808080;">@literal</span><span style="color: #008000;"> null}.
+</span><span style="color: #008080;">14</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheConfig must not be {</span><span style="color: #808080;">@literal</span><span style="color: #008000;"> null}.
+</span><span style="color: #008080;">15</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">16</span>     <span style="color: #0000ff;">protected</span><span style="color: #000000;"> RedisCacheEnhance(String name, RedisCacheWriter cacheWriter, RedisCacheConfiguration cacheConfig) {
+</span><span style="color: #008080;">17</span>         <span style="color: #0000ff;">super</span><span style="color: #000000;">(name, cacheWriter, cacheConfig);
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span> <span style="color: #000000;">    @UpdateCache
+</span><span style="color: #008080;">21</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> ValueWrapper get(Object key){
+</span><span style="color: #008080;">22</span>         System.out.println("进入get方法"<span style="color: #000000;">);
+</span><span style="color: #008080;">23</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">super</span><span style="color: #000000;">.get(key);
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">25</span> 
+<span style="color: #008080;">26</span> <span style="color: #000000;">    @UpdateCache
+</span><span style="color: #008080;">27</span>     <span style="color: #0000ff;">public</span> &lt;T&gt; T get(Object key, @Nullable Class&lt;T&gt;<span style="color: #000000;"> type){
+</span><span style="color: #008080;">28</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">super</span><span style="color: #000000;">.get(key,type);
+</span><span style="color: #008080;">29</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">30</span> 
+<span style="color: #008080;">31</span> <span style="color: #000000;">    @UpdateCache
+</span><span style="color: #008080;">32</span>     <span style="color: #0000ff;">public</span> &lt;T&gt; T get(Object key, Callable&lt;T&gt;<span style="color: #000000;"> valueLoader){
+</span><span style="color: #008080;">33</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">super</span><span style="color: #000000;">.get(key,valueLoader);
+</span><span style="color: #008080;">34</span>     }</pre>
+</div>
+<h2>RedisCacheMgr</h2>
+<p>RedisManager的增强类，这里涉及的知识点比较多，跟大家简单聊聊</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">  1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;">  2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;">  3</span> <span style="color: #008000;"> * @description: RedisCacheManager增强类，为了实现本系统缓存自动更新功能
+</span><span style="color: #008080;">  4</span> <span style="color: #008000;"> * @date 2019/11/25 9:07
+</span><span style="color: #008080;">  5</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;">  6</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> RedisCacheMgr <span style="color: #0000ff;">extends</span> RedisCacheManager <span style="color: #0000ff;">implements</span><span style="color: #000000;"> I_SystemCacheMgr {
+</span><span style="color: #008080;">  7</span> 
+<span style="color: #008080;">  8</span>     <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span><span style="color: #000000;"> RedisCacheWriter cacheWriter;
+</span><span style="color: #008080;">  9</span>     <span style="color: #0000ff;">private</span> ConcurrentMap&lt;String, Cache&gt; caches = <span style="color: #0000ff;">new</span> ConcurrentHashMap&lt;&gt;<span style="color: #000000;">();
+</span><span style="color: #008080;"> 10</span> 
+<span style="color: #008080;"> 11</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> DefaultListableBeanFactory defaultListableBeanFactory;
+</span><span style="color: #008080;"> 12</span> 
+<span style="color: #008080;"> 13</span>     <span style="color: #0000ff;">public</span> RedisCacheMgr(RedisCacheWriter cacheWriter, RedisCacheConfiguration defaultCacheConfiguration, Map&lt;String, RedisCacheConfiguration&gt; initialCacheConfigurations, <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> allowInFlightCacheCreation) {
+</span><span style="color: #008080;"> 14</span>         <span style="color: #0000ff;">super</span><span style="color: #000000;">(cacheWriter, defaultCacheConfiguration, initialCacheConfigurations, allowInFlightCacheCreation);
+</span><span style="color: #008080;"> 15</span>         <span style="color: #0000ff;">this</span>.cacheWriter =<span style="color: #000000;"> cacheWriter;
+</span><span style="color: #008080;"> 16</span> 
+<span style="color: #008080;"> 17</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 18</span> 
+<span style="color: #008080;"> 19</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 20</span> <span style="color: #008000;">     * 重写createRedisCache的方法，生成自己定义的Cache
+</span><span style="color: #008080;"> 21</span> <span style="color: #008000;">     * 这里主要要让Spring来生成代理Cache，不然在Cache上的注解是无效的
+</span><span style="color: #008080;"> 22</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> name
+</span><span style="color: #008080;"> 23</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheConfig
+</span><span style="color: #008080;"> 24</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;"> 25</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 26</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;"> 27</span>     <span style="color: #0000ff;">protected</span><span style="color: #000000;"> RedisCacheEnhance createRedisCache(String name, @Nullable RedisCacheConfiguration cacheConfig) {
+</span><span style="color: #008080;"> 28</span>         <span style="color: #008000;">//</span><span style="color: #008000;">利用Spring生成代理Cache</span>
+<span style="color: #008080;"> 29</span>         BeanDefinition beanDefinition = <span style="color: #0000ff;">new</span> RootBeanDefinition(RedisCacheEnhance.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+</span><span style="color: #008080;"> 30</span>         <span style="color: #008000;">//</span><span style="color: #008000;">因为只有有参构造方法，所以要添加参数</span>
+<span style="color: #008080;"> 31</span>         ConstructorArgumentValues constructorArgumentValues =<span style="color: #000000;"> beanDefinition.getConstructorArgumentValues();
+</span><span style="color: #008080;"> 32</span>         constructorArgumentValues.addIndexedArgumentValue(0<span style="color: #000000;">,name);
+</span><span style="color: #008080;"> 33</span>         constructorArgumentValues.addIndexedArgumentValue(1<span style="color: #000000;">,cacheWriter);
+</span><span style="color: #008080;"> 34</span>         constructorArgumentValues.addIndexedArgumentValue(2<span style="color: #000000;">,cacheConfig);
+</span><span style="color: #008080;"> 35</span> 
+<span style="color: #008080;"> 36</span>         <span style="color: #008000;">//</span><span style="color: #008000;">如果有属性需要设置，还能这样做，不过需要有对应属性名的set方法
+</span><span style="color: #008080;"> 37</span>         <span style="color: #008000;">//</span><span style="color: #008000;">definition.getPropertyValues().add("propertyName", beanDefinition.getBeanClassName());</span>
+<span style="color: #008080;"> 38</span> 
+<span style="color: #008080;"> 39</span>         ApplicationContext applicationContext =<span style="color: #000000;"> SystemContext.getSystemContext()
+</span><span style="color: #008080;"> 40</span> <span style="color: #000000;">                .getApplicationContext();
+</span><span style="color: #008080;"> 41</span>         <span style="color: #008000;">//</span><span style="color: #008000;">需要这样获取的DefaultListableBeanFactory类才能走一遍完整的Bean初始化流程！！
+</span><span style="color: #008080;"> 42</span>         <span style="color: #008000;">//</span><span style="color: #008000;">像applicationContext.getBean(DefaultListableBeanFactory.class)都不好使！！</span>
+<span style="color: #008080;"> 43</span>         DefaultListableBeanFactory defaultListableBeanFactory =<span style="color: #000000;"> (DefaultListableBeanFactory)applicationContext.getAutowireCapableBeanFactory();
+</span><span style="color: #008080;"> 44</span> <span style="color: #000000;">        defaultListableBeanFactory.registerBeanDefinition(name,beanDefinition);
+</span><span style="color: #008080;"> 45</span> 
+<span style="color: #008080;"> 46</span>         RedisCacheEnhance redisCacheEnhance =<span style="color: #000000;"> (RedisCacheEnhance)applicationContext.getBean(name);
+</span><span style="color: #008080;"> 47</span> <span style="color: #000000;">        caches.put(name, redisCacheEnhance);
+</span><span style="color: #008080;"> 48</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> redisCacheEnhance;
+</span><span style="color: #008080;"> 49</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 50</span> 
+<span style="color: #008080;"> 51</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 52</span> <span style="color: #008000;">     * 过期规则为：缓存有效时间-（目前时间-记录时间）&lt;= 随机时间
+</span><span style="color: #008080;"> 53</span> <span style="color: #008000;">     * 随机时间是防止同一时刻过期时间太多，造成缓存雪崩，在SystemStaticValue中缓存项里配置
+</span><span style="color: #008080;"> 54</span> <span style="color: #008000;">     * true为将要过期（可以刷新了）
+</span><span style="color: #008080;"> 55</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;"> 56</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheName 缓存名称
+</span><span style="color: #008080;"> 57</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id 数据id
+</span><span style="color: #008080;"> 58</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> saveTime 储存时间
+</span><span style="color: #008080;"> 59</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;"> 60</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 61</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;"> 62</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">boolean</span> isApproachExpire(String cacheName, Object id, Timestamp saveTime) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> NoSuchAlgorithmException {
+</span><span style="color: #008080;"> 63</span>         <span style="color: #0000ff;">long</span> ttl = -1<span style="color: #000000;">;
+</span><span style="color: #008080;"> 64</span> 
+<span style="color: #008080;"> 65</span>         RedisCacheConfiguration configuration = <span style="color: #0000ff;">this</span><span style="color: #000000;">.getCacheConfigurations().get(cacheName);
+</span><span style="color: #008080;"> 66</span>         ttl =<span style="color: #000000;"> configuration.getTtl().getSeconds();
+</span><span style="color: #008080;"> 67</span> 
+<span style="color: #008080;"> 68</span>         <span style="color: #0000ff;">if</span> (ttl != -1 &amp;&amp; saveTime!=<span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 69</span>                 <span style="color: #0000ff;">int</span> random =<span style="color: #000000;"> Tool.getSecureRandom(SystemStaticValue.CACHE_MIN_EXPIRE, SystemStaticValue.CACHE_MAX_EXPIRE);
+</span><span style="color: #008080;"> 70</span>                 Date date = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Date();
+</span><span style="color: #008080;"> 71</span>                 <span style="color: #0000ff;">long</span> theNowTime = date.getTime() / 1000<span style="color: #000000;">;
+</span><span style="color: #008080;"> 72</span>                 <span style="color: #0000ff;">long</span> theSaveTime = saveTime.getTime() / 1000<span style="color: #000000;">;
+</span><span style="color: #008080;"> 73</span>                 <span style="color: #0000ff;">if</span> (ttl - (theNowTime - theSaveTime) &lt;=<span style="color: #000000;"> random) {
+</span><span style="color: #008080;"> 74</span>                     <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 75</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;"> 76</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;"> 77</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+</span><span style="color: #008080;"> 78</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 79</span> 
+<span style="color: #008080;"> 80</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;"> 81</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> remove(String cacheName, Object id) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+</span><span style="color: #008080;"> 82</span>         Cache cache = <span style="color: #0000ff;">this</span><span style="color: #000000;">.getCache(cacheName);
+</span><span style="color: #008080;"> 83</span> <span style="color: #000000;">        cache.evict(id);
+</span><span style="color: #008080;"> 84</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 85</span> 
+<span style="color: #008080;"> 86</span> 
+<span style="color: #008080;"> 87</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 88</span> <span style="color: #008000;">     * 清除所有缓存内容
+</span><span style="color: #008080;"> 89</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;"> 90</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@throws</span><span style="color: #008000;"> Exception
+</span><span style="color: #008080;"> 91</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 92</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;"> 93</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> clearAll() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+</span><span style="color: #008080;"> 94</span>         Collection&lt;String&gt; cacheNames = <span style="color: #0000ff;">this</span><span style="color: #000000;">.getCacheNames();
+</span><span style="color: #008080;"> 95</span>         Iterator&lt;String&gt; iterator =<span style="color: #000000;"> cacheNames.iterator();
+</span><span style="color: #008080;"> 96</span>         <span style="color: #0000ff;">while</span><span style="color: #000000;"> (iterator.hasNext()) {
+</span><span style="color: #008080;"> 97</span>             String cacheName =<span style="color: #000000;"> iterator.next();
+</span><span style="color: #008080;"> 98</span>             Cache redisCache = <span style="color: #0000ff;">this</span><span style="color: #000000;">.getCache(cacheName);
+</span><span style="color: #008080;"> 99</span> <span style="color: #000000;">            redisCache.clear();
+</span><span style="color: #008080;">100</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">101</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">102</span> 
+<span style="color: #008080;">103</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;">104</span>     <span style="color: #0000ff;">public</span> ConcurrentMap&lt;String, Cache&gt;<span style="color: #000000;"> getAllCaches() {
+</span><span style="color: #008080;">105</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> caches;
+</span><span style="color: #008080;">106</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">107</span> }</pre>
+</div>
+<h3>知识点：如何阅读源码来帮助自己注册目标类</h3>
+<p>这是个很关键的点，我们想继承RedisManager，那构造函数肯定要super父类的构造函数（而且RedisManager看设计并不太推荐让我们继承它的）</p>
+<p>所以父类构造函数的参数，我们怎么获取，怎么模拟就是关键性问题</p>
+<p>第一步：百度，继承RedisManager怎么写</p>
+<p>不过这类不热门的问题，大多数没完美答案（就是能针对你的问题），可是有很多擦边答案可以给你借鉴，我获取到这样的信息</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> RedisCacheManager redisCacheManager =<span style="color: #000000;"> RedisCacheManager.builder(redisConnectionFactory)
+</span><span style="color: #008080;">2</span>                 .cacheDefaults(defaultCacheConfig) <span style="color: #008000;">//</span><span style="color: #008000;"> 默认配置（强烈建议配置上）。  比如动态创建出来的都会走此默认配置</span>
+<span style="color: #008080;">3</span>                 .withInitialCacheConfigurations(initialCacheConfiguration) <span style="color: #008000;">//</span><span style="color: #008000;"> 不同cache的个性化配置</span>
+<span style="color: #008080;">4</span>                 .build();</pre>
+</div>
+<p>如果我们想配个性化的RedisCacheManager，可以这样创建</p>
+<p>可以发现，这个build()方法就是我们的入手点，我们跟进去看看它的参数有什么</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">* Create new instance of {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> RedisCacheManager} with configuration options applied.
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;">*
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;">* </span><span style="color: #808080;">@return</span><span style="color: #008000;"> new instance of {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> RedisCacheManager}.
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 6 </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> RedisCacheManager build() {
+</span><span style="color: #008080;"> 7</span> 
+<span style="color: #008080;"> 8</span>   RedisCacheManager cm = <span style="color: #0000ff;">new</span><span style="color: #000000;"> RedisCacheManager(cacheWriter, defaultCacheConfiguration, initialCaches,
+</span><span style="color: #008080;"> 9</span> <span style="color: #000000;">                    allowInFlightCacheCreation);
+</span><span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span> <span style="color: #000000;">  cm.setTransactionAware(enableTransactions);
+</span><span style="color: #008080;">12</span> 
+<span style="color: #008080;">13</span>   <span style="color: #0000ff;">return</span><span style="color: #000000;"> cm;
+</span><span style="color: #008080;">14</span> }</pre>
+</div>
+<p>继续跟踪看RedisCacheManager的方法</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">public</span><span style="color: #000000;"> RedisCacheManager(RedisCacheWriter cacheWriter, RedisCacheConfiguration defaultCacheConfiguration,
+</span><span style="color: #008080;">2</span>             Map&lt;String, RedisCacheConfiguration&gt; initialCacheConfigurations, <span style="color: #0000ff;">boolean</span><span style="color: #000000;"> allowInFlightCacheCreation) {
+</span><span style="color: #008080;">3</span> 
+<span style="color: #008080;">4</span>         <span style="color: #0000ff;">this</span><span style="color: #000000;">(cacheWriter, defaultCacheConfiguration, allowInFlightCacheCreation);
+</span><span style="color: #008080;">5</span> 
+<span style="color: #008080;">6</span>         Assert.notNull(initialCacheConfigurations, "InitialCacheConfigurations must not be null!"<span style="color: #000000;">);
+</span><span style="color: #008080;">7</span> 
+<span style="color: #008080;">8</span>         <span style="color: #0000ff;">this</span><span style="color: #000000;">.initialCacheConfiguration.putAll(initialCacheConfigurations);
+</span><span style="color: #008080;">9</span>     }</pre>
+</div>
+<p>这里可发现defaultCacheConfiguration和initialCacheConfigurations是我们传入的参数，allowInFlightCacheCreation就是简单的布尔值，能不能动态创建Cache而已</p>
+<p>所以我们想办法得到RedisCacheWriter这就大功告成了呀，怎么找，Ctrl+F，搜索变量，如图：<img src="./images/SpringCache自定义过期时间及自动刷新1.png" alt="" /></p>
+<p>一个个查找，看cacheWriter是哪里赋值进来的，最后发现</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">private</span><span style="color: #000000;"> RedisCacheManagerBuilder(RedisCacheWriter cacheWriter) {
+</span><span style="color: #008080;">2</span>             <span style="color: #0000ff;">this</span>.cacheWriter =<span style="color: #000000;"> cacheWriter;
+</span><span style="color: #008080;">3</span>         }</pre>
+</div>
+<p>然后继续搜索RedisCacheManagerBuilder哪里被调用：</p>
+<p><img src="./images/SpringCache自定义过期时间及自动刷新2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p><span style="color: #ff0000;">&nbsp;重复以上步骤，有变量就搜索变量，有方法就搜索调用的地方</span>，最后发现</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span>         <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> RedisCacheManagerBuilder fromConnectionFactory(RedisConnectionFactory connectionFactory) {
+</span><span style="color: #008080;">2</span> 
+<span style="color: #008080;">3</span>             Assert.notNull(connectionFactory, "ConnectionFactory must not be null!"<span style="color: #000000;">);
+</span><span style="color: #008080;">4</span> 
+<span style="color: #008080;">5</span>             <span style="color: #0000ff;">return</span> builder(<span style="color: #0000ff;">new</span><span style="color: #000000;"> DefaultRedisCacheWriter(connectionFactory));
+</span><span style="color: #008080;">6</span>         }</pre>
+</div>
+<p>看第5行，我只要有了RedisConnectionFactory，直接new一个就行（事实真的如此吗），进去后发现</p>
+<p><img src="./images/SpringCache自定义过期时间及自动刷新3.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;<span style="color: #ff0000;">这个类不是public，外部是不允许new的，兄弟，还得继续跟代码呀，这个类不是public，所以再看这个类已经无意义了，我们发现它实现了RedisCacheWriter接口，应该从这入手看看</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">interface</span><span style="color: #000000;"> RedisCacheWriter {
+</span><span style="color: #008080;"> 2</span> 
+<span style="color: #008080;"> 3</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 4</span> <span style="color: #008000;">     * Create new {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> RedisCacheWriter} without locking behavior.
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;"> 6</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> connectionFactory must not be {</span><span style="color: #808080;">@literal</span><span style="color: #008000;"> null}.
+</span><span style="color: #008080;"> 7</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span><span style="color: #008000;"> new instance of {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> DefaultRedisCacheWriter}.
+</span><span style="color: #008080;"> 8</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">static</span><span style="color: #000000;"> RedisCacheWriter nonLockingRedisCacheWriter(RedisConnectionFactory connectionFactory) {
+</span><span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span>         Assert.notNull(connectionFactory, "ConnectionFactory must not be null!"<span style="color: #000000;">);
+</span><span style="color: #008080;">12</span> 
+<span style="color: #008080;">13</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> DefaultRedisCacheWriter(connectionFactory);
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">15</span> 
+<span style="color: #008080;">16</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">17</span> <span style="color: #008000;">     * Create new {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> RedisCacheWriter} with locking behavior.
+</span><span style="color: #008080;">18</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;">19</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> connectionFactory must not be {</span><span style="color: #808080;">@literal</span><span style="color: #008000;"> null}.
+</span><span style="color: #008080;">20</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span><span style="color: #008000;"> new instance of {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> DefaultRedisCacheWriter}.
+</span><span style="color: #008080;">21</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">22</span>     <span style="color: #0000ff;">static</span><span style="color: #000000;"> RedisCacheWriter lockingRedisCacheWriter(RedisConnectionFactory connectionFactory) {
+</span><span style="color: #008080;">23</span> 
+<span style="color: #008080;">24</span>         Assert.notNull(connectionFactory, "ConnectionFactory must not be null!"<span style="color: #000000;">);
+</span><span style="color: #008080;">25</span> 
+<span style="color: #008080;">26</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span> DefaultRedisCacheWriter(connectionFactory, Duration.ofMillis(50<span style="color: #000000;">));
+</span><span style="color: #008080;">27</span>     }</pre>
+</div>
+<p>到这问题就彻底解决了，接口定义了两个获取RedisCacheWriter的方法，只需要传参数RedisConnectionFactory即可，而这个类Spring会自动配置（具体Spring中如何配置Redis自行百度，十分简单）</p>
+<p>至此super父类所需要的参数，我们都能自己构造了</p>
+<p>这个知识点主要是想让大家遇到问题有这个最基本的解决的思路，迎难而上~</p>
+<h3>知识点：用代码动态向Spring注册Bean</h3>
+<p>RedisCacheMgr的createRedisCache方法中看到，我们生成的Cache需要像Spring注册，这是为什么呢</p>
+<p>因为我们要想@UpdateCache注解，那必须得生成代理类，交给Spring管理，否则注解无效的</p>
+<p>具体注册我也没深入研究（今后会写一篇此博文），不过要按照这种方式注册才有效</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> ApplicationContext applicationContext =<span style="color: #000000;"> SystemContext.getSystemContext()
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">                .getApplicationContext();
+</span><span style="color: #008080;">3</span>         <span style="color: #008000;">//</span><span style="color: #008000;">需要这样获取的DefaultListableBeanFactory类才能走一遍完整的Bean初始化流程！！
+</span><span style="color: #008080;">4</span>         <span style="color: #008000;">//</span><span style="color: #008000;">像applicationContext.getBean(DefaultListableBeanFactory.class)都不好使！！</span>
+<span style="color: #008080;">5</span>         DefaultListableBeanFactory defaultListableBeanFactory =<span style="color: #000000;"> (DefaultListableBeanFactory)applicationContext.getAutowireCapableBeanFactory();
+</span><span style="color: #008080;">6</span>         defaultListableBeanFactory.registerBeanDefinition(name,beanDefinition);</pre>
+</div>
+<h2>&nbsp;CacheConfig</h2>
+<p>&nbsp;这个类是为了加载自定义的CacheManager</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;"> * @description: CacheManager初始化
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;"> *               目前系统只用一个Manager，使用RedisCacheManager
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;"> *               根据SystemStaticValue中的SystemCache枚举内容进行Cache的注册
+</span><span style="color: #008080;"> 6</span> <span style="color: #008000;"> *               配置启动前需要DefaultListableBeanFactory.class先加载完成
+</span><span style="color: #008080;"> 7</span> <span style="color: #008000;"> *               不然CacheManager或者Cache想用的时候会报错
+</span><span style="color: #008080;"> 8</span> <span style="color: #008000;"> * @date 2019/11/13 17:02
+</span><span style="color: #008080;"> 9</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;">10</span> <span style="color: #000000;">@Configuration
+</span><span style="color: #008080;">11</span> @Import(DefaultListableBeanFactory.<span style="color: #0000ff;">class</span><span style="color: #000000;">)
+</span><span style="color: #008080;">12</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> CacheConfig {
+</span><span style="color: #008080;">13</span> 
+<span style="color: #008080;">14</span> <span style="color: #000000;">    @Autowired
+</span><span style="color: #008080;">15</span> <span style="color: #000000;">    RedisConnectionFactory redisConnectionFactory;
+</span><span style="color: #008080;">16</span> 
+<span style="color: #008080;">17</span> <span style="color: #000000;">    @Bean
+</span><span style="color: #008080;">18</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> RedisCacheMgr cacheManager() {
+</span><span style="color: #008080;">19</span> 
+<span style="color: #008080;">20</span>         <span style="color: #008000;">//</span><span style="color: #008000;">创建Json自定义序列化器</span>
+<span style="color: #008080;">21</span>         FastJsonRedisSerializer&lt;Object&gt; fastJsonRedisSerializer = <span style="color: #0000ff;">new</span> FastJsonRedisSerializer&lt;&gt;(Object.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+</span><span style="color: #008080;">22</span>         <span style="color: #008000;">//</span><span style="color: #008000;">包装成SerializationPair类型</span>
+<span style="color: #008080;">23</span>         RedisSerializationContext.SerializationPair serializationPair =<span style="color: #000000;"> RedisSerializationContext.SerializationPair.fromSerializer(fastJsonRedisSerializer);
+</span><span style="color: #008080;">24</span> 
+<span style="color: #008080;">25</span>         RedisCacheConfiguration defaultCacheConfig =<span style="color: #000000;"> RedisCacheConfiguration.defaultCacheConfig()
+</span><span style="color: #008080;">26</span>                 .entryTtl(Duration.ofDays(1<span style="color: #000000;">))
+</span><span style="color: #008080;">27</span>                 .computePrefixWith(cacheName -&gt; "Cache"+<span style="color: #000000;">cacheName);
+</span><span style="color: #008080;">28</span>         <span style="color: #008000;">//</span><span style="color: #008000;"> 针对不同cacheName，设置不同的过期时间，用了双括号初始化方法~</span>
+<span style="color: #008080;">29</span>         Map&lt;String, RedisCacheConfiguration&gt; initialCacheConfiguration = <span style="color: #0000ff;">new</span> HashMap&lt;String, RedisCacheConfiguration&gt;<span style="color: #000000;">() {{
+</span><span style="color: #008080;">30</span>             SystemStaticValue.SystemCache[] systemCaches =<span style="color: #000000;"> SystemStaticValue.SystemCache.values();
+</span><span style="color: #008080;">31</span>             Arrays.asList(systemCaches).forEach((systemCache)-&gt;
+<span style="color: #008080;">32</span> <span style="color: #000000;">                    put(systemCache.getCacheName(),RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofSeconds(systemCache.getSurviveTime()))
+</span><span style="color: #008080;">33</span> <span style="color: #000000;">                    .serializeValuesWith(serializationPair)));
+</span><span style="color: #008080;">34</span> <span style="color: #000000;">        }};
+</span><span style="color: #008080;">35</span>         RedisCacheMgr redisCacheMgr = <span style="color: #0000ff;">new</span> RedisCacheMgr(RedisCacheWriter.lockingRedisCacheWriter(redisConnectionFactory),defaultCacheConfig,initialCacheConfiguration,<span style="color: #0000ff;">true</span><span style="color: #000000;">);
+</span><span style="color: #008080;">36</span> 
+<span style="color: #008080;">37</span>         <span style="color: #008000;">//</span><span style="color: #008000;">设置白名单---非常重要********</span>
+<span style="color: #008080;">38</span>         <span style="color: #008000;">/*</span>
+<span style="color: #008080;">39</span> <span style="color: #008000;">        使用fastjson的时候：序列化时将class信息写入，反解析的时候，
+</span><span style="color: #008080;">40</span> <span style="color: #008000;">        fastjson默认情况下会开启autoType的检查，相当于一个白名单检查，
+</span><span style="color: #008080;">41</span> <span style="color: #008000;">        如果序列化信息中的类路径不在autoType中，autoType会默认开启
+</span><span style="color: #008080;">42</span> <span style="color: #008000;">        反解析就会报com.alibaba.fastjson.JSONException: autoType is not support的异常
+</span><span style="color: #008080;">43</span>         <span style="color: #008000;">*/</span>
+<span style="color: #008080;">44</span>         ParserConfig.getGlobalInstance().addAccept("com.tophousekeeper"<span style="color: #000000;">);
+</span><span style="color: #008080;">45</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> redisCacheMgr;
+</span><span style="color: #008080;">46</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">47</span> }</pre>
+</div>
+<p>自定义JSON序列化类</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/*</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">要实现对象的缓存，定义自己的序列化和反序列化器。使用阿里的fastjson来实现的方便多。
+</span><span style="color: #008080;"> 3</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 4</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> FastJsonRedisSerializer&lt;T&gt; <span style="color: #0000ff;">implements</span> RedisSerializer&lt;T&gt;<span style="color: #000000;"> {
+</span><span style="color: #008080;"> 5</span>     <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> Charset DEFAULT_CHARSET = Charset.forName("UTF-8"<span style="color: #000000;">);
+</span><span style="color: #008080;"> 6</span>     <span style="color: #0000ff;">private</span> Class&lt;T&gt;<span style="color: #000000;"> clazz;
+</span><span style="color: #008080;"> 7</span> 
+<span style="color: #008080;"> 8</span>     <span style="color: #0000ff;">public</span> FastJsonRedisSerializer(Class&lt;T&gt;<span style="color: #000000;"> clazz) {
+</span><span style="color: #008080;"> 9</span>         <span style="color: #0000ff;">super</span><span style="color: #000000;">();
+</span><span style="color: #008080;">10</span>         <span style="color: #0000ff;">this</span>.clazz =<span style="color: #000000;"> clazz;
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">12</span> 
+<span style="color: #008080;">13</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;">14</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">byte</span>[] serialize(T t) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> SerializationException {
+</span><span style="color: #008080;">15</span>         <span style="color: #0000ff;">if</span> (<span style="color: #0000ff;">null</span> ==<span style="color: #000000;"> t) {
+</span><span style="color: #008080;">16</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span> <span style="color: #0000ff;">byte</span>[0<span style="color: #000000;">];
+</span><span style="color: #008080;">17</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">18</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> JSON.toJSONString(t, SerializerFeature.WriteClassName).getBytes(DEFAULT_CHARSET);
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">20</span> 
+<span style="color: #008080;">21</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;">22</span>     <span style="color: #0000ff;">public</span> T deserialize(<span style="color: #0000ff;">byte</span>[] bytes) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> SerializationException {
+</span><span style="color: #008080;">23</span>         <span style="color: #0000ff;">if</span> (<span style="color: #0000ff;">null</span> == bytes || bytes.length &lt;= 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">24</span>             <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">26</span>         String str = <span style="color: #0000ff;">new</span><span style="color: #000000;"> String(bytes, DEFAULT_CHARSET);
+</span><span style="color: #008080;">27</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> (T) JSON.parseObject(str, clazz);
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">29</span> }</pre>
+</div>
+<p>29-34行就是根据配置加载系统默认的几个缓存（涉及到Lambda表达式的循环知识）</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> SystemStaticValue {
+</span><span style="color: #008080;"> 2</span> <span style="color: #000000;">   .....
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;">//</span><span style="color: #008000;">以下为缓存信息的配置(CACHE开头)--------------------------------------------------------
+</span><span style="color: #008080;"> 4</span>     <span style="color: #008000;">//</span><span style="color: #008000;">系统缓存名称及过期时间（秒）</span>
+<span style="color: #008080;"> 5</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">enum</span><span style="color: #000000;"> SystemCache{
+</span><span style="color: #008080;"> 6</span>         <span style="color: #008000;">//</span><span style="color: #008000;">每日缓存,有效时间24小时</span>
+<span style="color: #008080;"> 7</span>         DAY("dailyCache",60<span style="color: #000000;">),
+</span><span style="color: #008080;"> 8</span>         <span style="color: #008000;">//</span><span style="color: #008000;">半日缓存，有效时间12小时</span>
+<span style="color: #008080;"> 9</span>         HALF_DAY("halfDayCache",12*60*60<span style="color: #000000;">),
+</span><span style="color: #008080;">10</span>         <span style="color: #008000;">//</span><span style="color: #008000;">1小时缓存</span>
+<span style="color: #008080;">11</span>         ONE_HOUR("oneHour",1*60*60<span style="color: #000000;">),
+</span><span style="color: #008080;">12</span>         <span style="color: #008000;">//</span><span style="color: #008000;">半小时缓存</span>
+<span style="color: #008080;">13</span>         HALF_HOUR("halfHour",30*60<span style="color: #000000;">);
+</span><span style="color: #008080;">14</span>         <span style="color: #0000ff;">private</span><span style="color: #000000;"> String cacheName;
+</span><span style="color: #008080;">15</span>         <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> surviveTime;
+</span><span style="color: #008080;">16</span> 
+<span style="color: #008080;">17</span>         SystemCache(String cacheName,<span style="color: #0000ff;">long</span><span style="color: #000000;"> surviveTime){
+</span><span style="color: #008080;">18</span>             <span style="color: #0000ff;">this</span>.cacheName =<span style="color: #000000;"> cacheName;
+</span><span style="color: #008080;">19</span>             <span style="color: #0000ff;">this</span>.surviveTime =<span style="color: #000000;"> surviveTime;
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">21</span> 
+<span style="color: #008080;">22</span>         <span style="color: #0000ff;">public</span><span style="color: #000000;"> String getCacheName() {
+</span><span style="color: #008080;">23</span>             <span style="color: #0000ff;">return</span><span style="color: #000000;"> cacheName;
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">25</span> 
+<span style="color: #008080;">26</span>         <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setCacheName(String cacheName) {
+</span><span style="color: #008080;">27</span>             <span style="color: #0000ff;">this</span>.cacheName =<span style="color: #000000;"> cacheName;
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">29</span> 
+<span style="color: #008080;">30</span>         <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">long</span><span style="color: #000000;"> getSurviveTime() {
+</span><span style="color: #008080;">31</span>             <span style="color: #0000ff;">return</span><span style="color: #000000;"> surviveTime;
+</span><span style="color: #008080;">32</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">33</span> 
+<span style="color: #008080;">34</span>         <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setSurviveTime(<span style="color: #0000ff;">long</span><span style="color: #000000;"> surviveTime) {
+</span><span style="color: #008080;">35</span>             <span style="color: #0000ff;">this</span>.surviveTime =<span style="color: #000000;"> surviveTime;
+</span><span style="color: #008080;">36</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">37</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">38</span> }</pre>
+</div>
+<h3>知识点：@Import的重要性</h3>
+<p>在35行，创建RedisCacheMgr 的时候，就会调用里面的CreateCache的方法，里面会把Cache向Spring注册，需要用到DefaultListableBeanFactory类</p>
+<p>所以在这里必须要@import，保证其已经加载，不然到时候创建会报类不存在</p>
+<h3>知识点：自定义序列化</h3>
+<p>因为不自定义成JSON格式序列化，那么存在Redis的内容不可直观的看出来（都是乱七八糟的东西，不知道存的对不对），所以在21-23行要换成JSON序列化格式</p>
+<p>大家有兴趣可以看下这篇博文：<a href="https://blog.csdn.net/u010928589/article/details/84313987" target="_blank">https://blog.csdn.net/u010928589/article/details/84313987</a>&nbsp; 这是一篇说Redis序列化如何自定义的思考过程，跟我上面的RedisCacheMgr实现思想类似</p>
+<h3>知识点：Lambda表达式</h3>
+<p>之前我也觉得不好用，不便于理解（其实就是我不会），然后这次下定决心弄懂，发现还是很不错的（真香），给大家推荐这篇博文理解：<a href="https://blog.csdn.net/qq_25955145/article/details/82670160" target="_blank">https://blog.csdn.net/qq_25955145/article/details/82670160</a></p>
+<h2>CacheInvocation：</h2>
+<p>这个类主要是为了记录调用的获得缓存数据的方法信息，以便于自动更新时主动调用（下面这个Task就用到了）</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;"> * @description: 记录被 {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> Cacheable} 注解过的方法信息，为了主动更新缓存去调用对应方法
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;"> * @date 2019/11/26 16:28
+</span><span style="color: #008080;"> 5</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 6</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> CacheInvocation {
+</span><span style="color: #008080;"> 7</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> Object key;
+</span><span style="color: #008080;"> 8</span>     <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span><span style="color: #000000;"> Object targetBean;
+</span><span style="color: #008080;"> 9</span>     <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">final</span><span style="color: #000000;"> Method targetMethod;
+</span><span style="color: #008080;">10</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> Object[] arguments;
+</span><span style="color: #008080;">11</span> 
+<span style="color: #008080;">12</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> CacheInvocation(Object key, Object targetBean, Method targetMethod, Object[] arguments) {
+</span><span style="color: #008080;">13</span>         <span style="color: #0000ff;">this</span>.key =<span style="color: #000000;"> key;
+</span><span style="color: #008080;">14</span>         <span style="color: #0000ff;">this</span>.targetBean =<span style="color: #000000;"> targetBean;
+</span><span style="color: #008080;">15</span>         <span style="color: #0000ff;">this</span>.targetMethod =<span style="color: #000000;"> targetMethod;
+</span><span style="color: #008080;">16</span>         <span style="color: #008000;">//</span><span style="color: #008000;">反射时不用检查修饰符，略微提高性能</span>
+<span style="color: #008080;">17</span>         <span style="color: #0000ff;">this</span>.targetMethod.setAccessible(<span style="color: #0000ff;">true</span><span style="color: #000000;">);
+</span><span style="color: #008080;">18</span>         <span style="color: #0000ff;">if</span> (arguments != <span style="color: #0000ff;">null</span> &amp;&amp; arguments.length != 0<span style="color: #000000;">) {
+</span><span style="color: #008080;">19</span>             <span style="color: #0000ff;">this</span>.arguments =<span style="color: #000000;"> Arrays.copyOf(arguments, arguments.length);
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">21</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">22</span> 
+<span style="color: #008080;">23</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> Object[] getArguments() {
+</span><span style="color: #008080;">24</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> arguments;
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">26</span> 
+<span style="color: #008080;">27</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> Object getTargetBean() {
+</span><span style="color: #008080;">28</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> targetBean;
+</span><span style="color: #008080;">29</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">30</span> 
+<span style="color: #008080;">31</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> Method getTargetMethod() {
+</span><span style="color: #008080;">32</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> targetMethod;
+</span><span style="color: #008080;">33</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">34</span> 
+<span style="color: #008080;">35</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> Object getKey() {
+</span><span style="color: #008080;">36</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> key;
+</span><span style="color: #008080;">37</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">38</span> }</pre>
+</div>
+<h2>UpdateDataTask：</h2>
+<p>这里就是主动更新数据的地方啦</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;"> * @description: 刷新缓存某个数据的任务
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;"> * @date 2019/11/29 15:29
+</span><span style="color: #008080;"> 5</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 6</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> UpdateDataTask <span style="color: #0000ff;">implements</span><span style="color: #000000;"> Callable {
+</span><span style="color: #008080;"> 7</span>     <span style="color: #008000;">//</span><span style="color: #008000;">将要执行的方法信息</span>
+<span style="color: #008080;"> 8</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> CacheInvocation cacheInvocation;
+</span><span style="color: #008080;"> 9</span>     <span style="color: #008000;">//</span><span style="color: #008000;">对应要操作的缓存</span>
+<span style="color: #008080;">10</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> Cache cache;
+</span><span style="color: #008080;">11</span>     <span style="color: #008000;">//</span><span style="color: #008000;">对应要更新的数据id</span>
+<span style="color: #008080;">12</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> Object id;
+</span><span style="color: #008080;">13</span> 
+<span style="color: #008080;">14</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">15</span> <span style="color: #008000;">     * 初始化任务
+</span><span style="color: #008080;">16</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheInvocation
+</span><span style="color: #008080;">17</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cache
+</span><span style="color: #008080;">18</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id
+</span><span style="color: #008080;">19</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">20</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> UpdateDataTask(CacheInvocation cacheInvocation,Cache cache,Object id){
+</span><span style="color: #008080;">21</span>         <span style="color: #0000ff;">this</span>.cacheInvocation =<span style="color: #000000;"> cacheInvocation;
+</span><span style="color: #008080;">22</span>         <span style="color: #0000ff;">this</span>.cache =<span style="color: #000000;"> cache;
+</span><span style="color: #008080;">23</span>         <span style="color: #0000ff;">this</span>.id =<span style="color: #000000;"> id;
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">25</span> 
+<span style="color: #008080;">26</span> <span style="color: #000000;">    @Override
+</span><span style="color: #008080;">27</span>     <span style="color: #0000ff;">public</span> Object call() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+</span><span style="color: #008080;">28</span>         <span style="color: #0000ff;">if</span>(cacheInvocation == <span style="color: #0000ff;">null</span><span style="color: #000000;">){
+</span><span style="color: #008080;">29</span>             <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> SystemException(SystemStaticValue.CACHE_EXCEPTION_CODE,"更新数据线程方法信息不能为null"<span style="color: #000000;">);
+</span><span style="color: #008080;">30</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">31</span> <span style="color: #000000;">        cache.put(id,methodInvoke());
+</span><span style="color: #008080;">32</span>         <span style="color: #0000ff;">return</span> <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+</span><span style="color: #008080;">33</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">34</span> 
+<span style="color: #008080;">35</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">36</span> <span style="color: #008000;">     * 代理方法的调用
+</span><span style="color: #008080;">37</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;">38</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">39</span>     <span style="color: #0000ff;">private</span> Object methodInvoke() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception{
+</span><span style="color: #008080;">40</span>         MethodInvoker methodInvoker = <span style="color: #0000ff;">new</span><span style="color: #000000;"> MethodInvoker();
+</span><span style="color: #008080;">41</span> <span style="color: #000000;">        methodInvoker.setArguments(cacheInvocation.getArguments());
+</span><span style="color: #008080;">42</span> <span style="color: #000000;">        methodInvoker.setTargetMethod(cacheInvocation.getTargetMethod().getName());
+</span><span style="color: #008080;">43</span> <span style="color: #000000;">        methodInvoker.setTargetObject(cacheInvocation.getTargetBean());
+</span><span style="color: #008080;">44</span> <span style="color: #000000;">        methodInvoker.prepare();
+</span><span style="color: #008080;">45</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> methodInvoker.invoke();
+</span><span style="color: #008080;">46</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">47</span> }</pre>
+</div>
+<h2>SystemCacheMgr：</h2>
+<p>系统缓存管理的核心类，统筹全局</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">  1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;">  2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;">  3</span> <span style="color: #008000;"> * @description: 本系统的缓存管理器
+</span><span style="color: #008080;">  4</span> <span style="color: #008000;"> * 数据自动刷新功能，要配合 {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> UpdateCache}才能实现
+</span><span style="color: #008080;">  5</span> <span style="color: #008000;"> *
+</span><span style="color: #008080;">  6</span> <span style="color: #008000;"> * 目前没办法实现缓存纯自动更新，必须要使用到该缓存拿数据进行触发
+</span><span style="color: #008080;">  7</span> <span style="color: #008000;"> * 纯自动更新没有意义，假设一个数据放了半小时没人访问要过期了，那就过期吧
+</span><span style="color: #008080;">  8</span> <span style="color: #008000;"> * 因为缓存前提是一段时间频繁访问的数据，如果都没人访问了，就不能称之为缓存
+</span><span style="color: #008080;">  9</span> <span style="color: #008000;"> * 不然就是一个系统长期存在的动态变量，不适用于缓存
+</span><span style="color: #008080;"> 10</span> <span style="color: #008000;"> * @date 2019/11/14 16:18
+</span><span style="color: #008080;"> 11</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 12</span> <span style="color: #000000;">@Component
+</span><span style="color: #008080;"> 13</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> SystemCacheMgr {
+</span><span style="color: #008080;"> 14</span>     <span style="color: #008000;">//</span><span style="color: #008000;">目前系统只考虑一个CacheManager
+</span><span style="color: #008080;"> 15</span>     <span style="color: #008000;">//</span><span style="color: #008000;">必须有一个I_SystemCache的实现类，多个实现类用@Primary注解，类似于Spring的缓存管理器</span>
+<span style="color: #008080;"> 16</span> <span style="color: #000000;">    @Autowired
+</span><span style="color: #008080;"> 17</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> I_SystemCacheMgr defaultCacheMgr;
+</span><span style="color: #008080;"> 18</span>     <span style="color: #008000;">//</span><span style="color: #008000;">系统的线程池类</span>
+<span style="color: #008080;"> 19</span> <span style="color: #000000;">    @Autowired
+</span><span style="color: #008080;"> 20</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> SystemThreadPool systemThreadPool;
+</span><span style="color: #008080;"> 21</span>     <span style="color: #008000;">//</span><span style="color: #008000;">所有缓存的所有数据记录Map
+</span><span style="color: #008080;"> 22</span>     <span style="color: #008000;">//</span><span style="color: #008000;">外部Map中，key为缓存名称，value为该缓存内的数据储存信息Map
+</span><span style="color: #008080;"> 23</span>     <span style="color: #008000;">//</span><span style="color: #008000;">内部Map中，key为数据的id，value为记录该数据的储存信息</span>
+<span style="color: #008080;"> 24</span>     <span style="color: #0000ff;">private</span> ConcurrentHashMap&lt;String, ConcurrentHashMap&lt;Object, DataInfo&gt;&gt; dataInfoMaps = <span style="color: #0000ff;">new</span> ConcurrentHashMap&lt;&gt;<span style="color: #000000;">();
+</span><span style="color: #008080;"> 25</span> 
+<span style="color: #008080;"> 26</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 27</span> <span style="color: #008000;">     * 储存信息内部类，用于记录
+</span><span style="color: #008080;"> 28</span> <span style="color: #008000;">     * 获取要调用获取方法，因为加锁了线程才安全
+</span><span style="color: #008080;"> 29</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 30</span>     <span style="color: #0000ff;">class</span><span style="color: #000000;"> DataInfo {
+</span><span style="color: #008080;"> 31</span>         <span style="color: #008000;">//</span><span style="color: #008000;">记录该数据的时间</span>
+<span style="color: #008080;"> 32</span>         <span style="color: #0000ff;">private</span><span style="color: #000000;"> Timestamp saveTime;
+</span><span style="color: #008080;"> 33</span>         <span style="color: #008000;">//</span><span style="color: #008000;">获得此数据的方法信息</span>
+<span style="color: #008080;"> 34</span>         <span style="color: #0000ff;">private</span><span style="color: #000000;"> CacheInvocation cacheInvocation;
+</span><span style="color: #008080;"> 35</span>         <span style="color: #008000;">//</span><span style="color: #008000;">保证只有一个线程提前更新此数据</span>
+<span style="color: #008080;"> 36</span>         <span style="color: #0000ff;">private</span><span style="color: #000000;"> ReentrantLock lock;
+</span><span style="color: #008080;"> 37</span> 
+<span style="color: #008080;"> 38</span>         <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">synchronized</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setSaveTime(Timestamp saveTime) {
+</span><span style="color: #008080;"> 39</span>             <span style="color: #0000ff;">this</span>.saveTime =<span style="color: #000000;"> saveTime;
+</span><span style="color: #008080;"> 40</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;"> 41</span> 
+<span style="color: #008080;"> 42</span> 
+<span style="color: #008080;"> 43</span>         <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">synchronized</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setCacheInvocation(CacheInvocation cacheInvocation) {
+</span><span style="color: #008080;"> 44</span>             <span style="color: #0000ff;">this</span>.cacheInvocation =<span style="color: #000000;"> cacheInvocation;
+</span><span style="color: #008080;"> 45</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;"> 46</span> 
+<span style="color: #008080;"> 47</span>         <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">synchronized</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setLock(ReentrantLock lock) {
+</span><span style="color: #008080;"> 48</span>             <span style="color: #0000ff;">this</span>.lock =<span style="color: #000000;"> lock;
+</span><span style="color: #008080;"> 49</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;"> 50</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 51</span> 
+<span style="color: #008080;"> 52</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 53</span> <span style="color: #008000;">     * 获得DataInfo类，如果为空则创建一个
+</span><span style="color: #008080;"> 54</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheName
+</span><span style="color: #008080;"> 55</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id
+</span><span style="color: #008080;"> 56</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;"> 57</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 58</span>     <span style="color: #0000ff;">private</span><span style="color: #000000;"> DataInfo getDataInfo(String cacheName, Object id) {
+</span><span style="color: #008080;"> 59</span>         ConcurrentHashMap&lt;Object, DataInfo&gt; dateInfoMap =<span style="color: #000000;"> dataInfoMaps.get((cacheName));
+</span><span style="color: #008080;"> 60</span> <span style="color: #000000;">        DataInfo dataInfo;
+</span><span style="color: #008080;"> 61</span>         <span style="color: #0000ff;">if</span> (dateInfoMap == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 62</span>             <span style="color: #008000;">//</span><span style="color: #008000;">简单的锁住了，因为创建这个对象挺快的</span>
+<span style="color: #008080;"> 63</span>             <span style="color: #0000ff;">synchronized</span> (<span style="color: #0000ff;">this</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 64</span>                 <span style="color: #008000;">//</span><span style="color: #008000;">重新获取一次进行判断，因为dateInfoMap是局部变量，不能保证同步</span>
+<span style="color: #008080;"> 65</span>                 dateInfoMap =<span style="color: #000000;"> dataInfoMaps.get((cacheName));
+</span><span style="color: #008080;"> 66</span>                 <span style="color: #0000ff;">if</span> (dateInfoMap == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;"> 67</span>                     dateInfoMap = <span style="color: #0000ff;">new</span> ConcurrentHashMap&lt;&gt;<span style="color: #000000;">();
+</span><span style="color: #008080;"> 68</span>                     dataInfo = <span style="color: #0000ff;">new</span><span style="color: #000000;"> DataInfo();
+</span><span style="color: #008080;"> 69</span>                     dataInfo.setLock(<span style="color: #0000ff;">new</span> ReentrantLock(<span style="color: #0000ff;">true</span><span style="color: #000000;">));
+</span><span style="color: #008080;"> 70</span> <span style="color: #000000;">                    dateInfoMap.put(id, dataInfo);
+</span><span style="color: #008080;"> 71</span> <span style="color: #000000;">                    dataInfoMaps.put(cacheName, dateInfoMap);
+</span><span style="color: #008080;"> 72</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;"> 73</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;"> 74</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;"> 75</span>         <span style="color: #008000;">//</span><span style="color: #008000;">这里不能用else，因为多线程同时进入if，后面进的dataInfo会是null</span>
+<span style="color: #008080;"> 76</span>         dataInfo =<span style="color: #000000;"> dateInfoMap.get(id);
+</span><span style="color: #008080;"> 77</span> 
+<span style="color: #008080;"> 78</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> dataInfo;
+</span><span style="color: #008080;"> 79</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 80</span> 
+<span style="color: #008080;"> 81</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 82</span> <span style="color: #008000;">     * 为该数据放入缓存的时间记录
+</span><span style="color: #008080;"> 83</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;"> 84</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id 数据id
+</span><span style="color: #008080;"> 85</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 86</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> recordDataSaveTime(String cacheName, Object id) {
+</span><span style="color: #008080;"> 87</span>         Date date = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Date();
+</span><span style="color: #008080;"> 88</span>         Timestamp nowtime = <span style="color: #0000ff;">new</span><span style="color: #000000;"> Timestamp(date.getTime());
+</span><span style="color: #008080;"> 89</span>         DataInfo dataInfo =<span style="color: #000000;"> getDataInfo(cacheName, id);
+</span><span style="color: #008080;"> 90</span> <span style="color: #000000;">        dataInfo.setSaveTime(nowtime);
+</span><span style="color: #008080;"> 91</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 92</span> 
+<span style="color: #008080;"> 93</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 94</span> <span style="color: #008000;">     * 记录获得此数据的方法信息，为了主动更新缓存时的调用
+</span><span style="color: #008080;"> 95</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;"> 96</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheName    缓存名称
+</span><span style="color: #008080;"> 97</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id           数据id
+</span><span style="color: #008080;"> 98</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> targetBean   目标类
+</span><span style="color: #008080;"> 99</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> targetMethod 目标方法
+</span><span style="color: #008080;">100</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> arguments    目标方法的参数
+</span><span style="color: #008080;">101</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">102</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> recordCacheInvocation(String cacheName, String id, Object targetBean, Method targetMethod, Object[] arguments) {
+</span><span style="color: #008080;">103</span>         DataInfo dataInfo =<span style="color: #000000;"> getDataInfo(cacheName, id);
+</span><span style="color: #008080;">104</span>         CacheInvocation cacheInvocation = <span style="color: #0000ff;">new</span><span style="color: #000000;"> CacheInvocation(id, targetBean, targetMethod, arguments);
+</span><span style="color: #008080;">105</span>         <span style="color: #008000;">//</span><span style="color: #008000;">锁在这方法里面有</span>
+<span style="color: #008080;">106</span> <span style="color: #000000;">        dataInfo.setCacheInvocation(cacheInvocation);
+</span><span style="color: #008080;">107</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">108</span> 
+<span style="color: #008080;">109</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">110</span> <span style="color: #008000;">     * 数据自动刷新功能，要配合 {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> UpdateCache}才能实现
+</span><span style="color: #008080;">111</span> <span style="color: #008000;">     * 原理：先判断数据是否过期，如果数据过期则从缓存删除。
+</span><span style="color: #008080;">112</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;">113</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> cacheName 缓存名称
+</span><span style="color: #008080;">114</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> id        数据id
+</span><span style="color: #008080;">115</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;">116</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">117</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> autoUpdate(String cacheName, Object id) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+</span><span style="color: #008080;">118</span>         DataInfo dataInfo =<span style="color: #000000;"> getDataInfo(cacheName, id);
+</span><span style="color: #008080;">119</span>         Cache cache =<span style="color: #000000;"> defaultCacheMgr.getCache(cacheName);
+</span><span style="color: #008080;">120</span> 
+<span style="color: #008080;">121</span> 
+<span style="color: #008080;">122</span>         <span style="color: #008000;">//</span><span style="color: #008000;">如果没有保存的时间，说明该数据还从未载入过</span>
+<span style="color: #008080;">123</span>         <span style="color: #0000ff;">if</span> (dataInfo.saveTime == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+</span><span style="color: #008080;">124</span>             <span style="color: #0000ff;">return</span><span style="color: #000000;">;
+</span><span style="color: #008080;">125</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">126</span>         <span style="color: #0000ff;">if</span><span style="color: #000000;"> (defaultCacheMgr.isApproachExpire(cacheName, id, dataInfo.saveTime)) {
+</span><span style="color: #008080;">127</span>             <span style="color: #0000ff;">if</span><span style="color: #000000;"> (dataInfo.lock.tryLock()) {
+</span><span style="color: #008080;">128</span>                 <span style="color: #008000;">//</span><span style="color: #008000;">获取锁后再次判断数据是否过期</span>
+<span style="color: #008080;">129</span>                 <span style="color: #0000ff;">if</span><span style="color: #000000;"> (defaultCacheMgr.isApproachExpire(cacheName, id, dataInfo.saveTime)) {
+</span><span style="color: #008080;">130</span>                     ThreadPoolExecutor threadPoolExecutor =<span style="color: #000000;"> systemThreadPool.getThreadPoolExecutor();
+</span><span style="color: #008080;">131</span>                     UpdateDataTask updateDataTask = <span style="color: #0000ff;">new</span><span style="color: #000000;"> UpdateDataTask(dataInfo.cacheInvocation, cache, id);
+</span><span style="color: #008080;">132</span>                     FutureTask futureTask = <span style="color: #0000ff;">new</span><span style="color: #000000;"> FutureTask(updateDataTask);
+</span><span style="color: #008080;">133</span> 
+<span style="color: #008080;">134</span>                     <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">135</span> <span style="color: #000000;">                        threadPoolExecutor.submit(futureTask);
+</span><span style="color: #008080;">136</span>                         futureTask.get(1<span style="color: #000000;">, TimeUnit.MINUTES);
+</span><span style="color: #008080;">137</span>                         <span style="color: #008000;">//</span><span style="color: #008000;">如果上一步执行完成没报错，那么重新记录保存时间</span>
+<span style="color: #008080;">138</span> <span style="color: #000000;">                        recordDataSaveTime(cacheName,id);
+</span><span style="color: #008080;">139</span>                     } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (TimeoutException ex) {
+</span><span style="color: #008080;">140</span>                         <span style="color: #008000;">//</span><span style="color: #008000;">如果访问数据库超时</span>
+<span style="color: #008080;">141</span>                         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> SystemException(SystemStaticValue.CACHE_EXCEPTION_CODE, "系统繁忙，稍后再试"<span style="color: #000000;">);
+</span><span style="color: #008080;">142</span>                     } <span style="color: #0000ff;">catch</span><span style="color: #000000;"> (RejectedExecutionException ex) {
+</span><span style="color: #008080;">143</span>                         <span style="color: #008000;">//</span><span style="color: #008000;">如果被线程池拒绝了</span>
+<span style="color: #008080;">144</span>                         <span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span> SystemException(SystemStaticValue.CACHE_EXCEPTION_CODE, "系统繁忙，稍后再试"<span style="color: #000000;">);
+</span><span style="color: #008080;">145</span>                     } <span style="color: #0000ff;">finally</span><span style="color: #000000;"> {
+</span><span style="color: #008080;">146</span> <span style="color: #000000;">                        dataInfo.lock.unlock();
+</span><span style="color: #008080;">147</span> <span style="color: #000000;">                    }
+</span><span style="color: #008080;">148</span> <span style="color: #000000;">                }
+</span><span style="color: #008080;">149</span> <span style="color: #000000;">            }
+</span><span style="color: #008080;">150</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">151</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">152</span> 
+<span style="color: #008080;">153</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">154</span> <span style="color: #008000;">     * 清除所有缓存内容
+</span><span style="color: #008080;">155</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">156</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> clearAll() <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+</span><span style="color: #008080;">157</span> <span style="color: #000000;">        defaultCacheMgr.clearAll();
+</span><span style="color: #008080;">158</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">159</span> 
+<span style="color: #008080;">160</span>     <span style="color: #008000;">//</span><span style="color: #008000;">以下为Set和Get</span>
+<span style="color: #008080;">161</span>     <span style="color: #0000ff;">public</span><span style="color: #000000;"> I_SystemCacheMgr getDefaultCacheMgr() {
+</span><span style="color: #008080;">162</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> defaultCacheMgr;
+</span><span style="color: #008080;">163</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">164</span> 
+<span style="color: #008080;">165</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setDefaultCacheMgr(I_SystemCacheMgr defaultCacheMgr) {
+</span><span style="color: #008080;">166</span>         <span style="color: #0000ff;">this</span>.defaultCacheMgr =<span style="color: #000000;"> defaultCacheMgr;
+</span><span style="color: #008080;">167</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">168</span> 
+<span style="color: #008080;">169</span>     <span style="color: #0000ff;">public</span> ConcurrentHashMap&lt;String, ConcurrentHashMap&lt;Object, DataInfo&gt;&gt;<span style="color: #000000;"> getDataInfoMaps() {
+</span><span style="color: #008080;">170</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> dataInfoMaps;
+</span><span style="color: #008080;">171</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">172</span> 
+<span style="color: #008080;">173</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> setDataInfoMaps(ConcurrentHashMap&lt;String, ConcurrentHashMap&lt;Object, DataInfo&gt;&gt;<span style="color: #000000;"> dataInfoMaps) {
+</span><span style="color: #008080;">174</span>         <span style="color: #0000ff;">this</span>.dataInfoMaps =<span style="color: #000000;"> dataInfoMaps;
+</span><span style="color: #008080;">175</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">176</span> }</pre>
+</div>
+<h3>知识点：再次说下接口的重要性</h3>
+<p>17行直接让Spring注入实现了I_SystemCacheMgr的类，直接使用实现的方法而不用关心具体的实现细节（对于SystemCacheMgr类来说，你换了它的实现逻辑也丝毫不影响它原来的代码调用）</p>
+<h2>&nbsp;CacheAspect</h2>
+<p>CacheAspect是注册和触发更新的核心类，Tool是用到的工具类的方法</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;"> * </span><span style="color: #808080;">@author</span><span style="color: #008000;"> NiceBin
+</span><span style="color: #008080;"> 3</span> <span style="color: #008000;"> * @description: 处理缓存注解的地方：包括@UpdateCache，@Cacheable
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;"> *
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;"> * @date 2019/11/18 14:57
+</span><span style="color: #008080;"> 6</span>  <span style="color: #008000;">*/</span>
+<span style="color: #008080;"> 7</span> <span style="color: #000000;">@Aspect
+</span><span style="color: #008080;"> 8</span> <span style="color: #000000;">@Component
+</span><span style="color: #008080;"> 9</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> CacheAspect {
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">    @Autowired
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">    SystemCacheMgr systemCacheMgr;
+</span><span style="color: #008080;">12</span> 
+<span style="color: #008080;">13</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">14</span> <span style="color: #008000;">     * 数据注册到SystemCacheMgr
+</span><span style="color: #008080;">15</span> <span style="color: #008000;">     * 为数据自动更新做准备
+</span><span style="color: #008080;">16</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">17</span>     @Before("@annotation(org.springframework.cache.annotation.Cacheable)"<span style="color: #000000;">)
+</span><span style="color: #008080;">18</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> registerCache(JoinPoint joinPoint){
+</span><span style="color: #008080;">19</span>         System.out.println("拦截了@Cacheable"<span style="color: #000000;">);
+</span><span style="color: #008080;">20</span>         <span style="color: #008000;">//</span><span style="color: #008000;">获取到该方法前的@Cacheable注解，来获取CacheName和key的信息</span>
+<span style="color: #008080;">21</span>         Method method =<span style="color: #000000;"> Tool.getSpecificMethod(joinPoint);
+</span><span style="color: #008080;">22</span>         Cacheable cacleable = method.getAnnotation(Cacheable.<span style="color: #0000ff;">class</span><span style="color: #000000;">);
+</span><span style="color: #008080;">23</span>         String[] cacheNames = cacleable.value()!=<span style="color: #0000ff;">null</span>?<span style="color: #000000;">cacleable.value():cacleable.cacheNames();
+</span><span style="color: #008080;">24</span>         String theKey =<span style="color: #000000;"> cacleable.key();
+</span><span style="color: #008080;">25</span>         <span style="color: #008000;">//</span><span style="color: #008000;">取出来的字符串是'key'，需要去掉''</span>
+<span style="color: #008080;">26</span>         String key = theKey.substring(1,theKey.length()-1<span style="color: #000000;">);
+</span><span style="color: #008080;">27</span>         Arrays.stream(cacheNames).forEach(cacheName -&gt;<span style="color: #000000;">{
+</span><span style="color: #008080;">28</span>             <span style="color: #008000;">//</span><span style="color: #008000;">记录数据保存时间</span>
+<span style="color: #008080;">29</span> <span style="color: #000000;">            systemCacheMgr.recordDataSaveTime(cacheName,key);
+</span><span style="color: #008080;">30</span>             <span style="color: #008000;">//</span><span style="color: #008000;">记录数据对应的方法信息</span>
+<span style="color: #008080;">31</span> <span style="color: #000000;">            systemCacheMgr.recordCacheInvocation(cacheName,key,joinPoint.getTarget(),method,joinPoint.getArgs());
+</span><span style="color: #008080;">32</span> <span style="color: #000000;">        });
+</span><span style="color: #008080;">33</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">34</span> 
+<span style="color: #008080;">35</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">36</span> <span style="color: #008000;">     * 检测该键是否快过期了
+</span><span style="color: #008080;">37</span> <span style="color: #008000;">     * 如果快过期则进行自动更新
+</span><span style="color: #008080;">38</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> joinPoint
+</span><span style="color: #008080;">39</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">40</span>     @Before(value = "@annotation(com.tophousekeeper.system.annotation.UpdateCache)&amp;&amp;args(id)"<span style="color: #000000;">)
+</span><span style="color: #008080;">41</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span> checkExpire(JoinPoint joinPoint,String id) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+</span><span style="color: #008080;">42</span>         System.out.println("拦截了@UpdateCache"<span style="color: #000000;">);
+</span><span style="color: #008080;">43</span>         RedisCacheEnhance redisCacheEnhance =<span style="color: #000000;"> (RedisCacheEnhance) joinPoint.getTarget();
+</span><span style="color: #008080;">44</span> <span style="color: #000000;">        systemCacheMgr.autoUpdate(redisCacheEnhance.getName(),id);
+</span><span style="color: #008080;">45</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">46</span> }</pre>
+</div>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Tool {
+</span><span style="color: #008080;"> 2</span> 
+<span style="color: #008080;"> 3</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;"> 4</span> <span style="color: #008000;">     * 获得代理类方法中真实的方法
+</span><span style="color: #008080;"> 5</span> <span style="color: #008000;">     * 小知识：
+</span><span style="color: #008080;"> 6</span> <span style="color: #008000;">     * ClassUtils.getMostSpecificMethod(Method method, Class&lt;?&gt; targetClass)
+</span><span style="color: #008080;"> 7</span> <span style="color: #008000;">     * 该方法是一个有趣的方法，他能从代理对象上的一个方法，找到真实对象上对应的方法。
+</span><span style="color: #008080;"> 8</span> <span style="color: #008000;">     * 举个例子，MyComponent代理之后的对象上的someLogic方法，肯定是属于cglib代理之后的类上的method，
+</span><span style="color: #008080;"> 9</span> <span style="color: #008000;">     * 使用这个method是没法去执行目标MyComponent的someLogic方法，
+</span><span style="color: #008080;">10</span> <span style="color: #008000;">     * 这种情况下，就可以使用getMostSpecificMethod，
+</span><span style="color: #008080;">11</span> <span style="color: #008000;">     * 找到真实对象上的someLogic方法，并执行真实方法
+</span><span style="color: #008080;">12</span> <span style="color: #008000;">     *
+</span><span style="color: #008080;">13</span> <span style="color: #008000;">     * BridgeMethodResolver.findBridgedMethod(Method bridgeMethod)
+</span><span style="color: #008080;">14</span> <span style="color: #008000;">     * 如果当前方法是一个泛型方法，则会找Class文件中实际实现的方法
+</span><span style="color: #008080;">15</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> poxyMethod 代理的方法
+</span><span style="color: #008080;">16</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> targetclass 真实的目标类
+</span><span style="color: #008080;">17</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;">18</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">19</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> Method getSpecificMethod(Method poxyMethod,Class targetclass){
+</span><span style="color: #008080;">20</span>         Method specificMethod =<span style="color: #000000;"> ClassUtils.getMostSpecificMethod(poxyMethod,targetclass);
+</span><span style="color: #008080;">21</span>         specificMethod =<span style="color: #000000;"> BridgeMethodResolver.findBridgedMethod(specificMethod);
+</span><span style="color: #008080;">22</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> specificMethod;
+</span><span style="color: #008080;">23</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">24</span> 
+<span style="color: #008080;">25</span>     <span style="color: #008000;">/**</span>
+<span style="color: #008080;">26</span> <span style="color: #008000;">     * 获得代理类方法中真实的方法
+</span><span style="color: #008080;">27</span> <span style="color: #008000;">     * 小知识：
+</span><span style="color: #008080;">28</span> <span style="color: #008000;">     * AopProxyUtils.ultimateTargetClass()
+</span><span style="color: #008080;">29</span> <span style="color: #008000;">     * 获取一个代理对象的最终对象类型
+</span><span style="color: #008080;">30</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> joinPoint 切面的切点类
+</span><span style="color: #008080;">31</span> <span style="color: #008000;">     * </span><span style="color: #808080;">@return</span>
+<span style="color: #008080;">32</span>      <span style="color: #008000;">*/</span>
+<span style="color: #008080;">33</span>     <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> Method getSpecificMethod(JoinPoint joinPoint){
+</span><span style="color: #008080;">34</span>         MethodSignature methodSignature =<span style="color: #000000;"> (MethodSignature) joinPoint.getSignature();
+</span><span style="color: #008080;">35</span>         Method poxyMethod =<span style="color: #000000;"> methodSignature.getMethod();
+</span><span style="color: #008080;">36</span>         Class targetClass =<span style="color: #000000;"> AopProxyUtils.ultimateTargetClass(joinPoint.getTarget());
+</span><span style="color: #008080;">37</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> Tool.getSpecificMethod(poxyMethod,targetClass);
+</span><span style="color: #008080;">38</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">39</span> }</pre>
+</div>
+<h1>总结</h1>
+<p>&nbsp;整套流程在磕磕碰碰中弄出来了，最后简单的用了jmeter测试了一下，感觉还不错</p>
+<p>收获最多的不只是新知识的学习，更多是解决问题的能力，在碰到这种并不是很热门的问题，网上的答案没有完全针对你问的，只能从中获取你需要的小部分知识（就像现在你看这篇博文一样）</p>
+<p>然后自己再尝试拼凑起来，有些问题百度无果之后，不妨自己跟跟源码，或者搜索XXX源码解析，看看流程，没准就有新发现</p>
+<p>有什么想法或问题欢迎评论区留言，一起探讨~</p>
+<p><span style="text-decoration: underline;"><em><span style="color: #ff0000;"><strong>尽我最大努力分享给大家，欢迎大家转载（写作不易，请标明出处）或者给我点个赞呀（右下角），谢啦！</strong></span></em></span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

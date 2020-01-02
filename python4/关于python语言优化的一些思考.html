@@ -1,0 +1,55 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修关于python语言优化的一些思考' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>关于python语言优化的一些思考</center></div><div class='banquan'>原文出处:本文由博客园博主pypypypy提供。<br/>
+原文连接:https://www.cnblogs.com/pypypy/p/11995237.html</div><br>
+    <p data-spm-anchor-id="a2c4e.11153940.0.i1.32d522192BHtmm">最近一直在做python工程化相关的工作，颇有心得，遂总结一下。<br />一是为了整理思绪，二是为了解放自己健忘的大脑。</p>
+<h2 id="1">python是一个C的语法糖盒子</h2>
+<p>原生的python通常都是由cpython实现，而cpython的运行效率，确实让人不敢恭维，比较好的解决方案有cython、numba、pypy等等</p>
+<h3 id="2">cython</h3>
+<p>是目前我认为发展最好，最靠谱的一项Python加速解决方案。<br /><img title="cython" src="./images/关于python语言优化的一些思考0.png" alt="cython" /></p>
+<p>使用cython编译过后的代码，通常会对原python代码有2倍以上的速度提升。cython的编译也很简单，只需要构建一个setup.py，然后执行：</p>
+<pre><code><code>  <span class="hljs-selector-tag">python <span class="hljs-selector-tag">setup<span class="hljs-selector-class">.py <span class="hljs-selector-tag">build_ext</span></span></span></span></code></pre>
+<h3 id="3">numba</h3>
+<p><img title="numba" src="./images/关于python语言优化的一些思考1.png" alt="numba" /></p>
+<p>numba也是我比较看好的，它的亮点在于使用装饰器的方式应用jit技术，例如下面的代码：</p>
+<pre><code><code class="hljs python"><span class="hljs-meta">  @jit
+  <span class="hljs-function"><span class="hljs-keyword">def <span class="hljs-title">run_xxx<span class="hljs-params">():
+    ...</span></span></span></span></span></code></pre>
+<p>可直接将run_xxx方法进行高效的c编译。<br />但在大多数应用场景下（尤其是采取了服务拆分或微服务的架构策略），这种功能反而让人有种鸡肋的感觉</p>
+<p>只能说numba更适用于模型开发的场景，在模型应用和部署的环节，numba的作用很尴尬</p>
+<h3 id="4">pypy</h3>
+<p><img title="pypy" src="./images/关于python语言优化的一些思考2.png" alt="pypy" /></p>
+<p>pypy相对比较小众，这是由于它本身的限制条件较多，尤其是对python第三方包的支持上面更是非常局限。由于我在做python开发的过程中，经常需要限制版本，以及引入较多的第三方包，所以pypy就不在考虑的范围内了</p>
+<h2 id="5">不要轻易相信声称自己很快的模块和方法</h2>
+<p>曾经在网上看到有人发文，声称numpy是目前python下非常高效的一个模块，而numpy的&ldquo;娘亲们&rdquo;，甚至把自己夸上了天，说自己如何如何高效。而国内的一些伪专家们，也是盲目的&ldquo;助纣为虐&rdquo;，说什么如果你不太懂，请不要轻易去优化numpy云云，难道你自认为优化的算法能胜过numpy里内置的久经考验的算法？<br />真的是误人子弟！很多人在这里就被唬住了，代码分析到numpy的环节，就不敢往下走了。<br />我想说的是，对一切永远保持怀疑的精神才是真正的科学素养，是不是真的高性能，一切要用数据说话。<br />刚开始，我也被短暂的唬住了，毕竟numpy的底层也没接触过，但profiler分析的结果告诉我，问题就出在numpy里，结果发现在我的项目场景里，使用dict能完全替代numpy的所有操作，性能一下提高了很多，而numpy的高效在于ndarray<br /><img title="ndarray" src="./images/关于python语言优化的一些思考3.png" alt="ndarray" /></p>
+<p>所以，采取什么数据结构要看应用场景，没有万能的高效数据结构</p>
+<h2 id="6">不要以为排除法是万能的</h2>
+<p>优化代码的过程中，因为我的以往成功&ldquo;经验&rdquo;，也导致走了不少弯路，最主要的，就是盲目使用排除法。使用排除法只能使用二分查找或快排的策略去组织代码，如果目标代码比较少还可以，事实上，在真实场景中往往有成百上千行目标代码。人工执行和实现O(logN)量级的操作，似乎是一种蛮干。</p>
+<p>这里有几个度量工具顺便记录下：</p>
+<h3 id="7">py_spy</h3>
+<p><a href="https://yq.aliyun.com/go/articleRenderRedirect?url=https%3A%2F%2Fgithub.com%2Fbenfred%2Fpy-spy" data-url="https://github.com/benfred/py-spy">https://github.com/benfred/py-spy</a><br />方便的生成CPU执行方法的火焰图</p>
+<h3 id="8">line_profiler</h3>
+<p><a href="https://yq.aliyun.com/go/articleRenderRedirect?url=https%3A%2F%2Fgithub.com%2Frkern%2Fline_profiler" data-url="https://github.com/rkern/line_profiler">https://github.com/rkern/line_profiler</a><br />逐行代码分析，不要小看它的能力，它还可以指定要分析的方法和模块</p>
+<h2 id="9">量变真的会引起质变</h2>
+<p>在很多人的习惯性逻辑思维里，一个程序的性能，随着代码的优化，会是一条平滑的增长曲线。但实践表明，这个逻辑确实有问题。<br />通过不断对代码的优化，我发现，程序的性能到达一定阶段会发生&ldquo;突变&rdquo;，或者&ldquo;阶跃&rdquo;。上一次优化的执行时间几百毫秒，下一次优化后的执行时间竟然只有几十毫秒，说发生了&ldquo;阶跃&rdquo;一点都不夸张。<br />为什么会这样？<br />至少在我的朋友圈里，还没有人能给我令人信服的答案，我自认为比较可靠的理解是，现代操作系统在cpu指令的处理上，对cpu的任务分配还不是那么&ldquo;流畅&rdquo;。<br />哪位朋友有好的见解，欢迎批评指正！</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

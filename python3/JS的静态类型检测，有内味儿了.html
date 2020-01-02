@@ -1,0 +1,145 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修JS的静态类型检测，有内味儿了' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>JS的静态类型检测，有内味儿了</center></div><div class='banquan'>原文出处:本文由博客园博主Daotin提供。<br/>
+原文连接:https://www.cnblogs.com/lvonve/p/12010625.html</div><br>
+    <p>我们知道 TypeScript 2.3 以后的版本支持使用<code>--checkJs</code>对<code>.js</code>文件进行类型检查和错误提示。 但是由于 JavaScript 是弱类型语言，在编写代码的时候，是无法检测变量的类型的。</p>
+<p>因此每次运行代码类型报错的时候，我心中都会冒出来一个强烈的愿望：要是 JavaScript是强类型的多好！</p>
+<p>好消息是，JSDoc 的 <code>@ts-check</code>，可以现实这个愿望。</p>
+<h2 id="立即上手">立即上手</h2>
+<p>如果能有机会使用 TypeScript 那当然是最好，但是往往开发的老项目在早期都是 JavaScript 完成的，如果都迁移到 TypeScript 版本工作量是庞大的，而且不可避免出现许多bug问题，那么有没有一种方式可以无痛的在使用JavaScript的同时享受到TypeScript的类型检查呢？</p>
+<p>答案就是 <code>// @ts-check</code>，在 js 文件的头部引入这样一行注释，然后配合<code>JSDoc</code>就可以在JavaScript代码中使用 TypeScript的类型检查了。</p>
+<p>举个例子，在下图中我们首先声明了一个变量 a，然后把数字 1 赋给了它，接着又把字符串 '1' 赋给了它，看起来好像没有什么问题，而且运行起来也不会报错。</p>
+<pre><code><code>let a = 1;
+a = &#39;a&#39;;</code></pre>
+<p>然后我们加上 <code>// @ts-check</code> 试试：</p>
+<pre><code><code>// @ts-check
+
+/**
+ * @type {Number}
+ */
+let a = 1;
+a = &#39;1&#39;;</code></pre>
+<p>神奇的一幕出现了，在变量a赋值的下面，出现了红色波浪线，鼠标放上去提示：</p>
+<pre><code><code>let a: number
+@type — {Number}
+不能将类型“&quot;1&quot;”分配给类型“number”。ts(2322)</code></pre>
+<p><img src="./images/JS的静态类型检测，有内味儿了0.png" alt="1" /></p>
+<p>也就是说我们将一个字符串赋值给了一个数字类型的变量是有问题的，这个时候我们未运行程序，但是编辑器已经帮我们分析出了代码可能存在的问题，这时候我们运行代码，是没有报错的。</p>
+<p>因为这个类型检测只是让我们按照TypeScript的强类型语言检测类型问题，但是我们依然是JavaScript代码依然会按照JavaScript的代码逻辑运行，如是TypeScript代码的话，这里运行就会报错。</p>
+<h2 id="jsdoc-类型标记">JSDoc 类型标记</h2>
+<p>既然ts-check这么好用，我们来看看 JSDoc 类型的注释支持哪些类型的检测。</p>
+<p>根据官方文档，JSDoc现在支持下面几个类型检测：</p>
+<ul>
+<li><code>@type</code></li>
+<li><code>@param</code> (or <code>@arg</code> or <code>@argument</code>)</li>
+<li><code>@returns</code> (or <code>@return</code>)</li>
+<li><code>@typedef</code></li>
+<li><code>@callback</code></li>
+<li><code>@template</code></li>
+<li><code>@class</code> (or <code>@constructor</code>)</li>
+<li><code>@this</code></li>
+<li><code>@extends</code> (or <code>@augments</code>)</li>
+<li><code>@enum</code></li>
+</ul>
+<p>下面我们选择常用的标记进行说明，更多更详细的标记可以参考<a href="https://www.tslang.cn/docs/handbook/type-checking-javascript-files.html">官方文档</a>。</p>
+<h3 id="type">@type</h3>
+<p>描述：用来声明变量的类型。</p>
+<pre><code><code>/** 
+ *  - string类型
+ * @type {string}
+ */
+let a1;
+
+/** 
+ *  - windows对象类型
+ * @type {Window}
+ */
+let a2;
+ 
+/** 
+ * - string或者boolean类型
+ * @type {string | boolean}
+ */
+let sb;
+
+
+// -------- 多种方式指定数组类型--------
+/** @type {number[]} */
+var ns;
+/** @type {Array.&lt;number&gt;} */
+var nds;
+/** @type {Array&lt;number&gt;} */
+var nas;
+
+// ---- 还可以指定对象字面量类型。 例如，一个带有a（字符串）和b（数字）属性的对象---
+/** @type {{ a: string, b: number }} */
+var var9;</code></pre>
+<h3 id="param和returns">@param和@returns</h3>
+<p>描述：<code>@param</code>语法和<code>@type</code>相同，但增加了一个参数名。</p>
+<pre><code><code>/**
+ * 声明函数参数类型
+ * @param {string}  p1 - p1 是 string 类型参数
+ * @param {string=} p2 - p2 是可选的 string 类型参数
+ * @param {string} [p3] - 另外一种可选参数写法
+ * @param {string} [p4=&quot;test&quot;] - p4 是可选的 string 类型参数（默认值为 &quot;test&quot;）
+ * @return {string} - 函数返回值是 string 类型
+ */
+function fn3(p1, p2, p3, p4){
+  // TODO
+}
+
+
+/**
+ * 用 “return” 说明函数的返回值类型
+ * @return {number}
+ */
+function fn1() {}
+
+/**
+ * 可以像使用 &quot;@return&quot; 一样使用 &quot;@returns&quot;
+ * @returns {{a: string, b: number}}
+ */
+function fn2() {}</code></pre>
+<h3 id="typedef">@typedef</h3>
+<p>描述：<code>@typedef</code> 可以用来声明复杂类型，和<code>@param</code>类似的语法。</p>
+<pre><code><code>/**
+ * 用 &quot;@typedef&quot; 自定义复杂类型
+ * @typedef {Object} SpecialType - 创建一个新的类型 &#39;SpecialType&#39;
+ * @property {string} prop1 - SpecialType 属性 prop1 是 string 类型
+ * @property {number} prop2 - SpecialType 属性 prop2 是 number 类型
+ * @property {number=} prop3 - SpecialType 属性 prop3 是可选的 number 类型
+ * @prop {number} [prop4] - SpecialType 属性 prop4 是可选的 number 类型
+ * @prop {number} [prop5=42] - SpecialType 属性 prop5 是可选的 number 类型（默认值 42））
+ */
+/** @type {SpecialType} */
+let specialTypeObject;</code></pre>
+<blockquote>
+<p>可以在第一行上使用<code>object</code>或<code>Object</code>。</p>
+</blockquote>
+<h2 id="实验要求">实验要求</h2>
+<p>经测试，在 <code>VSCode</code> 和<code>IDEA</code>下可以直接使用<code>ts-check</code> 的类型检测，<code>sublime</code>等编辑器不可以，应该是要下载对应的插件才可以。</p>
+<h2 id="写在最后">写在最后</h2>
+<p>对于老项目，使用 <code>// @ts-check</code> 和 <code>JSDoc</code> 来来享受TypeScript类型系统的好处是最简单、学习成本最低的方法。</p>
+<p>而对于新项目，则更加推荐直接使用 TypeScript 来进行代码编写，并且各大框架里面都是用的TypeScript进行的代码编写，在可期的未来，TypeScript将会越来越受欢迎。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

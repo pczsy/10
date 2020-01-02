@@ -1,0 +1,271 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask解析（一）：Local、LocalStak、LocalProxy' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask解析（一）：Local、LocalStak、LocalProxy</center></div><div class='banquan'>原文出处:本文由博客园博主待名未名提供。<br/>
+原文连接:https://www.cnblogs.com/flowell/p/local_local_proxy_local_stack.html</div><br>
+    <p>原创作者：flowell，转载请标明出处：<a href="https://www.cnblogs.com/flowell/p/local_local_proxy_local_stack.html">https://www.cnblogs.com/flowell/p/local_local_proxy_local_stack.html</a></p>
+<hr />
+<h2>&nbsp;</h2>
+<h2>Local是什么？</h2>
+<p>无论你接触到的是threading.Local还是werkzeug.Local，它们都代表一种变量&mdash;&mdash;每个线程自己的全局变量。</p>
+<hr />
+<p>&nbsp;</p>
+<p>全局变量，一般位于进程的堆上。一个进程的所有线程都可以访问同一个全局变量，因为它们共享着进程的地址空间，所以每一个线程都可以访问，这也带来了问题，如果多个线程同时访问同一个变量，会对该变量的读写造成不可预估的结果，所以通常我们会使用锁或其他的同步机制来控制线程之间对共享变量的访问。当然了，这不是本文关注的地方。</p>
+<p>说回Local，我们在开头提到Local是线程自己的全局变量。所谓线程自己的，就是说该&ldquo;全局变量&rdquo;只有拥有的线程自己可以访问，对于其它的线程是不可见的。怎么理解这个定义呢？我们先来看一种场景：函数A处理完参数A，函数B要处理函数A处理过的参数A，那么函数A就要把参数A传递给函数B。如果函数C也要接着处理这个参数呢，函数D也要呢？那么参数A就要在这些函数之间不断地传递，这些函数生命时也要提前声明好参数。可想而知，如果有参数要在函数之间传递，那么函数会变得很复杂，调用函数也很复杂。有没有简便的办法呢？</p>
+<p>其实我们在函数间传递参数，为的是要使这个参数对于需要的函数都可视，那么将它变成一个全局变量不就得了？可是变成全局变量的话，其它的线程就会访问到我这个全局变量，可能改变它的值，这不是本线程的本意，我只想一个人独占它。这时，我们就需要一种变量，对于本线程而言，它应该是一个全局变量，对于进程的其它线程而言，它又像是一个局部变量。这就是使用Local的一种场景了，Local就是这样一种变量。</p>
+<p>如果在全局域定义了一个Local，那么这个local其实并不是一个全局变量，每个线程访问这个变量时，拿到的实际上都是本线程对应的Local。怎么实现这种效果呢？其实很简单，Local本身并不是一个变量，它还包含了一些操作。你可以这样理解，每个进程都有一个全局的字典，每个线程本身有自己的线程ID，进程的所有线程都可以访问这个全局的字典，那么它们把自己的线程ID当做字典的key，把需要存储的东西当做value，每个线程只能通过自己的key来访问这个字典，那么value本身就相当于一个线程独占的全局变量啦！是不是？每个线程都怪怪地拿属于自己的东西，一个全局的东西，这就相当于一个线程内部的全局变量。具体的代码实现有所区别，但大体上是这个思路。</p>
+<div class="cnblogs_Highlighter">
+<pre><code>class Local(object):
+    __slots__ = ('__storage__', '__ident_func__')
+ 
+    def __init__(self):
+        object.__setattr__(self, '__storage__', {})	# 存放东西的全局字典
+        object.__setattr__(self, '__ident_func__', get_ident)	# 每个线程的key
+ 
+    def __iter__(self):
+        return iter(self.__storage__.items())
+ 
+    def __call__(self, proxy):
+        """Create a proxy for a name."""
+        return LocalProxy(self, proxy)　　　　# 这里返回一个LocalProxy对象，LocalProxy是一个代理，代理Local对象。
+ 
+    def __release_local__(self):
+        self.__storage__.pop(self.__ident_func__(), None)
+ 
+    def __getattr__(self, name):
+        try:
+            return self.__storage__[self.__ident_func__()][name]
+        except KeyError:
+            raise AttributeError(name)
+ 
+    def __setattr__(self, name, value):
+        ident = self.__ident_func__()
+        storage = self.__storage__
+        try:
+            storage[ident][name] = value
+        except KeyError:
+            storage[ident] = {name: value}
+ 
+    def __delattr__(self, name):
+        try:
+            del self.__storage__[self.__ident_func__()][name]
+        except KeyError:
+            raise AttributeError(name)
+</pre>
+</div>
+<p>　　</p>
+<h2>Local怎么用？</h2>
+<p>伪代码如下</p>
+<div class="cnblogs_Highlighter">
+<pre><code>local = Local()
+local.request = "i am a request"
+local.response = "i am a response"
+
+def work():
+    local.request = xxxx    # 每个线程都只会访问到属于自己的request和response
+    local.response = xxxx    # 就算改变response，也只是改变本线程的值
+
+if __name__ == "__main__":
+    for i in range(10):
+        Thread(target=work).start() 
+</pre>
+</div>
+<p>　</p>
+<p>通过声明一个全局的Local对象，然后像访问对象的属性一样访问你要保留的值。你可以这样理解，Local相当于一个字典，我要通过自己定义的key，来访问我需要的值，即调用local.key来获取值。这样使用起来其实很别扭，明明我是定义一个值，却变成像是访问一个对象的属性一样，写起来很奇怪，有时候也不好理解。能不能像定义一个全局变量一样，直接使用一个Local变量呢？</p>
+<p>&nbsp;</p>
+<div class="cnblogs_Highlighter">
+<pre><code># 我想要这种效果
+request = "i am a request"
+response = "i am a response"
+</pre>
+</div>
+<p>&nbsp;</p>
+<p>Local的__call__方法就是干这件事的，使用__call__方法，我们可以让一个Local变得看起来像一个全局变量。</p>
+<p>&nbsp;</p>
+<div class="cnblogs_Highlighter">
+<pre><code># 你只需要调用Local对象的__call__方法
+local = Local()
+local.request = "i am a request"
+my_request = local("request")    # 注意，这里传入的字符串需要和上面保存时的一致<br />my_request　　# "i am a request"</pre>
+</div>
+<p>　　</p>
+<p>my_request现在等同于local.request，比起local.request，my_request是不是看起来更像一个全局变量？但记住，它是一个&ldquo;线程独有的全局变量&rdquo;。</p>
+<p>&nbsp;</p>
+<h2>LocalProxy是什么？</h2>
+<p>local相当于一个字典，local.x的x相当于key，而LocalProxy代管了这把key和local，我们只需访问LocaProxy本身，它自动用这把key去local字典查到值，返回给我们，这就是代理（proxy）</p>
+<hr />
+<p>&nbsp;</p>
+<p>my_request实际上是一个LocalProxy，直接访问my_request，它是一个"i am a request"字符串。前面我们提到Local对象可以通过local.xxx=value来存储我需要的本地全局变量，这样的local对象看起来就像一个字典，可以存储任意的值。但是每次都通过local.xxx来获取我们想要的值太麻烦了，我们需要一个对象来帮我们完成这个重复性的动作，把key交给它，把字典交给它，我只要访问它，它就通过key去字典中查值，然后把值返回给我。这样子它对于我来说就像存储的值本身一样。这就是代理。</p>
+<p>&nbsp;</p>
+<p>LocalProxy的原理就是这样，它帮我们干了到Local中查找值的方法，所以我们要把存储local.xxx时的&ldquo;xxx&rdquo;这把打开local的key告诉代理，然后把local本身也告诉代理，这样LocalProxy便有了钥匙，和要打开的门，自然他就可以把门里面的东西返回给我们了。从这个角度考虑，Local本身也可以看做是一个代理，它代理的是线程的全局变量，而它持有的key则是线程的id，它会通过id到全局的dict中查找本线程的全局变量，然后返回给我们。</p>
+<div class="cnblogs_Highlighter">
+<pre><code><br />class LocalProxy(object):
+   __slots__ = ('__local', '__dict__', '__name__', '__wrapped__')
+ 
+    def __init__(self, local, name=None):
+        object.__setattr__(self, '_LocalProxy__local', local)　　# 要打开的门
+        object.__setattr__(self, '__name__', name)　　　　　　　　 # 钥匙
+        if callable(local) and not hasattr(local, '__release_local__'):
+            # "local" is a callable that is not an instance of Local or
+            # LocalManager: mark it as a wrapped function.
+            object.__setattr__(self, '__wrapped__', local)
+ 
+    def _get_current_object(self):
+        """Return the current object.  This is useful if you want the real
+        object behind the proxy at a time for performance reasons or because
+        you want to pass the object into a different context.
+        """
+        if not hasattr(self.__local, '__release_local__'):
+            return self.__local()
+        try:
+            return getattr(self.__local, self.__name__)　　　　　　# 通过key（name）到字典（local）中获取value
+        except AttributeError:
+            raise RuntimeError('no object bound to %s' % self.__name__)
+ 
+    @property
+    def __dict__(self):
+        try:
+            return self._get_current_object().__dict__
+        except RuntimeError:
+            raise AttributeError('__dict__')
+ 
+    def __repr__(self):
+        try:
+            obj = self._get_current_object()
+        except RuntimeError:
+            return '&lt;%s unbound&gt;' % self.__class__.__name__
+        return repr(obj)
+ 
+    def __bool__(self):
+        try:
+            return bool(self._get_current_object())
+        except RuntimeError:
+            return False
+ 
+    def __unicode__(self):
+        try:
+            return unicode(self._get_current_object())  # noqa
+        except RuntimeError:
+            return repr(self)
+ 
+    def __dir__(self):
+        try:
+            return dir(self._get_current_object())
+        except RuntimeError:
+            return []
+ 
+    def __getattr__(self, name):
+        if name == '__members__':
+            return dir(self._get_current_object())
+        return getattr(self._get_current_object(), name)　　# 通过key（name）到字典（local）中去查找真正的value，并返回
+ 
+    def __setitem__(self, key, value):
+        self._get_current_object()[key] = value
+ 
+    def __delitem__(self, key):
+        del self._get_current_object()[key]
+ 
+    if PY2:
+        __getslice__ = lambda x, i, j: x._get_current_object()[i:j]
+ 
+        def __setslice__(self, i, j, seq):
+            self._get_current_object()[i:j] = seq
+ 
+        def __delslice__(self, i, j):
+            del self._get_current_object()[i:j]
+ 
+    __setattr__ = lambda x, n, v: setattr(x._get_current_object(), n, v)
+    __delattr__ = lambda x, n: delattr(x._get_current_object(), n)
+</pre>
+</div>
+<p>　LocalProxy中有许多方法，这些方法都是LocalProxy本身实现的一些通用的方法，这些方法不是对本身的调用，而是对代理值的调用。</p>
+<p>我们也可以不调用Local的__call__方法构造LocalProxy，可以直接通过LocalProxy的构造函数构造一个LocalProxy，实质上是一样的。</p>
+<div class="cnblogs_Highlighter">
+<pre><code>local = Local()
+local.request = "request"
+my_request = LocalProxy(local, "request")    # 第二个参数要和local.xxx的xxx相同
+</pre>
+</div>
+<p>　　</p>
+<h2>LocalStack是什么？</h2>
+<p>LocalStack和Local差不多，只不过Local像一个字典。LocalStack则是一个栈，存储数据的方式不太一样。可以认为它是一个线程独有的一个全局栈。使用它不用担心被进程的其它线程干扰。</p>
+<div class="cnblogs_Highlighter">
+<pre><code>class LocalStack(object):
+    def __init__(self):
+        self._local = Local()
+ 
+    def __release_local__(self):
+        self._local.__release_local__()
+ 
+    def _get__ident_func__(self):
+        return self._local.__ident_func__
+ 
+    def _set__ident_func__(self, value):
+        object.__setattr__(self._local, '__ident_func__', value)
+    __ident_func__ = property(_get__ident_func__, _set__ident_func__)
+    del _get__ident_func__, _set__ident_func__
+ 
+    def __call__(self):
+        def _lookup():
+            rv = self.top
+            if rv is None:
+                raise RuntimeError('object unbound')
+            return rv
+        return LocalProxy(_lookup)
+ 
+    def push(self, obj):
+        """Pushes a new item to the stack"""
+        rv = getattr(self._local, 'stack', None)
+        if rv is None:
+            self._local.stack = rv = []
+        rv.append(obj)
+        return rv
+ 
+    def pop(self):
+        """Removes the topmost item from the stack, will return the
+        old value or `None` if the stack was already empty.
+        """
+        stack = getattr(self._local, 'stack', None)
+        if stack is None:
+            return None
+        elif len(stack) == 1:
+            release_local(self._local)
+            return stack[-1]
+        else:
+            return stack.pop()
+ 
+    @property
+    def top(self):
+        """The topmost item on the stack.  If the stack is empty,
+        `None` is returned.
+        """
+        try:
+            return self._local.stack[-1]
+        except (AttributeError, IndexError):
+            return None
+</pre>
+</div>
+<p>　</p>
+<h2>Local和线程安全的区别</h2>
+<p>Local并不代表着线程安全（Thread-Safe），线程安全更多的是强调多个线程访问同一个全局变量时的同步机制，而Local代表的全局变量时线程独占的，对于其他线程而言是不可见的，所以根本不存在线程安不安全的问题。Local永远只会被本线程操作，所以如果硬是要下一个定义，那么是线程安全的。</p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

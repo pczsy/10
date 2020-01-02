@@ -1,0 +1,90 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修多进程 + 多线程抓取博客园信息' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>多进程 + 多线程抓取博客园信息</center></div><div class='banquan'>原文出处:本文由博客园博主破壳而出的蝌蚪提供。<br/>
+原文连接:https://www.cnblogs.com/whnba/p/11597387.html</div><br>
+    <p>为每个进程分配一定数量的页面，然后在由进程去给线程分配待抓取页面，抓取到信息之后保存到&ldquo;博客园.csv&rdquo;文件中。</p>
+<h2>第三方模块</h2>
+<p>aiohttp : 协程模块</p>
+<p>beautifulsoup4：解析模块</p>
+<p><strong>安装 ：</strong></p>
+<p>pip install aiohttp</p>
+<p>pip install beautifulsoup4</p>
+<h2>多线程</h2>
+<p>asyncio协程模块，通过这模块来启用任务并限制线程数量。线程多了影响效率，因为线程是通过时间分片来模拟并行，进程是真并行</p>
+<h2>多进程</h2>
+<p>multiprocessing 进程模块通过引用Pool类来启用进程池</p>
+<h2>信息保存</h2>
+<p><img src="./images/多进程 + 多线程抓取博客园信息0.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>部分代码</h2>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> page
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> asyncio
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+</span><span style="color: #0000ff;">from</span> asyncrequest <span style="color: #0000ff;">import</span><span style="color: #000000;"> AsyncHttp
+</span><span style="color: #0000ff;">from</span> save <span style="color: #0000ff;">import</span><span style="color: #000000;"> db
+</span><span style="color: #0000ff;">from</span> multiprocessing <span style="color: #0000ff;">import</span><span style="color: #000000;"> Pool
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 抓取信息</span>
+async <span style="color: #0000ff;">def</span> fetch(url, attach=<span style="color: #000000;">None):
+    reqs </span>=<span style="color: #000000;"> AsyncHttp()
+    text </span>=<span style="color: #000000;"> await reqs.request(url, attach)
+    items </span>=<span style="color: #000000;"> page.FetchList(text)
+    </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span><span style="color: #000000;"> items:
+        arc </span>=<span style="color: #000000;"> page.Article(item)
+        db.writerow({
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">作者</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.author,
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">头像</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.icon,
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">地址</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.url,
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">标题</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.title,
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">推荐</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.digg_num,
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">评论</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.comment_num,
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">阅读</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.read_num,
+            </span><span style="color: #800000;">'</span><span style="color: #800000;">发布时间</span><span style="color: #800000;">'</span><span style="color: #000000;">: arc.time
+        })
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 协程任务</span>
+async <span style="color: #0000ff;">def</span><span style="color: #000000;"> core(url, s, e):
+    cores </span>= [fetch(url + str(n)) <span style="color: #0000ff;">for</span> n <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(s, e)]
+    await asyncio.gather(</span>*<span style="color: #000000;">cores)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> 入口</span>
+<span style="color: #0000ff;">def</span><span style="color: #000000;"> main(arg):
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">print(arg[0], arg[1])</span>
+    asyncio.Semaphore(3<span style="color: #000000;">)
+    asyncio.run(core(</span><span style="color: #800000;">'</span><span style="color: #800000;">https://www.cnblogs.com/sitehome/p/</span><span style="color: #800000;">'</span>, arg[0], arg[1<span style="color: #000000;">]))
+
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+    with Pool(os.cpu_count()) as p:   </span><span style="color: #008000;">#</span><span style="color: #008000;"> 开启最大进程</span>
+        arg = [(1, 10), (10, 20), (20, 30), (30, 40)]  <span style="color: #008000;">#</span><span style="color: #008000;"> 采用 1~40页</span>
+        rep =<span style="color: #000000;"> p.map_async(main, arg)
+        rep.get()</span></pre>
+</div>
+<p>&nbsp;</p>
+<h2>百度网盘</h2>
+<p>链接：https://pan.baidu.com/s/1Iab8Pi1fsfSCMp93sPUX0g <br />提取码：4x1u <br /><br /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

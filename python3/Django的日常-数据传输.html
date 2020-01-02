@@ -1,0 +1,253 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django的日常-数据传输' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django的日常-数据传输</center></div><div class='banquan'>原文出处:本文由博客园博主Xu67提供。<br/>
+原文连接:https://www.cnblogs.com/Xu-PR/p/11716018.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#django的日常-1">Django的日常-1</a><ul>
+        <li><a href="#django中最常用的三个东西">Django中最常用的三个东西</a><ul>
+        <li><a href="#httpresponse">HTTPresponse</a></li>
+        <li><a href="#render">render</a></li>
+        <li><a href="#redirect">redirect</a></li>
+        </ul></li>
+        <li><a href="#静态文件相关">静态文件相关</a></li>
+        <li><a href="#form表单的get与post">form表单的get与post</a></li>
+        <li><a href="#神奇的request">神奇的request</a><ul>
+        <li><a href="#模板的传值方式">模板的传值方式</a></li>
+        </ul></li>
+        <li><a href="#django连接数据库及其强大的orm">Django连接数据库及其强大的ORM</a><ul>
+        <li><a href="#django连接数据库的前期准备">Django连接数据库的前期准备</a></li>
+        <li><a href="#orm语句创建表">ORM语句创建表</a></li>
+        <li><a href="#orm语句对数据库的简单操作">ORM语句对数据库的简单操作</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<h1 id="django的日常-1">Django的日常-1</h1>
+<h2 id="django中最常用的三个东西">Django中最常用的三个东西</h2>
+<p>之前我们介绍了Django的安装和创建,以及其基本原理,接下来我们就逐步介绍Django里面常见的一些东西,以下三种通常都是用来作为返回值的.</p>
+<h3 id="httpresponse">HTTPresponse</h3>
+<p>用来返回字符串</p>
+<pre><code><code>return HttpResponse(&#39;hello world~&#39;)
+
+# 会返回一个字符串,即屏幕上只会剩下这一个字符串,用处比较有限,不过也算有用</code></pre>
+<h3 id="render">render</h3>
+<p>用来返回一个网页,这个用处比较大,比如</p>
+<pre><code><code>def reg(request):
+    return render(request,&#39;reg.html&#39;)
+# request的用处我们在下面会介绍,这个例子的意思就是最终会返回一个reg.html网页,通常我们在浏览网页的时候,网页之间的切换也许会用到这个,也许不会,这只是一种选择.</code></pre>
+<h3 id="redirect">redirect</h3>
+<p>重定向,重定向的概念我们在之前介绍http协议的时候介绍过,所以我们定义重定向的话可以直接将当前网页转到重定向后的网页.</p>
+<pre><code><code>def home(request):
+    return redirect(&#39;https://baidu.com&#39;)
+# 即在触发了这个函数之后就会直接跳向重定向的网页</code></pre>
+<h2 id="静态文件相关">静态文件相关</h2>
+<p>网站所用到的静态文件通常包括以下几类,即自己写好的JS,自己写好的CSS或者我们所引用的第三方框架,bootstrap,fontwesome,sweetalert等等.</p>
+<p>在之前我们了解到,在引入第三方框架的时候我们可以选择用cdn在线缓存的文件,或者自己下载下来,用本地的静态文件.这里我们选择用静态文件,然后就需要把这些静态文件统一放在一个文件夹里面,通常我们会放在一个新建的名为static的文件夹里,约定俗成的,没什么道理.</p>
+<p>但是要注意的一点是,在我们把所有的静态文件都扔到文件夹里之后,Django并不能很准确的去识别这个路径,就算我们在html界面里用根目录来引用这些文件也不行,Django本身找不到,所以,我们要配置一下路径</p>
+<p>配置静态文件的访问资源是在根目录下的<code>settings.py</code>文件里,在最后我们会看到</p>
+<pre><code><code># settings.py文件的最下方
+
+STATIC_URL = &#39;/static/&#39; 
+# 这是我们访问静态资源的接口前缀,很重要,就是我们输网址的时候要写的接口前缀
+# 然后我们需要在这个语句下面加上这样一个配置项
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, &#39;static&#39;),  # 拼接路径名
+]</code></pre>
+<p>在添加好路径之后,我们在html文件引入方式也需要改变,如下:</p>
+<pre><code><code># **.html文件,&lt;head&gt;在这里面添加以下语句&lt;/head&gt;
+
+{% load static %}
+&lt;link rel=&quot;stylesheet&quot; href=&quot;{% static &#39;静态文件所在地址&#39;%}&quot;&gt;
+
+# 这样都配置过之后,我们才能正确的引入这些静态文件,并正确引用他们.</code></pre>
+<h2 id="form表单的get与post">form表单的get与post</h2>
+<p>form表单是我们熟悉前端的时候学到的东西,其标准格式如下</p>
+<pre><code><code>&lt;form action=&quot;&quot; action=&quot;&quot; method=&quot;post&quot;&gt;
+# action参数可以写的是:
+    1. 空着,会默认向当前页面的地址提交
+    2. 只写后缀,如/index,/admin等,则会在前面自动拼接上当前的网址和端口,然后拼接上所写的后缀
+    3. 写全路径
+# method参数,默认是get,还可以写post
+    我们要知道这两者的区别,get,当我们输入网址,进入网址的时候,此时服务端是已经收到了一个get请求的,所以我们才能接收到一个网页,这个网页就是服务端对于我们的get返回的一个返回值,但是get请求本身是有一些问题的,主要体现在以下两点:
+    1. get请求不安全,因为get请求在携带参数的时候是直接在url?后面添加的,比如?username=admin&amp;password=159789
+    所以这种情况下,如果是输入的账号密码然后发送一个get请求,是非常不安全的
+    2. get请求所能携带的参数是有长度限制的,根据每个浏览器的不同,都会有不同长度的限制
+    
+    
+# 在了解了以上内容之后,如果我们想要提交post请求,除了把method里面参数改成post之外,还需要注释掉一个语句,这个语句对于我们初学者来说没有用处,还会影响整个项目的运行.
+# 其位置仍然在settings.py文件里,我们需要注掉的就是&#39;django.middleware.csrf.CsrfViewMiddleware&#39;这个语句
+MIDDLEWARE = [
+    &#39;django.middleware.security.SecurityMiddleware&#39;,
+    &#39;django.contrib.sessions.middleware.SessionMiddleware&#39;,
+    &#39;django.middleware.common.CommonMiddleware&#39;,
+    # &#39;django.middleware.csrf.CsrfViewMiddleware&#39;,
+    &#39;django.contrib.auth.middleware.AuthenticationMiddleware&#39;,
+    &#39;django.contrib.messages.middleware.MessageMiddleware&#39;,
+    &#39;django.middleware.clickjacking.XFrameOptionsMiddleware&#39;,
+]</code></pre>
+<h2 id="神奇的request">神奇的request</h2>
+<p>requests是我们写每一个views方法的时候都会在括号里传的参数,其最大的作用就是负责前端和后端数据的交互,后端所收到的前端的信息几乎全都来自于requests中,request是一个对象,而且是一个非常全面且强大的对象,我们可以通过这个对象点出来很多东西,比如:</p>
+<pre><code><code>request.MATE
+
+# mate所包含的是几乎所有的HTTP的请求信息,以k:v键值对的形式存储的
+
+request.scheme
+# 请求的方式,可能性是两种,即http和https
+
+request.path
+# 请求的路径,这里是低昂对路径,如果要取绝对路径是request.get_full_path()
+request.encoding
+# 获取提交的数据的编码方式
+request.session
+# 获取是一个session,实际上就是一个无序的字符串,用来作为唯一识别吗的,因为之前我们说过http是一个无状态的协议,需要另外的东西来确保用户的状态
+request.cookies
+# 与session非常相似的一个东西,区别就在于session在服务端,cookies在客户端
+request.method
+# 获取请求方式,GET或者POST
+request.body
+# 请求的主体,返回数据的格式是一个字符串
+request.data
+# 请求的数据部分,和body相似,但是格式不同,data是一个字典对象
+request.POST
+# 获取POST请求所携带的数据,可以直接当成一个列表套字典来取值,但是仅仅用request.POST.get()只能取到列表的最后一位,如果要取整个列表的话需要用request.POST.getlist()来取值
+request.GET
+# 用法和POST几乎一样,就是获取GET()请求所携带的数据</code></pre>
+<h3 id="模板的传值方式">模板的传值方式</h3>
+<pre><code><code>def reg(request):
+    user_dict = {&#39;name&#39;: &#39;jason&#39;, &#39;pwd&#39;: 123}
+    # 给模板传值的方式1
+    return render(request, &#39;reg.html&#39;, {&#39;xxx&#39;: user_dict})      # 会将user_dict传递给reg.html页面,页面上通过xxx就能拿到该字典
+
+    # 给模板传值的方式2
+    return render(request, &#39;reg.html&#39;, locals())  # 会将当前名称空间中所有的变量名全部传递给页面
+    # locals()会出现效率问题,变量名很多的话,会造成空间浪费,不过个人学习的话,其实直接用locals()没什么问题</code></pre>
+<h2 id="django连接数据库及其强大的orm">Django连接数据库及其强大的ORM</h2>
+<p>我们知道,数据库就可以当做是一个服务端,我们可以用Navicat来连接数据库,也可以直接用cmd窗口来操作数据库,同样的,我们通过Django也可以连接数据库,以及对其进行操作</p>
+<h3 id="django连接数据库的前期准备">Django连接数据库的前期准备</h3>
+<ol>
+<li>首先我们需要在Django的配置文件里写入要连接的数据库的信息</li>
+</ol>
+<pre><code><code>DATABASES = {
+                    &#39;default&#39;: {
+                    &#39;ENGINE&#39;: &#39;django.db.backends.mysql&#39;,  # 指定数据库MySQL,postgreSQL
+                    &#39;NAME&#39;: &#39;db1&#39;,          # 使用哪个库
+                    &#39;USER&#39;: &#39;root&#39;,         # 数据库账号
+                    &#39;PASSWORD&#39;: &#39;root&#39;,     # 数据库密码
+                    &#39;HOST&#39;: &#39;127.0.0.1&#39;,    # 数据库的地址
+                    &#39;PORT&#39;: 3306,           # 数据库的端口
+                    &#39;CHARSET&#39;: &#39;utf8&#39;       # 数据库的默认字符编码
+                                }
+                    }</code></pre>
+<ol>
+<li><p>然后,Django默认使用的数据库是musqldb,然而现在这种工具几乎已经绝版了,所以我们需要告诉Django不要用mysqldb,而是用pymysql来连接数据库,这里常见的有两种方法</p>
+<ul>
+<li>在Django的项目名下的<code>__init__.py</code>里写入下面语句</li>
+<li>在Django的app名下的<code>__init__.py</code>里写入下面的语句</li>
+</ul>
+<pre><code><code>import pymysql
+pymysql.install_as_MySQLdb()</code></pre></li>
+</ol>
+<h3 id="orm语句创建表">ORM语句创建表</h3>
+<p>Django里面的ORM可以帮助我们创建表,但不能直接创建数据库,所以我们要先手动创建数据库,然后通过ORM来创建表.</p>
+<p>首先我们需要在app名下的<code>models</code>里面写入需要添加进数据库的表,包括各种字段,例程如下:</p>
+<pre><code><code>from django.db import models
+
+# Create your models here.
+class Userinfo(models.Model):
+    # 设置id字段为Userinfo表的主键,id int primary key auto_increment
+    # django里面可以不指定主键字段,django的ORM会自动给当前表新建一个名为id的主键字段
+    id = models.AutoField(primary_key=True)
+    # 设置username字段, username varchar(64) CharField必须要指定max_lenth参数
+    # django 的ORM中,没有char字段,但是django暴露给用户可以自定义char字段
+    username = models.CharField(max_length=64)
+    # 设置password字段, password int
+    password = models.IntegerField()
+    phone = models.BigIntegerField(default=110)  # 新增的字段可以提前设置默认值,如果没有提前设置,那么一定要设置可以为null,否则不让你添加字段
+    addr = models.CharField(max_length=64, null=True)  # 该字段可以为空
+
+
+class Book(models.Model):
+    title = models.CharField(max_length=64)
+</code></pre>
+<p>在定义好上述类之后,我们就可以通过以下两个语句来真正创建表</p>
+<pre><code><code># 以下两个语句是在cmd窗口,或者说是在Pycharm里面的Terminal窗口里输入的,注意当前目录,一定要在项目所在的位置
+python manage.py makemigrations #不会创建表,仅仅是生成一个记录,将你当前的操作记录下来(migrations文件夹)
+python manage.py migrate  #真正的将你的ORM语句迁移到数据库中
+        
+# 尤其要注意的是:只要在models.py中修改了跟数据库相关的代码,就必须重新开始执行上面两个语句,注意,必须重新执行!!!</code></pre>
+<h3 id="orm语句对数据库的简单操作">ORM语句对数据库的简单操作</h3>
+<p>这里介绍最简单的两种操作,即插入和查询</p>
+<h4 id="数据的插入">数据的插入</h4>
+<pre><code><code>models.Userinfo.objects.create(username=&#39;admin&#39;, password=&#39;123&#39;)
+# 上述语句实现的就是这个sql语句:insert into userinfo(username,password) values(&#39;admin&#39;,&#39;123&#39;);
+# create方法会有一个返回值,返回值就是当前被创建的数据对象
+# 这里要注意的是,你要清楚的知道自己插入的表的字段的数量,以及格式,否则很容易报错</code></pre>
+<h4 id="数据的查询">数据的查询</h4>
+<pre><code><code># 1. get() 当查询条件不存在的时候会直接报错,如果存在会直接给你返回数据对象本身(不推荐使用)
+res = models.Userinfo.objects.get(username=username)  # select * from userinfo where username = &#39;jason&#39;
+print(res)
+print(res.username, res.password)
+
+# 2. filter() 查询
+  # 当条件存在的情况下,无论数据有几条,返回的都是列表套对象的数据格式
+  # filter可以放多个查询条件,并且是and关系
+  # filter查询出来的结果当做列表去对待,支持正数的索引取值和切片,不支持负数,所以不能用[-1]
+res = models.Userinfo.objects.filter(username=username, password=password)
+# user_obj = res[0]
+user_obj = res.first()  # 取queryset第一个元素</code></pre>
+<h4 id="数据的编辑">数据的编辑</h4>
+<pre><code><code>def edit_user(request):
+    edit_id = request.GET.get(&#39;edit_id&#39;)# 这里我们要获取前端发过来的数据中的edit_id字段,同时也是主键字段,以此为依据来取出来数据库中的该条数据
+    if request.method == &#39;POST&#39;:#如果是POST发送数据,而不是GET取数据
+        # 将用户新修改的所有数据
+        username = request.POST.get(&quot;username&quot;)
+        password = request.POST.get(&quot;password&quot;)
+        &#39;&#39;&#39;
+        POST请求中,也是可以获取GET请求携带的参数的&#39;&#39;&#39;
+        # 去数据库中修改对应的数据
+        # 方式一:  
+        models.Userinfo.objects.filter(pk=edit_id).update(username=username, password=password)  # 批量更新,即update方法会将filter查询出来的queryset对象中所有的数据对象全部更新
+        
+        # 方式二:先获取当前数据对象,然后利用对象点属性的方式,先修改数据,然后调用对象方法保存
+        # 不推荐使用第二种方式,效率低,因为需要挨个重新写入数据,而不是update那种只更新有变化的
+        # edit_obj = models.Userinfo.objects.filter(pk=edit_id).first()
+        # edit_obj.username = username
+        # edit_obj.password = password
+        # edit_obj.save()
+
+        # 跳转到数据展示页面
+        return redirect(&#39;/userlist&#39;)
+    # 以edit_id为依据来取出数据库中的数据,取出的是一个对象
+    edit_obj = models.Userinfo.objects.filter(pk=edit_id).first()
+    return render(request, &#39;edit_user.html&#39;, locals())</code></pre>
+<h4 id="数据的删除">数据的删除</h4>
+<pre><code><code>def delete_user(request):
+    # 获取想要删除的数据id 直接删除
+    delete_id = request.GET.get(&#39;delete_id&#39;)
+    models.Userinfo.objects.filter(pk=delete_id).delete()  # 批量删除,即filter匹配到的符合条件的数据都会删除
+    return redirect(&#39;/userlist&#39;)</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

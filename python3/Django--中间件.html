@@ -1,0 +1,264 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django--中间件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django--中间件</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11711012.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#什么是中间件">什么是中间件</a></li>
+        <li><a href="#中间件的作用">中间件的作用</a></li>
+        <li><a href="#自定义中间件">自定义中间件</a><ul>
+        <li><a href="#process_requestprocess_response">process_request/process_response</a></li>
+        <li><a href="#process_view">process_view</a></li>
+        <li><a href="#process_exception">process_exception</a></li>
+        <li><a href="#process_template_response">process_template_response</a></li>
+        </ul></li>
+        <li><a href="#中间件的应用场景">中间件的应用场景</a></li>
+        </ul>
+    </div>
+</div>
+<h1 id="什么是中间件">什么是中间件</h1>
+<p>中间件，是<strong>介于request与response处理之间的一道处理过程</strong>，相对比较轻量级，并且在全局上改变django的输入与输出。因为改变的是全局，所以需要谨慎实用，用不好会影响到性能</p>
+<p><strong>Django中间件的定义：</strong></p>
+<pre><code><code>Middleware is a framework of hooks into Django’s request/response processing. 
+It’s a light, low-level “plugin” system for globally altering Django’s input or output.</code></pre>
+<h1 id="中间件的作用">中间件的作用</h1>
+<p>如果你想修改请求，例如被传送到view中的<strong>HttpRequest</strong>对象。 或者你想修改view返回的<strong>HttpResponse</strong>对象，这些都可以通过中间件来实现。</p>
+<p>可能你还想在view执行之前做一些操作，这种情况就可以用 middleware来实现。</p>
+<p>Django默认的中间件：（在django项目的settings模块中，有一个 MIDDLEWARE_CLASSES 变量，其中每一个元素就是一个中间件，如下图）</p>
+<p><a><img src="./images/Django--中间件0.png" alt="复制代码" /></a></p>
+<pre class="python"><code>MIDDLEWARE = [
+    &#39;django.middleware.security.SecurityMiddleware&#39;,
+    &#39;django.contrib.sessions.middleware.SessionMiddleware&#39;,
+    &#39;django.middleware.common.CommonMiddleware&#39;,
+    &#39;django.middleware.csrf.CsrfViewMiddleware&#39;,
+    &#39;django.contrib.auth.middleware.AuthenticationMiddleware&#39;,
+    &#39;django.contrib.messages.middleware.MessageMiddleware&#39;,
+    &#39;django.middleware.clickjacking.XFrameOptionsMiddleware&#39;,
+]</code></pre>
+<p>每一个中间件都有具体的功能</p>
+<h1 id="自定义中间件">自定义中间件</h1>
+<p>中间件中主要有以下几个方法：</p>
+<ol>
+<li><code>process_request(self,request)</code></li>
+<li><code>process_view(self, request, callback, callback_args, callback_kwargs)</code></li>
+<li><code>process_template_response(self,request,response)</code></li>
+<li><code>process_exception(self, request, exception)</code></li>
+<li><code>process_response(self, request, response)</code></li>
+</ol>
+<h2 id="process_requestprocess_response">process_request/process_response</h2>
+<p>当用户发起请求的时候会依次经过所有的的中间件，这个时候的请求时process_request,最后到达views的函数中，views函数处理后，在依次穿过中间件，这个时候是process_response,最后返回给请求者。</p>
+<p><img src="./images/Django--中间件1.png" /></p>
+<p>上述截图中的中间件都是django中的，我们也可以自己定义一个中间件，我们可以自己写一个类，<strong>但是必须继承MiddlewareMixin</strong></p>
+<pre class="python"><code># 第一步，导入
+from django.utils.deprecation import MiddlewareMixin
+from django.shortcuts import HttpResponse
+
+
+# 第二步，自定义中间件
+class Md1(MiddlewareMixin):
+    def process_request(self,request):
+        print(&quot;Md1请求&quot;)
+        #return HttpResponse(&quot;Md1中断&quot;)
+ 
+    def process_response(self,request,response):
+        print(&quot;Md1返回&quot;)
+        return response
+
+class Md2(MiddlewareMixin):
+    def process_request(self,request):
+        print(&quot;Md2请求&quot;)
+        
+    def process_response(self,request,response):
+        print(&quot;Md2返回&quot;)
+        return response
+    
+    
+# 第三步，在views.py中定义一个测试函数
+def index(request):
+    print(&quot;view函数...&quot;)
+    return HttpResponse(&quot;OK&quot;)
+
+# 第四步，在settings.py的MIDDLEWARE里注册自己定义的中间件
+MIDDLEWARE = [
+    &#39;django.middleware.security.SecurityMiddleware&#39;,
+    ....
+    &#39;django.middleware.clickjacking.XFrameOptionsMiddleware&#39;,
+    &#39;MyMiddlewares.Md1&#39;,
+    &#39;MyMiddlewares.Md2&#39;,
+]
+
+
+# 结果
+&quot;&quot;&quot;
+Md1请求
+Md2请求
+view函数...
+Md2返回
+Md1返回
+&quot;&quot;&quot;
+
+
+&quot;&quot;&quot;
+注意：如果当请求到达请求1的时候直接不符合条件返回，即return HttpResponse(&quot;Md1中断&quot;)，程序将把请求直接发给中间件1返回，然后依次返回到请求者，结果如下：
+
+返回Md1中断的页面，后台打印如下：
+
+Md1请求
+Md1返回
+&quot;&quot;&quot;</code></pre>
+<p><strong>执行流程如下：</strong></p>
+<ul>
+<li>请求到达中间件之后，先按照正序执行每个注册中间件的process_request方法，process_request方法返回的值是None，就依次执行，如果返回的值是HttpResponse对象，不再执行后面的process_request方法，而是执行当前对应中间件的process_response方法(注意不是掉头执行所有的process_response方法)，将HttpResponse对象返回给浏览器。也就是说：如果MIDDLEWARE中注册了6个中间件，执行过程中，第3个中间件返回了一个HttpResponse对象，那么第4,5,6中间件的process_request和process_response方法都不执行，顺序执行3,2,1中间件的process_response方法。</li>
+</ul>
+<p><img src="./images/Django--中间件2.png" /></p>
+<h2 id="process_view">process_view</h2>
+<p><code>process_view(self, request, view_func, view_args, view_kwargs)</code></p>
+<p>该方法有四个参数</p>
+<ul>
+<li>request是HttpRequest对象。</li>
+<li>view_func是Django即将使用的视图函数。 （它是实际的函数对象，而不是函数的名称作为字符串。）</li>
+<li>view_args是将传递给视图的位置参数的列表.</li>
+<li>view_kwargs是将传递给视图的关键字参数的字典。 view_args和view_kwargs都不包含第一个视图参数（request）。</li>
+</ul>
+<p>Django会在调用视图函数之前调用process_view方法。</p>
+<p>它应该返回None或一个HttpResponse对象。 如果返回None，Django将继续处理这个请求，执行任何其他中间件的process_view方法，然后在执行相应的视图。 如果它返回一个HttpResponse对象，那么将不会执行Django的视图函数，而是直接在中间件中掉头，倒叙执行一个个process_response方法，最后返回给浏览器</p>
+<pre class="python"><code>from django.utils.deprecation import MiddlewareMixin
+from django.shortcuts import HttpResponse
+
+class Md1(MiddlewareMixin):
+    def process_request(self,request):
+        print(&quot;Md1请求&quot;)
+        #return HttpResponse(&quot;Md1中断&quot;)
+        
+    def process_response(self,request,response):
+        print(&quot;Md1返回&quot;)
+        return response
+
+    def process_view(self, request, callback, callback_args, callback_kwargs):
+        print(&quot;Md1view&quot;)
+
+class Md2(MiddlewareMixin):
+    def process_request(self,request):
+        print(&quot;Md2请求&quot;)
+        return HttpResponse(&quot;Md2中断&quot;)
+    
+    def process_response(self,request,response):
+        print(&quot;Md2返回&quot;)
+        return response
+
+    def process_view(self, request, callback, callback_args, callback_kwargs):
+        print(&quot;Md2view&quot;)</code></pre>
+<p><strong>执行结果如下：</strong></p>
+<pre class="python"><code>&quot;&quot;&quot;
+Md1请求
+Md2请求
+Md1view
+Md2view
+view函数...
+Md2返回
+Md1返回
+&quot;&quot;&quot;</code></pre>
+<p><strong>执行流程如下：</strong></p>
+<ul>
+<li>process_request方法都执行完后，匹配路由，找到要执行的视图函数，先不执行视图函数，先执行中间件中的process_view方法，process_view方法返回None，继续按顺序执行，所有process_view方法执行完后执行视图函数。假如中间件3 的process_view方法返回了HttpResponse对象，则4,5,6的process_view以及视图函数都不执行，直接从最后一个中间件，也就是中间件6的process_response方法开始倒序执行。</li>
+</ul>
+<p><img src="./images/Django--中间件3.png" /></p>
+<h2 id="process_exception">process_exception</h2>
+<p><code>process_exception(self, request, exception)</code></p>
+<p>该方法两个参数:</p>
+<ul>
+<li><p>一个HttpRequest对象</p></li>
+<li><p>一个exception是视图函数异常产生的Exception对象。</p></li>
+</ul>
+<p>这个方法只有在视图函数中出现异常了才执行，它返回的值可以是一个None也可以是一个HttpResponse对象。如果是HttpResponse对象，Django将调用模板和中间件中的process_response方法，并返回给浏览器，否则将默认处理异常。如果返回一个None，则交给下一个中间件的process_exception方法来处理异常。它的执行顺序也是按照中间件注册顺序的倒序执行。</p>
+<p><strong>示例修改如下：</strong></p>
+<pre class="python"><code>class Md1(MiddlewareMixin):
+    def process_request(self,request):
+        print(&quot;Md1请求&quot;)
+        #return HttpResponse(&quot;Md1中断&quot;)
+        
+    def process_response(self,request,response):
+        print(&quot;Md1返回&quot;)
+        return response
+
+    def process_view(self, request, callback, callback_args, callback_kwargs):
+        # return HttpResponse(&quot;hello&quot;)
+        # response=callback(request,*callback_args,**callback_kwargs)
+        # return response
+        print(&quot;md1 process_view...&quot;)
+
+    def process_exception(self,request,exception):
+        print(&quot;md1 process_exception...&quot;)
+
+        
+class Md2(MiddlewareMixin):
+    def process_request(self,request):
+        print(&quot;Md2请求&quot;)
+        # return HttpResponse(&quot;Md2中断&quot;)
+        
+    def process_response(self,request,response):
+        print(&quot;Md2返回&quot;)
+        return response
+    
+    def process_view(self, request, callback, callback_args, callback_kwargs):
+        print(&quot;md2 process_view...&quot;)
+
+    def process_exception(self,request,exception):
+        print(&quot;md1 process_exception...&quot;)
+        
+        
+# 运行结果
+&quot;&quot;&quot;
+Md1请求
+Md2请求
+md1 process_view...
+md2 process_view...
+view函数...
+
+Md2返回
+Md1返回
+&quot;&quot;&quot;</code></pre>
+<p><strong>流程图如下：</strong></p>
+<p><img src="./images/Django--中间件4.png" /></p>
+<h2 id="process_template_response">process_template_response</h2>
+<p>该方法对视图函数返回值有要求，必须是一个含有render方法类的对象，才会执行此方法</p>
+<pre class="python"><code>class Test:
+    def __init__(self,status,msg):
+        self.status=status
+        self.msg=msg
+    def render(self):
+        import json
+        dic={&#39;status&#39;:self.status,&#39;msg&#39;:self.msg}
+
+        return HttpResponse(json.dumps(dic))
+def index(response):
+    return Test(True,&#39;测试&#39;)</code></pre>
+<h1 id="中间件的应用场景">中间件的应用场景</h1>
+<ol>
+<li><p>做IP访问频率限制: 某些IP访问服务器的频率过高，进行拦截，比如限制每分钟不能超过20次。</p></li>
+<li><p>URL访问过滤：如果用户访问的是login视图（放过）</p>
+<p>如果访问其他视图，需要检测是不是有session认证，已经有了放行，没有返回login，这样就省得在多个视图函数上写装饰器了！</p></li>
+</ol>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

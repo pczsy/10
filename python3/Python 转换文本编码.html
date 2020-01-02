@@ -1,0 +1,122 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python 转换文本编码' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python 转换文本编码</center></div><div class='banquan'>原文出处:本文由博客园博主danvy617提供。<br/>
+原文连接:https://www.cnblogs.com/danvy/p/11417782.html</div><br>
+    <p>最近在做周报的时候，需要把csv文本中的数据提取出来制作表格后生产图表。</p>
+<p>在获取csv文本内容的时候，基本上都是用with open(filename, encoding ='UTF-8') as f:来打开csv文本，但是实际使用过程中发现有些csv文本并不是utf-8格式，从而导致程序在run的过程中报错，每次都需要手动去把该文本文件的编码格式修改成utf-8，再次来run该程序，所以想说：直接在程序中判断并修改文本编码。</p>
+<p>基本思路：先查找该文本是否是utf-8的编码，如果不是则修改为utf-8编码的文本，然后再处理。</p>
+<p>python有chardet库可以查看到文本的encoding信息：</p>
+<p>detect函数只需要一个 非unicode字符串参数，返回一个字典（例如：{'encoding': 'utf-8', 'confidence': 0.99}）。该字典包括判断到的编码格式及判断的置信度。</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> chardet
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_encode_info(file):
+    with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        </span><span style="color: #0000ff;">return</span> chardet.detect(f.read())[<span style="color: #800000;">'</span><span style="color: #800000;">encoding</span><span style="color: #800000;">'</span>]</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>不过这个在从处理小文件的时候性能还行，如果文本稍微过大就很慢了，目前我本地的csv文件是近200k，就能明显感觉到速度过慢了，效率低下。不过chardet库中提供UniversalDetector对象来处理：创建UniversalDetector对象，然后对每个文本块重复调用其feed方法。如果检测器达到了最小置信阈值，它就会将detector.done设置为True。一旦您用完了源文本，请调用detector.close()，这将完成一些最后的计算，以防检测器之前没有达到其最小置信阈值。结果将是一个字典，其中包含自动检测的字符编码和置信度(与charde.test函数返回的相同)。</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> chardet.universaldetector <span style="color: #0000ff;">import</span><span style="color: #000000;"> UniversalDetector
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_encode_info(file):
+ with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        detector </span>=<span style="color: #000000;"> UniversalDetector()
+ </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> f.readlines():
+            detector.feed(line)
+ </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> detector.done:
+ </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+        detector.close()
+ </span><span style="color: #0000ff;">return</span> detector.result[<span style="color: #800000;">'</span><span style="color: #800000;">encoding</span><span style="color: #800000;">'</span>]</pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>在做编码转换的时候遇到问题：UnicodeDecodeError: 'charmap' codec can't decode byte 0x90 in position 178365: character maps to &lt;undefined&gt;</p>
+<div class="highlight">
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> read_file(file):
+ with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+ </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> f.read()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> write_file(content, file):
+ with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        f.write(content)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> convert_encode2utf8(file, original_encode, des_encode):
+    file_content </span>=<span style="color: #000000;"> read_file(file)
+    file_decode </span>= file_content.decode(original_encode)   <span style="color: #008000;">#</span><span style="color: #008000;">--&gt;此处有问题</span>
+    file_encode =<span style="color: #000000;"> file_decode.encode(des_encode)
+    write_file(file_encode, file)</span></pre>
+</div>
+<p>&nbsp;</p>
+</div>
+<p>这是由于byte字符组没解码好，要加另外一个参数errors。官方文档中写道：</p>
+<p>bytearray.decode(encoding=&rdquo;utf-8&rdquo;, errors=&rdquo;strict&rdquo;)</p>
+<p>Return a string decoded from the given bytes. Default encoding is 'utf-8'. errors may be given to set a different error handling scheme. The default for errors is 'strict', meaning that encoding errors raise a UnicodeError. Other possible values are 'ignore', 'replace' and any other name registered via codecs.register_error(), see section Error Handlers. For a list of possible encodings, see section Standard Encodings.</p>
+<p>意思就是字符数组解码成一个utf-8的字符串，可能被设置成不同的处理方案，默认是&lsquo;严格&rsquo;的，有可能抛出UnicodeError，可以改成&lsquo;ignore&rsquo;，&rsquo;replace&rsquo;就能解决。</p>
+<p>所以将此行代码file_decode = file_content.decode(original_encode)修改成file_decode = file_content.decode(original_encode,'ignore')即可。</p>
+<p>完整代码：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> chardet.universaldetector <span style="color: #0000ff;">import</span><span style="color: #000000;"> UniversalDetector
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> get_encode_info(file):
+ with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+     detector </span>=<span style="color: #000000;"> UniversalDetector()
+     </span><span style="color: #0000ff;">for</span> line <span style="color: #0000ff;">in</span><span style="color: #000000;"> f.readlines():
+         detector.feed(line)
+         </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> detector.done:
+             </span><span style="color: #0000ff;">break</span><span style="color: #000000;">
+     detector.close()
+     </span><span style="color: #0000ff;">return</span> detector.result[<span style="color: #800000;">'</span><span style="color: #800000;">encoding</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> read_file(file):
+    with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">rb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> f.read()
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> write_file(content, file):
+    with open(file, </span><span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as f:
+        f.write(content)
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> convert_encode2utf8(file, original_encode, des_encode):
+    file_content </span>=<span style="color: #000000;"> read_file(file)
+    file_decode </span>= file_content.decode(original_encode,<span style="color: #800000;">'</span><span style="color: #800000;">ignore</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    file_encode </span>=<span style="color: #000000;"> file_decode.encode(des_encode)
+    write_file(file_encode, file)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+    filename </span>= r<span style="color: #800000;">'</span><span style="color: #800000;">C:\Users\danvy\Desktop\Automation\testdata\test.csv</span><span style="color: #800000;">'</span><span style="color: #000000;">
+    file_content </span>=<span style="color: #000000;"> read_file(filename)
+    encode_info </span>=<span style="color: #000000;"> get_encode_info(filename)
+    </span><span style="color: #0000ff;">if</span> encode_info != <span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+        convert_encode2utf8(filename, encode_info, </span><span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+    encode_info </span>=<span style="color: #000000;"> get_encode_info(filename)
+    </span><span style="color: #0000ff;">print</span>(encode_info)</pre>
+</div>
+<p>&nbsp;参考：https://chardet.readthedocs.io/en/latest/usage.html</p>
+<div class="highlight">
+<p>　　</p>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

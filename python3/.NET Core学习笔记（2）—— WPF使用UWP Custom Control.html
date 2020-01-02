@@ -1,0 +1,136 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修.NET Core学习笔记（2）—— WPF使用UWP Custom Control' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>.NET Core学习笔记（2）—— WPF使用UWP Custom Control</center></div><div class='banquan'>原文出处:本文由博客园博主楼上那个蜀黍提供。<br/>
+原文连接:https://www.cnblogs.com/manupstairs/p/12085084.html</div><br>
+    <p>自.NET Core 3.0开始，某软加入了对WPF的支持。同时对XAML Islands也做了进一步加强。在.NET Core 3.0之前，我们只能在WPF程序中，通过两种方式有限制地使用Standard UWP Control：</p>
+<ol class=" list-paddingleft-2">
+<li>
+<p>微软包装好的第一方控件，比如InkCanvas，InkToolbar，MediaPlayerElement和MapControl，这些可以直接当成WPF的控件写到XAML中。</p>
+</li>
+<li>
+<p>通过WindowsXamlHost来使用的其他微软第一方Standard UWP Control，这种方式不支持XAML，需要在cs代码中进行类型转换和订阅事件。</p>
+</li>
+</ol>
+<p>这两种方式都存在一些问题：</p>
+<ul class=" list-paddingleft-2">
+<li>
+<p>很多UWP &nbsp; &nbsp; &nbsp;Control和WPF Control虽然同名，但实际仍是不同namespace下的不同class，在传递数据时会遇到很大的麻烦，例如设置FontFamily，Brush时会发现其实是两套同名class，分别属于System.Windows.Media和Windows.UI.Xaml.Media这两套namespace。</p>
+</li>
+<li>
+<p>不支持XAML导致UI的实现受到极大的限制，对Style和Template的使用极不友好。导致在一个WPF程序中，很难将UI界面上同时存在的WPF Control和UWP Control设置成相同的外观。</p>
+</li>
+</ul>
+<p>而在.NET Core 3.0中，我们终于可以在WPF中嵌入UWP Custom Control。虽仍然是通过WindowsXamlHost来导入Custom Control，但这意味着：</p>
+<ol class=" list-paddingleft-2">
+<li>
+<p>我们可以创建一个独立的UWP Control Library。在该Library中，和UWP API的交互将不存在任何障碍。同时通过良好的封装，将类型转换的逻辑写在内部，对外仅暴露WPF类型的情况下，可以有效的避免UWP Control和WPF Control同名的问题。在外部调用的WPF程序看来，这就是一个纯的WPF Control。</p>
+</li>
+<li>
+<p>因为Style和Template不再受到限制，对UI的控制力完全释放，我们甚至可以将整个页面放到UWP &nbsp; &nbsp; &nbsp;Custom Control中，制作一个完全使用UWP Control的exe程序。</p>
+</li>
+</ol>
+<p>下面我们就来看看如何具体实现：</p>
+<p>首先我们需要安装<a href="https://dotnet.microsoft.com/download">.NET Core 3.0</a>，在此基础之上我们才可以创建基于.NET Core的WPF程序了。</p>
+<p><img src="./images/.NET Core学习笔记（2）—— WPF使用UWP Custom Control0.png" alt="" /></p>
+<p>创建一个空的WPF工程后，在NuGet中搜索<a href="https://www.nuget.org/packages/Microsoft.Toolkit.Wpf.UI.XamlHost">Microsoft.Toolkit.Wpf.UI.XamlHost</a>并进行安装。这个Package将提供WindowsXamlHost对象供我们导入UWP Custom Control。完成后，记得将WPF工程的类型，从默认的Any CPU改成x64或者x86。这是因为UWP工程不支持Any CPU。</p>
+<p>接下来创建的第二个工程，是一个空的UWP工程，UWP的版本确保是1903或者更新。通过NuGet安装<a href="https://www.nuget.org/packages/Microsoft.Toolkit.Win32.UI.XamlApplication">Microsoft.Toolkit.Win32.UI.XamlApplication</a>。这个空的UWP工程将成为WPF程序和UWP Custom Control之间的桥梁。</p>
+<p><img src="./images/.NET Core学习笔记（2）—— WPF使用UWP Custom Control1.png" alt="" width="1025" height="727" /></p>
+<p>对于这个空的UWP工程，我们仅需保留App.xml文件，将App的继承关系改为继承自XamlApplication对象。</p>
+<div class="line number1 index0 alt2">
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">xaml:XamlApplication
+    </span><span style="color: #ff0000;">x:Class</span><span style="color: #0000ff;">="MyUWPApp.App"</span><span style="color: #ff0000;">
+    xmlns</span><span style="color: #0000ff;">="http://schemas.microsoft.com/winfx/2006/xaml/presentation"</span><span style="color: #ff0000;">
+    xmlns:x</span><span style="color: #0000ff;">="http://schemas.microsoft.com/winfx/2006/xaml"</span><span style="color: #ff0000;">
+    xmlns:xaml</span><span style="color: #0000ff;">="using:Microsoft.Toolkit.Win32.UI.XamlHost"</span><span style="color: #ff0000;">
+    xmlns:local</span><span style="color: #0000ff;">="using:MyUWPApp"</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">xaml:XamlApplication</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>&nbsp;App.xaml.cs中，也仅保留构造函数即可。</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">sealed</span> <span style="color: #0000ff;">partial</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> App : Microsoft.Toolkit.Win32.UI.XamlHost.XamlApplication
+    {
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;summary&gt;</span>
+        <span style="color: #808080;">///</span><span style="color: #008000;"> Initializes the singleton application object.  This is the first line of authored code
+        </span><span style="color: #808080;">///</span><span style="color: #008000;"> executed, and as such is the logical equivalent of main() or WinMain().
+        </span><span style="color: #808080;">///</span> <span style="color: #808080;">&lt;/summary&gt;</span>
+        <span style="color: #0000ff;">public</span><span style="color: #000000;"> App()
+        {
+            </span><span style="color: #0000ff;">this</span><span style="color: #000000;">.Initialize();
+        }
+    }</span></pre>
+</div>
+<p>接着将MainPage.xaml文件整个删除，编译通过后，在WPF工程里添加对MyUWPApp的reference，这个中间人的工程就准备完毕了。</p>
+<p>接下来让我们创建真正的UWP Custom Control Library。首先选择Class Library(Universal Windows)，创建完成后，右键工程文件选择Unload再选择Edit，在工程文件的最下方，添加下述配置项：</p>
+<div class="cnblogs_code">
+<pre><code>  <span style="color: #008000;">&lt;!--</span><span style="color: #008000;"> To modify your build process, add your task inside one of the targets below and uncomment it.
+       Other similar extension points exist, see Microsoft.Common.targets.
+  &lt;Target Name="BeforeBuild"&gt;
+  &lt;/Target&gt;
+  &lt;Target Name="AfterBuild"&gt;
+  &lt;/Target&gt;
+  </span><span style="color: #008000;">--&gt;</span>
+  <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">PropertyGroup</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">EnableTypeInfoReflection</span><span style="color: #0000ff;">&gt;</span>false<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">EnableTypeInfoReflection</span><span style="color: #0000ff;">&gt;</span>
+    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">EnableXBindDiagnostics</span><span style="color: #0000ff;">&gt;</span>false<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">EnableXBindDiagnostics</span><span style="color: #0000ff;">&gt;</span>
+  <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">PropertyGroup</span><span style="color: #0000ff;">&gt;</span>
+<span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">Project</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>保存后Reload工程。完成上述操作后，再新建几个简单的UWP Custome Control。之后需要在WPF和MyUWPApp这两个工程中，分别添加对UWPClassLibrary工程的reference。这些reference的添加都是必须的，缺少了其中的任何一项，都会导致最终Host UWP Control失败。</p>
+<p>此时让我们返回到WPF工程中，开始使用UWPClassLibrary中刚刚创建的UWP Custom Control。</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Grid</span><span style="color: #0000ff;">&gt;</span>
+        <span style="color: #0000ff;">&lt;</span><span style="color: #800000;">xaml:WindowsXamlHost </span><span style="color: #ff0000;">InitialTypeName</span><span style="color: #0000ff;">="UWPClassLibrary.SplitViewDemo"</span><span style="color: #ff0000;">  ChildChanged</span><span style="color: #0000ff;">="WindowsXamlHost_ChildChanged_1"</span> <span style="color: #0000ff;">/&gt;</span>
+    <span style="color: #0000ff;">&lt;/</span><span style="color: #800000;">Grid</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>和之前使用微软第一方Control较为类似，也是通过WindowsXamlHost 节点指定类型，以及在ChildChanged事件来进行类型转换获取对象实例。</p>
+<div class="cnblogs_code">
+<pre><code>        <span style="color: #0000ff;">private</span> <span style="color: #0000ff;">void</span> WindowsXamlHost_ChildChanged_1(<span style="color: #0000ff;">object</span><span style="color: #000000;"> sender, EventArgs e)
+        {
+            </span><span style="color: #0000ff;">global</span>::Microsoft.Toolkit.Wpf.UI.XamlHost.WindowsXamlHost windowsXamlHost =<span style="color: #000000;">
+                sender </span><span style="color: #0000ff;">as</span> <span style="color: #0000ff;">global</span><span style="color: #000000;">::Microsoft.Toolkit.Wpf.UI.XamlHost.WindowsXamlHost;
+            </span><span style="color: #0000ff;">global</span>::UWPClassLibrary.SplitViewDemo userControl =<span style="color: #000000;">
+                windowsXamlHost.GetUwpInternalObject() </span><span style="color: #0000ff;">as</span> <span style="color: #0000ff;">global</span><span style="color: #000000;">::UWPClassLibrary.SplitViewDemo;
+  
+            </span><span style="color: #0000ff;">if</span> (userControl != <span style="color: #0000ff;">null</span><span style="color: #000000;">)
+            {
+                userControl.IconList </span>= <span style="color: #0000ff;">new</span> ObservableCollection&lt;NavItem&gt;<span style="color: #000000;">
+            {
+                </span><span style="color: #0000ff;">new</span> NavItem { Symbol=<span style="color: #000000;"> Symbol.Save},
+                </span><span style="color: #0000ff;">new</span> NavItem { Symbol=<span style="color: #000000;"> Symbol.Scan},
+                </span><span style="color: #0000ff;">new</span> NavItem { Symbol=<span style="color: #000000;"> Symbol.Share},
+                </span><span style="color: #0000ff;">new</span> NavItem { Symbol=<span style="color: #000000;"> Symbol.Stop},
+                </span><span style="color: #0000ff;">new</span> NavItem { Symbol=<span style="color: #000000;"> Symbol.Video},
+                </span><span style="color: #0000ff;">new</span> NavItem { Symbol=<span style="color: #000000;"> Symbol.Volume},
+            };
+            }
+        }</span></pre>
+</div>
+<p>在我们的Sample工程中，我将名为SplitViewDemo的UserControl整个丢到了WPF工程的Page中。运行后我们可以发现，这看起来就像是套了WPF外壳的UWP页面。</p>
+<p><img src="./images/.NET Core学习笔记（2）—— WPF使用UWP Custom Control2.png" alt="" /></p>
+<p>&nbsp;本篇动手实践的部分较多，还请各位同学下载Sample工程一探究竟。</p>
+<p>Github:</p>
+<p><a href="https://github.com/manupstairs/WpfHostUwpControlSample">https://github.com/manupstairs/WpfHostUwpControlSample</a></p>
+</div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

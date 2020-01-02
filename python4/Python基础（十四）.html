@@ -1,0 +1,432 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python基础（十四）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python基础（十四）</center></div><div class='banquan'>原文出处:本文由博客园博主天狼大大提供。<br/>
+原文连接:https://www.cnblogs.com/tianlangdada/p/11619068.html</div><br>
+    <h1 id="今日主要内容">今日主要内容</h1>
+<ul>
+<li>装饰器扩展
+<ul>
+<li>有参装饰器</li>
+<li>多个装饰器装饰一个函数</li>
+</ul></li>
+<li>递归</li>
+</ul>
+<h1 id="一装饰器扩展">一、装饰器扩展</h1>
+<h2 id="一含有参数的装饰器">（一）含有参数的装饰器</h2>
+<ul>
+<li><h4 id="先来回顾一下装饰器的标准模式">先来回顾一下装饰器的标准模式</h4>
+<pre><code><code>def wrapper(fn):
+  def inner(*args, **kwargs):
+      &quot;&quot;&quot;扩展内容&quot;&quot;&quot;
+      ret = fn(*args, **kwargs)
+      &quot;&quot;&quot;扩展内容&quot;&quot;&quot;
+  return inner
+
+@wrapper
+def func():
+  pass
+
+func()</code></pre></li>
+<li><p>回顾一下之前的游戏模拟，通过装饰器给我的游戏过程扩展了开挂的功能，装饰之后每次想玩游戏的时候调用函数都会给你先把挂打开，此时你的游戏函数已经被装饰了，但是现在有一个问题，我今天想自己玩一把，不想开挂了，怎么办？我们可以给装饰器传一个参数，来控制我的装饰器的开启和关闭就可以了</p>
+<pre><code><code>def wrapper_outer(argv):  # 给装饰器加一个参数，控制装饰器开启关闭
+    def wrapper(fn):
+        def inner(hero): 
+            if argv:  # 如果是True执行添加装饰
+                print(&quot;开启外挂！&quot;)
+                ret = fn(hero)
+                print(&quot;关闭外挂！&quot;)
+                return ret
+            else:  # 如果是False，执行原函数
+                ret = fn(hero)
+                return ret
+        return inner
+    return wrapper
+
+@wrapper_outer(True)
+def play_lol(hero):  # 基础函数参数
+  print(&quot;登陆游戏&quot;)
+  print(&quot;开始排位...&quot;)
+  print(f&quot;选择英雄:{hero}&quot;)
+  print(&quot;游戏中...&quot;)
+  print(&quot;胜利！！！&quot;)
+  print(&quot;结束游戏&quot;)
+  return &quot;坑比队友:xxx&quot;  # 基础函数返回值
+
+print(play_lol(&quot;盖伦&quot;))
+
+运行结果：
+开启外挂！
+登陆游戏
+开始排位...
+选择英雄:盖伦
+游戏中...
+胜利！！！
+结束游戏
+关闭外挂！
+坑比队友:xxx</code></pre>
+<ul>
+<li><p>刨析一下：</p>
+<ul>
+<li>先来看装饰器和语法糖
+<ul>
+<li><code>@wrapper_outer(True)</code>先执行函数调用，函数调用返回的是我内层装饰器的函数名，相当于<code>@wrapper</code></li>
+<li>装饰器最外层的参数控制内层包装函数inner里面的函数部分是否执行，如果argv为真，相当于执行了包装，如果argv为假，执行原函数</li>
+</ul></li>
+<li>通过给装饰器传参起到了控制装饰器是否生效的功能</li>
+</ul>
+<pre><code><code>def wrapper_outer(argv):
+    def wrapper(fn):
+        def inner(hero):  
+            if argv:  # 为真执行这里
+                print(&quot;开启外挂！&quot;)
+                ret = fn(hero)
+                print(&quot;关闭外挂！&quot;)
+                return ret
+            else:  # 为假执行这里
+                ret = fn(hero)
+                return ret
+        return inner
+    return wrapper
+
+@wrapper_outer(True)  # 先执行函数调用</code></pre>
+<ul>
+<li>注意：一旦给函数装饰过，装饰器的参数是不能变化的，因为闭包的原因参数已经被闭进去了，只能调用内层函数，无法再修改最外层的装饰器参数</li>
+</ul>
+<pre><code><code>flag = True
+def wrapper_outer(argv):
+    def wrapper(fn):
+        def inner(*args, **kwargs):  
+            if argv:
+                &quot;&quot;&quot;扩展功能&quot;&quot;&quot;
+                ret = fn(*args, **kwargs)
+                &quot;&quot;&quot;扩展功能&quot;&quot;&quot;
+                return ret
+            else:
+                ret = fn(*args, **kwargs)
+                return ret
+        return inner
+    return wrapper
+
+@wrapper_outer(flag)
+def func():
+    pass
+
+flag = False
+func()  # 此时flag依然是True，装饰过就不能修改参数的值</code></pre></li>
+</ul></li>
+<li><h4 id="有参装饰器的标准模式">有参装饰器的标准模式</h4>
+<pre><code><code>def wrapper_outer(argv):
+    def wrapper(fn):
+        def inner(*args, **kwargs):  
+            if argv:
+                &quot;&quot;&quot;扩展功能&quot;&quot;&quot;
+                ret = fn(*args, **kwargs)
+              &quot;&quot;&quot;扩展功能&quot;&quot;&quot;
+                return ret
+            else:
+                ret = fn(*args, **kwargs)
+                return ret
+        return inner
+    return wrapper
+
+@wrapper_outer(True)
+def func():
+    pass
+
+func()</code></pre></li>
+</ul>
+<h2 id="二多个装饰器装饰一个函数">（二）多个装饰器装饰一个函数</h2>
+<ul>
+<li><p>执行原理：从里到外进行包装</p>
+<pre><code><code>def wrapper1(fn):
+  def inner(*args, **kwargs):
+      print(&quot;扩展功能1&quot;)
+      ret = fn(*args, **kwargs)
+      print(&quot;扩展功能4&quot;)
+      return ret
+  return inner
+
+def wrapper2(fn):
+  def inner(*args, **kwargs):
+      print(&quot;扩展功能2&quot;)
+      ret = fn(*args, **kwargs)
+      print(&quot;扩展功能3&quot;)
+      return ret
+  return inner
+
+@wrapper1
+@wrapper2
+def func():
+  print(&quot;目标函数&quot;)
+
+func()
+
+运行结果：
+扩展功能1
+扩展功能2
+目标函数
+扩展功能3
+扩展功能4</code></pre>
+<ul>
+<li><p>刨析一下：</p>
+<ul>
+<li>从里往外看，先用第一层装饰器<code>@wrapper2</code>装饰目标函数<code>func()</code>,装饰完将其看作成一个整体，在被上层装饰器<code>@wrapper1</code>装饰</li>
+<li>返回值：执行完目标函数，将目标函数的返回值先反给最近的装饰器<code>@wrapper2</code>内部的inner包装函数中，之后再将<code>@wrapper2</code>内部的inner包装函数的返回值返回给上一层装饰器<code>@wrapper1</code>内部的inner中，最终得到的返回值是我调用函数的返回值</li>
+<li>最终调用目标函数其实真正执行的是最外层装饰器中的包装函数<code>inner</code>，而最外层装饰器中的包装函数<code>inner</code>包装着内层装饰器的包装函数<code>inner</code>，而内层装饰器的包装函数<code>inner</code>包装着真正的目表函数<code>func</code></li>
+</ul>
+<pre><code><code># 伪代码:
+
+def 装饰器1(传入目标函数):
+    def 内层包装函数1，也是真正执行的函数(目标函数的参数):
+        &quot;&quot;&quot;前扩展功能&quot;&quot;&quot;
+        目标函数(目标函数的参数)
+        &quot;&quot;&quot;后扩展功能&quot;&quot;&quot;
+    return 包装函数的函数名
+
+def 装饰器2(传入目标函数):
+    def 内层包装函数2，也是真正执行的函数(目标函数的参数):
+        &quot;&quot;&quot;前扩展功能&quot;&quot;&quot;
+        目标函数(目标函数的参数)
+        &quot;&quot;&quot;后扩展功能&quot;&quot;&quot;
+    return 包装函数的函数名
+
+@装饰器1
+@装饰器2
+def 目标函数(形参):
+    函数体
+
+目标函数(实参)
+
+# 真正执行过程:
+先执行:装饰器1的内层包装函数1，而传入的目标函数是:装饰器2的内层包装函数2
+再执行:装饰器2的内层包装函数2，而传入的目标函数是:目标函数</code></pre></li>
+</ul></li>
+</ul>
+<h1 id="二递归">二、递归</h1>
+<h2 id="一什么是递归">（一）什么是递归</h2>
+<ul>
+<li>首先递归是一个函数，只要满足两个要求的函数就是递归函数：
+<ul>
+<li>不断调用自己本身</li>
+<li>有明确的结束条件</li>
+</ul></li>
+</ul>
+<h2 id="二递归深度">（二）递归深度</h2>
+<ul>
+<li><p>如果只是在不断的调用自己本身，没有一个明确的结束条件，那么就是一个死递归（无限循环）。</p></li>
+<li><p>Python官方规定，为了避免无限制的调用自己本身，递归的最大深度为1000（最多只能调用自己本身1000次），实际递归深度为998</p>
+<pre><code><code>def func():
+    print(1)
+    func()
+
+func()
+
+运行结果：
+[Previous line repeated 994 more times]
+1
+1
+1
+...(共打印998个1)</code></pre></li>
+<li><p>可以通过导入sys模块，修改最大递归深度</p>
+<pre><code><code>import sys
+sys.setrecursionlimit(100)  # 修改递归深度
+
+def func():
+    print(1)
+    func()
+
+func()
+
+运行结果：
+[Previous line repeated 94 more times]
+1
+1
+1
+...(实际打印98个1)</code></pre></li>
+</ul>
+<h2 id="三递归的应用">（三）递归的应用</h2>
+<ol>
+<li><p>求n的阶乘</p>
+<pre><code><code>def factorial(n):
+    if n == 1:
+        return 1
+    return factorial(n - 1) * n
+
+print(factorial(5))
+
+运行结果：
+120</code></pre></li>
+<li><p>计算斐波那契序列</p>
+<pre><code><code>def fib(n):
+ if n &lt;= 2:
+     return 1
+ return fib(n-1) + fib(n-2)
+
+print(list(map(fib,range(1, 6))))
+
+运行结果：
+[1, 1, 2, 3, 5]</code></pre></li>
+<li><p>打印列表嵌套的每一个元素</p>
+<pre><code><code>l1 = [1, 2, [3, 4, [5, [6, 7, [8, 9], 10], 11, 12], 13], 14, 15]
+
+def func(lst):
+    for el in lst:
+        if type(el) == list:
+            func(el)
+        else:
+            print(el, end=&quot; &quot;)
+
+func(l1)
+
+运行结果：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 </code></pre></li>
+<li><p>给列表去重，不能使用集合</p>
+<pre><code><code>l1 = [1, 1, 2, 3, 4, 5, 6, 3, 3, 5, 6, 3, 4, 5]
+
+def del_repetition(lst):
+    for el in lst:
+        if lst.count(el) &gt; 1:
+            lst.remove(el)
+            del_repetition(lst)
+
+del_repetition(l1)
+print(l1)
+
+运行结果：
+[1, 2, 6, 3, 4, 5]</code></pre></li>
+<li><p>遍历文件夹中所有的文件</p>
+<pre><code><code>import os
+
+def read(filepath, n):
+    files = os.listdir(filepath)  # 获取到当前文件夹中的所有文件
+    for fi in files:  # 遍历文件夹中的文件, 这里获取的只是本层文件名
+        fi_d = os.path.join(filepath, fi)  # 加入文件夹 获取到文件夹文件
+        if os.path.isdir(fi_d):  # 如果该路径下的文件是文件夹
+            print(&quot;\t&quot; * n, fi)
+            read(fi_d, n + 1)  # 继续进行相同的操作
+        else:
+            print(&quot;\t&quot; * n, fi)  # 递归出口. 最终在这里隐含着return
+
+# 递归遍历目录下所有文件
+read(&#39;../day16/&#39;, 0)</code></pre></li>
+<li><p>二分查找</p>
+<pre><code><code># 普通递归版本⼆二分法
+lst = [22, 33, 44, 55, 66, 77, 88, 99, 101, 238, 345, 456, 567, 678, 789]
+n = 567
+left = 0
+right = len(lst) - 1
+
+def binary_search(n, left, right):
+    if left &lt;= right:
+        middle = (left + right) // 2
+        if n &lt; lst[middle]:
+            right = middle - 1
+        elif n &gt; lst[middle]:
+            left = middle + 1
+        else:
+            return middle
+        return binary_search(n, left, right)  
+        # 这个return必须要加. 否则接收到的永远是None.
+    else:
+        return -1
+
+print(binary_search(567, 0, len(lst) - 1))</code></pre></li>
+<li><p>三级菜单进入返回</p>
+<pre><code><code>menu = {
+    &#39;北京&#39;: {
+        &#39;海淀&#39;: {
+            &#39;五道口&#39;: {
+                &#39;soho&#39;: {},
+                &#39;网易&#39;: {},
+                &#39;google&#39;: {}
+            },
+            &#39;中关村&#39;: {
+                &#39;爱奇艺&#39;: {},
+                &#39;汽车之家&#39;: {},
+                &#39;youku&#39;: {},
+            },
+            &#39;上地&#39;: {
+                &#39;百度&#39;: {},
+            },
+        },
+        &#39;昌平&#39;: {
+            &#39;沙河&#39;: {
+                &#39;北邮&#39;: {},
+                &#39;北航&#39;: {},
+            },
+            &#39;天通苑&#39;: {},
+            &#39;回龙观&#39;: {},
+        },
+        &#39;朝阳&#39;: {},
+        &#39;东城&#39;: {},
+    },
+    &#39;上海&#39;: {
+        &#39;闵行&#39;: {
+            &quot;人民广场&quot;: {
+                &#39;炸鸡店&#39;: {}
+            }
+        },
+        &#39;闸北&#39;: {
+            &#39;火车战&#39;: {
+                &#39;携程&#39;: {}
+            }
+        },
+        &#39;浦东&#39;: {},
+    },
+    &#39;天津&#39;: {
+        &quot;和平&quot;: {
+            &quot;小白楼&quot;: {},
+            &quot;五大道小洋楼&quot;: {},
+            &quot;滨江道&quot;: {},
+        },
+        &quot;南开&quot;: {
+            &quot;天大&quot;: {},
+            &quot;南开&quot;: {},
+            &quot;理工&quot;: {},
+        },
+        &quot;河北&quot;: {
+            &quot;天津之眼&quot;: {},
+            &quot;海河&quot;: {},
+            &quot;意式风情区&quot;: {},
+            &quot;世纪钟&quot;: {},
+            &quot;大悲院&quot;: {},
+        },
+    },
+}
+
+def menu_func(menu):
+    while True:
+        for k in menu:
+            print(k)
+        key = input(&#39;input&gt;&gt;&#39;).strip()
+        if key == &#39;b&#39; or key == &#39;q&#39;:
+            return key
+        elif menu.get(key):
+            ret = menu_func(menu[key])
+            if ret == &#39;q&#39;: 
+                return &#39;q&#39;
+
+menu_func(menu)</code></pre></li>
+</ol>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,272 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修从零开始—Socket系统调用和多态封装' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>从零开始—Socket系统调用和多态封装</center></div><div class='banquan'>原文出处:本文由博客园博主Mr-Tiger提供。<br/>
+原文连接:https://www.cnblogs.com/Mr-Tiger/p/12069767.html</div><br>
+    <h1 id="重新搭建实验环境">1 重新搭建实验环境</h1>
+<p>前面都是用实验楼环境做的实验，偷的懒总是要还的，这一次重装环境前后花了十几个小时，踩了无数的坑。</p>
+<h2 id="ubuntu和linux内核的区别">1.1 Ubuntu和LINUX内核的区别</h2>
+<p>Ubuntu是基于LINUX内核编写的一个操作系统。LINUX内核定义了一些基本的系统功能，Ubuntu在内核之上加入了图形界面，包管理等功能，优化了人机交互。本次实验，要求使用LINUX内核5.0以上，所以，在下载安装完Ubuntu系统后，需要对内核进行更新。</p>
+<pre><code><code>$ uname -a</code></pre>
+<p>上面这个指令会显示Ubuntu当前的内核版本，我们可以通过它来观察内核的升级是否成功。</p>
+<h2 id="从零开始">1.2 从零开始</h2>
+<h3 id="下载安装ubuntu">下载安装Ubuntu</h3>
+<p>首先到Ubuntu官网上下载一个Ubuntu镜像，但是太慢了，我们可以在国内的镜像网站上去下载。指路<a href="http://mirrors.163.com/ubuntu-releases/18.04.3/">网易镜像</a>。<br />
+下载完成后，在VMware虚拟机中进行系统安装，没什么可说的。</p>
+<ul>
+<li>设置超级管理员<br />
+新装的系统没有超级管理员，所以需要先设置一个。执行下面的命令，按照提示要求完成管理员注册。</li>
+</ul>
+<pre><code><code>sudo passwd root</code></pre>
+<ul>
+<li>设置共享文件夹<br />
+为了方便VMware内虚拟主机和我们的主机进行交互，可以设置一个共享文件夹<br />
+首先将虚拟主机关机，然后在虚拟机设置=》选项卡中设置共享文件夹。安装VMwareTools，在VMware菜单栏，点击“重新安装VMwareTools”。虚拟主机内会出现资源管理器，里面有下载好的压缩包，将它拷贝到桌面上解压。然后执行VMware底部弹出的建议命令，完成安装。查看共享文件夹。共享文件夹的位置在<code>/mnt/hfgs/share/</code>。</li>
+</ul>
+<h3 id="更换国内源">更换国内源</h3>
+<p>国外的资源下载速度实在太慢，所以在开始工作之前，建议先更换成国内镜像，指路<a href="https://mirrors.ustc.edu.cn/repogen/">科大镜像</a>。</p>
+<ul>
+<li>备份原始源</li>
+</ul>
+<pre><code><code>$ sudo cp /etc/apt/sources.list /etc/apt/sources_backup.list</code></pre>
+<ul>
+<li>修改配置文件</li>
+</ul>
+<pre><code><code>$ sudo gedit /etc/apt/sources.list</code></pre>
+<p>把从网上找到的资源列表复制拷贝过来，点击资源管理器右上角的save按钮</p>
+<ul>
+<li>更新源</li>
+</ul>
+<pre><code><code>$ sudo apt-get update</code></pre>
+<h3 id="下载编译linux5.0内核">下载编译LINUX5.0内核</h3>
+<p>先下载5.0以上linux内核。</p>
+<ul>
+<li>解压内核文件</li>
+</ul>
+<pre><code><code>$ xz -d linux-5.0.1.tar.xz
+$ tar -xvf linux-5.0.1.tar</code></pre>
+<ul>
+<li>安装依赖</li>
+</ul>
+<pre><code><code>$ sudo apt-get install build-essential
+$ sudo apt-get install libelf-dev
+$ sudo apt-get install libncurses-dev
+$ sudo apt-get install flex
+$ sudo apt-get install bison
+$ sudo apt-get install libssl-dev</code></pre>
+<ul>
+<li>配置内核</li>
+</ul>
+<pre><code><code>$ cd /linux/5.0.1
+$ sudo cp /boot/config-5.0.23-generic -r .config
+$ sudo make oldconfig
+$ sudo make localmodconfig
+$ make menuconfig</code></pre>
+<p>在弹出的图形化界面中配置<br />
+kernel hacking -&gt; compile-time and compiler options 勾选 [*] compiler the kernel with debug info</p>
+<ul>
+<li>编译内核</li>
+</ul>
+<pre><code><code>$ sudo make
+$ sudo make modules_install
+# 更新
+$ sudo make install</code></pre>
+<ul>
+<li>重启虚拟机<br />
+查看内核版本是否已经是5.0.1</li>
+</ul>
+<pre><code><code>$ uname -a</code></pre>
+<h2 id="搭建实验环境">1.3 搭建实验环境</h2>
+<ul>
+<li>安装qemu模拟命令，加载linux内核</li>
+</ul>
+<pre><code><code>$ sudo apt install qemu
+$ qemu-sysem-x86_64 -kernel linux-5.0.1/arch/x86_64/boot/bzIamge</code></pre>
+<ul>
+<li>剩余的部分主要是配置qemu环境，把写好的replyhi网络聊天程序集成到qemu中，和上一次实验内容相同，不再重复演示。</li>
+</ul>
+<h1 id="socket系统调用分析">2 Socket系统调用分析</h1>
+<p>按照实验要求，我们分为两个方向来研究Socket系统调用。实验指出，内核将系统调用作为一个特殊中断来处理，因此首先我们对这一点进行验证；其次我们将探究，对于不同的协议，Socket系统调用源码中是如何封装协议细节的，是否使用了实验提到的“多态”机制，怎么实现的。</p>
+<h2 id="系统调用的中断实现">2.1 系统调用的中断实现</h2>
+<h3 id="修改makefile">修改Makefile</h3>
+<p>为探究64位程序中socket的系统调用行为，我们首先需要对上一节使用到的Makefile进行修改</p>
+<pre><code><code>#
+# Makefile for linuxnet/lab3
+#
+# ... 省略前文
+
+rootfs:
+        gcc -o init linktable.c menu.c main.c -m64 -static -lpthread
+        find init | cpio -o -Hnewc |gzip -9 &gt; ../../rootfs.img
+        qemu-system-x86_64 -kernel ../../linux-5.0.1/arch/x86/boot/bzImage -initrd ../../rootfs.img -append nokaslr -s -S 
+
+# ...省略后文</code></pre>
+<p>在编译指令gcc那一行，将编译选项由<code>-m32</code>改为<code>-m64</code>。<br />
+执行指令</p>
+<pre><code><code>$ make rootfs</code></pre>
+<p>我们得到了新的64位可执行文件<code>init</code>。</p>
+<h3 id="gdb调试">GDB调试</h3>
+<p>使用GDB调试<code>init</code>，在socket函数前打上断点。</p>
+<pre><code><code>$ gdb init
+$ (gdb) break socket</code></pre>
+<p>打开汇编窗口，查看代码运行情况</p>
+<pre><code><code>$ (gdb) layout asm</code></pre>
+<p>可以看到，程序在socket函数入口处停下，下一条汇编指令是一个<code>syscall</code>的系统调用。<br />
+<img src="./images/从零开始—Socket系统调用和多态封装0.png" /></p>
+<h3 id="反汇编init">反汇编<code>init</code></h3>
+<p>对<code>init</code>进行反汇编</p>
+<pre><code><code>$ objdump -d init &gt; init_ASM.txt</code></pre>
+<p>查看<code>init_ASM.txt</code>文件，在第104553行找到socket对应的系统调用。<br />
+<img src="./images/从零开始—Socket系统调用和多态封装1.png" /></p>
+<p>证明对于socket api的调用是通过socketcall这个特殊中断来实现的。</p>
+<h3 id="syscall的具体实现">syscall的具体实现</h3>
+<p>利用同样的办法，我们按照上一节的方法启动qemu进行远程调试，设置如下断点:</p>
+<pre><code><code>$ (gdb) break sys_socketcall</code></pre>
+<p>跟踪到一个关键函数：<code>SYSCALL_DEFINE2()</code>，它位于<code>linux-5.0.1/net/socket.c</code>之中。<br />
+关键代码如下：</p>
+<pre class="cpp"><code>switch (call) {
+    case SYS_SOCKET:
+        err = __sys_socket(a0, a1, a[2]);
+        break;
+    case SYS_BIND:
+        err = __sys_bind(a0, (struct sockaddr __user *)a1, a[2]);
+        break;
+    case SYS_CONNECT:
+        err = __sys_connect(a0, (struct sockaddr __user *)a1, a[2]);
+        break;
+    case SYS_LISTEN:
+        err = __sys_listen(a0, a1);
+        break;
+    case SYS_ACCEPT:
+        err = __sys_accept4(a0, (struct sockaddr __user *)a1,
+                    (int __user *)a[2], 0);
+        break;
+    // ... 省略其余部分
+    }</code></pre>
+<p>可见，每次socket都会调用同一个函数，通过传入的call值不同，在分支语句中执行对应的系统服务例程。</p>
+<h2 id="socket封装网络协议的多态机制">2.2 Socket封装网络协议的多态机制</h2>
+<p>以<code>__sys_socket()</code>为例，其源码位于同一文件下，也是C语言实现的：</p>
+<pre class="cpp"><code>int __sys_socket(int family, int type, int protocol)
+{
+    int retval;
+    struct socket *sock;
+    int flags;
+
+    /* Check the SOCK_* constants for consistency.  */
+    BUILD_BUG_ON(SOCK_CLOEXEC != O_CLOEXEC);
+    BUILD_BUG_ON((SOCK_MAX | SOCK_TYPE_MASK) != SOCK_TYPE_MASK);
+    BUILD_BUG_ON(SOCK_CLOEXEC &amp; SOCK_TYPE_MASK);
+    BUILD_BUG_ON(SOCK_NONBLOCK &amp; SOCK_TYPE_MASK);
+
+    flags = type &amp; ~SOCK_TYPE_MASK;
+    if (flags &amp; ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+        return -EINVAL;
+    type &amp;= SOCK_TYPE_MASK;
+
+    if (SOCK_NONBLOCK != O_NONBLOCK &amp;&amp; (flags &amp; SOCK_NONBLOCK))
+        flags = (flags &amp; ~SOCK_NONBLOCK) | O_NONBLOCK;
+
+    retval = sock_create(family, type, protocol, &amp;sock);
+    if (retval &lt; 0)
+        return retval;
+
+    return sock_map_fd(sock, flags &amp; (O_CLOEXEC | O_NONBLOCK));
+}</code></pre>
+<p>注意到函数的传入参数中有一个<code>protocol</code>变量，它用来指定传入的协议是多少。对于系统底层来说，不同的protocol值对应不同的协议类型，而对于socket通信来说，它只负责从高层接受这个字段值，然后交付更底层的函数，在这里，调用到的<code>sock_create</code>代码如下：</p>
+<pre class="cpp"><code>int __sock_create(struct net *net, int family, int type, int protocol,
+             struct socket **res, int kern)
+{
+    int err;
+    struct socket *sock;
+    const struct net_proto_family *pf;
+
+    /*
+     *      Check protocol is in range
+     */
+    if (family &lt; 0 || family &gt;= NPROTO)
+        return -EAFNOSUPPORT;
+    if (type &lt; 0 || type &gt;= SOCK_MAX)
+        return -EINVAL;
+
+    /* Compatibility.
+
+       This uglymoron is moved from INET layer to here to avoid
+       deadlock in module load.
+     */
+    if (family == PF_INET &amp;&amp; type == SOCK_PACKET) {
+        pr_info_once(&quot;%s uses obsolete (PF_INET,SOCK_PACKET)\n&quot;,
+                 current-&gt;comm);
+        family = PF_PACKET;
+    }
+
+    err = security_socket_create(family, type, protocol, kern);
+    if (err)
+        return err;
+    // 省略后文</code></pre>
+<p>可以发现这个函数仍然不是最底层的函数，它根据情况继续调用<code>security_socket_creat()</code>，或者返回协议错误信息。</p>
+<p>从代码上来看，Socket封装协议细节，使用到的应该是名为<code>socket</code>的结构体，在<code>__sys_bind()</code>等函数中，协议字段作为地址长度被传入，说明对于socket来说是通过判断协议字段长度来区分ipv4和ipv6两种不同协议的。在<code>socket</code>结构体中，有一个名为<code>sk_family</code>的字段，通过它的取值不同来判断这个socket是使用ipv4还是ipv6。可以从<code>socket.c</code>中的代码印证这一点：</p>
+<pre class="cpp"><code>/* This routine returns the IP overhead imposed by a socket i.e.
+ * the length of the underlying IP header, depending on whether
+ * this is an IPv4 or IPv6 socket and the length from IP options turned
+ * on at the socket. Assumes that the caller has a lock on the socket.
+ */
+u32 kernel_sock_ip_overhead(struct sock *sk)
+{
+    struct inet_sock *inet;
+    struct ip_options_rcu *opt;
+    u32 overhead = 0;
+#if IS_ENABLED(CONFIG_IPV6)
+    struct ipv6_pinfo *np;
+    struct ipv6_txoptions *optv6 = NULL;
+#endif /* IS_ENABLED(CONFIG_IPV6) */
+
+    if (!sk)
+        return overhead;
+
+    switch (sk-&gt;sk_family) {
+    case AF_INET:
+        inet = inet_sk(sk);
+        overhead += sizeof(struct iphdr);
+        opt = rcu_dereference_protected(inet-&gt;inet_opt,
+                        sock_owned_by_user(sk));
+        if (opt)
+            overhead += opt-&gt;opt.optlen;
+        return overhead;
+#if IS_ENABLED(CONFIG_IPV6)
+    case AF_INET6:
+        np = inet6_sk(sk);
+        overhead += sizeof(struct ipv6hdr);
+        if (np)
+            optv6 = rcu_dereference_protected(np-&gt;opt,
+                              sock_owned_by_user(sk));
+        if (optv6)
+            overhead += (optv6-&gt;opt_flen + optv6-&gt;opt_nflen);
+        return overhead;
+#endif /* IS_ENABLED(CONFIG_IPV6) */
+    default: /* Returns 0 overhead if the socket is not ipv4 or ipv6 */
+        return overhead;
+    }
+}
+EXPORT_SYMBOL(kernel_sock_ip_overhead);</code></pre>
+<p>综上所述，socket实现了协议封装的多态，它通过结构体的形式，用协议字段的长度作为划分协议的依据，以此将ipv4和ipv6区分开来。而对于调用这些函数和api的高层来说，不管自己是什么协议都调用同样的函数。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

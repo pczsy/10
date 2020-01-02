@@ -1,0 +1,148 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修基于servlet+filter+反射模拟实现天猫首页的后端' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>基于servlet+filter+反射模拟实现天猫首页的后端</center></div><div class='banquan'>原文出处:本文由博客园博主哈希马普提供。<br/>
+原文连接:https://www.cnblogs.com/HashMap-Fantasy/p/12012962.html</div><br>
+    <h3 id="前言为了深入web原理本项目没有使用框架主要描述了从请求到页面展现的思路详情请见文末的具体项目">前言：为了深入web原理，本项目没有使用框架，主要描述了从请求到页面展现的思路，详情请见文末的具体项目</h3>
+<h3 id="一为什么要用filter直接servlet实现不就行了">一、为什么要用filter？直接servlet实现不就行了</h3>
+<p>因为天猫这样的项目需要很多servlet处理具体种类的业务，比如后台的管理页面有增删改查，订单页面也有增删改查，每一个操作都需要写一个servlet。使用filter+反射可以解决这个冗余的问题。</p>
+<h3 id="二从浏览器输入路径到filter">二、从浏览器输入路径到filter</h3>
+<p>举个例子，我们本地天猫项目的首页地址为http://127.0.0.1:8080/tmall/forehome，tmall此处是项目名，我们在web.xml设置filter拦截所有请求，url-pattern设置的/*，所有请求都会映射到tmall.filter.ForeServletFilter这个Java类。</p>
+<pre><code><code>    &lt;filter&gt;
+        &lt;filter-name&gt;ForeServletFilter&lt;/filter-name&gt;
+        &lt;filter-class&gt;tmall.filter.ForeServletFilter&lt;/filter-      class&gt;
+    &lt;/filter&gt;
+    &lt;filter-mapping&gt;
+        &lt;filter-name&gt;ForeServletFilter&lt;/filter-name&gt;
+        &lt;url-pattern&gt;/*&lt;/url-pattern&gt;
+    &lt;/filter-mapping&gt;</code></pre>
+<p>在filter的doFilter方法里面判断请求，如是/fore开头的，跳转到前台对应的servlet再做具体逻辑数据处理。</p>
+<pre><code><code>@WebFilter(filterName = &quot;ForeServletFilter&quot;)
+public class ForeServletFilter implements Filter {
+    @Override
+    public void destroy() {
+    }
+
+    @Override
+    public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws ServletException, IOException {
+        HttpServletRequest request = (HttpServletRequest) req;
+        HttpServletResponse response = (HttpServletResponse) resp;
+        //获取从项目名开始的路径
+        String uri = request.getRequestURI();
+        //获取项目名路径
+        String contextPath = request.getContextPath();
+        //获得路径后缀
+        String path = StringUtils.remove(uri, contextPath);
+        if(path.startsWith(&quot;/fore&quot;)&amp;&amp;!path.startsWith(&quot;/foreServlet&quot;)) {
+            //需要将方法名取出并且放到session里面
+            String method = StringUtils.substringAfterLast(path, &quot;fore&quot;);
+            request.setAttribute(&quot;method&quot;, method);
+            //跳转向foreServlet
+            request.getRequestDispatcher(&quot;/foreServlet&quot;).forward(request, response);
+            return;
+        }
+        chain.doFilter(request, response);
+
+    }
+
+    @Override
+    public void init(FilterConfig config) throws ServletException {
+
+    }
+
+}</code></pre>
+<h3 id="三从filter跳转到servlet">三、从filter跳转到servlet</h3>
+<p>web.xml设置servlet映射，跳转后来到ForeServlet这个Java类。</p>
+<pre><code><code>    &lt;servlet&gt;
+        &lt;servlet-name&gt;ForeServlet&lt;/servlet-name&gt;
+        &lt;servlet-class&gt;tmall.servlet.ForeServlet&lt;/servlet-class&gt;
+    &lt;/servlet&gt;
+
+    &lt;servlet-mapping&gt;
+        &lt;servlet-name&gt;ForeServlet&lt;/servlet-name&gt;
+        &lt;url-pattern&gt;/foreServlet&lt;/url-pattern&gt;
+    &lt;/servlet-mapping&gt;</code></pre>
+<p>这里我们只写具体方法而不写service方法，让它继承其父类BaseForeServlet的service方法。这里的具体方法就包括了前面所说的各种后台的管理页面和订单页面的增删改查方法，此处举个首页的例子，定义一个home()方法：</p>
+<pre><code><code>public class ForeServlet extends BaseForeServlet {
+    public String home(HttpServletRequest request, HttpServletResponse response, Page page) {
+        List&lt;Category&gt; cs = categoryDAO.list(page.getStart(), page.getCount());
+        //填充数据
+        request.setAttribute(&quot;cs&quot;, cs);
+        new ProductDAO().fill(cs);
+        new ProductDAO().fillByRow(cs);
+        return &quot;home.jsp&quot;;
+    }
+}</code></pre>
+<h3 id="四使用反射调用具体方法">四、使用反射调用具体方法</h3>
+<p>那么是如何调用到这个子类servlet的home()方法的呢？<br />
+这里我们通过BaseForeServlet的service方法，首先截取路径里面的方法名，然后使用反射执行子类的home()方法，将数据填充好。</p>
+<pre><code><code>@WebServlet(name = &quot;BaseForeServlet&quot;)
+public abstract class BaseForeServlet extends HttpServlet {
+    
+    protected CategoryDAO categoryDAO = new CategoryDAO();
+    protected OrderDAO orderDAO = new OrderDAO();
+    protected OrderItemDAO orderItemDAO = new OrderItemDAO();
+    protected ProductDAO productDAO = new ProductDAO();
+    protected ProductImageDAO productImageDAO = new ProductImageDAO();
+    protected PropertyDAO propertyDAO = new PropertyDAO();
+    protected PropertyValueDAO propertyValueDAO = new PropertyValueDAO();
+    protected ReviewDAO reviewDAO = new ReviewDAO();
+    protected UserDAO userDAO = new UserDAO();
+    protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String method = (String)req.getAttribute(&quot;method&quot;);
+        Method md = null;
+        Page page = new Page(1, 5);
+        try {
+            md = this.getClass().getMethod(method, javax.servlet.http.HttpServletRequest.class,
+                    javax.servlet.http.HttpServletResponse.class, Page.class);
+            String redirect = md.invoke(this, req, resp, page).toString();
+            if (redirect.startsWith(&quot;@&quot;)) {
+                resp.sendRedirect(redirect);
+            }else if (redirect.startsWith(&quot;%&quot;)) {
+                resp.sendRedirect(redirect);
+            }else {
+                req.getRequestDispatcher(redirect).forward(req, resp);
+            }
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+}</code></pre>
+<h3 id="五页面呈现">五、页面呈现</h3>
+<p>foreServlet返回home.jsp到父类，父类判断路径前缀，然后跳转到对应的页面。</p>
+<pre><code><code>String redirect = md.invoke(this, req, resp, page).toString();
+            if (redirect.startsWith(&quot;@&quot;)) {
+                resp.sendRedirect(redirect);
+            }else if (redirect.startsWith(&quot;%&quot;)) {
+                resp.sendRedirect(redirect);
+            }else {
+                req.getRequestDispatcher(redirect).forward(req, resp);
+            }</code></pre>
+<p><img src="./images/基于servlet+filter+反射模拟实现天猫首页的后端0.png" alt="在这里插入图片描述" /></p>
+<h3 id="四总结">四、总结</h3>
+<p>本项目我们还暗含了MVC的设计模式，Model是Dao、Bean等数据，View是jsp页面，Control是servlet。因为篇幅有限，很多内容都没有展示，具体项目详见网上一个大神的项目：<a href="https://how2j.cn/k/tmall-j2ee/tmall-j2ee-1016/1016.html?p=33866">天猫J2EE项目</a></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

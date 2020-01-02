@@ -1,0 +1,139 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django 注意知识点（一）' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django 注意知识点（一）</center></div><div class='banquan'>原文出处:本文由博客园博主小喵钓鱼提供。<br/>
+原文连接:https://www.cnblogs.com/xmdykf/p/11403000.html</div><br>
+    <blockquote>
+<p><strong>本篇概述</strong></p>
+<h2>　<strong>　Django Admin后台显示 多对多字段（如何）</strong></h2>
+<h2>　　<strong>Django 模板 显示 多对多字段（如何）</strong></h2>
+<h2><strong>　　Django 将表单中上传的多对多字段存入数据库 （如何）</strong></h2>
+<h2><strong>　 &nbsp; Django 上传文件 (如何)</strong></h2>
+</blockquote>
+<h4><strong>models代码背景</strong></h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> Tag(models.Model):
+</span><span style="color: #008080;">2</span>         name = models.CharField(max_length=20, verbose_name=<span style="color: #800000;">"</span><span style="color: #800000;">名称</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+</span><span style="color: #008080;">3</span> 
+<span style="color: #008080;">4</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> work(models.Model):
+</span><span style="color: #008080;">5</span>         Tag = models.ManyToManyField(Tag, verbose_name=<span style="color: #800000;">"</span><span style="color: #800000;">标签</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<h3><strong>一，Django Admin后台显示 多对多字段</strong></h3>
+<h4><strong>　　于admin.py文件中</strong></h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">@admin.register(work)
+</span><span style="color: #008080;">2</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> workAdmin(admin.ModelAdmin):
+</span><span style="color: #008080;">3</span>     <span style="color: #800000;">'''</span><span style="color: #800000;">展示tags</span><span style="color: #800000;">'''</span>
+<span style="color: #008080;">4</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> show_tags(self, obj):
+</span><span style="color: #008080;">5</span>         <span style="color: #0000ff;">return</span> [tag.name <span style="color: #0000ff;">for</span> tag <span style="color: #0000ff;">in</span><span style="color: #000000;"> obj.Tag.all()]
+</span><span style="color: #008080;">6</span>          <span style="color: #008000;">#</span><span style="color: #008000;"> 这里运用了Python的堆导式</span>
+<span style="color: #008080;">7</span>     show_tags.short_description = <span style="color: #800000;">"</span><span style="color: #800000;">标签</span><span style="color: #800000;">"</span>  <span style="color: #008000;">#</span><span style="color: #008000;"> 设置表头</span>
+<span style="color: #008080;">8</span>     list_display = [<span style="color: #800000;">"</span><span style="color: #800000;">show_tags</span><span style="color: #800000;">"</span>]</pre>
+</div>
+<p><img src="./images/Django 注意知识点（一）0.png" alt="" /></p>
+<p>&nbsp;</p>
+<h3><strong>二，Django 模板 显示 多对多字段</strong></h3>
+<p><strong>&nbsp;　　先与 视图 views.py文件中</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #0000ff;">class</span><span style="color: #000000;"> IndexView(View):
+</span><span style="color: #008080;">2</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> get(self, request):
+</span><span style="color: #008080;">3</span>         works = work.objects.all()[:2<span style="color: #000000;">]
+</span><span style="color: #008080;">4</span> 
+<span style="color: #008080;">5</span>         context =<span style="color: #000000;"> {
+</span><span style="color: #008080;">6</span>             <span style="color: #800000;">'</span><span style="color: #800000;">works</span><span style="color: #800000;">'</span><span style="color: #000000;">: works,
+</span><span style="color: #008080;">7</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">8</span>         <span style="color: #0000ff;">return</span> render(request, <span style="color: #800000;">'</span><span style="color: #800000;">index.html</span><span style="color: #800000;">'</span>, context)</pre>
+</div>
+<p>　　<strong>然后，（urls.py中的配置就不多说了，直接进如何在模板中取得）</strong></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #000000;">{% for work in works %}
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">      {% for tag in work.Tag.all %}
+</span><span style="color: #008080;">3</span> <span style="color: #000000;">             {# 下面即 该作品对应的标签 #}
+</span><span style="color: #008080;">4</span> <span style="color: #000000;">                   {{tag.name}}  
+</span><span style="color: #008080;">5</span> <span style="color: #000000;">       {% endfor %}
+</span><span style="color: #008080;">6</span> {% endfor%}    </pre>
+</div>
+<p><img src="./images/Django 注意知识点（一）1.png" alt="" /></p>
+<p><strong>三，</strong><strong>Django 将表单中上传的多对多字段存入数据库</strong></p>
+<h4><strong>　　1、首先获取表单中上传的多对多数据，假设 上传的 标签（多）且 标签与作品 work 的关系是&nbsp;</strong>ManyToManyField</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 标签<br /></span><span style="color: #008080;">2</span> tag = request.POST.getlist(<span style="color: #800000;">"</span><span style="color: #800000;">tag</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<h4>　　2、创建一个 work 对象 然后 进行数据的交互</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> works =<span style="color: #000000;"> work()
+</span><span style="color: #008080;">2</span> <span style="color: #000000;">works.save()
+</span><span style="color: #008080;">3</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 多对多字段存入</span>
+<span style="color: #008080;">4</span> <span style="color: #0000ff;">for</span> tags <span style="color: #0000ff;">in</span><span style="color: #000000;"> tag:
+</span><span style="color: #008080;">5</span>     id = Tag.objects.get(name=<span style="color: #000000;">tags).id
+</span><span style="color: #008080;">6</span> <span style="color: #000000;">    works.Tag.add(id)
+</span><span style="color: #008080;">7</span> works.save()</pre>
+</div>
+<p>&nbsp;</p>
+<blockquote>
+<h3><strong>　　当然这必须是 数据库中 Tag 要有的标签名称才行，不然找不到 id 无法存入，因为 add()方法就是的参数是 id，至于非标签已有存入 有待 摸索~~</strong></h3>
+</blockquote>
+<h3><strong>四，Django上传文件，如何</strong></h3>
+<h4>　　1.&nbsp; 首先与 settings.py文件中增添</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 上传文件</span>
+<span style="color: #008080;">2</span> 
+<span style="color: #008080;">3</span> MEDIA_ROOT = os.path.join(BASE_DIR, r<span style="color: #800000;">'</span><span style="color: #800000;">static\upfile</span><span style="color: #800000;">'</span>)</pre>
+</div>
+<p>&nbsp;</p>
+<h4>　　2、于 模板 表单中 添加 input:file + tap 。。。</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> &lt;input type=<span style="color: #800000;">"</span><span style="color: #800000;">file</span><span style="color: #800000;">"</span> name=<span style="color: #800000;">"</span><span style="color: #800000;">file</span><span style="color: #800000;">"</span>&gt;</pre>
+</div>
+<h4>　　3、修改 form 表单属性</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;">1</span> method=<span style="color: #800000;">"</span><span style="color: #800000;">post</span><span style="color: #800000;">"</span><span style="color: #000000;">   方法必须是 post 
+</span><span style="color: #008080;">2</span> enctype=<span style="color: #800000;">"</span><span style="color: #800000;">multipart/form-data</span><span style="color: #800000;">"</span>   上传文件必备</pre>
+</div>
+<h4>　　4、与视图Views.py文件中</h4>
+<div class="cnblogs_code" onclick="cnblogs_code_show('f8e337a5-0da5-4046-a35d-3bfae9eda170')"><img id="code_img_closed_f8e337a5-0da5-4046-a35d-3bfae9eda170" class="code_img_closed" src="./images/Django 注意知识点（一）2.png" alt="" /><img id="code_img_opened_f8e337a5-0da5-4046-a35d-3bfae9eda170" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('f8e337a5-0da5-4046-a35d-3bfae9eda170',event)" src="./images/Django 注意知识点（一）3.png" alt="" />
+<div id="cnblogs_code_open_f8e337a5-0da5-4046-a35d-3bfae9eda170" class="cnblogs_code_hide">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 这里 Django视图函数，我用的基于类的视图</span>
+<span style="color: #008080;"> 2</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 例如 class AddView(View)</span>
+<span style="color: #008080;"> 3</span> <span style="color: #008000;">#</span><span style="color: #008000;"> 在其中 </span>
+<span style="color: #008080;"> 4</span>     <span style="color: #0000ff;">def</span><span style="color: #000000;"> post(self, request):
+</span><span style="color: #008080;"> 5</span>         <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;"> 6</span>             f = request.FILES[<span style="color: #800000;">"</span><span style="color: #800000;">file</span><span style="color: #800000;">"</span><span style="color: #000000;">]
+</span><span style="color: #008080;"> 7</span>             <span style="color: #008000;">#</span><span style="color: #008000;"> 合成文件在服务器端的路径</span>
+<span style="color: #008080;"> 8</span>             filePaths = <span style="color: #800000;">"</span><span style="color: #800000;">static/upfile/</span><span style="color: #800000;">"</span> + f.name  <span style="color: #008000;">#</span><span style="color: #008000;"> 这里的原因：如果是在分页中，文件路径会额外添加如 /page_id/ 导致后面调用失败，根据个人情况进行合理调整</span>
+<span style="color: #008080;"> 9</span>             filePath =<span style="color: #000000;"> os.path.join(settings.MEDIA_ROOT, f.name)
+</span><span style="color: #008080;">10</span>             <span style="color: #0000ff;">print</span><span style="color: #000000;">(filePath)
+</span><span style="color: #008080;">11</span>             with open(filePath, <span style="color: #800000;">'</span><span style="color: #800000;">wb</span><span style="color: #800000;">'</span><span style="color: #000000;">) as fp:
+</span><span style="color: #008080;">12</span>                 <span style="color: #008000;">#</span><span style="color: #008000;">  以文件流的形式一段段上传</span>
+<span style="color: #008080;">13</span>                 <span style="color: #0000ff;">for</span> info <span style="color: #0000ff;">in</span><span style="color: #000000;"> f.chunks():
+</span><span style="color: #008080;">14</span> <span style="color: #000000;">                    fp.write(info)
+</span><span style="color: #008080;">15</span>         <span style="color: #0000ff;">except</span><span style="color: #000000;">:
+</span><span style="color: #008080;">16</span>             <span style="color: #0000ff;">return</span> HttpResponse(<span style="color: #800000;">"</span><span style="color: #800000;">上传失败</span><span style="color: #800000;">"</span>)</pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<p>&nbsp;</p>
+<h4>　　5、然后 进行上传，大功告成 ~~</h4>
+<p><img src="./images/Django 注意知识点（一）4.png" alt="" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

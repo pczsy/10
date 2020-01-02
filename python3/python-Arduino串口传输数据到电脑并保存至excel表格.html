@@ -1,0 +1,103 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python-Arduino串口传输数据到电脑并保存至excel表格' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python-Arduino串口传输数据到电脑并保存至excel表格</center></div><div class='banquan'>原文出处:本文由博客园博主昊宇方提供。<br/>
+原文连接:https://www.cnblogs.com/haoyufang/p/11671075.html</div><br>
+    <p><span style="font-size: 16px;">　　起因：学校运河杯报了个项目，制作一个天气预测的装置。我用arduino跑了BME280模块，用蓝牙模块实现两块arduino主从机透传。但是为了分析，还需要提取出数据。因此我用python写了个上位机程序，用pyserial模块实现arduiho和电脑的串口通讯，再用xlwt模块写入excel表格，用time模块获取时间作为excel的文件名。</span></p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> xlwt
+</span><span style="color: #008080;"> 2</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+</span><span style="color: #008080;"> 3</span> <span style="color: #0000ff;">import</span><span style="color: #000000;"> serial
+</span><span style="color: #008080;"> 4</span> <span style="color: #008000;">#</span><span style="color: #008000;">设置表格样式</span>
+<span style="color: #008080;"> 5</span> <span style="color: #0000ff;">def</span> set_style(name,height,bold=<span style="color: #000000;">False):
+</span><span style="color: #008080;"> 6</span>     style =<span style="color: #000000;"> xlwt.XFStyle()
+</span><span style="color: #008080;"> 7</span>     font =<span style="color: #000000;"> xlwt.Font()
+</span><span style="color: #008080;"> 8</span>     font.name =<span style="color: #000000;"> name
+</span><span style="color: #008080;"> 9</span>     font.bold =<span style="color: #000000;"> bold
+</span><span style="color: #008080;">10</span>     font.color_index = 4
+<span style="color: #008080;">11</span>     font.height =<span style="color: #000000;"> height
+</span><span style="color: #008080;">12</span>     style.font =<span style="color: #000000;"> font
+</span><span style="color: #008080;">13</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> style
+</span><span style="color: #008080;">14</span> 
+<span style="color: #008080;">15</span> <span style="color: #008000;">#</span><span style="color: #008000;">写Excel</span>
+<span style="color: #008080;">16</span> <span style="color: #0000ff;">def</span><span style="color: #000000;"> write_excel():
+</span><span style="color: #008080;">17</span>     <span style="color: #0000ff;">if</span><span style="color: #000000;"> serial.isOpen():
+</span><span style="color: #008080;">18</span>         <span style="color: #0000ff;">print</span> (<span style="color: #800000;">'</span><span style="color: #800000;">串口已打开\n</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">19</span>     f =<span style="color: #000000;"> xlwt.Workbook()
+</span><span style="color: #008080;">20</span>     sheet1 = f.add_sheet(<span style="color: #800000;">'</span><span style="color: #800000;">arduino_data</span><span style="color: #800000;">'</span>,cell_overwrite_ok=<span style="color: #000000;">True)
+</span><span style="color: #008080;">21</span>     row0 = [<span style="color: #800000;">"</span><span style="color: #800000;">temp</span><span style="color: #800000;">"</span>,<span style="color: #800000;">"</span><span style="color: #800000;">pres</span><span style="color: #800000;">"</span>,<span style="color: #800000;">"</span><span style="color: #800000;">hum</span><span style="color: #800000;">"</span><span style="color: #000000;">]
+</span><span style="color: #008080;">22</span>     time1=<span style="color: #000000;">time.localtime(time.time())
+</span><span style="color: #008080;">23</span>     <span style="color: #008000;">#</span><span style="color: #008000;">写第一行</span>
+<span style="color: #008080;">24</span>     <span style="color: #0000ff;">for</span> i <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(len(row0)):
+</span><span style="color: #008080;">25</span>         sheet1.write(0,i,row0[i],set_style(<span style="color: #800000;">'</span><span style="color: #800000;">Times New Roman</span><span style="color: #800000;">'</span>,220<span style="color: #000000;">,True))
+</span><span style="color: #008080;">26</span>     i=1
+<span style="color: #008080;">27</span>     time.sleep(5<span style="color: #000000;">)
+</span><span style="color: #008080;">28</span> <span style="color: #000000;">    serial.flushInput() 
+</span><span style="color: #008080;">29</span>     <span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+</span><span style="color: #008080;">30</span>         <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;">31</span>             size =<span style="color: #000000;"> serial.inWaiting()
+</span><span style="color: #008080;">32</span>             <span style="color: #0000ff;">if</span> size !=<span style="color: #000000;"> 0:
+</span><span style="color: #008080;">33</span>                 response = serial.read(size)        <span style="color: #008000;">#</span><span style="color: #008000;"> 读取内容并显示</span>
+<span style="color: #008080;">34</span>                 s=response.decode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span>).rstrip(<span style="color: #800000;">'</span><span style="color: #800000;">\r\n</span><span style="color: #800000;">'</span>).split(<span style="color: #800000;">'</span><span style="color: #800000;">\t</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+</span><span style="color: #008080;">35</span>                 <span style="color: #0000ff;">if</span> len(s)!=3<span style="color: #000000;">:
+</span><span style="color: #008080;">36</span> <span style="color: #000000;">                    serial.flushInput()
+</span><span style="color: #008080;">37</span>                     <span style="color: #0000ff;">continue</span>
+<span style="color: #008080;">38</span>                 <span style="color: #0000ff;">else</span><span style="color: #000000;">:
+</span><span style="color: #008080;">39</span>                     <span style="color: #0000ff;">try</span><span style="color: #000000;">:
+</span><span style="color: #008080;">40</span>                         <span style="color: #0000ff;">for</span> j <span style="color: #0000ff;">in</span><span style="color: #000000;"> range(len(s)):
+</span><span style="color: #008080;">41</span>                             sheet1.write(i,j,int(s[j]),set_style(<span style="color: #800000;">'</span><span style="color: #800000;">Times New Roman</span><span style="color: #800000;">'</span>,220<span style="color: #000000;">,False))
+</span><span style="color: #008080;">42</span>                         <span style="color: #0000ff;">print</span><span style="color: #000000;">(s)
+</span><span style="color: #008080;">43</span>                         serial.flushInput()                 <span style="color: #008000;">#</span><span style="color: #008000;"> 清空接收缓存区</span>
+<span style="color: #008080;">44</span>                         i = i+1
+<span style="color: #008080;">45</span>                         time.sleep(0.5<span style="color: #000000;">)
+</span><span style="color: #008080;">46</span>                     <span style="color: #0000ff;">except</span><span style="color: #000000;"> ValueError:
+</span><span style="color: #008080;">47</span> <span style="color: #000000;">                        serial.flushInput()
+</span><span style="color: #008080;">48</span>                         <span style="color: #0000ff;">continue</span>
+<span style="color: #008080;">49</span>         <span style="color: #0000ff;">except</span><span style="color: #000000;"> KeyboardInterrupt:
+</span><span style="color: #008080;">50</span>             time2=<span style="color: #000000;">time.localtime(time.time())
+</span><span style="color: #008080;">51</span>             f.save(r<span style="color: #800000;">'</span><span style="color: #800000;">C:\Users\10020\Desktop\arduino_data\{0}.{1}_{2:0&gt;2d}.{3:0&gt;2d}.{4:0&gt;2d}-{5}.{6}_{7:0&gt;2d}.{8:0&gt;2d}.{9:0&gt;2d}.xls</span><span style="color: #800000;">'</span><span style="color: #000000;">.format\
+</span><span style="color: #008080;">52</span>                    (time1[1],time1[2],time1[3],time1[4],time1[5<span style="color: #000000;">],
+</span><span style="color: #008080;">53</span>                     time2[1],time2[2],time2[3],time2[4],time2[5<span style="color: #000000;">]))
+</span><span style="color: #008080;">54</span> <span style="color: #000000;">            serial.close()
+</span><span style="color: #008080;">55</span>             <span style="color: #0000ff;">print</span><span style="color: #000000;">(time1)
+</span><span style="color: #008080;">56</span>             <span style="color: #0000ff;">print</span><span style="color: #000000;">(time2)
+</span><span style="color: #008080;">57</span> <span style="color: #000000;">            quit()
+</span><span style="color: #008080;">58</span>     
+<span style="color: #008080;">59</span> <span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">'</span><span style="color: #800000;">__main__</span><span style="color: #800000;">'</span><span style="color: #000000;">:
+</span><span style="color: #008080;">60</span>     serial = serial.Serial(<span style="color: #800000;">'</span><span style="color: #800000;">COM3</span><span style="color: #800000;">'</span>,9600,timeout=2<span style="color: #000000;">)
+</span><span style="color: #008080;">61</span>     write_excel()</pre>
+</div>
+<p>&nbsp;</p>
+<p><span style="font-size: 16px;">运行代码后会一直从串口读取arduino的数据，然后写入excel。按Ctrl+c来中止代码进程，此时会在C:\Users\10020\Desktop\arduino_data\这个文件夹下生成以&ldquo;开始运行时间-结束运行时间&rdquo;为名称的xls文件。</span></p>
+<p><span style="font-size: 16px;">代码的运行效果：</span></p>
+<p><img src="./images/python-Arduino串口传输数据到电脑并保存至excel表格0.png" alt="" /></p>
+<p><img src="./images/python-Arduino串口传输数据到电脑并保存至excel表格1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;<span style="font-size: 16px;">需要注意的是：</span></p>
+<ol>
+<li><span style="font-size: 16px;">串口和波特率根据电脑上显示的COM口和设置的arduino波特率决定</span></li>
+<li><span style="font-size: 16px;">arduino是通过串口发送字节串到电脑，需要编码成utf-8再对字符串进行处理</span></li>
+<li><span style="font-size: 16px;">每一次接受完数据要清楚数据缓存</span></li>
+</ol>
+<p><span style="font-size: 16px;">&nbsp;2019-10-14-14:44:49</span></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

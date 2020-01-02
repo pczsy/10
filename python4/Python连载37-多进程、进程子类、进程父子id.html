@@ -1,0 +1,147 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python连载37-多进程、进程子类、进程父子id' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python连载37-多进程、进程子类、进程父子id</center></div><div class='banquan'>原文出处:本文由博客园博主心悦君兮君不知-睿提供。<br/>
+原文连接:https://www.cnblogs.com/ruigege0000/p/11515703.html</div><br>
+    <p>一、线程替代方案</p>
+<p>1.subprocess</p>
+<p>（1）完全跳过线程，使用进程</p>
+<p>（2）是派生进程的主要替代方案</p>
+<p>（3）python2.4后引入</p>
+<p>2.multiprocessing</p>
+<p>（1）使用threading接口派生，使用子进程</p>
+<p>（2）允许为多核或者多CPU派生进程，接口很threading非常相似</p>
+<p>（3）python2.6</p>
+<p>3.concurrent.futures</p>
+<p>（1）新的异步执行模块</p>
+<p>（2）人物级别的操作</p>
+<p>（3）python3.2之后引入</p>
+<p>4.多进程</p>
+<p>（1）进程间通讯（InterprocessCommunication,IPC）</p>
+<p>（2）进程之间无任何共享状态</p>
+<p>（3）进程的创建</p>
+<p>i.直接生成Process实例对象，举例</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">import</span><span style="color: #000000;"> multiprocessing
+
+</span><span style="color: #0000ff;">from</span> time <span style="color: #0000ff;">import</span><span style="color: #000000;"> sleep,ctime
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> clock(interval):
+
+    </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">The time is %s</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> ctime())
+
+        sleep(interval)
+
+ 
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    p </span>= multiprocessing.Process(target= clock,args=(2<span style="color: #000000;">,))
+
+    p.start()
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">从运行就可以看出来主进程已经结束了，但是子线程仍然在运行着</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;">和我们之前讲的线程，有一个最大区别就是线程在主进程里面，主进程结束了，子线程就结束了</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;">子线程从属于进程，子进程与进程之间是并列关系</span>
+
+    <span style="color: #008000;">#</span><span style="color: #008000;">这里的程序停止，是我手动停止的</span></pre>
+</div>
+<p><img src="./images/Python连载37-多进程、进程子类、进程父子id0.png" alt="" /></p>
+<p>ii.派生子类</p>
+<p>&nbsp;</p>
+<p>举例：重写子类，和我们之前讲的线程的差不多，这里民重写了最重要的两个函数，一个是初始化子类，继承父类的初始化，第二个就是运行函数</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">class</span><span style="color: #000000;"> ClockProcess(multiprocessing.Process):
+
+    </span><span style="color: #0000ff;">def</span> <span style="color: #800080;">__init__</span><span style="color: #000000;">(self,interval):
+
+        super().</span><span style="color: #800080;">__init__</span><span style="color: #000000;">()
+
+        self.interval </span>=<span style="color: #000000;"> interval
+
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> run(self):
+
+        </span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">The time is {0}</span><span style="color: #800000;">"</span><span style="color: #000000;">.format(ctime()))
+
+            sleep(self.interval)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    p2 </span>= ClockProcess(2<span style="color: #000000;">)
+
+    p2.start()</span></pre>
+</div>
+<p><img src="./images/Python连载37-多进程、进程子类、进程父子id1.png" alt="" /></p>
+<p>iii.在os中查看pid,ppid以及他们的关系</p>
+<p>&nbsp;</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">def</span><span style="color: #000000;"> info(title):
+
+    </span><span style="color: #0000ff;">print</span><span style="color: #000000;">(title)
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">module name:</span><span style="color: #800000;">"</span>,<span style="color: #800080;">__name__</span><span style="color: #000000;">)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">得到父进程的id</span>
+
+    <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">parent process:</span><span style="color: #800000;">"</span><span style="color: #000000;">,os.getppid())
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;">得到本身进程的id</span>
+
+    <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">process id:</span><span style="color: #800000;">"</span><span style="color: #000000;">,os.getpid())
+
+</span><span style="color: #0000ff;">def</span><span style="color: #000000;"> f(name):
+
+    info(</span><span style="color: #800000;">"</span><span style="color: #800000;">function f</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">hello</span><span style="color: #800000;">"</span><span style="color: #000000;">,name)
+
+</span><span style="color: #0000ff;">if</span> <span style="color: #800080;">__name__</span> == <span style="color: #800000;">"</span><span style="color: #800000;">__main__</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+
+    info(</span><span style="color: #800000;">"</span><span style="color: #800000;">main line</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">==================================</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    p </span>= multiprocessing.Process(target=f,args=(<span style="color: #800000;">"</span><span style="color: #800000;">bob</span><span style="color: #800000;">"</span><span style="color: #000000;">,))
+
+    p.start()
+
+    p.join()</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>解释：先调用了一个函数，然后又调用了一个嵌套函数的函数&nbsp;&nbsp; </p>
+<p><img src="./images/Python连载37-多进程、进程子类、进程父子id2.png" alt="" /></p>
+<p>四、源码</p>
+<p>d26_1_multiprocess_exercise.py</p>
+<p>https://github.com/ruigege66/Python_learning/blob/master/d26_1_multiprocess_exercise.py</p>
+<p>2.CSDN：https://blog.csdn.net/weixin_44630050（心悦君兮君不知-睿）</p>
+<p>3.博客园：https://www.cnblogs.com/ruigege0000/</p>
+<p>4.欢迎关注微信公众号：傅里叶变换，个人公众号，仅用于学习交流，后台回复&rdquo;礼包&ldquo;，获取大数据学习资料</p>
+<p>&nbsp;<img src="./images/Python连载37-多进程、进程子类、进程父子id3.png" alt="" /></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

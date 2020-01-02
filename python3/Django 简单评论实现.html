@@ -1,0 +1,483 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django 简单评论实现' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django 简单评论实现</center></div><div class='banquan'>原文出处:本文由博客园博主klvchen提供。<br/>
+原文连接:https://www.cnblogs.com/klvchen/p/11351601.html</div><br>
+    <p>创建项目 django_comment 和应用 app01</p>
+<blockquote>
+<p>修改 urls.py 文件</p>
+</blockquote>
+<pre><code><code>from django.contrib import admin
+from django.urls import path
+from app01 import views
+
+urlpatterns = [
+    path(&#39;admin/&#39;, admin.site.urls),
+    path(&#39;comment/&#39;, views.comment),
+]</code></pre>
+<blockquote>
+<p>修改 views.py 文件</p>
+</blockquote>
+<pre><code><code>from django.shortcuts import render, HttpResponse
+from app01 import models
+# Create your views here.
+
+
+class Node:
+
+    @staticmethod
+    def digui(ret, row):
+        for rt in ret:                           #  循环列表 ret
+            if rt[&#39;id&#39;] == row[&#39;parent_id&#39;]:     #  如果 rt 记录中的 id 与 row 的 praent_id 一样，则执行以下操作
+                row[&#39;children&#39;] = []
+                rt[&#39;children&#39;].append(row)       #  在 rt key 为 children 的值中添加 row 记录 
+                return
+            else:
+                Node.digui(rt[&#39;children&#39;], row)  #  递归执行，判断 children 值里面的 id 是否与 row 的 praent_id 一样
+
+    @staticmethod
+    def create_tree(comment_list):
+        ret = []                        #  定义列表 ret
+        for row in comment_list:        #  循环列表
+            if not row[&#39;parent_id&#39;]:    #  如果记录中 parent_id 不会空就执行操作
+                row[&#39;children&#39;] = []
+                ret.append(row)
+            else:
+                Node.digui(ret, row)    #  如果记录中 parent_id 为空就执行操作
+        return ret
+
+
+def comment(request):
+    comment_list = [
+        {&#39;id&#39;: 1, &#39;content&#39;: &#39;Python is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 2, &#39;content&#39;: &#39;Java is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 3, &#39;content&#39;: &#39;PHP is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 4, &#39;content&#39;: &#39;what is best&#39;, &#39;user&#39;: &#39;lily&#39;, &#39;parent_id&#39;: 1},
+        {&#39;id&#39;: 5, &#39;content&#39;: &#39;hahaha&#39;, &#39;user&#39;: &#39;lucy&#39;, &#39;parent_id&#39;: 1},
+        {&#39;id&#39;: 6, &#39;content&#39;: &#39;Today&#39;, &#39;user&#39;: &#39;james&#39;, &#39;parent_id&#39;: 4},
+        {&#39;id&#39;: 7, &#39;content&#39;: &#39;good&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 2},
+        {&#39;id&#39;: 8, &#39;content&#39;: &#39;I do not know&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 3},
+        {&#39;id&#39;: 9, &#39;content&#39;: &#39;en&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: 8},
+        {&#39;id&#39;: 10, &#39;content&#39;: &#39;Hey Python&#39;, &#39;user&#39;: &#39;kim&#39;, &#39;parent_id&#39;: None},
+    ]
+
+    comment_tree = Node.create_tree(comment_list)
+    for i in comment_tree:
+        print(i)
+
+    return HttpResponse(&#39;Comment&#39;)</code></pre>
+<blockquote>
+<p>访问 http://127.0.0.1:8000/comment/, 得到结果：</p>
+</blockquote>
+<pre><code><code>{&#39;parent_id&#39;: None, &#39;user&#39;: &#39;klvchen&#39;, &#39;content&#39;: &#39;Python is best&#39;, &#39;children&#39;: [{&#39;parent_id&#39;: 1, &#39;user&#39;: &#39;lily&#39;, &#39;content&#39;: &#39;what is best&#39;, &#39;children&#39;: [{&#39;parent_id&#39;: 4, &#39;user&#39;: &#39;ja
+mes&#39;, &#39;content&#39;: &#39;Today&#39;, &#39;children&#39;: [], &#39;id&#39;: 6}], &#39;id&#39;: 4}, {&#39;parent_id&#39;: 1, &#39;user&#39;: &#39;lucy&#39;, &#39;content&#39;: &#39;hahaha&#39;, &#39;children&#39;: [], &#39;id&#39;: 5}], &#39;id&#39;: 1}
+{&#39;parent_id&#39;: None, &#39;user&#39;: &#39;klvchen&#39;, &#39;content&#39;: &#39;Java is best&#39;, &#39;children&#39;: [{&#39;parent_id&#39;: 2, &#39;user&#39;: &#39;jack&#39;, &#39;content&#39;: &#39;good&#39;, &#39;children&#39;: [], &#39;id&#39;: 7}], &#39;id&#39;: 2}
+{&#39;parent_id&#39;: None, &#39;user&#39;: &#39;klvchen&#39;, &#39;content&#39;: &#39;PHP is best&#39;, &#39;children&#39;: [{&#39;parent_id&#39;: 3, &#39;user&#39;: &#39;jack&#39;, &#39;content&#39;: &#39;I do not know&#39;, &#39;children&#39;: [{&#39;parent_id&#39;: 8, &#39;user&#39;: &#39;klvc
+hen&#39;, &#39;content&#39;: &#39;en&#39;, &#39;children&#39;: [], &#39;id&#39;: 9}], &#39;id&#39;: 8}], &#39;id&#39;: 3}
+{&#39;parent_id&#39;: None, &#39;user&#39;: &#39;kim&#39;, &#39;content&#39;: &#39;Hey Python&#39;, &#39;children&#39;: [], &#39;id&#39;: 10}</code></pre>
+<hr />
+<h3 id="采用方式二">采用方式二：</h3>
+<p>Python 中字典，列表是引用类型。</p>
+<blockquote>
+<p>新建一个 test.py 文件</p>
+</blockquote>
+<pre><code><code>comment_list = [
+    {&#39;id&#39;: 1, &#39;content&#39;: &#39;Python is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+    {&#39;id&#39;: 2, &#39;content&#39;: &#39;Java is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+    {&#39;id&#39;: 3, &#39;content&#39;: &#39;PHP is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+    {&#39;id&#39;: 4, &#39;content&#39;: &#39;what is best&#39;, &#39;user&#39;: &#39;lily&#39;, &#39;parent_id&#39;: 1},
+    {&#39;id&#39;: 5, &#39;content&#39;: &#39;hahaha&#39;, &#39;user&#39;: &#39;lucy&#39;, &#39;parent_id&#39;: 1},
+    {&#39;id&#39;: 6, &#39;content&#39;: &#39;Today&#39;, &#39;user&#39;: &#39;james&#39;, &#39;parent_id&#39;: 4},
+    {&#39;id&#39;: 7, &#39;content&#39;: &#39;good&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 2},
+    {&#39;id&#39;: 8, &#39;content&#39;: &#39;I do not know&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 3},
+    {&#39;id&#39;: 9, &#39;content&#39;: &#39;en&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: 8},
+    {&#39;id&#39;: 10, &#39;content&#39;: &#39;Hey Python&#39;, &#39;user&#39;: &#39;kim&#39;, &#39;parent_id&#39;: None},
+]
+
+for row in comment_list:
+    row.update({&#39;children&#39;: []})                 #  为每条记录添加一个 children 的 key
+
+ret = []                                         #  定义一个 ret 列表
+for item in comment_list:
+    current_row = item
+    current_row_parent_id = current_row[&#39;parent_id&#39;]
+    if not current_row_parent_id:                #  记录不存在 parent_id 才执行
+        ret.append(item)                         #  ret 列表添加记录
+    else:
+        for r in comment_list:                   #  遍历 comment_list
+            if r[&#39;id&#39;] == current_row_parent_id: #  若记录 r 中的 id 与上面的 current_row[&#39;parent_id&#39;] 相同
+                r[&#39;children&#39;].append(item)       #  把当前记录加入 r[&#39;children&#39;] 中
+
+print(ret)</code></pre>
+<blockquote>
+<p>运行结果</p>
+</blockquote>
+<pre><code><code>[{&#39;content&#39;: &#39;Python is best&#39;, &#39;parent_id&#39;: None, &#39;children&#39;: [{&#39;content&#39;: &#39;what is best&#39;, &#39;parent_id&#39;: 1, &#39;children&#39;: [{&#39;content&#39;: &#39;Today&#39;, &#39;parent_id&#39;: 4, &#39;children&#39;: [], &#39;id&#39;: 6, &#39;user&#39;: &#39;james&#39;}], &#39;id&#39;: 4, &#39;user&#39;: &#39;lily&#39;}, {&#39;content&#39;: &#39;hahaha&#39;, &#39;parent_id&#39;: 1, &#39;children&#39;: [], &#39;id&#39;: 5, &#39;user&#39;: &#39;lucy&#39;}], &#39;id&#39;: 1, &#39;user&#39;: &#39;klvchen&#39;}, {&#39;content&#39;: &#39;Java is best&#39;, &#39;parent_id&#39;: None, &#39;children&#39;: [{&#39;content&#39;: &#39;good&#39;, &#39;parent_id&#39;: 2, &#39;children&#39;: [], &#39;id&#39;: 7, &#39;user&#39;: &#39;jack&#39;}], &#39;id&#39;: 2, &#39;user&#39;: &#39;klvchen&#39;}, {&#39;content&#39;: &#39;PHP is best&#39;, &#39;parent_id&#39;: None, &#39;children&#39;: [{&#39;content&#39;: &#39;I do not know&#39;, &#39;parent_id&#39;: 3, &#39;children&#39;: [{&#39;content&#39;: &#39;en&#39;, &#39;parent_id&#39;: 8, &#39;children&#39;: [], &#39;id&#39;: 9, &#39;user&#39;: &#39;klvchen&#39;}], &#39;id&#39;: 8, &#39;user&#39;: &#39;jack&#39;}], &#39;id&#39;: 3, &#39;user&#39;: &#39;klvchen&#39;}, {&#39;content&#39;: &#39;Hey Python&#39;, &#39;parent_id&#39;: None, &#39;children&#39;: [], &#39;id&#39;: 10, &#39;user&#39;: &#39;kim&#39;}]</code></pre>
+<hr />
+<h3 id="采用方式三">采用方式三：</h3>
+<p>通过字典来优化代码。因为字典是通过键来索引的，关联到相对的值，理论上他的查询复杂度是O(1)。</p>
+<pre><code><code>comment_list = [
+    {&#39;id&#39;: 1, &#39;content&#39;: &#39;Python is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+    {&#39;id&#39;: 2, &#39;content&#39;: &#39;Java is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+    {&#39;id&#39;: 3, &#39;content&#39;: &#39;PHP is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+    {&#39;id&#39;: 4, &#39;content&#39;: &#39;what is best&#39;, &#39;user&#39;: &#39;lily&#39;, &#39;parent_id&#39;: 1},
+    {&#39;id&#39;: 5, &#39;content&#39;: &#39;hahaha&#39;, &#39;user&#39;: &#39;lucy&#39;, &#39;parent_id&#39;: 1},
+    {&#39;id&#39;: 6, &#39;content&#39;: &#39;Today&#39;, &#39;user&#39;: &#39;james&#39;, &#39;parent_id&#39;: 4},
+    {&#39;id&#39;: 7, &#39;content&#39;: &#39;good&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 2},
+    {&#39;id&#39;: 8, &#39;content&#39;: &#39;I do not know&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 3},
+    {&#39;id&#39;: 9, &#39;content&#39;: &#39;en&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: 8},
+    {&#39;id&#39;: 10, &#39;content&#39;: &#39;Hey Python&#39;, &#39;user&#39;: &#39;kim&#39;, &#39;parent_id&#39;: None},
+]
+ret = []
+comment_list_dict = {}
+
+for row in comment_list:                     #   遍历 comment_list
+    row.update({&#39;children&#39;: []})             #   每条记录添加一个 children key
+    comment_list_dict[row[&#39;id&#39;]] = row       #  创建 comment_list_dict 字典，row[&#39;id&#39;] 为 key，vaule 是 row
+
+for item in comment_list:
+    parent_row = comment_list_dict.get(item[&#39;parent_id&#39;])    #  通过 item[&#39;parent_id&#39;] 的获取其父亲记录
+    if not parent_row:                                       #  若没有 parent_id 
+        ret.append(item)                                     #  在 ret 中增加记录
+    else:
+        parent_row[&#39;children&#39;].append(item)                  #   其父亲记录的 children 添加当期记录
+
+print(ret)</code></pre>
+<blockquote>
+<p>运行结果</p>
+</blockquote>
+<pre><code><code>[{&#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None, &#39;id&#39;: 1, &#39;content&#39;: &#39;Python is best&#39;, &#39;children&#39;: [{&#39;user&#39;: &#39;lily&#39;, &#39;parent_id&#39;: 1, &#39;id&#39;: 4, &#39;content&#39;: &#39;what is best&#39;, &#39;children&#39;: [{&#39;user&#39;: &#39;james&#39;, &#39;parent_id&#39;: 4, &#39;id&#39;: 6, &#39;content&#39;: &#39;Today&#39;, &#39;children&#39;: []}]}, {&#39;user&#39;: &#39;lucy&#39;, &#39;parent_id&#39;: 1, &#39;id&#39;: 5, &#39;content&#39;: &#39;hahaha&#39;, &#39;children&#39;: []}]}, {&#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None, &#39;id&#39;: 2, &#39;content&#39;: &#39;Java is best&#39;, &#39;children&#39;: [{&#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 2, &#39;id&#39;: 7, &#39;content&#39;: &#39;good&#39;, &#39;children&#39;: []}]}, {&#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None, &#39;id&#39;: 3, &#39;content&#39;: &#39;PHP is best&#39;, &#39;children&#39;: [{&#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 3, &#39;id&#39;: 8, &#39;content&#39;: &#39;I do not know&#39;, &#39;children&#39;: [{&#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: 8, &#39;id&#39;: 9, &#39;content&#39;: &#39;en&#39;, &#39;children&#39;: []}]}]}, {&#39;user&#39;: &#39;kim&#39;, &#39;parent_id&#39;: None, &#39;id&#39;: 10, &#39;content&#39;: &#39;Hey Python&#39;, &#39;children&#39;: []}]
+</code></pre>
+<h2 id="前端处理评论数据">前端处理评论数据</h2>
+<p>增加 statics 文件夹，放入 jquery.min.js 文件</p>
+<blockquote>
+<p>修改 settings.py</p>
+</blockquote>
+<pre><code><code># 注释
+# &#39;django.middleware.csrf.CsrfViewMiddleware&#39;,
+
+# 在最后添加
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, &quot;statics&quot;),
+]
+</code></pre>
+<blockquote>
+<p>修改 urls.py</p>
+</blockquote>
+<pre><code><code># 添加
+path(&#39;index/&#39;, views.index),</code></pre>
+<blockquote>
+<p>修改 views.py</p>
+</blockquote>
+<pre><code><code>from django.shortcuts import render, HttpResponse
+from app01 import models
+# Create your views here.
+
+
+def index(request):
+    return render(request, &#39;index.html&#39;)
+
+
+def comment(request):
+    news_id = request.GET.get(&#39;news_id&#39;)
+
+    comment_list = [
+        {&#39;id&#39;: 1, &#39;content&#39;: &#39;Python is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 2, &#39;content&#39;: &#39;Java is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 3, &#39;content&#39;: &#39;PHP is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 4, &#39;content&#39;: &#39;what is best&#39;, &#39;user&#39;: &#39;lily&#39;, &#39;parent_id&#39;: 1},
+        {&#39;id&#39;: 5, &#39;content&#39;: &#39;hahaha&#39;, &#39;user&#39;: &#39;lucy&#39;, &#39;parent_id&#39;: 1},
+        {&#39;id&#39;: 6, &#39;content&#39;: &#39;Today&#39;, &#39;user&#39;: &#39;james&#39;, &#39;parent_id&#39;: 4},
+        {&#39;id&#39;: 7, &#39;content&#39;: &#39;good&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 2},
+        {&#39;id&#39;: 8, &#39;content&#39;: &#39;I do not know&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 3},
+        {&#39;id&#39;: 9, &#39;content&#39;: &#39;en&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: 8},
+        {&#39;id&#39;: 10, &#39;content&#39;: &#39;Hey Python&#39;, &#39;user&#39;: &#39;kim&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 10, &#39;content&#39;: &#39;I am god&#39;, &#39;user&#39;: &#39;god&#39;, &#39;parent_id&#39;: 6},
+    ]
+
+    comment_tree = []
+    comment_list_dict = {}
+
+    for row in comment_list:
+        row.update({&#39;children&#39;: []})
+        comment_list_dict[row[&#39;id&#39;]] = row
+
+    for item in comment_list:
+        parent_row = comment_list_dict.get(item[&#39;parent_id&#39;])
+        if not parent_row:
+            comment_tree.append(item)
+        else:
+            parent_row[&#39;children&#39;].append(item)
+
+    import json
+    return HttpResponse(json.dumps(comment_tree))</code></pre>
+<blockquote>
+<p>在templates 下添加 index.html</p>
+</blockquote>
+<pre><code><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+    &lt;style&gt;
+        .comment-box{
+            margin-left: 20px;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;item&quot;&gt;
+        &lt;a news_id=&quot;19&quot; class=&quot;com&quot;&gt;评论&lt;/a&gt;
+        &lt;div class=&quot;comment-box&quot;&gt;
+            &lt;span&gt;Py最牛&lt;/span&gt;
+            &lt;div class=&quot;comment-box&quot;&gt;
+                &lt;span&gt;PHP最牛&lt;/span&gt;
+                &lt;div class=&quot;comment-box&quot;&gt;
+                    &lt;span&gt;what a pity&lt;/span&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;comment-box&quot;&gt;
+                &lt;span&gt;en en en &lt;/span&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;item&quot;&gt;
+        &lt;a news_id=&quot;18&quot; class=&quot;com&quot;&gt;评论&lt;/a&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;item&quot;&gt;
+        &lt;a news_id=&quot;17&quot; class=&quot;com&quot;&gt;评论&lt;/a&gt;
+    &lt;/div&gt;
+
+    &lt;script src=&quot;/static/jquery.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script&gt;
+        $(function () {
+            bindCommentEvent();                         // 初始化 bindCommentEvent() 函数
+        });
+
+        function bindCommentEvent() {
+            $(&#39;.com&#39;).click(function () {               // 添加点击事件
+                var news_id = $(this).attr(&#39;news_id&#39;);  // 获取 news_id
+                var _this = $(this);                    // 获取当前的元素
+
+                $.ajax({
+                    url: &#39;/comment/&#39;,
+                    type: &#39;GET&#39;,
+                    data: {news_id: news_id},
+                    dataType: &quot;JSON&quot;,
+                    success:function (arg) {
+                        create_tree(arg, _this);       // 执行 create_tree() 函数
+                    }
+
+                })
+            })
+        }
+
+        function diGui(children_list) {
+            var html = &quot;&quot;;
+            $.each(children_list, function (ck, cv) {       // 递归 children_list
+                var b = &#39;&lt;div class=&quot;comment-box&quot;&gt;&lt;span&gt;&#39;;  // 拼凑 html 元素
+                b += cv.content + &quot;&lt;/span&gt;&quot;;
+                b += diGui(cv.children);
+                b += &quot;&lt;/div&gt;&quot;;
+                html += b;
+            });
+            return html;
+        }
+
+        function create_tree(data, $this) {
+            var html = &#39;&lt;div class=&quot;comment-list&quot;&gt;&#39;;
+            $.each(data, function (k, v) {
+                var a = &#39;&lt;div class=&quot;comment-box&quot;&gt;&lt;span&gt;&#39;;
+                a += v.content + &quot;&lt;/span&gt;&quot;;
+                // 创建自评论
+                a += diGui(v.children);                // 递归所有子评论
+                a += &quot;&lt;/div&gt;&quot;;
+                html += a;
+            });
+
+            html += &quot;&lt;/div&gt;&quot;
+            $this.append(html)
+
+        }
+
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<blockquote>
+<p>点击评论后，出现下面结果</p>
+</blockquote>
+<p><img src="./images/Django 简单评论实现0.png" /></p>
+<h2 id="后端处理评论数据">后端处理评论数据</h2>
+<blockquote>
+<p>在 views.py 上添加</p>
+</blockquote>
+<pre><code><code>path(&#39;comment/&#39;, views.comment),</code></pre>
+<blockquote>
+<p>在 index.html 出修改</p>
+</blockquote>
+<pre><code><code>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+    &lt;style&gt;
+        .comment-box{
+            margin-left: 20px;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;item&quot;&gt;
+        &lt;a news_id=&quot;19&quot; class=&quot;com&quot;&gt;评论&lt;/a&gt;
+        &lt;div class=&quot;comment-box&quot;&gt;
+            &lt;span&gt;Py最牛&lt;/span&gt;
+            &lt;div class=&quot;comment-box&quot;&gt;
+                &lt;span&gt;PHP最牛&lt;/span&gt;
+                &lt;div class=&quot;comment-box&quot;&gt;
+                    &lt;span&gt;what a pity&lt;/span&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;comment-box&quot;&gt;
+                &lt;span&gt;en en en &lt;/span&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;item&quot;&gt;
+        &lt;a news_id=&quot;18&quot; class=&quot;com&quot;&gt;评论&lt;/a&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;item&quot;&gt;
+        &lt;a news_id=&quot;17&quot; class=&quot;com&quot;&gt;评论&lt;/a&gt;
+    &lt;/div&gt;
+
+    &lt;script src=&quot;/static/jquery.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script&gt;
+        $(function () {
+            bindCommentEvent();
+        });
+
+        function bindCommentEvent() {
+            $(&#39;.com&#39;).click(function () {
+                var news_id = $(this).attr(&#39;news_id&#39;);
+                var _this = $(this);
+
+                $.ajax({
+                    url: &#39;/comment/&#39;,
+                    type: &#39;GET&#39;,
+                    data: {news_id: news_id},
+                    dataType: &quot;html&quot;,
+                    success:function (arg) {
+                        _this.after(arg);                    //  在该元素后添加后台返回的数据
+                    }
+
+                })
+            })
+        }
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<blockquote>
+<p>创建一个 templateags 文件夹，里面创建 klvchen.py 文件</p>
+</blockquote>
+<pre><code><code>from django import template
+from django.utils.safestring import mark_safe
+register = template.Library()
+
+
+def diGui(children_list):
+    html = &quot;&quot;
+    for cv in children_list:
+        b = &#39;&lt;div class=&quot;comment-box&quot;&gt;&lt;span&gt;&#39;
+        b += cv[&#39;content&#39;] + &quot;&lt;/span&gt;&quot;
+        b += diGui(cv[&#39;children&#39;])
+        b += &quot;&lt;/div&gt;&quot;
+        html += b
+    return html
+
+
+@register.simple_tag
+def create_tree(comment_tree):
+    html = &#39;&lt;div class=&quot;comment-list&quot;&gt;&#39;
+    for v in comment_tree:
+        a = &#39;&lt;div class=&quot;comment-box&quot;&gt;&lt;span&gt;&#39;
+        a += v[&#39;content&#39;] + &quot;&lt;/span&gt;&quot;
+        a += diGui(v[&#39;children&#39;])
+        a += &quot;&lt;/div&gt;&quot;
+        html += a
+
+    return mark_safe(html)</code></pre>
+<blockquote>
+<p>在 templates 文件夹里，创建 comment.html 文件</p>
+</blockquote>
+<pre><code><code>{% load klvchen %}
+{% create_tree comment_tree %}</code></pre>
+<blockquote>
+<p>修改 views.py 文件</p>
+</blockquote>
+<pre><code><code>from django.shortcuts import render, HttpResponse
+from app01 import models
+# Create your views here.
+
+
+def index(request):
+    return render(request, &#39;index.html&#39;)
+
+
+def comment(request):
+    news_id = request.GET.get(&#39;news_id&#39;)
+
+    comment_list = [
+        {&#39;id&#39;: 1, &#39;content&#39;: &#39;Python is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 2, &#39;content&#39;: &#39;Java is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 3, &#39;content&#39;: &#39;PHP is best&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 4, &#39;content&#39;: &#39;what is best&#39;, &#39;user&#39;: &#39;lily&#39;, &#39;parent_id&#39;: 1},
+        {&#39;id&#39;: 5, &#39;content&#39;: &#39;hahaha&#39;, &#39;user&#39;: &#39;lucy&#39;, &#39;parent_id&#39;: 1},
+        {&#39;id&#39;: 6, &#39;content&#39;: &#39;Today&#39;, &#39;user&#39;: &#39;james&#39;, &#39;parent_id&#39;: 4},
+        {&#39;id&#39;: 7, &#39;content&#39;: &#39;good&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 2},
+        {&#39;id&#39;: 8, &#39;content&#39;: &#39;I do not know&#39;, &#39;user&#39;: &#39;jack&#39;, &#39;parent_id&#39;: 3},
+        {&#39;id&#39;: 9, &#39;content&#39;: &#39;en&#39;, &#39;user&#39;: &#39;klvchen&#39;, &#39;parent_id&#39;: 8},
+        {&#39;id&#39;: 10, &#39;content&#39;: &#39;Hey Python&#39;, &#39;user&#39;: &#39;kim&#39;, &#39;parent_id&#39;: None},
+        {&#39;id&#39;: 10, &#39;content&#39;: &#39;I am god&#39;, &#39;user&#39;: &#39;god&#39;, &#39;parent_id&#39;: 6},
+    ]
+
+    comment_tree = []
+    comment_list_dict = {}
+
+    for row in comment_list:
+        row.update({&#39;children&#39;: []})
+        comment_list_dict[row[&#39;id&#39;]] = row
+
+    for item in comment_list:
+        parent_row = comment_list_dict.get(item[&#39;parent_id&#39;])
+        if not parent_row:
+            comment_tree.append(item)
+        else:
+            parent_row[&#39;children&#39;].append(item)
+
+    # import json
+    # return HttpResponse(json.dumps(comment_tree))
+    return render(request, &#39;comment.html&#39;, {&#39;comment_tree&#39;: comment_tree})</code></pre>
+<blockquote>
+<p>运行结果</p>
+</blockquote>
+<p><img src="./images/Django 简单评论实现1.png" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

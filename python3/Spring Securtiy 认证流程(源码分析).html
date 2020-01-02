@@ -1,0 +1,668 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Spring Securtiy 认证流程(源码分析)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Spring Securtiy 认证流程(源码分析)</center></div><div class='banquan'>原文出处:本文由博客园博主M-Anonymous提供。<br/>
+原文连接:https://www.cnblogs.com/M-Anonymous/p/12003968.html</div><br>
+    <p>当用 Spring Security 框架进行认证时，你可能会遇到这样的问题：</p>
+<p>你输入的用户名或密码不管是空还是错误，它的错误信息都是&nbsp;Bad credentials。</p>
+<p>那么如果你想根据不同的情况给出相应的错误提示该怎么办呢？</p>
+<p>这个时候我们只有了解 Spring Securiy 认证的流程才能知道如何修改代码。</p>
+<p>好啦，来看下面的例子，大部分人的 WebSecurityConfig 的 configure 代码都类似于下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">    @Override
+    </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span> configure(HttpSecurity http) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub</span>
+<span style="color: #000000;">        http
+        .authorizeRequests()
+        .anyRequest().permitAll()
+        .and()
+        .formLogin().loginPage(</span>"/signin"<span style="color: #000000;">)
+        .usernameParameter(</span>"username"<span style="color: #000000;">)
+        .passwordParameter(</span>"password"<span style="color: #000000;">)
+        .loginProcessingUrl(</span>"/signin"<span style="color: #000000;">)
+        .and()
+        .csrf().disable();
+    }<br /></span></pre>
+</div>
+<p>相信以上代码大家都知道什么意思：任何请求信息都允许，也就是不需要身份认证。</p>
+<p>登录页面请求为 /signin，用户名和密码参数的name属性分别是 username，password。登录页面 form 的 action 请求为 /signin。</p>
+<p>当然这个 action 不必和登录页面请求一样。最后的那个是禁止跨站请求伪造。</p>
+<p>这段代码和登录认证联系较大的应该是从 loginPage() 到 loginProcessingUrl() 里的方法。</p>
+<p>咱先从 loginPage 看起，鼠标左键拖动覆盖 loginPage，然后右键 Open Declaration 就进入到了 FormLoginConfigurer 类。</p>
+<p>这个类里值得注意的方法有两个：构造方法和 loginPage 方法。</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span><span style="color: #000000;"> FormLoginConfigurer() {
+        </span><span style="color: #0000ff;">super</span>(<span style="color: #0000ff;">new</span> UsernamePasswordAuthenticationFilter(), <span style="color: #0000ff;">null</span><span style="color: #000000;">);
+        usernameParameter(</span>"username"<span style="color: #000000;">);
+        passwordParameter(</span>"password"<span style="color: #000000;">);
+    }
+
+    </span><span style="color: #0000ff;">public</span> FormLoginConfigurer&lt;H&gt;<span style="color: #000000;"> loginPage(String loginPage) {
+        </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">super</span><span style="color: #000000;">.loginPage(loginPage);
+    }</span></pre>
+</div>
+<p>构造方法中使用了一个用户名密码认证过滤器类，这一看就和认证有关系。</p>
+<p>loginPage 方法大家可以自行按照这个步骤查看，现在直接看&nbsp;UsernamePasswordAuthenticationFilter 类。</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String SPRING_SECURITY_FORM_USERNAME_KEY = "username"<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String SPRING_SECURITY_FORM_PASSWORD_KEY = "password"<span style="color: #000000;">;
+    </span><span style="color: #0000ff;">private</span> String usernameParameter =<span style="color: #000000;"> SPRING_SECURITY_FORM_USERNAME_KEY;
+    </span><span style="color: #0000ff;">private</span> String passwordParameter =<span style="color: #000000;"> SPRING_SECURITY_FORM_PASSWORD_KEY;
+    </span><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">boolean</span> postOnly = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+
+　　 </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> UsernamePasswordAuthenticationFilter() {
+        </span><span style="color: #0000ff;">super</span>(<span style="color: #0000ff;">new</span> AntPathRequestMatcher("/login", "POST"<span style="color: #000000;">));
+    }
+
+　　 </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Authentication attemptAuthentication(HttpServletRequest request,
+            HttpServletResponse response) </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+        </span><span style="color: #0000ff;">if</span> (postOnly &amp;&amp; !request.getMethod().equals("POST"<span style="color: #000000;">)) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> AuthenticationServiceException(
+                    </span>"Authentication method not supported: " +<span style="color: #000000;"> request.getMethod());
+        }
+        String username </span>=<span style="color: #000000;"> obtainUsername(request);
+        String password </span>=<span style="color: #000000;"> obtainPassword(request);
+        </span><span style="color: #0000ff;">if</span> (username == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            username </span>= ""<span style="color: #000000;">;
+        }
+        </span><span style="color: #0000ff;">if</span> (password == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            password </span>= ""<span style="color: #000000;">;
+        }
+        username </span>=<span style="color: #000000;"> username.trim();
+        UsernamePasswordAuthenticationToken authRequest </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> UsernamePasswordAuthenticationToken(<br />　　　　　　　　username, password);<br />　　　　 </span><span style="color: #000000;">setDetails(request, authRequest);
+        </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">this</span><span style="color: #000000;">.getAuthenticationManager().authenticate(authRequest);
+    }</span></pre>
+</div>
+<p>&nbsp;这只是其中一部分代码，其他的可以自己看。该类中定义的两个字符串和构造方法定义了默认的登录方式。</p>
+<p>登录 action 请求为以 POST 方式的 /login，用户名及密码分别以 username，password 属性值获取。</p>
+<p>该类的父类的父类&nbsp;GenericFilterBean 实现了&nbsp;InitializingBean 接口，也就是会初始化为一个 Bean。</p>
+<p>当看到&nbsp;attemptAuthentication 时，就知道他是认证的方法啦。</p>
+<p>这里咱直接看到 new UsernamePasswordAuthenticationToken(username, password);</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span><span style="color: #000000;"> UsernamePasswordAuthenticationToken(Object principal, Object credentials) {
+        </span><span style="color: #0000ff;">super</span>(<span style="color: #0000ff;">null</span><span style="color: #000000;">);
+        </span><span style="color: #0000ff;">this</span>.principal =<span style="color: #000000;"> principal;
+        </span><span style="color: #0000ff;">this</span>.credentials =<span style="color: #000000;"> credentials;
+        setAuthenticated(</span><span style="color: #0000ff;">false</span><span style="color: #000000;">);
+    }</span></pre>
+</div>
+<p>从这里可以知道，它把用户名和密码分别存在了 principal，credentials 里。</p>
+<p>现在我们只需要记住登录信息存在了&nbsp;authRequest 里。现在来看下setDetails，虽然我不感兴趣。</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> setDetails(HttpServletRequest request,
+            UsernamePasswordAuthenticationToken authRequest) {
+        authRequest.setDetails(authenticationDetailsSource.buildDetails(request));
+    }</span></pre>
+</div>
+<p>它调用了一个&nbsp;buildDetails 方法，实际上是调用的：(追根溯源可以看到)</p>
+<div class="cnblogs_code">
+<pre><code>    <br />/**<br />&nbsp; * Records the remote address and will also set the session Id if a session already<br />&nbsp; * exists (it won't create one).<br />&nbsp; *<br />&nbsp; * @param request that the authentication request was received from<br />&nbsp; */<br /><span style="color: #0000ff;">public</span><span style="color: #000000;"> WebAuthenticationDetails(HttpServletRequest request) {
+        </span><span style="color: #0000ff;">this</span>.remoteAddress =<span style="color: #000000;"> request.getRemoteAddr();
+
+        HttpSession session </span>= request.getSession(<span style="color: #0000ff;">false</span><span style="color: #000000;">);
+        </span><span style="color: #0000ff;">this</span>.sessionId = (session != <span style="color: #0000ff;">null</span>) ? session.getId() : <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+    }</span></pre>
+</div>
+<p>从源码注释可以看到，它是记录远程地址并且会设置一个会话 ID，这里我们不管它了。</p>
+<p>直接看这一句：<span data-mce-="">return <span data-mce-="">this<span data-mce-="">.getAuthenticationManager().authenticate(authRequest);</span></span></span></p>
+<p>它调用的是一个实现了&nbsp;AuthenticationManager 接口的类的&nbsp;authenticate 方法。</p>
+<p>从源码中我们找不到它用的是哪个实现类，网上说是 ProviderManager 类，我们来看一下该类。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> ProviderManager <span style="color: #0000ff;">implements</span><span style="color: #000000;"> AuthenticationManager, MessageSourceAware,
+        InitializingBean {
+　　</span><span style="color: #0000ff;">public</span><span style="color: #000000;"> Authentication authenticate(Authentication authentication)
+            </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+        Class</span>&lt;? <span style="color: #0000ff;">extends</span> Authentication&gt; toTest =<span style="color: #000000;"> authentication.getClass();
+        AuthenticationException lastException </span>= <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        AuthenticationException parentException </span>= <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        Authentication result </span>= <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        Authentication parentResult </span>= <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        </span><span style="color: #0000ff;">boolean</span> debug =<span style="color: #000000;"> logger.isDebugEnabled();
+
+        </span><span style="color: #0000ff;">for</span><span style="color: #000000;"> (AuthenticationProvider provider : getProviders()) {
+            </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">provider.supports(toTest)) {
+                </span><span style="color: #0000ff;">continue</span><span style="color: #000000;">;
+            }
+
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (debug) {
+                logger.debug(</span>"Authentication attempt using "
+                        +<span style="color: #000000;"> provider.getClass().getName());
+            }
+
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                result </span>=<span style="color: #000000;"> provider.authenticate(authentication);
+
+                </span><span style="color: #0000ff;">if</span> (result != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                    copyDetails(authentication, result);
+                    </span><span style="color: #0000ff;">break</span><span style="color: #000000;">;
+                }
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (AccountStatusException e) {
+                prepareException(e, authentication);
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> SEC-546: Avoid polling additional providers if auth failure is due to
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> invalid account status</span>
+                <span style="color: #0000ff;">throw</span><span style="color: #000000;"> e;
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (InternalAuthenticationServiceException e) {
+                prepareException(e, authentication);
+                </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> e;
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (AuthenticationException e) {
+                lastException </span>=<span style="color: #000000;"> e;
+            }
+        }
+
+        </span><span style="color: #0000ff;">if</span> (result == <span style="color: #0000ff;">null</span> &amp;&amp; parent != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> Allow the parent to try.</span>
+            <span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                result </span>= parentResult =<span style="color: #000000;"> parent.authenticate(authentication);
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (ProviderNotFoundException e) {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> ignore as we will throw below if no other exception occurred prior to
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> calling parent and the parent
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> may throw ProviderNotFound even though a provider in the child already
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> handled the request</span>
+<span style="color: #000000;">            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (AuthenticationException e) {
+                lastException </span>= parentException =<span style="color: #000000;"> e;
+            }
+        }
+
+        </span><span style="color: #0000ff;">if</span> (result != <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (eraseCredentialsAfterAuthentication
+                    </span>&amp;&amp; (result <span style="color: #0000ff;">instanceof</span><span style="color: #000000;"> CredentialsContainer)) {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> Authentication is complete. Remove credentials and other secret data
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> from authentication</span>
+<span style="color: #000000;">                ((CredentialsContainer) result).eraseCredentials();
+            }
+
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> If the parent AuthenticationManager was attempted and successful than it will publish an AuthenticationSuccessEvent
+            </span><span style="color: #008000;">//</span><span style="color: #008000;"> This check prevents a duplicate AuthenticationSuccessEvent if the parent AuthenticationManager already published it</span>
+            <span style="color: #0000ff;">if</span> (parentResult == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                eventPublisher.publishAuthenticationSuccess(result);
+            }
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> result;
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> Parent was null, or didn't authenticate (or throw an exception).</span>
+
+        <span style="color: #0000ff;">if</span> (lastException == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            lastException </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> ProviderNotFoundException(messages.getMessage(
+                    </span>"ProviderManager.providerNotFound"<span style="color: #000000;">,
+                    </span><span style="color: #0000ff;">new</span><span style="color: #000000;"> Object[] { toTest.getName() },
+                    </span>"No AuthenticationProvider found for {0}"<span style="color: #000000;">));
+        }
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> If the parent AuthenticationManager was attempted and failed than it will publish an AbstractAuthenticationFailureEvent
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> This check prevents a duplicate AbstractAuthenticationFailureEvent if the parent AuthenticationManager already published it</span>
+        <span style="color: #0000ff;">if</span> (parentException == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            prepareException(lastException, authentication);
+        }
+
+        </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> lastException;
+    }
+}</span></pre>
+</div>
+<p>这里我只给出该类的声明和 authenticate 方法，从类的声明可以看出来它也会初始化为一个 Bean，咱找不到很正常对吧。</p>
+<p>authenticate 方法会遍历所有的&nbsp;AuthenticationProvider ，然后调用 provider 的&nbsp;authenticate 方法。</p>
+<p>如果认证结果不为空的话将会保存到 result 中，并且擦除认证信息再返回 result。</p>
+<p>为空的话一般是没有提供&nbsp;AuthenticationProvider，会报&nbsp;ProviderNotFoundException 错误。</p>
+<p>现在我们来看下 provider 的&nbsp;authenticate 方法。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">    @Bean
+    </span><span style="color: #0000ff;">public</span><span style="color: #000000;"> AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider </span>= <span style="color: #0000ff;">new</span><span style="color: #000000;"> CustomAuthenticationProvider();
+        provider.setMessageSource(messageSource);
+        provider.setUserDetailsService(userService);
+        provider.setPasswordEncoder(</span><span style="color: #0000ff;">new</span><span style="color: #000000;"> BCryptPasswordEncoder());
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> provider;
+    }</span></pre>
+</div>
+<p>这个是我写的一个&nbsp;AuthenticationProvider，只不过我重写了一个类继承了 DaoAuthenticationProvider。</p>
+<p>这里我们来看 DaoAuthenticationProvider 类：(这个类里面并没有发现&nbsp;&nbsp;authenticate 方法，那先从它的父类找)</p>
+<p>父类是 AbstractUserDetailsAuthenticationProvider，它也实现了 InitializingBean 接口，也是初始化为一个 Bean。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span><span style="color: #000000;"> Authentication authenticate(Authentication authentication)
+            </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+        Assert.isInstanceOf(UsernamePasswordAuthenticationToken.</span><span style="color: #0000ff;">class</span><span style="color: #000000;">, authentication,
+                () </span>-&gt;<span style="color: #000000;"> messages.getMessage(
+                        </span>"AbstractUserDetailsAuthenticationProvider.onlySupports"<span style="color: #000000;">,
+                        </span>"Only UsernamePasswordAuthenticationToken is supported"<span style="color: #000000;">));
+
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> Determine username</span>
+        String username = (authentication.getPrincipal() == <span style="color: #0000ff;">null</span>) ? "NONE_PROVIDED"<span style="color: #000000;">
+                : authentication.getName();
+
+        </span><span style="color: #0000ff;">boolean</span> cacheWasUsed = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+        UserDetails user </span>= <span style="color: #0000ff;">this</span><span style="color: #000000;">.userCache.getUserFromCache(username);
+
+        </span><span style="color: #0000ff;">if</span> (user == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            cacheWasUsed </span>= <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                user </span>=<span style="color: #000000;"> retrieveUser(username,
+                        (UsernamePasswordAuthenticationToken) authentication);
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (UsernameNotFoundException notFound) {
+                logger.debug(</span>"User '" + username + "' not found"<span style="color: #000000;">);
+
+                </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (hideUserNotFoundExceptions) {
+                    </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                            </span>"AbstractUserDetailsAuthenticationProvider.badCredentials"<span style="color: #000000;">,
+                            </span>"Bad credentials"<span style="color: #000000;">));
+                }
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                    </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> notFound;
+                }
+            }
+
+            Assert.notNull(user,
+                    </span>"retrieveUser returned null - a violation of the interface contract"<span style="color: #000000;">);
+        }
+
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            preAuthenticationChecks.check(user);
+            additionalAuthenticationChecks(user,
+                    (UsernamePasswordAuthenticationToken) authentication);
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (AuthenticationException exception) {
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (cacheWasUsed) {
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> There was a problem, so try again after checking
+                </span><span style="color: #008000;">//</span><span style="color: #008000;"> we're using latest data (i.e. not from the cache)</span>
+                cacheWasUsed = <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+                user </span>=<span style="color: #000000;"> retrieveUser(username,
+                        (UsernamePasswordAuthenticationToken) authentication);
+                preAuthenticationChecks.check(user);
+                additionalAuthenticationChecks(user,
+                        (UsernamePasswordAuthenticationToken) authentication);
+            }
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> exception;
+            }
+        }
+
+        postAuthenticationChecks.check(user);
+
+        </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">cacheWasUsed) {
+            </span><span style="color: #0000ff;">this</span><span style="color: #000000;">.userCache.putUserInCache(user);
+        }
+
+        Object principalToReturn </span>=<span style="color: #000000;"> user;
+
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (forcePrincipalAsString) {
+            principalToReturn </span>=<span style="color: #000000;"> user.getUsername();
+        }
+
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> createSuccessAuthentication(principalToReturn, authentication, user);
+    }<br /></span></pre>
+</div>
+<p>&nbsp;在这段代码中可以知道：如果 authentication.getPrincipal() 为空的话，username 将会为&nbsp;NONE_PROVIDED。</p>
+<p>不为空的话将会得到 authentication.getPrincipal()，也就是用户名，只是这种类型不是 String 类型，但可以强制转换。</p>
+<p>代码中是&nbsp;authentication.getName()，这种和上面基本一样，只不过该类型是 String 类型的。</p>
+<p>然后定义一个 user，先尝试从缓存中获取 user，没获取到的话就通过&nbsp;retrieveUser 获取。</p>
+<p>该类中 retrieveUser 是一个抽象方法，我们现在来看 DaoAuthenticationProvider 类里的方法。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span><span style="color: #000000;"> UserDetails retrieveUser(String username,
+            UsernamePasswordAuthenticationToken authentication)
+            </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+        prepareTimingAttackProtection();
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            UserDetails loadedUser </span>= <span style="color: #0000ff;">this</span><span style="color: #000000;">.getUserDetailsService().loadUserByUsername(username);
+            </span><span style="color: #0000ff;">if</span> (loadedUser == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+                </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> InternalAuthenticationServiceException(
+                        </span>"UserDetailsService returned null, which is an interface contract violation"<span style="color: #000000;">);
+            }
+            </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> loadedUser;
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (UsernameNotFoundException ex) {
+            mitigateAgainstTimingAttack(authentication);
+            </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> ex;
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (InternalAuthenticationServiceException ex) {
+            </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> ex;
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (Exception ex) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> InternalAuthenticationServiceException(ex.getMessage(), ex);
+        }
+    }</span></pre>
+</div>
+<p>从代码中可以看到是通过我们之前写的 UserDetailsService 方法获取用户。</p>
+<p>接下来我们看后面的代码，这部分异常代码我们等会再看。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            preAuthenticationChecks.check(user);
+            additionalAuthenticationChecks(user,
+                    (UsernamePasswordAuthenticationToken) authentication);
+        }</span></pre>
+</div>
+<p>这两句代码是对用户进行检查的，第一行代码调用的其实是这部分的：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">private</span> <span style="color: #0000ff;">class</span> DefaultPreAuthenticationChecks <span style="color: #0000ff;">implements</span><span style="color: #000000;"> UserDetailsChecker {
+        </span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> check(UserDetails user) {
+            </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">user.isAccountNonLocked()) {
+                logger.debug(</span>"User account is locked"<span style="color: #000000;">);
+
+                </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> LockedException(messages.getMessage(
+                        </span>"AbstractUserDetailsAuthenticationProvider.locked"<span style="color: #000000;">,
+                        </span>"User account is locked"<span style="color: #000000;">));
+            }
+
+            </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">user.isEnabled()) {
+                logger.debug(</span>"User account is disabled"<span style="color: #000000;">);
+
+                </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> DisabledException(messages.getMessage(
+                        </span>"AbstractUserDetailsAuthenticationProvider.disabled"<span style="color: #000000;">,
+                        </span>"User is disabled"<span style="color: #000000;">));
+            }
+
+            </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">user.isAccountNonExpired()) {
+                logger.debug(</span>"User account is expired"<span style="color: #000000;">);
+
+                </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> AccountExpiredException(messages.getMessage(
+                        </span>"AbstractUserDetailsAuthenticationProvider.expired"<span style="color: #000000;">,
+                        </span>"User account has expired"<span style="color: #000000;">));
+            }
+        }
+    }</span></pre>
+</div>
+<p>可以看到并不是检查密码的，只是对用户状态进行检查。那么我们不管它了，看下一行代码：</p>
+<div class="cnblogs_code">
+<pre><code>@SuppressWarnings("deprecation"<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> additionalAuthenticationChecks(UserDetails userDetails,
+            UsernamePasswordAuthenticationToken authentication)
+            </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+        </span><span style="color: #0000ff;">if</span> (authentication.getCredentials() == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            logger.debug(</span>"Authentication failed: no credentials provided"<span style="color: #000000;">);
+
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                    </span>"AbstractUserDetailsAuthenticationProvider.badCredentials"<span style="color: #000000;">,
+                    </span>"Bad credentials"<span style="color: #000000;">));
+        }
+
+        String presentedPassword </span>=<span style="color: #000000;"> authentication.getCredentials().toString();
+
+        </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">passwordEncoder.matches(presentedPassword, userDetails.getPassword())) {
+            logger.debug(</span>"Authentication failed: password does not match stored value"<span style="color: #000000;">);
+
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                    </span>"AbstractUserDetailsAuthenticationProvider.badCredentials"<span style="color: #000000;">,
+                    </span>"Bad credentials"<span style="color: #000000;">));
+        }
+    }</span></pre>
+</div>
+<p>这里有个获取密码的操作：authentication.getCredentials()。</p>
+<p>然后如果密码不为空的话就通过 passwordEncoder.matches(presentedPassword, userDetails.getPassword() 检查是否匹配。</p>
+<p>如果匹配成功的话，嗯，这部分结束了，我们回到 AbstractUserDetailsAuthenticationProvider 类里的&nbsp;authenticate 方法。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">return</span> createSuccessAuthentication(principalToReturn, authentication, user);</pre>
+</div>
+<p>它会返回一个创建成功认证方法的返回值。这里我们就不管了。</p>
+<p>现在我们先回到AbstractUserDetailsAuthenticationProvider 类的错误处理上：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                user </span>=<span style="color: #000000;"> retrieveUser(username,
+                        (UsernamePasswordAuthenticationToken) authentication);
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (UsernameNotFoundException notFound) {
+                logger.debug(</span>"User '" + username + "' not found"<span style="color: #000000;">);
+
+                </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (hideUserNotFoundExceptions) {
+                    </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                            </span>"AbstractUserDetailsAuthenticationProvider.badCredentials"<span style="color: #000000;">,
+                            </span>"Bad credentials"<span style="color: #000000;">));
+                }
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                    </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> notFound;
+                }
+            }</span></pre>
+</div>
+<p>这个是用户找不到引起的错误，我们看下 messages.getMessage()：</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span><span style="color: #000000;"> String getMessage(String code, String defaultMessage) {
+        String msg </span>= <span style="color: #0000ff;">this</span>.messageSource.getMessage(code, <span style="color: #0000ff;">null</span><span style="color: #000000;">, defaultMessage, getDefaultLocale());
+        </span><span style="color: #0000ff;">return</span> (msg != <span style="color: #0000ff;">null</span> ? msg : ""<span style="color: #000000;">);
+    }</span></pre>
+</div>
+<p>再来看下这个里面的 getMessage()：</p>
+<p>它是一个接口类里的方法：根据 code 返回 messageSource 里的字符串，如果不存在这个 code，就返回 defaultMessage。</p>
+<p>既然是个接口类，那我们看下它的实现类，回到 messageSource，查看一下它：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> SpringSecurityMessageSource <span style="color: #0000ff;">extends</span><span style="color: #000000;"> ResourceBundleMessageSource {
+    </span><span style="color: #008000;">//</span><span style="color: #008000;"> ~ Constructors
+    </span><span style="color: #008000;">//</span><span style="color: #008000;"> ===================================================================================================</span>
+
+    <span style="color: #0000ff;">public</span><span style="color: #000000;"> SpringSecurityMessageSource() {
+        setBasename(</span>"org.springframework.security.messages"<span style="color: #000000;">);
+    }
+
+    </span><span style="color: #008000;">//</span><span style="color: #008000;"> ~ Methods
+    </span><span style="color: #008000;">//</span><span style="color: #008000;"> ========================================================================================================</span>
+
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span><span style="color: #000000;"> MessageSourceAccessor getAccessor() {
+        </span><span style="color: #0000ff;">return</span> <span style="color: #0000ff;">new</span> MessageSourceAccessor(<span style="color: #0000ff;">new</span><span style="color: #000000;"> SpringSecurityMessageSource());
+    }
+}</span></pre>
+</div>
+<p>原来是从这个路径里找数据源。</p>
+<p>其他的错误处理也是一样，这里就省略了。那我们如何获取错误信息呢？</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">    @Override
+    </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span> configure(HttpSecurity http) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> Exception {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub</span>
+<span style="color: #000000;">        http
+        .authorizeRequests()
+        .anyRequest().permitAll()
+        .and()
+        .formLogin().loginPage(</span>"/signin"<span style="color: #000000;">)
+        .usernameParameter(</span>"username"<span style="color: #000000;">)
+        .passwordParameter(</span>"password"<span style="color: #000000;">)
+        .loginProcessingUrl(</span>"/signin"<span style="color: #000000;">)
+        .failureHandler(authenticationFailureHandler)
+        .and()
+        .csrf().disable();</span></pre>
+</div>
+<p>看到那个 failureHandler 没，这个是登录失败处理器，这里加上只是看一下里面源码：AbstractAuthenticationFilterConfigurer</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #008000;">/**</span><span style="color: #008000;">
+     * Specifies the {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> AuthenticationFailureHandler} to use when authentication
+     * fails. The default is redirecting to "/login?error" using
+     * {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> SimpleUrlAuthenticationFailureHandler}
+     *
+     * </span><span style="color: #808080;">@param</span><span style="color: #008000;"> authenticationFailureHandler the {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> AuthenticationFailureHandler} to use
+     * when authentication fails.
+     * </span><span style="color: #808080;">@return</span><span style="color: #008000;"> the {</span><span style="color: #808080;">@link</span><span style="color: #008000;"> FormLoginConfigurer} for additional customization
+     </span><span style="color: #008000;">*/</span>
+    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">final</span><span style="color: #000000;"> T failureHandler(
+            AuthenticationFailureHandler authenticationFailureHandler) {
+        </span><span style="color: #0000ff;">this</span>.failureUrl = <span style="color: #0000ff;">null</span><span style="color: #000000;">;
+        </span><span style="color: #0000ff;">this</span>.failureHandler =<span style="color: #000000;"> authenticationFailureHandler;
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> getSelf();
+    }</span></pre>
+</div>
+<p>从注释中可以看出默认的失败处理器是&nbsp;SimpleUrlAuthenticationFailureHandler：</p>
+<div class="cnblogs_code">
+<pre><code>    <span style="color: #0000ff;">public</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> onAuthenticationFailure(HttpServletRequest request,
+            HttpServletResponse response, AuthenticationException exception)
+            </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> IOException, ServletException {
+
+        </span><span style="color: #0000ff;">if</span> (defaultFailureUrl == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            logger.debug(</span>"No failure URL set, sending 401 Unauthorized error"<span style="color: #000000;">);
+
+            response.sendError(HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase());
+        }
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            saveException(request, exception);
+
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (forwardToDestination) {
+                logger.debug(</span>"Forwarding to " +<span style="color: #000000;"> defaultFailureUrl);
+
+                request.getRequestDispatcher(defaultFailureUrl)
+                        .forward(request, response);
+            }
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                logger.debug(</span>"Redirecting to " +<span style="color: #000000;"> defaultFailureUrl);
+                redirectStrategy.sendRedirect(request, response, defaultFailureUrl);
+            }
+        }
+    }</span></pre>
+</div>
+<p>因为默认的 defaultFailureUrl 为 /login?error，从 AbstractAuthenticationFilterConfigurer 类里可以看出来。</p>
+<p>登录失败后，会调用&nbsp;saveException(request, exception); 保存错误信息。</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">final</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> saveException(HttpServletRequest request,
+            AuthenticationException exception) {
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (forwardToDestination) {
+            request.setAttribute(WebAttributes.AUTHENTICATION_EXCEPTION, exception);
+        }
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+            HttpSession session </span>= request.getSession(<span style="color: #0000ff;">false</span><span style="color: #000000;">);
+
+            </span><span style="color: #0000ff;">if</span> (session != <span style="color: #0000ff;">null</span> ||<span style="color: #000000;"> allowSessionCreation) {
+                request.getSession().setAttribute(WebAttributes.AUTHENTICATION_EXCEPTION,
+                        exception);
+            }
+        }
+    }</span></pre>
+</div>
+<p>由于该类中&nbsp;forwardToDestination 为 false，它将执行 else 里的语句。</p>
+<p>将错误信息保存到会话的&nbsp;WebAttributes.AUTHENTICATION_EXCEPTION 属性中：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">static</span> <span style="color: #0000ff;">final</span> String AUTHENTICATION_EXCEPTION = "SPRING_SECURITY_LAST_EXCEPTION";</pre>
+</div>
+<p>所有我们可以通过会话的这个属性来获取错误信息。(thymeleaf)</p>
+<p>(注意：signin.html 不能放在 static 目录下，不然获取不到错误信息。)</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">p </span><span style="color: #ff0000;">th:if</span><span style="color: #0000ff;">="${param.error}"</span><span style="color: #ff0000;"> th:text</span><span style="color: #0000ff;">="${session?.SPRING_SECURITY_LAST_EXCEPTION?.message}"</span> <span style="color: #0000ff;">&gt;&lt;/</span><span style="color: #800000;">p</span><span style="color: #0000ff;">&gt;</span></pre>
+</div>
+<p>好啦，都介绍完了，可以看下我的&nbsp;CustomAuthenticationProvider：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">package</span><span style="color: #000000;"> security.config;
+
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.security.authentication.BadCredentialsException;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.security.core.Authentication;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.security.core.AuthenticationException;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.security.core.userdetails.UserDetails;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.security.core.userdetails.UsernameNotFoundException;
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> org.springframework.util.Assert;
+
+</span><span style="color: #0000ff;">public</span> <span style="color: #0000ff;">class</span> CustomAuthenticationProvider <span style="color: #0000ff;">extends</span><span style="color: #000000;"> DaoAuthenticationProvider {
+    
+    @Override
+    </span><span style="color: #0000ff;">protected</span> <span style="color: #0000ff;">void</span><span style="color: #000000;"> additionalAuthenticationChecks(UserDetails userDetails,
+            UsernamePasswordAuthenticationToken authentication) </span><span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub</span>
+<span style="color: #000000;">
+        String presentedPassword </span>=<span style="color: #000000;"> authentication.getCredentials().toString();
+        </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">getPasswordEncoder().matches(presentedPassword, userDetails.getPassword())) {
+            logger.debug(</span>"Authentication failed: password does not match stored value"<span style="color: #000000;">);
+
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                    </span>"UNameOrPwdIsError","Username or Password is not correct"<span style="color: #000000;">));
+        }
+    }
+
+    @Override
+    </span><span style="color: #0000ff;">public</span> Authentication authenticate(Authentication authentication) <span style="color: #0000ff;">throws</span><span style="color: #000000;"> AuthenticationException {
+        </span><span style="color: #008000;">//</span><span style="color: #008000;"> TODO Auto-generated method stub</span>
+        Assert.isInstanceOf(UsernamePasswordAuthenticationToken.<span style="color: #0000ff;">class</span><span style="color: #000000;">, authentication,
+                () </span>-&gt;<span style="color: #000000;"> messages.getMessage(
+                        </span>"AbstractUserDetailsAuthenticationProvider.onlySupports"<span style="color: #000000;">,
+                        </span>"Only UsernamePasswordAuthenticationToken is supported"<span style="color: #000000;">));
+
+        </span><span style="color: #0000ff;">if</span>(""<span style="color: #000000;">.equals(authentication.getPrincipal())) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                    </span>"UsernameIsNull","Username cannot be empty"<span style="color: #000000;">));
+        }
+        </span><span style="color: #0000ff;">if</span>(""<span style="color: #000000;">.equals(authentication.getCredentials())) {
+            </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                    </span>"PasswordIsNull","Password cannot be empty"<span style="color: #000000;">));
+        }
+        
+        String username </span>=<span style="color: #000000;"> (String) authentication.getPrincipal();
+        </span><span style="color: #0000ff;">boolean</span> cacheWasUsed = <span style="color: #0000ff;">true</span><span style="color: #000000;">;
+        UserDetails user </span>= <span style="color: #0000ff;">this</span><span style="color: #000000;">.getUserCache().getUserFromCache(username);
+        </span><span style="color: #0000ff;">if</span> (user == <span style="color: #0000ff;">null</span><span style="color: #000000;">) {
+            cacheWasUsed </span>= <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+                user </span>=<span style="color: #000000;"> retrieveUser(username,
+                        (UsernamePasswordAuthenticationToken) authentication);
+            }
+            </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (UsernameNotFoundException notFound) {
+                logger.debug(</span>"User '" + username + "' not found"<span style="color: #000000;">);
+
+                </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (hideUserNotFoundExceptions) {
+                    </span><span style="color: #0000ff;">throw</span> <span style="color: #0000ff;">new</span><span style="color: #000000;"> BadCredentialsException(messages.getMessage(
+                            </span>"UNameOrPwdIsError","Username or Password is not correct"<span style="color: #000000;">));
+                }
+                </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                    </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> notFound;
+                }
+            }
+            Assert.notNull(user,
+                    </span>"retrieveUser returned null - a violation of the interface contract"<span style="color: #000000;">);
+        }
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> {
+            getPreAuthenticationChecks().check(user);
+            additionalAuthenticationChecks(user,
+                    (UsernamePasswordAuthenticationToken) authentication);
+        }
+        </span><span style="color: #0000ff;">catch</span><span style="color: #000000;"> (AuthenticationException exception) {
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (cacheWasUsed) {
+                cacheWasUsed </span>= <span style="color: #0000ff;">false</span><span style="color: #000000;">;
+                user </span>=<span style="color: #000000;"> retrieveUser(username,
+                        (UsernamePasswordAuthenticationToken) authentication);
+                getPreAuthenticationChecks().check(user);
+                additionalAuthenticationChecks(user,
+                        (UsernamePasswordAuthenticationToken) authentication);
+            }
+            </span><span style="color: #0000ff;">else</span><span style="color: #000000;"> {
+                </span><span style="color: #0000ff;">throw</span><span style="color: #000000;"> exception;
+            }
+        }
+
+        getPostAuthenticationChecks().check(user);
+
+        </span><span style="color: #0000ff;">if</span> (!<span style="color: #000000;">cacheWasUsed) {
+            </span><span style="color: #0000ff;">this</span><span style="color: #000000;">.getUserCache().putUserInCache(user);
+        }
+
+        Object principalToReturn </span>=<span style="color: #000000;"> user;
+
+        </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> (isForcePrincipalAsString()) {
+            principalToReturn </span>=<span style="color: #000000;"> user.getUsername();
+        }
+
+        </span><span style="color: #0000ff;">return</span><span style="color: #000000;"> createSuccessAuthentication(principalToReturn, authentication, user);
+    }
+    
+
+}</span></pre>
+</div>
+<p>这里值得注意的是&nbsp;""<span data-mce-="">.equals(authentication.getPrincipal())，""<span data-mce-="">.equals(authentication.getCredentials())</span></span></p>
+<p><span data-mce-="">因为如果按照那个&nbsp;AbstractUserDetailsAuthenticationProvider 类来写的话，发现这一步永不为 null。</span></p>
+<p><span data-mce-="">我通过加入代码 System.out.println(username);&nbsp; 才知道的，应该是个坑吧。</span></p>
+<p><span data-mce-="">项目代码可供大家参考：</span></p>
+<p>链接：https://pan.baidu.com/s/13fc6P9NV49aRRBctr3MjNQ <br />提取码：4qgu</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

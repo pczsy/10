@@ -1,0 +1,256 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Hadoop完全分布式集群搭建' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Hadoop完全分布式集群搭建</center></div><div class='banquan'>原文出处:本文由博客园博主万猫学社提供。<br/>
+原文连接:https://www.cnblogs.com/heihaozi/p/12020688.html</div><br>
+    <h3 id="hadoop的运行模式">Hadoop的运行模式</h3>
+<p>Hadoop一般有三种运行模式，分别是：</p>
+<ul>
+<li>单机模式（Standalone Mode），默认情况下，Hadoop即处于该模式，使用本地文件系统，而不是分布式文件系统。，用于开发和调试。</li>
+<li>伪分布式模式（Pseudo Distrubuted Mode），使用的是分布式文件系统，守护进程运行在本机机器，模拟一个小规模的集群，在一台主机模拟多主机，适合模拟集群学习。</li>
+<li>完全分布式集群模式（Full Distributed Mode），Hadoop的守护进程运行在由多台主机搭建的集群上，是真正的生产环境。</li>
+</ul>
+<p>这里介绍的就是如何搭建一个Hadoop完全分布式集群。</p>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h3 id="安装环境介绍">安装环境介绍</h3>
+<p>准备了四个服务器，IP为192.168.0.236、192.168.0.237、192.168.0.238、192.168.0.239，其中192.168.0.236作为主节点，其他3个作为从节点。具体版本信息如下：</p>
+<ul>
+<li>CentOS 7.4</li>
+<li>JDK 8</li>
+<li>Hadoop 2.10.0</li>
+</ul>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h3 id="准备安装环境">准备安装环境</h3>
+<h4 id="设置主机名">设置主机名</h4>
+<p>在各个服务器上修改对应的主机名：</p>
+<pre><code><code>#在192.168.0.236上执行：
+hostnamectl set-hostname onemore-hadoop-master
+
+#在192.168.0.237上执行：
+hostnamectl set-hostname onemore-hadoop-slave1
+
+#在192.168.0.238上执行：
+hostnamectl set-hostname onemore-hadoop-slave2
+
+#在192.168.0.239上执行：
+hostnamectl set-hostname onemore-hadoop-slave3</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h4 id="关闭selinux">关闭SELINUX</h4>
+<p>编辑/etc/selinux/config文件：</p>
+<pre><code><code>vi /etc/selinux/config</code></pre>
+<p>把</p>
+<pre><code><code>SELINUX=enforcing</code></pre>
+<p>修改为：</p>
+<pre><code><code>SELINUX=disabled</code></pre>
+<p>重启服务器</p>
+<pre><code><code>reboot</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h4 id="设置hosts">设置hosts</h4>
+<pre><code><code>cat &gt;&gt; /etc/hosts &lt;&lt;EOF
+
+192.168.0.236 onemore-hadoop-master
+192.168.0.237 onemore-hadoop-slave1
+192.168.0.238 onemore-hadoop-slave2
+192.168.0.239 onemore-hadoop-slave3
+EOF</code></pre>
+<h4 id="关闭防火墙">关闭防火墙</h4>
+<p>停止防火墙</p>
+<pre><code><code>systemctl stop firewalld.service</code></pre>
+<p>禁止防火墙开机启动</p>
+<pre><code><code>systemctl disable firewalld.service</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h4 id="设置免密登录">设置免密登录</h4>
+<p>分布式集群搭建需要主节点能够免密登录至各个从节点上。因此，需要在主节点上生成公钥，把将主节点的公钥在从节点中加入授权。</p>
+<ol>
+<li>在192.168.0.236上生成公钥。</li>
+</ol>
+<pre><code><code>ssh-keygen -t rsa</code></pre>
+<ol>
+<li>在192.168.0.236上，把公钥发送到各个从节点</li>
+</ol>
+<pre><code><code>scp ~/.ssh/id_rsa.pub 192.168.0.237:~/.ssh
+scp ~/.ssh/id_rsa.pub 192.168.0.238:~/.ssh
+scp ~/.ssh/id_rsa.pub 192.168.0.239:~/.ssh</code></pre>
+<p>这时还不是免密登录登录的，需要输入用户名和密码。</p>
+<ol>
+<li>将公钥追加到各个从节点的授权里。</li>
+</ol>
+<p>在每个从节点执行一下命令：</p>
+<pre><code><code>cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h4 id="安装jdk">安装JDK</h4>
+<p>参见之前的《<a href="https://mp.weixin.qq.com/s/emm17Xx8XZ8newBIi1Vv3Q">详解在Linux系统中安装JDK</a>》，这里就不再赘述了。</p>
+<h3 id="hadoop环境配置">Hadoop环境配置</h3>
+<h4 id="主节点配置">主节点配置</h4>
+<h5 id="下载hadoop">下载Hadoop</h5>
+<p>从北京理工大学的镜像上下载Hadoop：</p>
+<pre><code><code>wget http://mirror.bit.edu.cn/apache/hadoop/common/hadoop-2.10.0/hadoop-2.10.0.tar.gz</code></pre>
+<p>创建文件夹</p>
+<pre><code><code>mkdir /usr/local/hadoop</code></pre>
+<p>解压</p>
+<pre><code><code>tar -xzvf  hadoop-2.10.0.tar.gz -C /usr/local/hadoop</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h5 id="配置环境变量">配置环境变量</h5>
+<p>追加Hadoop的环境变量到/etc/profile文件中</p>
+<pre><code><code>cat &gt;&gt; /etc/profile &lt;&lt;EOF
+
+#Hadoop
+export HADOOP_HOME=/usr/local/hadoop/hadoop-2.10.0
+export PATH=\$PATH:\$HADOOP_HOME/bin 
+EOF</code></pre>
+<p>使环境变量生效</p>
+<pre><code><code>source /etc/profile</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h5 id="修改配置文件">修改配置文件</h5>
+<p>修改core-site.xml配置文件</p>
+<pre><code><code>vi /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/core-site.xml</code></pre>
+<p>修改其内容为：</p>
+<pre class="xml"><code>&lt;configuration&gt;
+    &lt;property&gt;
+        &lt;name&gt;hadoop.tmp.dir&lt;/name&gt;
+        &lt;value&gt;file:/usr/local/hadoop/tmp&lt;/value&gt;
+        &lt;description&gt;Abase for other temporary directories.&lt;/description&gt;
+    &lt;/property&gt;
+    &lt;property&gt;
+        &lt;name&gt;fs.defaultFS&lt;/name&gt;
+        &lt;value&gt;hdfs://onemore-hadoop-master:9000&lt;/value&gt;
+    &lt;/property&gt;
+&lt;/configuration&gt;</code></pre>
+<p>修改hdfs-site.xml配置文件</p>
+<pre><code><code>vi /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/hdfs-site.xml</code></pre>
+<p>修改其内容为：</p>
+<pre class="xml"><code>&lt;configuration&gt;
+    &lt;property&gt;
+        &lt;name&gt;dfs.replication&lt;/name&gt;
+        &lt;value&gt;3&lt;/value&gt;
+    &lt;/property&gt;
+    &lt;property&gt;
+        &lt;name&gt;dfs.name.dir&lt;/name&gt;
+        &lt;value&gt;/usr/local/hadoop/hdfs/name&lt;/value&gt;
+    &lt;/property&gt;
+    &lt;property&gt;
+        &lt;name&gt;dfs.data.dir&lt;/name&gt;
+        &lt;value&gt;/usr/local/hadoop/hdfs/data&lt;/value&gt;
+    &lt;/property&gt;
+&lt;/configuration&gt;</code></pre>
+<p>复制mapred-site.xml.template为mapred-site.xml</p>
+<pre><code><code>cp /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/mapred-site.xml.template /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/mapred-site.xml</code></pre>
+<p>再修改mapred-site.xml配置文件</p>
+<pre><code><code>vi /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/mapred-site.xml</code></pre>
+<p>修改其内容为：</p>
+<pre class="xml"><code>&lt;configuration&gt;
+  &lt;property&gt;
+      &lt;name&gt;mapreduce.framework.name&lt;/name&gt;
+      &lt;value&gt;yarn&lt;/value&gt;
+  &lt;/property&gt;
+   &lt;property&gt;
+      &lt;name&gt;mapred.job.tracker&lt;/name&gt;
+      &lt;value&gt;http://onemore-hadoop-master:9001&lt;/value&gt;
+  &lt;/property&gt;
+&lt;/configuration&gt;</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<p>修改yarn-site.xml配置文件</p>
+<pre><code><code>vi /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/yarn-site.xml</code></pre>
+<p>修改其内容为：</p>
+<pre class="xml"><code>&lt;configuration&gt;
+    &lt;property&gt;
+        &lt;name&gt;yarn.nodemanager.aux-services&lt;/name&gt;
+        &lt;value&gt;mapreduce_shuffle&lt;/value&gt;
+    &lt;/property&gt;
+    &lt;property&gt;
+        &lt;name&gt;yarn.resourcemanager.hostname&lt;/name&gt;
+        &lt;value&gt;onemore-hadoop-master&lt;/value&gt;
+    &lt;/property&gt;
+&lt;/configuration&gt;</code></pre>
+<p>新建masters配置文件</p>
+<pre><code><code>vi /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/masters</code></pre>
+<p>新增内容为：</p>
+<pre><code><code>onemore-hadoop-master</code></pre>
+<p>配置slaves文件</p>
+<pre><code><code>vi /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/slaves</code></pre>
+<p>修改其内容为：</p>
+<pre><code><code>onemore-hadoop-slave1
+onemore-hadoop-slave2
+onemore-hadoop-slave3</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h4 id="从节点配置">从节点配置</h4>
+<p>下面以onemore-hadoop-slave1从节点为例进行叙述，您需参照以下步骤完成onemore-hadoop-slave2和onemore-hadoop-slave3从节点的配置。</p>
+<h5 id="下载hadoop-1">下载Hadoop</h5>
+<p>还是从北京理工大学的镜像上下载Hadoop（如果下载速度慢，可以在主节点上发送到从节点）：</p>
+<pre><code><code>wget http://mirror.bit.edu.cn/apache/hadoop/common/hadoop-2.10.0/hadoop-2.10.0.tar.gz</code></pre>
+<p>创建文件夹</p>
+<pre><code><code>mkdir /usr/local/hadoop</code></pre>
+<p>解压</p>
+<pre><code><code>tar -xzvf  hadoop-2.10.0.tar.gz -C /usr/local/hadoop</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h5 id="配置环境变量-1">配置环境变量</h5>
+<p>追加Hadoop的环境变量到/etc/profile文件中</p>
+<pre><code><code>cat &gt;&gt; /etc/profile &lt;&lt;EOF
+
+#Hadoop
+export HADOOP_HOME=/usr/local/hadoop/hadoop-2.10.0
+export PATH=\$PATH:\$HADOOP_HOME/bin 
+EOF</code></pre>
+<p>使环境变量生效</p>
+<pre><code><code>source /etc/profile</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h5 id="修改配置文件-1">修改配置文件</h5>
+<p>删除slaves文件</p>
+<pre><code><code>rm -rfv /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/slaves</code></pre>
+<p>在主节点上把5个配置文件发送到从节点上</p>
+<pre><code><code>scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/core-site.xml onemore-hadoop-slave1:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/
+scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/hdfs-site.xml onemore-hadoop-slave1:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/
+scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/mapred-site.xml onemore-hadoop-slave1:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/
+scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/yarn-site.xml onemore-hadoop-slave1:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/
+scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/masters onemore-hadoop-slave1:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h3 id="启动hadoop集群">启动Hadoop集群</h3>
+<h4 id="格式化namenode">格式化namenode</h4>
+<p>第一次启动服务前需要执行词操作，以后就不需要执行了。</p>
+<pre><code><code>hadoop namenode -format</code></pre>
+<h4 id="启动hadoop">启动hadoop</h4>
+<pre><code><code>/usr/local/hadoop/hadoop-2.10.0/sbin/start-all.sh</code></pre>
+<p>访问http://onemore-hadoop-master:50070/，就可以查看Hadoop集群的相关信息了，如图：</p>
+<p><img src="./images/Hadoop完全分布式集群搭建0.png" /></p>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h3 id="常用命令">常用命令</h3>
+<h4 id="查看hadoop集群的状态">查看Hadoop集群的状态</h4>
+<pre><code><code>hadoop dfsadmin -report</code></pre>
+<h4 id="重启hadoop">重启Hadoop</h4>
+<pre><code><code>/usr/local/hadoop/hadoop-2.10.0/sbin/stop-all.sh
+/usr/local/hadoop/hadoop-2.10.0/sbin/start-all.sh</code></pre>
+<h4 id="启动dfs服务">启动dfs服务</h4>
+<pre><code><code>/usr/local/hadoop/hadoop-2.10.0/sbin/start-dfs.sh</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+<h3 id="常见错误">常见错误</h3>
+<p>Error: JAVA_HOME is not set and could not be found.</p>
+<p>这个错误大概意思是没有找到JDK的环境变量，可以修改hadoop-env.sh。</p>
+<pre><code><code>vi /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/hadoop-env.sh</code></pre>
+<p>增加JDK的环境变量，比如：</p>
+<pre><code><code>export JAVA_HOME=/usr/local/java/jdk1.8.0_231</code></pre>
+<p>因为是在主节点上修改的，还需要发送到各个从节点：</p>
+<pre><code><code>scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/hadoop-env.sh onemore-hadoop-slave1:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/
+scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/hadoop-env.sh onemore-hadoop-slave2:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/
+scp -r /usr/local/hadoop/hadoop-2.10.0/etc/hadoop/hadoop-env.sh onemore-hadoop-slave3:/usr/local/hadoop/hadoop-2.10.0/etc/hadoop/</code></pre>
+<p><span class="onemorestudy">欢迎关注微信公众号：<b>万猫学社</b>，每周一分享Java技术干货。</span></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

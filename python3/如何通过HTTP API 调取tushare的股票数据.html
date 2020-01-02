@@ -1,0 +1,174 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修如何通过HTTP API 调取tushare的股票数据' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>如何通过HTTP API 调取tushare的股票数据</center></div><div class='banquan'>原文出处:本文由博客园博主大榕量化提供。<br/>
+原文连接:https://www.cnblogs.com/tushare/p/11747634.html</div><br>
+    <p><img src="./images/如何通过HTTP API 调取tushare的股票数据0.png" alt="" /></p>
+<p>长久以来，Tushare一直以固定的Python SDK方式为大家提供数据服务。</p>
+<p>虽然在基于Python的数据分析和Python的量化策略开发很方便，但习惯用其他语言的同学们表示了&ldquo;抗议&rdquo;，于是在Tushare的Github开发组里，衍生出了各种语言版本的Tushare，比如Ruby Tushare，nodejs Tushare...</p>
+<p>尽管多出了不少版本，但数据还是不能统一管理，Tushare的数据标准没有建立起来。</p>
+<p>于是，我们在最近发布的Tushare Pro版里，增加对HTTP RESTful API的支持，用户可以通过标准协议，获得想要的数据，而且与编程语言无关。</p>
+<h2>HTTP API说明</h2>
+<p>在tushare.pro网站上，我们在平台介绍的&ldquo;调取数据&rdquo;部分，已经对http协议的数据获取做了说明，这里再次详细的向大家介绍一下，尽量让大家多一点的了解如何通过http的方式获取Tushare数据。</p>
+<p>Tushare HTTP数据获取的方式，我们采用了post的机制，通过提交JSON body参数，就可以获得您想要的数据。具体参数说明如下：</p>
+<h2>输入参数</h2>
+<blockquote>
+<p>api_name：接口名称，比如stock_basic</p>
+<p>token ：用户唯一标识，可通过登录pro网站获取</p>
+<p>params：接口参数，如daily接口中start_date和end_date</p>
+<p>fields：字段列表，用于接口获取指定的字段，以逗号分隔，如"open,high,low,close"</p>
+</blockquote>
+<h2>输出参数</h2>
+<blockquote>
+<p>code： 接口返回码，2002表示权限问题。</p>
+<p>msg：错误信息，比如&ldquo;系统内部错误&rdquo;，&ldquo;没有权限&rdquo;等</p>
+<p>data：数据，data里包含fields和items字段，分别为字段和数据内容</p>
+</blockquote>
+<p>以下，我们从几个方面来介绍具体的使用过程。</p>
+<h2>API工具快速检测</h2>
+<p>如果想简单快速获得数据API的效果，检测一下可用性，又不想写代码的话，postman这个工具或许可以派上用场。</p>
+<p>运行postman，选择POST方式，在API地址栏里输入：http://api.waditu.com ，然后在下面点击body，输入json格式的参数。</p>
+<div class="image-package  ">
+<div class="image-container">
+<div class="image-container-fill"><img src="./images/如何通过HTTP API 调取tushare的股票数据1.png" alt="" /></div>
+</div>
+</div>
+<p>&nbsp;</p>
+<p>之后，点击&ldquo;Send&rdquo;按钮，我们可以在结果栏目里看到调取API的最终效果。</p>
+<p>&nbsp;<img src="./images/如何通过HTTP API 调取tushare的股票数据2.png" alt="" /></p>
+<p>&nbsp;</p>
+<h2>代码快速检测</h2>
+<p>有的程序员可能更喜欢用代码的方式来检查API的效果，更加直接，简单，高效。我们可以借助cURL工具来实现通过命令行方式来检测。</p>
+<blockquote>
+<p>curl -X POST -d '{"api_name": "stock_basic", "token": "xxxxxxxx", "params": {"list_stauts":"L"}, "fields": "ts_code,name,area,industry,list_date"}' http://api.waditu.com</p>
+</blockquote>
+<p>（按住屏幕滑动可浏览全部代码）</p>
+<p>在控制台执行后，我们就可以看到如下数据效果。</p>
+<blockquote>
+<p>{</p>
+<p>&nbsp; &nbsp; "code": 0,</p>
+<p>&nbsp; &nbsp; "msg": null,</p>
+<p>&nbsp; &nbsp; "data": {</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; "fields": [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "ts_code",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "name",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "area",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "industry",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "list_date"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; ],</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; "items": [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "000001.SZ",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "平安银行",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "深圳",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "银行",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "19910403"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ],</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "000002.SZ",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "万科A",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "深圳",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "全国地产",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "19910129"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ],</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "000004.SZ",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "国农科技",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "深圳",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "生物制药",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "19910114"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ],</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "000005.SZ",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "世纪星源",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "深圳",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "房产服务",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "19901210"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ],</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "000006.SZ",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "深振业A",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "深圳",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "区域地产",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "19920427"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ],</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "000007.SZ",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "全新好",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "深圳",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "酒店餐饮",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "19920413"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ],</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; [</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "000008.SZ",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "神州高铁",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "北京",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "运输设备",</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; "19920507"</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ]</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ...</p>
+<p>&nbsp; &nbsp; &nbsp; }</p>
+<p>}</p>
+</blockquote>
+<h2>Python调取示例</h2>
+<p>前面已经提到,http restful API的好处就是跟编程语言无关，基本上所有编程语言都可以调取。</p>
+<p>由于编程环境太多，这里只拿Python作为示例，其他语言的实现，请各位用户自行查找网络资源完成，相信绝大多数会编程的用户都能轻松搞定。</p>
+<p>其实Tushare Pro新版的SDK，正是利用http方式来获取数据的，虽然我们也提供了tcp的方式，但是http目前运行良好，稳定性已经得到了验证。</p>
+<p>以下就是相关的核心代码，有兴趣的朋友可以访问Tushare 的Github下载完整代码。</p>
+<blockquote>
+<p>def req_http_api(self, req_params):</p>
+<p>&nbsp; &nbsp; req = Request(</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; self.__http_url,</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; json.dumps(req_params).encode('utf-8'),</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; method='POST'</p>
+<p>&nbsp; &nbsp; )</p>
+<p>&nbsp; &nbsp; res = urlopen(req)</p>
+<p>&nbsp; &nbsp; result = json.loads(res.read().decode('utf-8'))</p>
+<p>&nbsp; &nbsp; if result['code'] != 0:</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; raise Exception(result['msg'])</p>
+<p>&nbsp; &nbsp; return result['data']</p>
+<p>def query(self, api_name, fields='', **kwargs):</p>
+<p>&nbsp; &nbsp; req_params = {</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 'api_name': api_name,</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 'token': self.__token,</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 'params': kwargs,</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; 'fields': fields</p>
+<p>&nbsp; &nbsp; }</p>
+<p>&nbsp; &nbsp; if self.__protocol == 'tcp':</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; data = self.req_zmq_api(req_params)</p>
+<p>&nbsp; &nbsp; elif self.__protocol == 'http':</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; data = self.req_http_api(req_params)</p>
+<p>&nbsp; &nbsp; else:</p>
+<p>&nbsp; &nbsp; &nbsp; &nbsp; raise Warning('{} is unsupported protocol'.format(self.__protocol))</p>
+<p>&nbsp; &nbsp; columns = data['fields']</p>
+<p>&nbsp; &nbsp; items = data['items']</p>
+<p>&nbsp; &nbsp; return pd.DataFrame(items, columns=columns)</p>
+</blockquote>
+<h2><br />tushare积分怎么获得</h2>
+<p>&nbsp; &nbsp; 本人是做量化投资的，团队转型，换了交易策略，</p>
+<p>&nbsp; &nbsp; 手头有多个离职同事的闲置转让.</p>
+<p>&nbsp; &nbsp; 600分：原价50元，仅需39元</p>
+<p>&nbsp; &nbsp; 1500分：原价150元，仅需109元(售罄)</p>
+<p>&nbsp; &nbsp; 2000分：原价200元，仅需149元</p>
+<p>&nbsp; &nbsp; 5000分：原价500元，仅需388元(售罄).</p>
+<p>&nbsp; &nbsp; 数量不多，需要请连系VX： a56746435 （备注tushare）</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

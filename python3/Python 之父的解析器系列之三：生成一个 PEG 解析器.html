@@ -1,0 +1,214 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python 之父的解析器系列之三：生成一个 PEG 解析器' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python 之父的解析器系列之三：生成一个 PEG 解析器</center></div><div class='banquan'>原文出处:本文由博客园博主豌豆花下猫提供。<br/>
+原文连接:https://www.cnblogs.com/pythonista/p/11332689.html</div><br>
+    <p><img src="./images/Python 之父的解析器系列之三：生成一个 PEG 解析器0.png" /></p>
+<p><strong>原题</strong> | Generating a PEG Parser</p>
+<p><strong>作者</strong> | Guido van Rossum（Python之父）</p>
+<p><strong>译者</strong> | 豌豆花下猫（“Python猫”公众号作者）</p>
+<p><strong>声明</strong> | 本翻译是出于交流学习的目的，基于 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> 授权协议。为便于阅读，内容略有改动。</p>
+<p>首发地址：https://mp.weixin.qq.com/s/ojSq6u9FC0xlBDncuoKczw</p>
+<p>我已经在<a href="https://mp.weixin.qq.com/s/yUQPeqc_uSRGe5lUi50kVQ">本系列第二篇文章</a>中简述了解析器的基础结构，并展示了一个简单的手写解析器，根据承诺，我们将转向从语法中生成解析器。我还将展示如何使用<code>@memoize</code>装饰器，以实现packrat 解析。</p>
+<p>【这是 PEG 系列第 3 篇。参见<a href="https://mp.weixin.qq.com/s/yqVVaZVn8RRanllaXMFD9A">第1篇</a>、<a href="https://mp.weixin.qq.com/s/yUQPeqc_uSRGe5lUi50kVQ">第2篇</a> 】</p>
+<p>上篇文章我们以一个手写的解析器结束。给语法加上一些限制的话，我们很容易从语法中自动生成这样的解析器。（我们稍后会解除那些限制。）</p>
+<p>我们需要两个东西：一个东西读取语法，并构造一个表现语法规则的数据结构；还有一个东西则用该数据结构来生成解析器。我们还需要无聊的胶水，我就不提啦。</p>
+<p>所以我们在这创造的是一个简单的编译器编译器（compiler-compiler）。我将语法符号简化了一些，仅保留规则与备选项；这其实对于我在本系列的前面所用的玩具语法来说，已经足够了。</p>
+<pre><code><code>statement: assignment | expr | if_statement
+expr: expr &#39;+&#39; term | expr &#39;-&#39; term | term
+term: term &#39;*&#39; atom | term &#39;/&#39; atom | atom
+atom: NAME | NUMBER | &#39;(&#39; expr &#39;)&#39;
+assignment: target &#39;=&#39; expr
+target: NAME
+if_statement: &#39;if&#39; expr &#39;:&#39; statement</code></pre>
+<p>使用完整的符号，我们可以为语法文件写出语法：</p>
+<pre><code><code>grammar: rule+ ENDMARKER
+rule: NAME &#39;:&#39; alternative (&#39;|&#39; alternative)* NEWLINE
+alternative: item+
+item: NAME | STRING</code></pre>
+<p>用个花哨的叫法，这是我们的第一个元语法（语法的语法），而我们的解析器生成器将是一个元编译器（<strong>编译器是一个程序，将其它程序从一种语言转译为另一种语言；元编译器是一种编译器，其输入是一套语法，而输出是一个解析器</strong> ）。</p>
+<p>有个简单地表示元语法的方法，主要是使用内置的数据类型：一条规则的右侧只是由一系列的条目组成的列表，且这些条目只能是字符串。（Hack：通过检查第一个字符是否为引号，我们可以区分出<code>NAME</code>和<code>STRING</code>）</p>
+<p>至于规则，我用了一个简单的 Rule 类，所以整个语法就是一些 Rule 对象。</p>
+<p>这就是 Rule 类，省略了 <code>__repr__</code> 与<code>__eq__</code> ：</p>
+<pre class="python"><code>class Rule:
+    def __init__(self, name, alts):
+        self.name = name
+        self.alts = alts</code></pre>
+<p>调用它的是这个<code>GrammarParser</code>类（关于基类<code>Parser</code> ，请参阅我之前的帖子）：</p>
+<pre class="python"><code>class GrammarParser(Parser):
+    def grammar(self):
+        pos = self.mark()
+        if rule := self.rule():
+            rules = [rule]
+            while rule := self.rule():
+                rules.append(rule)
+            if self.expect(ENDMARKER):
+                return rules    # &lt;------------- final result
+        self.reset(pos)
+        return None
+    def rule(self):
+        pos = self.mark()
+        if name := self.expect(NAME):
+            if self.expect(&quot;:&quot;):
+                if alt := self.alternative():
+                    alts = [alt]
+                    apos = self.mark()
+                    while (self.expect(&quot;|&quot;)
+                           and (alt := self.alternative())):
+                        alts.append(alt)
+                        apos = self.mark()
+                    self.reset(apos)
+                    if self.expect(NEWLINE):
+                        return Rule(name.string, alts)
+        self.reset(pos)
+        return None
+    def alternative(self):
+        items = []
+        while item := self.item():
+            items.append(item)
+        return items
+    def item(self):
+        if name := self.expect(NAME):
+            return name.string
+        if string := self.expect(STRING):
+            return string.string
+        return None</code></pre>
+<p>注意 <code>ENDMARKER</code> ，它用来确保在最后一条规则后没有遗漏任何东西（如果语法中出现拼写错误，可能会导致这种情况）。</p>
+<p>我放了一个简单的箭头，指向了 grammar() 方法的返回值位置，返回结果是一个存储 Rule 的列表。</p>
+<p>其余部分跟上篇文章中的 <code>ToyParser</code> 类很相似，所以我不作解释。</p>
+<p>只需留意，item() 返回一个字符串，alternative() 返回一个字符串列表，而 rule() 中的 alts 变量，则是一个由字符串列表组成的列表。</p>
+<p>然后，rule() 方法将规则名称（一个字符串）与 alts 结合，放入 Rule 对象。</p>
+<p>如果把这份代码用到包含了我们的玩具语法的文件上，则 grammar() 方法会返回以下的由 Rule 对象组成的列表：</p>
+<pre class="python"><code>[
+  Rule(&#39;statement&#39;, [[&#39;assignment&#39;], [&#39;expr&#39;], [&#39;if_statement&#39;]]),
+  Rule(&#39;expr&#39;, [[&#39;term&#39;, &quot;&#39;+&#39;&quot;, &#39;expr&#39;],
+                [&#39;term&#39;, &quot;&#39;-&#39;&quot;, &#39;term&#39;],
+                [&#39;term&#39;]]),
+  Rule(&#39;term&#39;, [[&#39;atom&#39;, &quot;&#39;*&#39;&quot;, &#39;term&#39;],
+                [&#39;atom&#39;, &quot;&#39;/&#39;&quot;, &#39;atom&#39;],
+                [&#39;atom&#39;]]),
+  Rule(&#39;atom&#39;, [[&#39;NAME&#39;], [&#39;NUMBER&#39;], [&quot;&#39;(&#39;&quot;, &#39;expr&#39;, &quot;&#39;)&#39;&quot;]]),
+  Rule(&#39;assignment&#39;, [[&#39;target&#39;, &quot;&#39;=&#39;&quot;, &#39;expr&#39;]]),
+  Rule(&#39;target&#39;, [[&#39;NAME&#39;]]),
+  Rule(&#39;if_statement&#39;, [[&quot;&#39;if&#39;&quot;, &#39;expr&#39;, &quot;&#39;:&#39;&quot;, &#39;statement&#39;]]),
+]</code></pre>
+<p>既然我们已经有了元编译器的解析部分，那就创建代码生成器吧。</p>
+<p>把这些聚合起来，就形成了一个基本的元编译器：</p>
+<pre class="python"><code>def generate_parser_class(rules):
+    print(f&quot;class ToyParser(Parser):&quot;)
+    for rule in rules:
+        print()
+        print(f&quot;    @memoize&quot;)
+        print(f&quot;    def {rule.name}(self):&quot;)
+        print(f&quot;        pos = self.mark()&quot;)
+        for alt in rule.alts:
+            items = []
+            print(f&quot;        if (True&quot;)
+            for item in alt:
+                if item[0] in (&#39;&quot;&#39;, &quot;&#39;&quot;):
+                    print(f&quot;            and self.expect({item})&quot;)
+                else:
+                    var = item.lower()
+                    if var in items:
+                        var += str(len(items))
+                    items.append(var)
+                    if item.isupper():
+                        print(&quot;            &quot; +
+                              f&quot;and ({var} := self.expect({item}))&quot;)
+                    else:
+                        print(f&quot;            &quot; +
+                              f&quot;and ({var} := self.{item}())&quot;)
+            print(f&quot;        ):&quot;)
+            print(f&quot;            &quot; +
+              f&quot;return Node({rule.name!r}, [{&#39;, &#39;.join(items)}])&quot;)
+            print(f&quot;        self.reset(pos)&quot;)
+        print(f&quot;        return None&quot;)</code></pre>
+<p>这段代码非常难看，但它管用（某种程度上），不管怎样，我打算将来重写它。</p>
+<p>在&quot;for alt in rule.alts&quot;循环中，有些代码细节可能需要作出解释：对于备选项中的每个条目，我们有三种选择的可能：</p>
+<ul>
+<li>如果该条目是字符串字面量，例如<code>'+'</code> ，我们生成<code>self.expect('+')</code></li>
+<li>如果该条目全部是大写，例如<code>NAME</code> ，我们生成<code>(name := self.expect(NAME))</code><br />
+</li>
+<li>其它情况，例如该条目是<code>expr</code>，我们生成 <code>(expr := self.expr())</code></li>
+</ul>
+<p>如果在单个备选项中出现多个相同名称的条目（例如<code>term '-' term</code>），我们会在第二个条目后附加一个数字。这里还有个小小的 bug，我会在以后的内容中修复。</p>
+<p>这只是它的一部分输出（完整的类非常无聊）。不用担心那些零散的、冗长的 <code>if (True and … )</code> 语句，我使用它们，以便每个生成的条件都能够以<code>and</code> 开头。Python 的字节码编译器会优化它。</p>
+<pre class="python"><code>class ToyParser(Parser):
+    @memoize
+    def statement(self):
+        pos = self.mark()
+        if (True
+            and (assignment := self.assignment())
+        ):
+            return Node(&#39;statement&#39;, [assignment])
+        self.reset(pos)
+        if (True
+            and (expr := self.expr())
+        ):
+            return Node(&#39;statement&#39;, [expr])
+        self.reset(pos)
+        if (True
+            and (if_statement := self.if_statement())
+        ):
+            return Node(&#39;statement&#39;, [if_statement])
+        self.reset(pos)
+        return None
+    ...</code></pre>
+<p>注意<code>@memoize</code> 装饰器：我“偷运”（smuggle）它进来，以便转向另一个主题：使用记忆法（memoization）来加速生成的解析器。</p>
+<p>这是实现该装饰器的 memoize() 函数：</p>
+<pre class="python"><code>def memoize(func):
+    def memoize_wrapper(self, *args):
+        pos = self.mark()
+        memo = self.memos.get(pos)
+        if memo is None:
+            memo = self.memos[pos] = {}
+        key = (func, args)
+        if key in memo:
+            res, endpos = memo[key]
+            self.reset(endpos)
+        else:
+            res = func(self, *args)
+            endpos = self.mark()
+            memo[key] = res, endpos
+        return res
+return memoize_wrapper</code></pre>
+<p>对于典型的装饰器来说，它的嵌套函数（nested function）会替换（或包装）被装饰的函数（decorated function），例如 memoize_wrapper() 会包装 ToyParser 类的 statement() 方法。</p>
+<p>因为被包装的函数（wrapped function）是一个方法，所以包装器实际上也是一个方法：它的第一个参数是 <code>self</code> ，指向 ToyParser 实例，后者会调用被装饰的函数。</p>
+<p>包装器会缓存每次调用解析方法后的结果——这就是为什么它会被称为“口袋老鼠解析”（packrat parsing）！</p>
+<p>这缓存是一个字典，元素是存储在 Parser 实例上的那些字典。</p>
+<p>外部字典的 key 是输入的位置；我将 <code>self.memos = {}</code> 添加到 <code>Parser.__init__()</code> ，以初始化它。</p>
+<p>内部字典按需添加，它们的 key 由方法及其参数组成。（在当前的设计中没有参数，但我们应该记得 expect()，它恰好有一个参数，而且给它新增通用性，几乎不需要成本。 ）</p>
+<p>一个解析方法的结果被表示成一个元组，因为它正好有两个结果：一个显式的返回值（对于我们生成的解析器，它是一个 Node，表示所匹配的规则），以及我们从 <code>self.mark()</code> 中获得的一个新的输入位置。</p>
+<p>在调用解析方法后，我们会在内部的记忆字典中同时存储它的返回值（res）以及新的输入位置（endpos）。</p>
+<p>再次调用相同的解析方法时（在相同的位置，使用相同的参数），我们会从缓存中取出那两个结果，并用 <code>self.reset()</code> 来向前移动输入位置，最后返回那缓存中的返回值。</p>
+<p>缓存负数的结果也很重要——实际上大多数对解析方法的调用都是负数的结果。在此情况下，返回值为 None，而输入位置不会变。你可以加一个<code>assert</code> 断言来检查它。</p>
+<p>注意：Python 中常用的记忆法是在 memoize() 函数中将缓存定义成一个局部变量。但我们不这么做：因为我在一个最后时刻的调试会话中发现，每个 Parser 实例都必须拥有自己的缓存。然而，你可以用<code>(pos, func, args)</code> 作为 key，以摆脱嵌套字典的设计。</p>
+<p>下周我将统览代码，演示在解析示例程序时，所有这些模块实际是如何配合工作的。</p>
+<p>我仍然在抓头发中（译注：极度发愁），如何以最佳的方式将协同工作的标记生成器缓冲、解析器和记忆缓存作出可视化。或许我会设法生成动画的 ASCII 作品，而不仅仅是跟踪日志的输出。（译注：感觉他像是在开玩笑，但很难译出这句话的原味。建议阅读原文。）</p>
+<p>本文及示例代码的授权协议： <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a></p>
+<p><strong>英文原文：</strong> <a href="https://medium.com/@gvanrossum_83706/generating-a-peg-parser-520057d642a9" class="uri">https://medium.com/@gvanrossum_83706/generating-a-peg-parser-520057d642a9</a></p>
+<p><strong>作者简介：</strong> Guido van Rossum，是 Python 的创造者，一直是“终身仁慈独裁者”，直到2018年7月12日退位。目前，他是新的最高决策层的五位成员之一，依然活跃在社区中。</p>
+<p><strong>译者简介：</strong> 豌豆花下猫，生于广东毕业于武大，现为苏漂程序员，有一些极客思维，也有一些人文情怀，有一些温度，还有一些态度。公众号：「Python猫」（python_cat）。</p>
+<p><img src="./images/Python 之父的解析器系列之三：生成一个 PEG 解析器1.png" /></p>
+<p>公众号【<strong>Python猫</strong>】， 本号连载优质的系列文章，有喵星哲学猫系列、Python进阶系列、好书推荐系列、技术写作、优质英文推荐与翻译等等，欢迎关注哦。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

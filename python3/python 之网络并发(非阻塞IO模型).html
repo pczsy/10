@@ -1,0 +1,106 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python 之网络并发(非阻塞IO模型)' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python 之网络并发(非阻塞IO模型)</center></div><div class='banquan'>原文出处:本文由博客园博主small_white-提供。<br/>
+原文连接:https://www.cnblogs.com/mylu/p/11184933.html</div><br>
+    <p><strong>实现gevent模块</strong></p>
+<p><strong>服务端：</strong></p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('a74ac557-cd46-41e2-9098-c3283fbb3db2')"><img id="code_img_closed_a74ac557-cd46-41e2-9098-c3283fbb3db2" class="code_img_closed" src="./images/python 之网络并发(非阻塞IO模型)0.png" alt="" /><img id="code_img_opened_a74ac557-cd46-41e2-9098-c3283fbb3db2" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('a74ac557-cd46-41e2-9098-c3283fbb3db2',event)" src="./images/python 之网络并发(非阻塞IO模型)1.png" alt="" />
+<div id="cnblogs_code_open_a74ac557-cd46-41e2-9098-c3283fbb3db2" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">from</span> socket <span style="color: #0000ff;">import</span> *
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> time
+
+s </span>=<span style="color: #000000;"> socket()
+s.bind((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>,8080<span style="color: #000000;">))
+s.listen(</span>5<span style="color: #000000;">)
+s.setblocking(False)
+
+r_list</span>=<span style="color: #000000;">[]
+w_list</span>=<span style="color: #000000;">[]
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+        conn, addr </span>=<span style="color: #000000;"> s.accept()
+        r_list.append(conn)
+
+    </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> BlockingIOError:
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> time.sleep(0.05)</span>
+        <span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">可以去干其他的活了</span><span style="color: #800000;">'</span><span style="color: #000000;">)
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">rlist: </span><span style="color: #800000;">'</span><span style="color: #000000;">,len(r_list))
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 收消息</span>
+        del_rlist=<span style="color: #000000;">[]
+        </span><span style="color: #0000ff;">for</span> conn <span style="color: #0000ff;">in</span><span style="color: #000000;"> r_list:
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                data</span>=conn.recv(1024<span style="color: #000000;">)
+                </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> data:
+                    conn.close()
+                    del_rlist.append(conn)
+                    </span><span style="color: #0000ff;">continue</span>
+                <span style="color: #008000;">#</span><span style="color: #008000;"> conn.send(data.upper())</span>
+<span style="color: #000000;">                w_list.append((conn,data.upper()))
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> BlockingIOError:
+                </span><span style="color: #0000ff;">continue</span>
+            <span style="color: #0000ff;">except</span><span style="color: #000000;"> ConnectionResetError:
+                conn.close()
+                </span><span style="color: #008000;">#</span><span style="color: #008000;"> r_list.remove(conn)</span>
+<span style="color: #000000;">                del_rlist.append(conn)
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 发消息</span>
+        del_wlist=<span style="color: #000000;">[]
+        </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span><span style="color: #000000;"> w_list:
+            </span><span style="color: #0000ff;">try</span><span style="color: #000000;">:
+                conn</span>=<span style="color: #000000;">item[0]
+                res</span>=item[1<span style="color: #000000;">]
+                conn.send(res)
+                del_wlist.append(item)
+            </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> BlockingIOError:
+                </span><span style="color: #0000ff;">continue</span>
+            <span style="color: #0000ff;">except</span><span style="color: #000000;"> ConnectionResetError:
+                conn.close()
+                del_wlist.append(item)
+
+        </span><span style="color: #008000;">#</span><span style="color: #008000;"> 回收无用连接</span>
+        <span style="color: #0000ff;">for</span> conn <span style="color: #0000ff;">in</span><span style="color: #000000;"> del_rlist:
+            r_list.remove(conn)
+
+        </span><span style="color: #0000ff;">for</span> item <span style="color: #0000ff;">in</span><span style="color: #000000;"> del_wlist:
+            w_list.remove(item)</span></pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<p><strong>客户端：</strong></p>
+<div class="cnblogs_code" onclick="cnblogs_code_show('31db4df9-1fef-4434-b610-681e9db74fb0')"><img id="code_img_closed_31db4df9-1fef-4434-b610-681e9db74fb0" class="code_img_closed" src="./images/python 之网络并发(非阻塞IO模型)0.png" alt="" /><img id="code_img_opened_31db4df9-1fef-4434-b610-681e9db74fb0" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('31db4df9-1fef-4434-b610-681e9db74fb0',event)" src="./images/python 之网络并发(非阻塞IO模型)1.png" alt="" />
+<div id="cnblogs_code_open_31db4df9-1fef-4434-b610-681e9db74fb0" class="cnblogs_code_hide">
+<pre><code><span style="color: #0000ff;">from</span> socket <span style="color: #0000ff;">import</span> *
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> os
+
+client </span>=<span style="color: #000000;"> socket()
+client.connect((</span><span style="color: #800000;">'</span><span style="color: #800000;">127.0.0.1</span><span style="color: #800000;">'</span>, 8080<span style="color: #000000;">))
+
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    data</span>=<span style="color: #800000;">'</span><span style="color: #800000;">%s say hello</span><span style="color: #800000;">'</span> %<span style="color: #000000;">os.getpid()
+    client.send(data.encode(</span><span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span><span style="color: #000000;">))
+    res</span>=client.recv(1024<span style="color: #000000;">)
+    </span><span style="color: #0000ff;">print</span>(res.decode(<span style="color: #800000;">'</span><span style="color: #800000;">utf-8</span><span style="color: #800000;">'</span>))</pre>
+</div>
+<span class="cnblogs_code_collapse">View Code</span></div>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

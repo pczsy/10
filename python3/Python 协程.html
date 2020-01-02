@@ -1,0 +1,158 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Python 协程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Python 协程</center></div><div class='banquan'>原文出处:本文由博客园博主Hyyyy提供。<br/>
+原文连接:https://www.cnblogs.com/Hybb/p/11518889.html</div><br>
+    <h1 id="协程">协程</h1>
+<ul>
+<li><p><strong>进程</strong>：操作系统中存在</p></li>
+<li><p><strong>线程</strong>：操作系统中存在</p></li>
+<li><p><strong>协程</strong>：是微线程 模块（greenlet）</p></li>
+</ul>
+<p>协程不是一个真实存在的东西，是由程序员创造出来的</p>
+<p>开销几乎为0 不是由操作系统控制的,是由代码控制的.</p>
+<p>本质是单线程的,不能利用多个CPU 也会产生数据不安全</p>
+<p>协程，是对一个线程分片，使得线程在代码块之间进行来回切换，而不是原来逐步执行。</p>
+<p>gevent模块 第三方模块 他只能识别有限的IO操作 socket time.sleep<br />
+<strong>单纯的协程是无用的，有时候而且会降低性能</strong></p>
+<p>示例代码：</p>
+<pre><code><code>import greenlet
+
+def f1():
+    print(11)
+    gr2.switch()
+    print(22)
+    gr2.switch()
+
+def f2():
+    print(33)
+    gr1.switch()
+    print(44)
+
+# 创建两个协程
+gr1 = greenlet.greenlet(f1)
+gr2 = greenlet.greenlet(f2)
+
+gr1.switch()</code></pre>
+<h2 id="协程存在的意义">协程存在的意义</h2>
+<p>单线程实现并发：如果遇到<code>IO操作</code>就会进行切换</p>
+<p>遇到IO就切换 + 协程 == 牛逼起来了。。。</p>
+<p>遇到IO就切换 实现：<code>gevent模块</code></p>
+<h2 id="gevent模块io切换协程">gevent模块(IO切换+协程)</h2>
+<h3 id="安装">安装：</h3>
+<pre><code><code>pip install gevent</code></pre>
+<p>示例代码：</p>
+<pre><code><code>########### 协程+IO切换
+
+from gevent import monkey
+monkey.patch_all() # 以后代码中遇到IO就会执行greenlet的switch进行切换
+
+import requests
+import gevent
+
+def get_page(url):
+    resp = requests.get(url)
+    print(url,resp.content.decode(&#39;utf8&#39;))
+
+gevent.joinall([
+    gevent.spawn(get_page,&#39;https://www.python.org/&#39;),   # 协程1
+    gevent.spawn(get_page,&#39;https://www.yahoo.com/&#39;),    # 协程2
+    gevent.spawn(get_page,&#39;https://github.com/&#39;),   # 协程3
+])</code></pre>
+<h3 id="什么是协程">什么是协程？</h3>
+<p>协程也可以称为”微线程“，就是开发者控制着线程执行流程，控制先执行某段代码然后再切换到另外函数执行代码.... 来回切换</p>
+<h3 id="协程可以提高并发吗">协程可以提高并发吗？</h3>
+<p>协程本身无法实现并发（甚至性能会降低）</p>
+<p>协程+IO切换性能会提高</p>
+<h3 id="进程线程协程的区别">进程；线程；协程的区别？</h3>
+<blockquote>
+<ul>
+<li>1.进程是计算器最小资源分配单位</li>
+<li>2.线程是CPU调度的最小单位</li>
+<li>3.进程切换需要的资源很最大，效率很低</li>
+<li>4.线程切换需要的资源一般，效率一般（当然了在不考虑GIL的情况下）</li>
+<li>5.协程切换任务资源很小，效率高（协程本身并不存在，是程序员通过控制IO操作完成）</li>
+<li>6.多进程、多线程根据cpu核数不一样可能是并行的，但是协程是在一个线程中 所以是并发</li>
+</ul>
+<p>进程：一个运行的程序（代码）就是一个进程，没有运行的代码叫程序，进程是系统资源分配的最小单位，进程拥有自己独立的内存空间，所以进程间数据不共享，开销大。</p>
+<p>线程： 调度执行的最小单位，也叫执行路径，不能独立存在，依赖进程存在一个进程至少有一个线程，叫主线程，而多个线程共享内存(数据共享，共享全局变量)，从而极大地提高了程序的运行效率。</p>
+<p>协程：是一种用户态的轻量级线程，协程的调度完全由用户控制。协程拥有自己的寄存器上下文和栈。 协程调度切换时，将寄存器上下文和栈保存到其他地方，在切回来的时候，恢复先前保存的寄存器上下文和栈，直接操作栈则基本没有内核切换的开销，可以不加锁的访问全局变量，所以上下文的切换非常快。</p>
+</blockquote>
+<h4 id="区别与联系">区别与联系</h4>
+<blockquote>
+<p>多进程的优点是稳定性好，一个子进程崩溃了，不会影响主进程以及其余进程。但是缺点是创建进程的代价非常大，因为操作系统要给每个进程分配固定的资源，并且，操作系统对进程的总数会有一定的限制，若进程过多，操作系统调度都会存在问题，会造成假死状态。</p>
+<p>多线程优点是效率较高一些，但是致命的缺点是任何一个线程崩溃都可能造成整个进程的崩溃，因为它们共享了进程的内存资源池。 对于任务数来说，无论是多进程或者多线程，都不能太多。因为操作系统在切换任务时，会有一系列的保护现场措施，这要花费相当的系统资源，若任务过多，则大部分资源都被用做干这些了，结果就是所有任务都做不好，所以操作系统会限制进程的数量。 另外，考虑计算密集型及IO密集型应用程序。对于计算密集型，多任务势必造成资源浪费。对于IO密集型，因为IO速度远低于CPU计算速度，所以使用多任务方式可以大大增大程序运行效率。</p>
+</blockquote>
+<blockquote>
+<p>协程是python个中另外一种实现多任务的方式，只不过比线程更小占用更小执行单元（理解为需要的资源）。 为啥说它是一个执行单元，因为它自带CPU上下文。这样只要在合适的时机， 我们可以把一个协程 切换到另一个协程。 只要这个过程中保存或恢复 CPU上下文那么程序还是可以运行的。<br />
+在实现多任务时, 线程切换从系统层面远不止保存和恢复 CPU上下文这么简单。 操作系统为了程序运行的高效性每个线程都有自己缓存Cache等等数据，操作系统还会帮你做这些数据的恢复操作。 所以线程的切换非常耗性能。但是协程的切换只是单纯的操作CPU的上下文，所以一秒钟切换个上百万次系统都抗的住。</p>
+</blockquote>
+<h3 id="单线程提供并发">单线程提供并发</h3>
+<ul>
+<li>协程+IO切换：gevent</li>
+<li>基于事件循环的异步非阻塞框架：Twisted</li>
+</ul>
+<h2 id="基于yield实现协程了解即可">基于yield实现协程(了解即可)</h2>
+<pre><code><code>def f1():
+    print(1)
+    yield
+    print(2)
+    yield
+    print(3)
+
+def f2():
+    print(4)
+    yield
+    print(5)
+    yield
+    print(6)
+
+v1 =f1()
+v2 =f2()
+
+next(v1)
+next(v2)
+next(v1)
+next(v2)
+next(v1)
+next(v2)</code></pre>
+<h2 id="总结">总结</h2>
+<ol>
+<li><p>进程，线程，协程的区别 （重点）</p></li>
+<li><p>gevent</p></li>
+<li><p>Twisted</p></li>
+<li><p>异步非阻塞</p></li>
+<li><p>IO多路复用：可以检测所有的IO请求的状态</p>
+<p>典型例子：socket</p>
+<ul>
+<li>Input</li>
+<li>output</li>
+</ul>
+<p>三种模式：</p>
+<ul>
+<li><p>select</p></li>
+<li><p>poll</p></li>
+<li><p>epoll</p></li>
+</ul></li>
+</ol>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

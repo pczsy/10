@@ -1,0 +1,283 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫</center></div><div class='banquan'>原文出处:本文由博客园博主swineherd_MCQ提供。<br/>
+原文连接:https://www.cnblogs.com/mcq1999/p/11388210.html</div><br>
+    <h1 id="用户代理池">用户代理池</h1>
+<p>用户代理池就是将不同的用户代理组建成为一个池子，随后随机调用。</p>
+<p>作用：每次访问代表使用的浏览器不一样</p>
+<pre><code><code>import urllib.request
+import re
+import random
+uapools=[
+    &#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0&#39;,
+    &#39;Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.98 Safari/537.36 LBBROWSER&#39;,
+    &#39;Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1&#39;,
+    &#39;Mozilla/5.0 (Windows; U; Windows NT 6.1; ) AppleWebKit/534.12 (KHTML, like Gecko) Maxthon/3.0 Safari/534.12&#39;,
+]
+def ua(uapools):
+    thisua=random.choice(uapools)
+    print(thisua)
+    headers=(&quot;User-Agent&quot;,thisua)
+    opener=urllib.request.build_opener()
+    opener.addheaders=[headers]
+    urllib.request.install_opener(opener)
+
+for i in range(10):
+    ua(uapools)
+    thisurl=&quot;https://www.qiushibaike.com/text/page/&quot;+str(i+1)+&quot;/&quot;;
+    data=urllib.request.urlopen(thisurl).read().decode(&quot;utf-8&quot;,&quot;ignore&quot;)
+    pat=&#39;&lt;div class=&quot;content&quot;&gt;.*?&lt;span&gt;(.*?)&lt;/span&gt;.*?&lt;/div&gt;&#39;
+    res=re.compile(pat,re.S).findall(data)
+    for j in range(len(res)):
+        print(res[j])
+        print(&#39;---------------------&#39;)</code></pre>
+<h1 id="ip代理与ip代理池的构建的两种方案">IP代理与IP代理池的构建的两种方案</h1>
+<p>搜索西刺、大象代理IP</p>
+<p>尽量选国外的IP。</p>
+<pre><code><code>import  urllib.request
+ip=&quot;219.131.240.35&quot;
+proxy=urllib.request.ProxyHandler({&quot;http&quot;:ip})
+opener=urllib.request.build_opener(proxy,urllib.request.HTTPHandler)
+urllib.request.install_opener(opener)
+url=&quot;https://www.baidu.com/&quot;
+data=urllib.request.urlopen(url).read()
+fp=open(&quot;ip_baidu.html&quot;,&quot;wb&quot;)
+fp.write(data)
+fp.close()</code></pre>
+<h2 id="ip代理池构建的第一种方式适合代理ip稳定的情况">IP代理池构建的第一种方式（适合代理IP稳定的情况）</h2>
+<pre><code><code>import random
+import urllib.request
+ippools=[
+    &quot;163.125.70.22&quot;,
+    &quot;111.231.90.122&quot;,
+    &quot;121.69.37.6&quot;,
+]
+
+def ip(ippools):
+    thisip=random.choice(ippools)
+    print(thisip)
+    proxy=urllib.request.ProxyHandler({&quot;http&quot;:thisip})
+    opener=urllib.request.build_opener(proxy,urllib.request.HTTPHandler)
+    urllib.request.install_opener(opener)
+
+for i in range(5):
+    try:
+        ip(ippools)
+        url=&quot;https://www.baidu.com/&quot;
+        data=urllib.request.urlopen(url).read().decode(&quot;utf-8&quot;,&quot;ignore&quot;)
+        print(len(data))
+        fp=open(&quot;ip_res/ip_baidu_&quot;+str(i+1)+&quot;.html&quot;,&quot;w&quot;)
+        fp.write(data)
+        fp.close()
+    except Exception as err:
+        print(err)</code></pre>
+<h2 id="ip代理池构建的第二种方式接口调用法更适合代理ip不稳定的情况">IP代理池构建的第二种方式（接口调用法，更适合代理IP不稳定的情况）</h2>
+<p>此方法因为经济原因暂时鸽着。</p>
+<h1 id="淘宝商品图片爬虫">淘宝商品图片爬虫</h1>
+<p>现在的淘宝反爬虫，下面这份代码已经爬不了了，但可以作为练习。</p>
+<pre><code><code>import urllib.request
+import re
+import random
+keyname=&quot;python&quot;
+key=urllib.request.quote(keyname) #网址不能有中文，这里处理中文
+uapools=[
+    &#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0&#39;,
+    &#39;Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.98 Safari/537.36 LBBROWSER&#39;,
+    &#39;Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1&#39;,
+    &#39;Mozilla/5.0 (Windows; U; Windows NT 6.1; ) AppleWebKit/534.12 (KHTML, like Gecko) Maxthon/3.0 Safari/534.12&#39;,
+]
+def ua(uapools):
+    thisua=random.choice(uapools)
+    print(thisua)
+    headers=(&quot;User-Agent&quot;,thisua)
+    opener=urllib.request.build_opener()
+    opener.addheaders=[headers]
+    urllib.request.install_opener(opener)
+
+for i in range(1,11): #第1页到第10页
+    ua(uapools)
+    url=&quot;https://s.taobao.com/search?q=&quot;+key+&quot;&amp;s=&quot;+str((i-1)*44)
+    data=urllib.request.urlopen(url).read().decode(&quot;UTF-8&quot;,&quot;ignore&quot;)
+    pat=&#39;pic_url&quot;:&quot;//(.*?)&quot;&#39;
+    imglist=re.compile(pat).findall(data)
+    print(len(imglist))
+    for j in range(len(imglist)):
+        thisimg=imglist[j]
+        thisimgurl=&quot;https://&quot;+thisimg
+        localfile=&quot;淘宝图片/&quot;+str(i)+str(j)+&quot;.jpg&quot;
+        urllib.request.urlretrieve(thisimgurl,localfile)</code></pre>
+<h1 id="同时使用用户代理池和ip代理池">同时使用用户代理池和IP代理池</h1>
+<p>封装成函数：</p>
+<pre><code><code>import urllib.request
+import re
+import random
+uapools=[
+    &#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:68.0) Gecko/20100101 Firefox/68.0&#39;,
+    &#39;Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.98 Safari/537.36 LBBROWSER&#39;,
+    &#39;Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1&#39;,
+    &#39;Mozilla/5.0 (Windows; U; Windows NT 6.1; ) AppleWebKit/534.12 (KHTML, like Gecko) Maxthon/3.0 Safari/534.12&#39;,
+]
+ippools=[
+    &quot;163.125.70.22&quot;,
+    &quot;111.231.90.122&quot;,
+    &quot;121.69.37.6&quot;,
+]
+def ua_ip(myurl):
+    def ip(ippools,uapools):
+        thisip=random.choice(ippools)
+        print(thisip)
+        thisua = random.choice(uapools)
+        print(thisua)
+        headers = (&quot;User-Agent&quot;, thisua)
+        proxy=urllib.request.ProxyHandler({&quot;http&quot;:thisip})
+        opener=urllib.request.build_opener(proxy,urllib.request.HTTPHandler)
+        opener.addheaders = [headers]
+        urllib.request.install_opener(opener)
+
+    for i in range(5):
+        try:
+            ip(ippools,uapools)
+            url=myurl
+            data=urllib.request.urlopen(url).read().decode(&quot;utf-8&quot;,&quot;ignore&quot;)
+            print(len(data))
+            break
+        except Exception as err:
+            print(err)
+    return data
+data=ua_ip(&quot;https://www.baidu.com/&quot;)
+fp=open(&quot;uaip.html&quot;,&quot;w&quot;,encoding=&quot;utf-8&quot;)
+fp.write(data)
+fp.close()</code></pre>
+<p>封装成模块：</p>
+<p>把模块拷贝到python目录</p>
+<p><img src="./images/python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫0.png" /></p>
+<p>使用：</p>
+<pre><code><code>from uaip import *
+data=ua_ip(&quot;https://www.baidu.com/&quot;)
+fp=open(&quot;baidu.html&quot;,&quot;w&quot;,encoding=&quot;utf-8&quot;)
+fp.write(data)
+fp.close()</code></pre>
+<h1 id="抓包分析">抓包分析</h1>
+<p>fiddler工具：用作代理服务器，request和response都要经过fiddler</p>
+<p>选用火狐浏览器，设置网络：<img src="./images/python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫1.png" /></p>
+<p>设置HTTPS协议：打开fiddler的工具的选项，打上勾</p>
+<p><img src="./images/python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫2.png" /></p>
+<p>然后点Actions选导入到桌面。</p>
+<p>再回到火狐的设置</p>
+<p><img src="./images/python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫3.png" /></p>
+<p>导入桌面上的证书</p>
+<p>常用命令clear：清屏</p>
+<h1 id="自动进行ajax异步请求数据">自动进行Ajax异步请求数据</h1>
+<p>如微博，拖到下面的时候数据才加载出来，不是同步出来的。再如“点击加载更多”，都是异步，需要抓包分析。</p>
+<p>看下面这个栗子。</p>
+<h1 id="腾讯视频评论深度解读爬虫实战">腾讯视频评论（深度解读）爬虫实战</h1>
+<p>在火狐浏览器打开腾讯视频，比如https://v.qq.com/x/cover/j6cgzhtkuonf6te.html</p>
+<p>点击查看更多解读，这时fiddler会有一个js文件：</p>
+<p><img src="./images/python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫4.png" /></p>
+<p>里面的内容就是评论。</p>
+<p>找到一条评论转一下码：<img src="./images/python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫5.png" /></p>
+<p>在火狐里ctrl+f看看有没有这条评论。</p>
+<p>copy js文件的url。</p>
+<p>点击查看更多评论，再触发一个json，copy url</p>
+<p>分析两个url：<img src="./images/python爬虫（3）——用户和IP代理池、抓包分析、异步请求数据、腾讯视频评论爬虫6.png" /></p>
+<p>简化一下网页试试：<a href="https://video.coral.qq.com/filmreviewr/c/upcomment/j6cgzhtkuonf6te?callback=_filmreviewrcupcommentj6cgzhtkuonf6te&amp;reqnum=3&amp;source=132&amp;commentid=6227734628246412645&amp;_=1566354716284">https://video.coral.qq.com/filmreviewr/c/upcomment/j6cgzhtkuonf6te?reqnum=3&amp;commentid=6227734628246412645</a></p>
+<p>通过分析，我们可以知道j6cg……是视频id，reqnum是每次查看的评论数量，commentid是评论id</p>
+<p><a href="https://video.coral.qq.com/filmreviewr/c/upcomment/【vid" class="uri">https://video.coral.qq.com/filmreviewr/c/upcomment/【vid</a>】?reqnum=【num】&amp;commentid=【cid】</p>
+<ol>
+<li>单页评论爬虫<br />
+有一些特殊字符比如图片现在还不知道怎么处理……以后再说吧</li>
+</ol>
+<pre><code><code>import urllib.request
+import re
+from uaip import *
+vid=&quot;j6cgzhtkuonf6te&quot;
+cid=&quot;6227734628246412645&quot;
+num=&quot;3&quot; #每页提取3个
+url=&quot;https://video.coral.qq.com/filmreviewr/c/upcomment/&quot;+vid+&quot;?reqnum=&quot;+num+&quot;&amp;commentid=&quot;+cid
+data=ua_ip(url)
+titlepat=&#39;&quot;title&quot;:&quot;(.*?)&quot;,&quot;abstract&quot;:&quot;&#39;
+commentpat=&#39;&quot;content&quot;:&quot;(.*?)&quot;,&#39;
+titleall=re.compile(titlepat,re.S).findall(data)
+commentall=re.compile(commentpat,re.S).findall(data)
+# print(len(commentall))
+for i in range(len(titleall)):
+    try:
+        print(&quot;评论标题是：&quot;+eval(&quot;u&#39;&quot;+titleall[i]+&quot;&#39;&quot;))
+        print(&quot;评论内容是：&quot;+eval(&quot;u&#39;&quot;+commentall[i]+&quot;&#39;&quot;))
+        print(&#39;---------------&#39;)
+    except Exception as err:
+        print(err)</code></pre>
+<ol>
+<li><p>翻页评论爬虫<br />
+查看网页源代码可以发现last:后面的内容为下一页的id</p>
+<pre><code><code>import urllib.request
+import re
+from uaip import *
+vid=&quot;j6cgzhtkuonf6te&quot;
+cid=&quot;6227734628246412645&quot;
+num=&quot;3&quot;
+for j in range(10): #爬取1~10页内容
+    print(&quot;第&quot;+str(j+1)+&quot;页&quot;)
+    url = &quot;https://video.coral.qq.com/filmreviewr/c/upcomment/&quot; + vid + &quot;?reqnum=&quot; + num + &quot;&amp;commentid=&quot; + cid
+    data = ua_ip(url)
+    titlepat = &#39;&quot;title&quot;:&quot;(.*?)&quot;,&quot;abstract&quot;:&quot;&#39;
+    commentpat = &#39;&quot;content&quot;:&quot;(.*?)&quot;,&#39;
+    titleall = re.compile(titlepat, re.S).findall(data)
+    commentall = re.compile(commentpat, re.S).findall(data)
+    lastpat=&#39;&quot;last&quot;:&quot;(.*?)&quot;&#39;
+    cid=re.compile(lastpat,re.S).findall(data)[0]
+    for i in range(len(titleall)):
+        try:
+            print(&quot;评论标题是：&quot; + eval(&quot;u&#39;&quot; + titleall[i] + &quot;&#39;&quot;))
+            print(&quot;评论内容是：&quot; + eval(&quot;u&#39;&quot; + commentall[i] + &quot;&#39;&quot;))
+            print(&#39;---------------&#39;)
+        except Exception as err:
+            print(err)</code></pre></li>
+</ol>
+<p>对于短评（普通评论）方法类似，这里就不赘述了，看下面这个短评爬虫代码：</p>
+<p>将<a href="https://video.coral.qq.com/varticle/1743283224/comment/v2?callback=_varticle1743283224commentv2&amp;orinum=10&amp;oriorder=o&amp;pageflag=1&amp;cursor=6442954225602101929&amp;scorecursor=0&amp;orirepnum=2&amp;reporder=o&amp;reppageflag=1&amp;source=132&amp;_=1566363507957" class="uri">https://video.coral.qq.com/varticle/1743283224/comment/v2?callback=_varticle1743283224commentv2&amp;orinum=10&amp;oriorder=o&amp;pageflag=1&amp;cursor=6442954225602101929&amp;scorecursor=0&amp;orirepnum=2&amp;reporder=o&amp;reppageflag=1&amp;source=132&amp;_=1566363507957</a></p>
+<p>简化成：<a href="https://video.coral.qq.com/varticle/1743283224/comment/v2?orinum=10&amp;oriorder=o&amp;pageflag=1&amp;cursor=6442954225602101929" class="uri">https://video.coral.qq.com/varticle/1743283224/comment/v2?orinum=10&amp;oriorder=o&amp;pageflag=1&amp;cursor=6442954225602101929</a></p>
+<pre><code><code>import urllib.request
+import re
+from uaip import *
+vid=&quot;1743283224&quot;
+cid=&quot;6442954225602101929&quot;
+num=&quot;5&quot;
+for j in range(10): #爬取1~10页内容
+    print(&quot;第&quot;+str(j+1)+&quot;页&quot;)
+    url=&quot;https://video.coral.qq.com/varticle/&quot;+vid+&quot;/comment/v2?orinum=&quot;+num+&quot;&amp;oriorder=o&amp;pageflag=1&amp;cursor=&quot;+cid
+    data = ua_ip(url)
+    commentpat = &#39;&quot;content&quot;:&quot;(.*?)&quot;&#39;
+    commentall = re.compile(commentpat, re.S).findall(data)
+    lastpat=&#39;&quot;last&quot;:&quot;(.*?)&quot;&#39;
+    cid=re.compile(lastpat,re.S).findall(data)[0]
+    # print(len(gg))
+    # print(len(commentall))
+    for i in range(len(commentall)):
+        try:
+            print(&quot;评论内容是：&quot; + eval(&quot;u&#39;&quot; + commentall[i] + &quot;&#39;&quot;))
+            print(&#39;---------------&#39;)
+        except Exception as err:
+            print(err)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,290 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python-布隆过滤器' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python-布隆过滤器</center></div><div class='banquan'>原文出处:本文由博客园博主yscl提供。<br/>
+原文连接:https://www.cnblogs.com/yscl/p/12003359.html</div><br>
+    <p>在学习<code>redis</code>过程中提到一个缓存穿透的问题， 书中参考的解决方案之一是使用布隆过滤器， 那么就有必要来了解一下什么是布隆过滤器。在参考了许多博客之后， 写个总结记录一下。</p>
+<h2 id="一布隆过滤器简介">一、布隆过滤器简介</h2>
+<h3 id="什么是布隆过滤器">什么是布隆过滤器？</h3>
+<p>本质上布隆过滤器( BloomFilter )是一种数据结构，比较巧妙的概率型数据结构（probabilistic data structure），特点是高效地插入和查询，可以用来告诉你 “某样东西一定不存在或者可能存在”。</p>
+<p>相比于传统的 Set、Map 等数据结构，它更高效、占用空间更少，但是缺点是其返回的结果是概率性的，而不是确切的。</p>
+<h3 id="布隆过滤器原理">布隆过滤器原理</h3>
+<p>布隆过滤器内部维护一个<code>bitArray</code>(位数组)， 开始所有数据全部置 0 。当一个元素过来时，能过多个哈希函数（hash1,hash2,hash3....）计算不同的在哈希值，并通过哈希值找到对应的<code>bitArray</code>下标处，将里面的值 0 置为 1 。 需要说明的是，布隆过滤器有一个误判率的概念，误判率越低，则数组越长，所占空间越大。误判率越高则数组越小，所占的空间越小。</p>
+<p>下面以网址为例来进行说明, 例如布隆过滤器的初始情况如下图所示：<br />
+<img src="./images/python-布隆过滤器0.png" /></p>
+<p>现在我们需要往布隆过滤里中插入<code>baidu</code>这个url，经过3个哈希函数的计算，hash值分别为1，4，7，那么我们就需要对布隆过滤器的对应的bit位置1， 就如图下所示：</p>
+<p><img src="./images/python-布隆过滤器1.png" /></p>
+<p>接下来，需要继续往布隆过滤器中添加<code>tencent</code>这个url，然后它计算出来的hash值分别3，4，8，继续往对应的bit位置1。这里就需要注意一个点， 上面两个url最后计算出来的hash值都有4，这个现象也是布隆不能确认某个元素一定存在的原因，最后如下图所示：</p>
+<p><img src="./images/python-布隆过滤器2.png" /></p>
+<p>布隆过滤器的查询也很简单，例如我们需要查找<code>python</code>，只需要计算出它的hash值， 如果该值为2，4，7，那么因为对应bit位上的数据有一个不为1， 那么一定可以断言<code>python</code>不存在，但是如果它计算的hash值是1，3，7，那么就只能判断出<code>python</code>可能存在，这个例子就可以看出来， 我们没有存入<code>python</code>，但是由于其他key存储的时候返回的hash值正好将<code>python</code>计算出来的hash值对应的bit位占用了，这样就不能准确地判断出<code>python</code>是否存在。</p>
+<p>因此， 随着添加的值越来越多， 被占的bit位越来越多， 这时候误判的可能性就开始变高，如果布隆过滤器所有bit位都被置为1的话，那么所有key都有可能存在， 这时候布隆过滤器也就失去了过滤的功能。至此，选择一个合适的过滤器长度就显得非常重要。</p>
+<p>从上面布隆过滤器的实现原理可以看出，它不支持删除， 一旦将某个key对应的bit位置0，可能会导致同样bit位的其他key的存在性判断错误。</p>
+<h3 id="布隆过滤器的准确性">布隆过滤器的准确性</h3>
+<p>布隆过滤器的核心思想有两点：</p>
+<ol>
+<li>多个hash，增大随机性，减少hash碰撞的概率</li>
+<li>扩大数组范围，使hash值均匀分布，进一步减少hash碰撞的概率。</li>
+</ol>
+<p>虽然布隆过滤器已经尽可能的减小hash碰撞的概率了，但是，并不能彻底消除，因此正如上面的小例子所举的小例子的结果来看， 布隆过滤器只能告诉我们<strong>某样东西一定不存在以及它可能存在</strong>。</p>
+<p>关于布隆过滤器的数组大小以及相应的hash函数个数的选择， 可以参考网上的其他博客或者是这个维基百科上对应词条上的结果: <a href="http://en.wikipedia.org/wiki/Bloom_filter#Probability_of_false_positives">Probability of false positives</a> .</p>
+<p><img src="./images/python-布隆过滤器3.png" alt="1024px-Bloom_filter_fp_probability.svg" style="zoom: 67%;" /></p>
+<p>上图的纵坐标p是误判率，横坐标n表示插入的元素个数，m表示布隆过滤器的bit长度，当然上图结果成立都假设hash函数的个数k满足条件<code>k = (m/n)ln2</code>(忽略k是整数)。</p>
+<p>从上面的结果来看， 选择合适后误判率还是比较低的。</p>
+<h3 id="布隆过滤器的应用">布隆过滤器的应用</h3>
+<ol>
+<li>网页爬虫对URL的去重，避免爬取相同的URL地址</li>
+<li>反垃圾邮件，从数十亿个垃圾邮件列表中判断某邮箱是否垃圾邮箱（同理，垃圾短信）</li>
+<li>缓存穿透，将所有可能存在的数据缓存放到布隆过滤器中，当黑客访问不存在的缓存时迅速返回避免缓存及DB挂掉。</li>
+<li>黑名单过滤，</li>
+</ol>
+<h2 id="二python中使用布隆过滤器">二、python中使用布隆过滤器</h2>
+<ol>
+<li><p>先去这个网站下载<code>bitarray</code>这个依赖 <code>https://www.lfd.uci.edu/~gohlke/pythonlibs/#bitarray</code></p>
+<p>直接安装会报错<code>error: Microsoft Visual C++ 14.0 is required. Get it with &quot;Build Tools for Visual Studio&quot;: https://visualstudio.microsoft.com/downloads/</code></p></li>
+<li>安装<code>wheel</code>文件, 防止我们主动安装报这样的错误<code>pip3 install bitarray-1.1.0-cp36-cp36m-win_amd64.whl</code></li>
+<li><p><code>pip3 install pybloom_live</code></p></li>
+</ol>
+<p>使用案例：</p>
+<pre><code><code>from pybloom_live import ScalableBloomFilter, BloomFilter
+
+# 可自动扩容的布隆过滤器
+bloom = ScalableBloomFilter(initial_capacity=100, error_rate=0.001)
+
+url1 = &#39;http://www.baidu.com&#39;
+url2 = &#39;http://qq.com&#39;
+
+bloom.add(url1)
+print(url1 in bloom)
+print(url2 in bloom)</code></pre>
+<pre><code><code># BloomFilter 是定长的
+from pybloom_live import BloomFilter
+
+url1 = &#39;http://www.baidu.com&#39;
+url2 = &#39;http://qq.com&#39;
+
+bf = BloomFilter(capacity=1000)
+bf.add(url1)
+print(url1 in bf)
+print(url2 in bf)</code></pre>
+<h2 id="三redis中使用布隆过滤器">三、redis中使用布隆过滤器</h2>
+<p>详细的文档可以参考<a href="https://oss.redislabs.com/redisbloom/Quick_Start/">官方文档</a>。</p>
+<p>这个模块不仅仅实现了布隆过滤器，还实现了 <code>CuckooFilter</code>（布谷鸟过滤器），以及 <code>TopK</code>功能。<code>CuckooFilter</code>是在 <code>BloomFilter</code>的基础上主要解决了<code>BloomFilter</code>不能删除的缺点。 下面只说明了布隆过滤器</p>
+<h3 id="安装">安装</h3>
+<p>传统的<code>redis</code>服务器安装 <code>RedisBloom</code> 插件，详情可以参考<a href="https://blog.csdn.net/u013030276/article/details/88350641">centos中安装redis插件bloom-filter</a></p>
+<p>我这里使用docker进行安装，简单快捷。</p>
+<pre class="bash"><code>docker pull redislabs/rebloom:latest
+docker run -p 6379:6379 --name redis-redisbloom redislabs/rebloom:latest
+docker exec -it redis-redisbloom /bin/bash</code></pre>
+<h3 id="命令">命令</h3>
+<p>命令使用非常简单。</p>
+<h4 id="reserve">reserve</h4>
+<blockquote>
+<p>bf.reserve {key} {error_rate} {size}</p>
+</blockquote>
+<p>创建一个空的名为<code>key</code>的布隆过滤器，并设置一个期望的错误率和初始大小。<code>{error_rate}</code>过滤器的错误率在0-1之间，</p>
+<pre class="bash"><code>127.0.0.1:6379&gt; bf.reserve black_male 0.001 1000
+OK</code></pre>
+<h4 id="add-madd">add, madd</h4>
+<blockquote>
+<p>bf.add {key} {item}</p>
+<p>bf.madd {key} {item} [item…]</p>
+</blockquote>
+<p>往过滤器中添加元素。如果key不存在，过滤器会自动创建。</p>
+<pre class="bash"><code>127.0.0.1:6379&gt; bf.add test 123
+(integer) 1
+127.0.0.1:6379&gt; bf.madd urls baidu google tencent
+1) (integer) 0
+2) (integer) 0
+3) (integer) 1
+
+# 上面已经存在的值再次添加会返回0， 不存在则返回1</code></pre>
+<h4 id="exists-mexists">exists, mexists</h4>
+<blockquote>
+<p>bf.exists {key} {item}</p>
+<p>bf.mexists {key} {item} [item…]</p>
+</blockquote>
+<p>判断过滤器中是否存在该元素，不存在返回0，存在返回1。</p>
+<pre class="bash"><code>127.0.0.1:6379&gt; bf.exists test 123
+(integer) 1
+127.0.0.1:6379&gt; bf.mexists urls baidu google hello
+1) (integer) 1
+2) (integer) 1
+3) (integer) 0</code></pre>
+<h2 id="四python程序中使用redisbloom">四、python程序中使用redisbloom</h2>
+<p>使用<code>redisbloom</code>这个模块来操作<code>redis</code>的布隆过滤器插件</p>
+<blockquote>
+<p>pip3 install redisbloom</p>
+</blockquote>
+<p>使用方法，参考官方给出的例子即可。<a href="https://github.com/RedisBloom/redisbloom-py" class="uri">https://github.com/RedisBloom/redisbloom-py</a></p>
+<pre><code><code># 自己的简单使用
+from redisbloom.client import Client
+
+# 因为我使用的是虚拟机中docker的redis, 填写虚拟机的ip地址和暴露的端口
+rb = Client(host=&#39;192.168.12.78&#39;, port=6379)
+rb.bfAdd(&#39;urls&#39;, &#39;baidu&#39;)
+rb.bfAdd(&#39;urls&#39;, &#39;google&#39;)
+print(rb.bfExists(&#39;urls&#39;, &#39;baidu&#39;))  # out: 1
+print(rb.bfExists(&#39;urls&#39;, &#39;tencent&#39;))  # out: 0
+
+rb.bfMAdd(&#39;urls&#39;, &#39;a&#39;, &#39;b&#39;)
+print(rb.bfMExists(&#39;urls&#39;, &#39;google&#39;, &#39;baidu&#39;, &#39;tencent&#39;))  # out: [1, 1, 0]</code></pre>
+<p><strong>误判率的测试demo</strong></p>
+<pre><code><code>&quot;&quot;&quot;
+基于redis布隆过滤器的误判率的测试
+&quot;&quot;&quot;
+import time
+from redisbloom.client import Client
+
+rb = Client(host=&#39;192.168.12.78&#39;, port=6379)
+
+
+def insert(size, key=&#39;book&#39;):
+    &quot;&quot;&quot;插入数据&quot;&quot;&quot;
+    # 一条条插入速度太慢了
+    # for i in range(size):
+    #     rb.bfAdd(key, f&#39;book{i}&#39;)
+    s = time.time()
+    step = 1000  # 每次插入1000条数据
+    for start in range(0, size, step):
+        stop = start + step
+        if stop &gt;= size:
+            stop = size
+        rb.bfMAdd(key, *range(start, stop))
+    print(&#39;插入结束... 花费时间: {:.4f}s&#39;.format(time.time() - s))
+
+
+def select(size, key=&#39;book&#39;):
+    &quot;&quot;&quot;查询数据&quot;&quot;&quot;
+    # 统计误判个数
+    count = 0
+    
+    s = time.time()
+
+    # 单条查询速度太慢了。。。
+    # for i in range(size, size * 2):
+    #     count += rb.bfExists(key, i)
+
+    step = 1000  # 每次查1000条数据
+    for start in range(size, size * 2, step):
+        stop = start + step
+        if stop &gt;= size * 2:
+            stop = size * 2
+        count += rb.bfMExists(key, *range(start, stop)).count(1)  # 返回值[1, 0, 1, ...]统计1的个数
+    print(&#39;size: {}, 误判元素个数: {}, 误判率{:.4%}&#39;.format(size, count, count / size))
+    print(&#39;查询结束... 花费时间: {:.4f}s&#39;.format(time.time() - s))
+    print(&#39;*&#39; * 30)
+
+
+def _test1(size, key=&#39;book&#39;):
+    &quot;&quot;&quot;测试size个不存在的&quot;&quot;&quot;
+    rb.delete(key)  # 先清空原来的key
+    insert(size, key)
+    select(size, key)
+
+
+def _test2(size, error=0.001, key=&#39;book&#39;):
+    &quot;&quot;&quot;指定误差率和初始大小的布隆过滤器&quot;&quot;&quot;
+    rb.delete(key)
+
+    rb.bfCreate(key, error, size)  # 误差率为0.1%， 初始个数为size
+
+    insert(size, key)
+    select(size, key)
+
+
+if __name__ == &#39;__main__&#39;:
+    # The default error rate is 0.01 and the default initial capacity is 100.
+    # 这个是默认的配置， 初始大小为100， 误差率默认为0.01
+    _test1(1000)
+    _test1(10000)
+    _test1(100000)
+    _test2(500000)</code></pre>
+<pre><code><code># 输出的结果
+
+插入结束... 花费时间: 0.0409s
+size: 1000, 误判元素个数: 14, 误判率1.4000%
+查询结束... 花费时间: 0.0060s
+******************************
+插入结束... 花费时间: 0.1389s
+size: 10000, 误判元素个数: 110, 误判率1.1000%
+查询结束... 花费时间: 0.0628s
+******************************
+插入结束... 花费时间: 0.5372s
+size: 100000, 误判元素个数: 1419, 误判率1.4190%
+查询结束... 花费时间: 0.4318s
+******************************
+插入结束... 花费时间: 1.9484s
+size: 500000, 误判元素个数: 152, 误判率0.0304%
+查询结束... 花费时间: 2.2177s
+******************************</code></pre>
+<p>如果想要布隆过滤器知道具体的耗费内存大小以及对应的错误率的信息， 可以使用查看这个<a href="https://krisives.github.io/bloom-calculator/">布隆过滤器计算器</a>计算出最后的结果。就如下面所示， 1kw数据， 误差为0.01%， 只需要23M内存。</p>
+<p><img src="./images/python-布隆过滤器4.png" /></p>
+<h2 id="五缓存穿透">五、缓存穿透</h2>
+<p>现在又回到开头的问题， 解决缓存穿透的问题。</p>
+<p><strong>什么是缓存穿透</strong></p>
+<p>我们通常使用<code>redis</code>作为数据缓存，当请求进来时先通过<code>key</code>去<code>redis</code>缓存查询，如果缓存中数据不存在，需要去查询数据库的数据。当数据库和缓存中都不存在的数据来查询时候，请求都打在数据库的请求中。如果这种请求量很大，会给数据库造成更大的压力进而影响系统的性能。</p>
+<p><img src="./images/python-布隆过滤器5.png" /></p>
+<p><strong>解决这类问题的方法</strong></p>
+<blockquote>
+<p>方法一:当DB和redis中都不存在<code>key</code>，在DB返回<code>null</code>时，在redis中插入`<code>当</code>key<code>再次请求时,redis直接返回</code>null`，而不用再次请求DB。</p>
+</blockquote>
+<blockquote>
+<p>方法二:使用redis提供的<code>redisbloom</code>，同样是将存在的key放入到过滤器中。当请求进来时，先去过滤器中校验是否存在，如果不存在直接返回<code>null</code>。</p>
+</blockquote>
+<p><img src="./images/python-布隆过滤器6.png" /><br />
+<strong>黑名单的小例子</strong></p>
+<pre><code><code>import redis
+from redisbloom.client import Client
+
+# 创建一个连接池来进行使用
+pool = redis.ConnectionPool(host=&#39;192.168.12.78&#39;, port=6379, max_connections=100)
+
+
+def create_key(key, error, capacity):
+    rb = Client(connection_pool=pool)
+    rb.bfCreate(key, errorRate=error, capacity=capacity)
+
+
+def get_item(key, item):
+    &quot;&quot;&quot;判断是否存在&quot;&quot;&quot;
+    rb = Client(connection_pool=pool)
+    return rb.bfExists(key, item)
+
+
+def add_item(key, item):
+    &quot;&quot;&quot;添加值&quot;&quot;&quot;
+    rb = Client(connection_pool=pool)
+    return rb.bfAdd(key, item)
+
+
+if __name__ == &#39;__main__&#39;:
+    # 添加黑名单, 误差为0.001， 大小为1000
+    create_key(&#39;blacklist&#39;, 0.001, 1000)
+    add_item(&#39;blacklist&#39;, &#39;user:1&#39;)
+    add_item(&#39;blacklist&#39;, &#39;user:2&#39;)
+    add_item(&#39;blacklist&#39;, &#39;user:3&#39;)
+    add_item(&#39;blacklist&#39;, &#39;user:4&#39;)
+    print(&#39;user:1是否在黑名单-&gt; &#39;, get_item(&#39;blacklist&#39;, &#39;user:1&#39;))
+    print(&#39;user:2是否在黑名单-&gt; &#39;, get_item(&#39;blacklist&#39;, &#39;user:2&#39;))
+    print(&#39;user:6是否在黑名单-&gt; &#39;, get_item(&#39;blacklist&#39;, &#39;user:6&#39;))</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

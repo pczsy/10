@@ -1,0 +1,139 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修ThreadLocal快速了解一下' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>ThreadLocal快速了解一下</center></div><div class='banquan'>原文出处:本文由博客园博主布尔bl提供。<br/>
+原文连接:https://www.cnblogs.com/chenzhuantou/p/12005516.html</div><br>
+    <blockquote>
+<p>欢迎点赞阅读，一同学习交流，有疑问请留言 。<br />
+GitHub上也有开源 <a href="https://github.com/buerbl/JavaHouse">JavaHouse</a> 欢迎star</p>
+</blockquote>
+<h3 id="引入">1 引入</h3>
+<p>在Java8里面，ThreadLocal 是一个泛型类。这个类可以提供线程变量。每个线程都有自己的变量。这意味着什么？每一个线程都有自己的资源，就像在现实生活中，每一个程序员都有自己的一个对象，不用去竞争，绝对的线程安全啊。那么 ThreadLocal 究竟怎么用呢？</p>
+<p><img src="./images/ThreadLocal快速了解一下0.png" alt="黑人问号.png" /></p>
+<h3 id="类的说明">2 类的说明</h3>
+<pre><code><code>* This class provides thread-local variables.  These variables differ from
+* their normal counterparts in that each thread that accesses one (via its
+* {@code get} or {@code set} method) has its own, independently initialized
+* copy of the variable.  {@code ThreadLocal} instances are typically private
+* static fields in classes that wish to associate state with a thread (e.g.,
+* a user ID or Transaction ID).</code></pre>
+<p>这是 ThreadLocal 类上面的说明。大概意思是提供线程变量，通常是被 static fields 修饰。</p>
+<h3 id="创建他">3 创建他</h3>
+<p>创建 ThreadLocal 有两种方法，一种通过原始的无参构造器， 另一种是使用Java8的 lamaba 表达式。</p>
+<h4 id="无参构造器">3.1 无参构造器</h4>
+<p>源码</p>
+<pre><code><code>/**
+ * Creates a thread local variable.
+ * @see #withInitial(java.util.function.Supplier)
+ */
+public ThreadLocal() {
+}</code></pre>
+<p>使用并初始化</p>
+<pre><code><code>private static final ThreadLocal&lt;Integer&gt; threadId = new ThreadLocal&lt;Integer&gt;() {
+        @Override
+        protected Integer initialValue(){
+            return 1;
+        }
+    };</code></pre>
+<h4 id="lamaba-表达式">3.2 lamaba 表达式</h4>
+<pre><code><code>
+    /**
+     * Creates a thread local variable. The initial value of the variable is
+     * determined by invoking the {@code get} method on the {@code Supplier}.
+     *
+     * @param &lt;S&gt; the type of the thread local&#39;s value
+     * @param supplier the supplier to be used to determine the initial value
+     * @return a new thread local variable
+     * @throws NullPointerException if the specified supplier is null
+     * @since 1.8
+     */
+    public static &lt;S&gt; ThreadLocal&lt;S&gt; withInitial(Supplier&lt;? extends S&gt; supplier) {
+        return new SuppliedThreadLocal&lt;&gt;(supplier);
+    }</code></pre>
+<p>使用并初始化</p>
+<pre><code><code>private static final ThreadLocal&lt;Integer&gt; threadId = ThreadLocal.withInitial(() -&gt; 1);</code></pre>
+<p>其实使用如果使用 IDEA 的话， 编译器也会提示可以有 lamaba。 但是看看里面的源码还是挺有意思的。</p>
+<h3 id="getter-方法">4 getter() 方法</h3>
+<pre><code><code>/**
+ * Returns the value in the current thread&#39;s copy of this
+ * thread-local variable.  If the variable has no value for the
+ * current thread, it is first initialized to the value returned
+ * by an invocation of the {@link #initialValue} method.
+ *
+ * @return the current thread&#39;s value of this thread-local
+ */
+public T get() {
+    Thread t = Thread.currentThread();
+    ThreadLocalMap map = getMap(t);
+    if (map != null) {
+        ThreadLocalMap.Entry e = map.getEntry(this);
+        if (e != null) {
+            @SuppressWarnings(&quot;unchecked&quot;)
+            T result = (T)e.value;
+            return result;
+        }
+    }
+    return setInitialValue();
+}</code></pre>
+<p>这里可以看到 Thread.currentThread，获取了当前线程，还有 ThreadLocalMap 这个类,他是一个哈希结构（key-value）。getMap() 方法通过当前线程去获取他。 然后从再通过 this 关键字作为key，得到相应的值value。当然如果为空，就会返回初始化的值。</p>
+<h3 id="setter-方法">5 setter() 方法</h3>
+<p>什么情况下不会返回初始化的默认值呢，答案就是调用了setter() 方法。先看源码</p>
+<pre><code><code>/**
+ * Sets the current thread&#39;s copy of this thread-local variable
+ * to the specified value.  Most subclasses will have no need to
+ * override this method, relying solely on the {@link #initialValue}
+ * method to set the values of thread-locals.
+ *
+ * @param value the value to be stored in the current thread&#39;s copy of
+ *        this thread-local.
+ */
+public void set(T value) {
+    Thread t = Thread.currentThread();
+    ThreadLocalMap map = getMap(t);
+    if (map != null)
+        map.set(this, value);
+    else
+        createMap(t, value);
+}</code></pre>
+<p>大概意思就是将当前线程作为key， 要设的值作为 value 放在 ThreadLocalMap 这个哈希结构中。看到这里，就知道为什么说 ThreadLocal 可以提供线程变量了。他讲每个线程都分开存储，每个线程都有自己的独立资源，不存在资源共享的情况，所以线程安全。</p>
+<h3 id="内存泄漏">6 内存泄漏</h3>
+<p>每个线程变量都放进一个 ThreadLocalMap 里面，不会有内存问题吗。我截取一部分源码</p>
+<pre><code><code>static class ThreadLocalMap {
+    static class Entry extends WeakReference&lt;ThreadLocal&lt;?&gt;&gt; {
+        Object value;
+        
+        Entry(ThreadLocal&lt;?&gt; k, Object v) {
+            super(k);
+            value = v;
+        }
+    }
+    
+}</code></pre>
+<p>这里可以看到了 WeakReference 这个类，可以知道 ThreadLocalMap 类是一个弱引用，按道理来说，一般执行完线程，就会被虚拟机的垃圾回收机制回收了。但是，真的是这样的吗。如果是线程池环境里面，线程一直存在，那么 ThreadLocal 就会变成起强引用了，不能被回收了。所以有内存泄漏问题。</p>
+<p>那现在就是 remove() 方法出场的时候了。按照字面意思，可以知道，该方法可以清掉线程变量资源，事实也是这样。所以，在程序的最后，最好调用一下 emove() 方法,防止内存泄漏。</p>
+<h3 id="参考">参考</h3>
+<p>《实战Java高并发程序设计》<br />
+ThreadLocal 源码代</p>
+<h3 id="关注微信公众号随时移动端阅读">关注微信公众号，随时移动端阅读</h3>
+<p><img src="./images/ThreadLocal快速了解一下1.png" alt="公众号.jpg" /></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

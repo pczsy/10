@@ -1,0 +1,284 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修pymysql 模块的使用' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>pymysql 模块的使用</center></div><div class='banquan'>原文出处:本文由博客园博主与鹿逐秋提供。<br/>
+原文连接:https://www.cnblogs.com/wangyueping/p/11263258.html</div><br>
+    <h1 id="一pymysql的下载和使用">一、pymysql的下载和使用</h1>
+<p><strong>（1）pymysql模块的下载</strong></p>
+<pre><code><code>pip3 install pymysql</code></pre>
+<p><strong>（2）pymysql的使用</strong></p>
+<pre class="python"><code># 实现：使用Python实现用户登录，如果用户存在则登录成功（假设该用户已在数据库中）
+
+
+import pymysql
+user = input(&#39;请输入用户名：&#39;)
+
+pwd = input(&#39;请输入密码：&#39;)
+
+
+
+# 1.连接
+conn = pymysql.connect(host=&#39;127.0.0.1&#39;, port=3306, user=&#39;root&#39;, password=&#39;&#39;, db=&#39;db8&#39;, charset=&#39;utf8&#39;)
+
+
+# 2.创建游标
+cursor = conn.cursor()
+
+#注意%s需要加引号
+sql = &quot;select * from userinfo where username=&#39;%s&#39; and pwd=&#39;%s&#39;&quot; %(user, pwd)
+print(sql)
+
+# 3.执行sql语句
+cursor.execute(sql)
+
+result=cursor.execute(sql) #执行sql语句，返回sql查询成功的记录数目
+print(result)
+
+
+# 关闭连接，游标和连接都要关闭
+cursor.close()
+conn.close()
+
+if result:
+    print(&#39;登陆成功&#39;)
+else:
+    print(&#39;登录失败&#39;)</code></pre>
+<p><br></p>
+<h1 id="二execute之sql注入">二、execute()之sql注入</h1>
+<pre><code><code>最后那一个空格，在一条sql语句中如果遇到select * from userinfo where username=&#39;mjj&#39; -- asadasdas&#39; and pwd=&#39;&#39; 则--之后的条件被注释掉了(注意--后面还有一个空格)
+
+#1、sql注入之：用户存在，绕过密码
+mjj&#39; -- 任意字符
+
+#2、sql注入之：用户不存在，绕过用户与密码
+xxx&#39; or 1=1 -- 任意字符</code></pre>
+<p><img src="./images/pymysql 模块的使用0.png" /></p>
+<p><strong>解决方法：</strong></p>
+<pre class="python"><code># 原来是我们对sql进行字符串拼接
+# sql=&quot;select * from userinfo where name=&#39;%s&#39; and password=&#39;%s&#39;&quot; %(username,pwd)
+# print(sql)
+# result=cursor.execute(sql)
+
+#改写为（execute帮我们做字符串拼接，我们无需且一定不能再为%s加引号了）
+sql=&quot;select * from userinfo where name=%s and password=%s&quot; #！！！注意%s需要去掉引号，因为pymysql会自动为我们加上
+result=cursor.execute(sql,[user,pwd]) #pymysql模块自动帮我们解决sql注入的问题，只要我们按照pymysql的规矩来。</code></pre>
+<p><br></p>
+<h1 id="三增删改conn.commit">三、增、删、改：conn.commit()</h1>
+<p>commit()方法：在数据库里增、删、改的时候，<strong>必须要进行提交，否则插入的数据不生效。</strong></p>
+<pre class="python"><code>import pymysql
+username = input(&#39;请输入用户名：&#39;)
+
+pwd = input(&#39;请输入密码：&#39;)
+
+
+
+# 1.连接
+conn = pymysql.connect(host=&#39;localhost&#39;, port=3306, user=&#39;root&#39;, password=&#39;&#39;, db=&#39;db8&#39;, charset=&#39;utf8&#39;)
+
+
+# 2.创建游标
+cursor = conn.cursor()
+
+
+# 操作
+# 增
+# sql = &quot;insert into userinfo(username,pwd) values (%s,%s)&quot;
+
+
+# effect_row = cursor.execute(sql,(username,pwd))
+#同时插入多条数据
+#cursor.executemany(sql,[(&#39;李四&#39;，&#39;110&#39;),（&#39;王五&#39;，&#39;119&#39;）]) 
+
+# print(effect_row)#
+
+# 改
+# sql = &quot;update userinfo set username = %s  where id = 2&quot;
+# effect_row = cursor.execute(sql,username)
+# print(effect_row)
+
+
+# 删
+sql = &quot;delete from userinfo  where id = 2&quot;
+effect_row = cursor.execute(sql)
+print(effect_row)
+
+
+#一定记得commit
+conn.commit()
+
+# 4.关闭游标
+cursor.close()
+
+# 5.关闭连接
+conn.close()</code></pre>
+<p><br></p>
+<h1 id="四查fetchonefetchmanyfetchall">四、查：fetchone、fetchmany、fetchall</h1>
+<pre class="python"><code>fetchone():获取下一行数据，第一次为首行；
+fetchall():获取所有行数据源
+fetchmany(4):获取4行数据</code></pre>
+<p>查看一下表内容：</p>
+<pre><code><code>mysql&gt; select * from userinfo;
++----+----------+-----+
+| id | username | pwd |
++----+----------+-----+
+|  1 | mjj      | 123 |
+|  3 | 张三     | 110 |
+|  4 | 李四     | 119 |
++----+----------+-----+
+3 rows in set (0.00 sec)</code></pre>
+<p><br></p>
+<p>使用fetchone():</p>
+<pre class="python"><code>import pymysql
+
+# 1.连接
+conn = pymysql.connect(host=&#39;localhost&#39;, port=3306, user=&#39;root&#39;, password=&#39;&#39;, db=&#39;db8&#39;, charset=&#39;utf8&#39;)
+
+
+# 2.创建游标
+cursor = conn.cursor()
+
+sql = &#39;select * from userinfo&#39;
+cursor.execute(sql)
+
+
+# 查询第一行的数据
+row = cursor.fetchone()
+print(row) # (1, &#39;mjj&#39;, &#39;123&#39;)
+
+# 查询第二行数据
+row = cursor.fetchone()
+print(row) # (3, &#39;张三&#39;, &#39;110&#39;)
+
+# 4.关闭游标
+cursor.close()
+
+# 5.关闭连接
+conn.close()</code></pre>
+<p>使用fetchall():</p>
+<pre class="python"><code>import pymysql
+
+# 1.连接
+conn = pymysql.connect(host=&#39;localhost&#39;, port=3306, user=&#39;root&#39;, password=&#39;&#39;, db=&#39;db8&#39;, charset=&#39;utf8&#39;)
+
+
+# 2.创建游标
+cursor = conn.cursor()
+
+sql = &#39;select * from userinfo&#39;
+cursor.execute(sql)
+
+# 获取所有的数据
+rows = cursor.fetchall()
+print(rows)
+
+# 4.关闭游标
+cursor.close()
+
+# 5.关闭连接
+conn.close()
+
+#运行结果
+((1, &#39;mjj&#39;, &#39;123&#39;), (3, &#39;张三&#39;, &#39;110&#39;), (4, &#39;李四&#39;, &#39;119&#39;))</code></pre>
+<p>默认情况下，我们获取到的返回值是元组，只能看到每行的数据，却不知道每一列代表的是什么，这个时候可以使用以下方式来返回字典，每一行的数据都会生成一个字典：</p>
+<pre><code><code>cursor = conn.cursor(cursor=pymysql.cursors.DictCursor)  #在实例化的时候，将属性cursor设置为pymysql.cursors.DictCursor</code></pre>
+<p>在fetchone示例中，在获取行数据的时候，可以理解开始的时候，有一个行指针指着第一行的上方，获取一行，它就向下移动一行，所以当行指针到最后一行的时候，就不能再获取到行的内容，所以我们可以使用如下方法来移动行指针：</p>
+<pre><code><code>cursor.scroll(1,mode=&#39;relative&#39;)  # 相对当前位置移动
+cursor.scroll(2,mode=&#39;absolute&#39;) # 相对绝对位置移动
+第一个值为移动的行数，整数为向下移动，负数为向上移动，mode指定了是相对当前位置移动，还是相对于首行移动</code></pre>
+<pre class="python"><code># 1.Python实现用户登录
+# 2.Mysql保存数据
+
+import pymysql
+
+# 1.连接
+conn = pymysql.connect(host=&#39;localhost&#39;, port=3306, user=&#39;root&#39;, password=&#39;&#39;, db=&#39;db8&#39;, charset=&#39;utf8&#39;)
+
+
+# 2.创建游标
+cursor = conn.cursor(cursor=pymysql.cursors.DictCursor)
+
+sql = &#39;select * from userinfo&#39;
+cursor.execute(sql)
+
+
+# 查询第一行的数据
+row = cursor.fetchone()
+print(row) # (1, &#39;mjj&#39;, &#39;123&#39;)
+
+# 查询第二行数据
+row = cursor.fetchone() # (3, &#39;张三&#39;, &#39;110&#39;)
+print(row)
+
+cursor.scroll(-1,mode=&#39;relative&#39;) #设置之后，光标相对于当前位置往前移动了一行，所以打印的结果为第二行的数据
+row = cursor.fetchone() 
+print(row)
+
+cursor.scroll(0,mode=&#39;absolute&#39;) #设置之后，光标相对于首行没有任何变化，所以打印的结果为第一行数据
+row = cursor.fetchone() 
+print(row)
+
+# 4.关闭游标
+cursor.close()
+
+# 5.关闭连接
+conn.close()
+
+#结果如下
+
+{&#39;id&#39;: 1, &#39;username&#39;: &#39;mjj&#39;, &#39;pwd&#39;: &#39;123&#39;}
+{&#39;id&#39;: 3, &#39;username&#39;: &#39;张三&#39;, &#39;pwd&#39;: &#39;110&#39;}
+{&#39;id&#39;: 3, &#39;username&#39;: &#39;张三&#39;, &#39;pwd&#39;: &#39;110&#39;}
+{&#39;id&#39;: 1, &#39;username&#39;: &#39;mjj&#39;, &#39;pwd&#39;: &#39;123&#39;}</code></pre>
+<p>fetchmany():</p>
+<pre class="python"><code>import pymysql
+
+# 1.连接
+conn = pymysql.connect(host=&#39;localhost&#39;, port=3306, user=&#39;root&#39;, password=&#39;&#39;, db=&#39;db8&#39;, charset=&#39;utf8&#39;)
+
+
+# 2.创建游标
+cursor = conn.cursor(cursor=pymysql.cursors.DictCursor)
+
+sql = &#39;select * from userinfo&#39;
+cursor.execute(sql)
+
+
+
+# 获取2条数据
+rows = cursor.fetchmany(2)
+print(rows)
+
+# 4.关闭游标
+
+# rows = cursor.fetchall()
+# print(rows)
+cursor.close()
+
+# 5.关闭连接
+conn.close()
+
+#结果如下：
+[{&#39;id&#39;: 1, &#39;username&#39;: &#39;mjj&#39;, &#39;pwd&#39;: &#39;123&#39;}, {&#39;id&#39;: 3, &#39;username&#39;: &#39;张三&#39;, &#39;pwd&#39;: &#39;110&#39;}]</code></pre>
+<p><br></p>
+<p><br></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

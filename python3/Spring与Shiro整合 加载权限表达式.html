@@ -1,0 +1,119 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Spring与Shiro整合 加载权限表达式' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Spring与Shiro整合 加载权限表达式</center></div><div class='banquan'>原文出处:本文由博客园博主StanleyBlogs提供。<br/>
+原文连接:https://www.cnblogs.com/StanleyBlogs/p/12061640.html</div><br>
+    <h1>Spring与Shiro整合 加载权限表达式</h1>
+<p>作者 ： Stanley 罗昊</p>
+<p><strong>【转载请注明出处和署名，谢谢！】</strong></p>
+<h2><strong>如何加载权限表达式&nbsp;</strong></h2>
+<p>我们在上章内容中画了一张图，里面有三个分项，用户 角色 权限；</p>
+<p>那么接下来我们就要思考一个问题了，这三张表中的数据要从何而来呢？</p>
+<h4>用户表</h4>
+<p>首先先看用户表，用户表的数据库是从用户注册而来；</p>
+<h4>角色</h4>
+<p>角色的话肯定是我们手动去创建出来，但是我们在创建角色之前呢？是不是需要先有权限后才能去创建角色呢？因为角色是依赖于权限，只要先有了权限，我们就可以讲它们归类，分配给我们某一个角色；</p>
+<p>所以我们的突破口就是，权限该如何去加载这个问题；</p>
+<p>我们可以打开我们的Cotroller在接口上可以看到凡是带有Shiro注解的，都是需要有相对应的权限才可以访问的：</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式0.png" alt="" /></p>
+<p>&nbsp;</p>
+<h2>重新加载权限</h2>
+<p>&nbsp;那，问题就来了，我们如何将注解中的权限表达式（employee：edit）存入到数据库中呢？</p>
+<p>我们在之前的操作中，是手动的将表达式复制粘贴到数据库中，也就是手动添加进去的，那你想一下，如果需要添加非常多的权限，我们还依然用手动的方式，显然非常麻烦！</p>
+<p>那我们能不能想一种办法，就是让用户一点击或进入这个接口执行一个方法马上让它把所有Cotroller中的权限表达式给全部拿出来存入到数据库中；</p>
+<p>能不能做到呢？</p>
+<p>答案是可以的！</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式1.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;我们在页面上有一个功能是重新加载权限，这个意思就是我们点击后，你加下来的编码，给某给接口添加某项权限的时候，就会帮你把所有Cotrolle中的新添加的权限重新的保存到数据库中；</p>
+<p>这个按钮就是一个Url，点击后就进入到了我们在Cotroller编写的接口方法中：</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式2.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;接下来，我们就来看下这个reload接口是如何编写的：</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式3.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;中间的部分就是获取权限表达式，画箭头的是调用了接j口执行的Sql保存操作也就是insert；</p>
+<p>此次的接口是对象保存的方式，接口的具体编写也非常简单，其实就跟用户注册一样，将name（权限名称）resource（表达式）作为插入字段即可；</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式4.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>然后在方面结尾调用接口，需要传入一个对象，这个对象（Permisssion&nbsp; p )就是我们存进去的权限名称以及表达式对象；</p>
+<p>具体Sql语句编写方式：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">insert</span> <span style="color: #0000ff;">into</span> permission (name,resource) <span style="color: #0000ff;">values</span>("permissionName","PermissionResource");</pre>
+</div>
+<h2>编写自定义注解来获取权限昵称</h2>
+<p>我们在reload接口中，拿到的仅仅都是表达式，和获取Requesmapping，但是我们在数据库中有一列是权限名称，因为光靠表达式并非知道它的中文意思，所以我们需要自定义注解，从而获取注解内部的中文诠释；</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式5.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;我们可以看到，这个注解是会报错的，因为这个注解并不是spring或java内置的，更不是第三方依赖的jar包，而是需要我们自定义，所以，自定义注解名字可以随便起，但是一定要有意义；</p>
+<p>我们来看看自定义注解是如何创建的；</p>
+<h4>1.编写好自己的注解</h4>
+<p>就按照上图的例子我起的名字是@PermissionName;</p>
+<h4>2.创建一个注解在realm路径下（根据公司项目的结构定义）</h4>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式6.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;注意，Kind：一定选择Annotation（自定义注解）；Name可以随便起，但是一定要有意义，我这里直接叫PermissionName就好了；</p>
+<p>我这里就把注解创建在realm目录下，因为毕竟这个也是Shiro的一部分，也可以将它放入到工具包下也可以，根据公司的项目结构来，如果这是一个新加入的功能，推荐放入realm包下，并在内打上注解介绍；</p>
+<h4>3.编写自定义注解类</h4>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式7.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;该注解仅仅获取权限名称使用，以上结构写死即可；</p>
+<h2>解决重复插入问题（去重）</h2>
+<p>编写完成后，我们开始进入测试，我们来看看是否可以执行成功，将权限名称以及表达式保存进数据库中：</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式8.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;执行成功，以及加载了全部的权限列表，并且都保存至数据库中；</p>
+<p>但是问题来了，如果我们再次点击加载权限列表会怎么样？</p>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式9.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;我们发现，重复添加了，这种情况在实际开发当中是绝对不允许的，如何解决呢？</p>
+<h3>去重操作</h3>
+<p>我们需要在PermissionController类中第0步，再添加一个功能，就是去重；</p>
+<p>这个时候，我们需要去调用接口去数据库中查询一下，看看是否有重复，如果重复，我们就跳过，如果没重复，我们就保存进来；</p>
+<h4>1.我们编写获取所有员工权限的接口</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008000;">/**</span><span style="color: #008000;">
+获取所有权限表达式
+</span><span style="color: #008000;">*/</span><span style="color: #000000;">
+List</span>&lt;String&gt;getAllResources();</pre>
+</div>
+<h4>2.编写Sql</h4>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">select</span> resource <span style="color: #0000ff;">From</span> permission; </pre>
+</div>
+<p>permission就是表，resource是其中的列（权限表达式）；我们仅需获取这一个列即可</p>
+<h4>3.编写实现类</h4>
+<p>实现类就非常简单，掉Mapper层，执行sql，用集合接收，数据接收到后，直接retrun过去即可；</p>
+<h4>4.在Controller类中调用</h4>
+<p><img src="./images/Spring与Shiro整合 加载权限表达式10.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;画箭头就是新加入的内容，根据以上指引编写即可；</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

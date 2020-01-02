@@ -1,0 +1,660 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django REST  framework 基本组件' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django REST  framework 基本组件</center></div><div class='banquan'>原文出处:本文由博客园博主与鹿逐秋提供。<br/>
+原文连接:https://www.cnblogs.com/wangyueping/p/11470699.html</div><br>
+    <h1 id="一序列化组件">一、序列化组件</h1>
+<h2 id="简单使用">简单使用</h2>
+<p>开发我们的Web API的第一件事是为我们的Web API提供一种将代码片段实例序列化和反序列化为诸如<code>json</code>之类的表示形式的方式。我们可以通过声明与Django forms非常相似的序列化器（serializers）来实现。</p>
+<p>models部分:</p>
+<pre><code><code>from django.db import models
+
+# Create your models here.
+
+
+class Book(models.Model):
+    title=models.CharField(max_length=32)
+    price=models.IntegerField()
+    pub_date=models.DateField()
+    publish=models.ForeignKey(&quot;Publish&quot;)
+    authors=models.ManyToManyField(&quot;Author&quot;)
+    def __str__(self):
+        return self.title
+
+class Publish(models.Model):
+    name=models.CharField(max_length=32)
+    email=models.EmailField()
+    def __str__(self):
+        return self.name
+
+class Author(models.Model):
+    name=models.CharField(max_length=32)
+    age=models.IntegerField()
+    def __str__(self):
+        return self.name</code></pre>
+<p>views部分：</p>
+<pre><code><code>from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import *
+from django.shortcuts import HttpResponse
+from django.core import serializers
+
+
+from rest_framework import serializers
+
+class BookSerializers(serializers.Serializer):
+    title=serializers.CharField(max_length=32)
+    price=serializers.IntegerField()
+    pub_date=serializers.DateField()
+    publish=serializers.CharField(source=&quot;publish.name&quot;)
+    #authors=serializers.CharField(source=&quot;authors.all&quot;)
+    authors=serializers.SerializerMethodField()
+    def get_authors(self,obj):
+        temp=[]
+        for author in obj.authors.all():
+            temp.append(author.name)
+        return temp
+
+
+class BookViewSet(APIView):
+
+    def get(self,request,*args,**kwargs):
+        book_list=Book.objects.all()
+        # 序列化方式1:
+        # from django.forms.models import model_to_dict
+        # import json
+        # data=[]
+        # for obj in book_list:
+        #     data.append(model_to_dict(obj))
+        # print(data)
+        # return HttpResponse(&quot;ok&quot;)
+
+        # 序列化方式2:
+        # data=serializers.serialize(&quot;json&quot;,book_list)
+        # return HttpResponse(data)
+
+        # 序列化方式3:
+        bs=BookSerializers(book_list,many=True)
+        return Response(bs.data)</code></pre>
+<h2 id="modelserializer">ModelSerializer</h2>
+<pre><code><code>class BookSerializers(serializers.ModelSerializer):
+      class Meta:
+          model=Book
+          fields=&quot;__all__&quot;
+          depth=1</code></pre>
+<h2 id="提交post请求">提交post请求</h2>
+<pre><code><code>  def post(self,request,*args,**kwargs):
+       
+        bs=BookSerializers(data=request.data,many=False)
+        if bs.is_valid():
+            # print(bs.validated_data)
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)</code></pre>
+<h2 id="重写save中的create方法">重写save中的create方法</h2>
+<pre><code><code>class BookSerializers(serializers.ModelSerializer):
+
+      class Meta:
+          model=Book
+          fields=&quot;__all__&quot;
+          # exclude = [&#39;authors&#39;,]
+          # depth=1
+
+      def create(self, validated_data):
+        
+          authors = validated_data.pop(&#39;authors&#39;)
+          obj = Book.objects.create(**validated_data)
+          obj.authors.add(*authors)
+          return obj</code></pre>
+<h2 id="单条数据的get和put请求">单条数据的get和put请求</h2>
+<pre><code><code>class BookDetailViewSet(APIView):
+
+    def get(self,request,pk):
+        book_obj=Book.objects.filter(pk=pk).first()
+        bs=BookSerializers(book_obj)
+        return Response(bs.data)
+
+    def put(self,request,pk):
+        book_obj=Book.objects.filter(pk=pk).first()
+        bs=BookSerializers(book_obj,data=request.data)
+        if bs.is_valid():
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)</code></pre>
+<h2 id="超链接apihyperlinked">超链接API：Hyperlinked</h2>
+<pre><code><code>class BookSerializers(serializers.ModelSerializer):
+      publish= serializers.HyperlinkedIdentityField(
+                     view_name=&#39;publish_detail&#39;,
+                     lookup_field=&quot;publish_id&quot;,
+                     lookup_url_kwarg=&quot;pk&quot;)
+      class Meta:
+          model=Book
+          fields=&quot;__all__&quot;
+          #depth=1</code></pre>
+<p>urls部分：</p>
+<pre><code><code>`urlpatterns ``=` `[``    ``url(r``&#39;^books/$&#39;``, views.BookViewSet.as_view(),name``=``&quot;book_list&quot;``),``    ``url(r``&#39;^books/(?P&lt;pk&gt;\d+)$&#39;``, views.BookDetailViewSet.as_view(),name``=``&quot;book_detail&quot;``),``    ``url(r``&#39;^publishers/$&#39;``, views.PublishViewSet.as_view(),name``=``&quot;publish_list&quot;``),``    ``url(r``&#39;^publishers/(?P&lt;pk&gt;\d+)$&#39;``, views.PublishDetailViewSet.as_view(),name``=``&quot;publish_detail&quot;``),``]`</code></pre>
+<h2 id="补充">补充</h2>
+<pre><code><code>class BookSerializer(serializers.ModelSerializer):
+    dis_chapter = serializers.SerializerMethodField(read_only=True)
+    users = serializers.SerializerMethodField(read_only=True)
+    publishers = serializers.SerializerMethodField(read_only=True)
+
+    def get_users(self, obj):
+        # obj是当前序列化的book对象
+        users_query_set = obj.user.all()
+        return [{&quot;id&quot;: user_obj.pk, &quot;name&quot;: user_obj.name} for user_obj in users_query_set]
+
+    def get_publishers(self, obj):
+        publisher_obj = obj.publisher
+        return {&quot;id&quot;: publisher_obj.pk, &quot;title&quot;: publisher_obj.title}
+
+    def get_dis_chapter(self, obj):
+        return obj.get_chapter_display()
+
+    class Meta:
+        model = Book
+        # fields = &quot;__all__&quot;
+        # 字段是有序的
+        fields = [&quot;id&quot;, &quot;title&quot;,&quot;dis_chapter&quot;, &quot;pub_time&quot;, &quot;publishers&quot;, &quot;users&quot;,&quot;chapter&quot;, &quot;user&quot;, &quot;publisher&quot;]
+        # exclude = [&quot;user&quot;]
+        # 分别是所有字段 包含某些字段 排除某些字段
+        read_only_fields = [&quot;id&quot;, &quot;dis_chapter&quot;, &quot;users&quot;, &quot;publishers&quot;]
+        extra_kwargs = {&quot;title&quot;: {&quot;validators&quot;: [my_validate,]}, &quot;user&quot;: {&quot;write_only&quot;: True}, &quot;publisher&quot;: {&quot;write_only&quot;: True},
+                        &quot;chapter&quot;: {&quot;write_only&quot;: True}}
+
+ModelSerializer</code></pre>
+<h2 id="验证">验证</h2>
+<p>单个字段的验证</p>
+<pre><code><code>class BookSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(max_length=32)
+    # 省略了一些字段 跟上面代码里一样的
+    # 。。。。。
+     def validate_title(self, value):
+        if &quot;python&quot; not in value.lower():
+            raise serializers.ValidationError(&quot;标题必须含有Python&quot;)
+        return value
+
+单个字段的验证</code></pre>
+<p>多个字段的验证</p>
+<pre><code><code>class BookSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(max_length=32)
+    CHOICES = ((1, &quot;Linux&quot;), (2, &quot;Django&quot;), (3, &quot;Python&quot;))
+    chapter = serializers.ChoiceField(choices=CHOICES, source=&quot;get_chapter_display&quot;, read_only=True)
+    w_chapter = serializers.IntegerField(write_only=True)
+    pub_time = serializers.DateField()
+    date_added = serializers.DateField(write_only=True)
+    # 新增了一个上架时间字段  
+    # 省略一些字段。。都是在原基础代码上增加的
+    # 。。。。。。
+
+    # 对多个字段进行验证 要求上架日期不能早于出版日期 上架日期要大
+    def validate(self, attrs):
+        if attrs[&quot;pub_time&quot;] &gt; attrs[&quot;date_added&quot;]:
+            raise serializers.ValidationError(&quot;上架日期不能早于出版日期&quot;)
+        return attrs
+
+多个字段的验证</code></pre>
+<p>验证器</p>
+<pre><code><code>def my_validate(value):
+    if &quot;敏感词汇&quot; in value.lower:
+        raise serializers.ValidationError(&quot;包含敏感词汇，请重新提交&quot;)
+    return value
+
+
+class BookSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(max_length=32, validators=[my_validate])
+    # 。。。。。。
+    
+
+验证器 validators</code></pre>
+<p><br></p>
+<h1 id="二视图组件之视图三部曲">二、视图组件之视图三部曲</h1>
+<h2 id="使用混合mixins">使用混合（mixins）</h2>
+<p>上一节的视图部分：</p>
+<pre><code><code>from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import *
+from django.shortcuts import HttpResponse
+from django.core import serializers
+from rest_framework import serializers
+
+
+class BookSerializers(serializers.ModelSerializer):
+      class Meta:
+          model=Book
+          fields=&quot;__all__&quot;
+          #depth=1
+
+
+class PublshSerializers(serializers.ModelSerializer):
+
+      class Meta:
+          model=Publish
+          fields=&quot;__all__&quot;
+          depth=1
+
+
+class BookViewSet(APIView):
+
+    def get(self,request,*args,**kwargs):
+        book_list=Book.objects.all()
+        bs=BookSerializers(book_list,many=True,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+
+    def post(self,request,*args,**kwargs):
+        print(request.data)
+        bs=BookSerializers(data=request.data,many=False)
+        if bs.is_valid():
+            print(bs.validated_data)
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)
+
+
+class BookDetailViewSet(APIView):
+
+    def get(self,request,pk):
+        book_obj=Book.objects.filter(pk=pk).first()
+        bs=BookSerializers(book_obj,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+    def put(self,request,pk):
+        book_obj=Book.objects.filter(pk=pk).first()
+        bs=BookSerializers(book_obj,data=request.data,context={&#39;request&#39;: request})
+        if bs.is_valid():
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)
+
+
+class PublishViewSet(APIView):
+
+    def get(self,request,*args,**kwargs):
+        publish_list=Publish.objects.all()
+        bs=PublshSerializers(publish_list,many=True,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+
+    def post(self,request,*args,**kwargs):
+
+        bs=PublshSerializers(data=request.data,many=False)
+        if bs.is_valid():
+            # print(bs.validated_data)
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)
+
+
+class PublishDetailViewSet(APIView):
+
+    def get(self,request,pk):
+
+        publish_obj=Publish.objects.filter(pk=pk).first()
+        bs=PublshSerializers(publish_obj,context={&#39;request&#39;: request})
+        return Response(bs.data)
+
+    def put(self,request,pk):
+        publish_obj=Publish.objects.filter(pk=pk).first()
+        bs=PublshSerializers(publish_obj,data=request.data,context={&#39;request&#39;: request})
+        if bs.is_valid():
+            bs.save()
+            return Response(bs.data)
+        else:
+            return HttpResponse(bs.errors)</code></pre>
+<h2 id="mixin类编写视图">mixin类编写视图</h2>
+<pre><code><code>from rest_framework import mixins
+from rest_framework import generics
+
+class BookViewSet(mixins.ListModelMixin,
+                  mixins.CreateModelMixin,
+                  generics.GenericAPIView):
+
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
+
+
+class BookDetailViewSet(mixins.RetrieveModelMixin,
+                    mixins.UpdateModelMixin,
+                    mixins.DestroyModelMixin,
+                    generics.GenericAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers
+
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)</code></pre>
+<h2 id="使用通用的基于类的视图">使用通用的基于类的视图</h2>
+<p>通过使用mixin类，我们使用更少的代码重写了这些视图，但我们还可以再进一步。REST框架提供了一组已经混合好（mixed-in）的通用视图，我们可以使用它来简化我们的<code>views.py</code>模块。</p>
+<pre><code><code>from rest_framework import mixins
+from rest_framework import generics
+
+class BookViewSet(generics.ListCreateAPIView):
+
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers
+
+class BookDetailViewSet(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers
+
+class PublishViewSet(generics.ListCreateAPIView):
+
+    queryset = Publish.objects.all()
+    serializer_class = PublshSerializers
+
+class PublishDetailViewSet(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Publish.objects.all()
+    serializer_class = PublshSerializers</code></pre>
+<h2 id="viewsets.modelviewset">viewsets.ModelViewSet</h2>
+<p>urls.py:</p>
+<pre><code><code>    url(r&#39;^books/$&#39;, views.BookViewSet.as_view({&quot;get&quot;:&quot;list&quot;,&quot;post&quot;:&quot;create&quot;}),name=&quot;book_list&quot;),
+    url(r&#39;^books/(?P&lt;pk&gt;\d+)$&#39;, views.BookViewSet.as_view({
+                &#39;get&#39;: &#39;retrieve&#39;,
+                &#39;put&#39;: &#39;update&#39;,
+                &#39;patch&#39;: &#39;partial_update&#39;,
+                &#39;delete&#39;: &#39;destroy&#39;
+            }),name=&quot;book_detail&quot;),</code></pre>
+<p>views.py:</p>
+<pre><code><code>class BookViewSet(viewsets.ModelViewSet):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers</code></pre>
+<h2 id="路由">路由</h2>
+<p>我们上面的路由传参写的特别多~~框架也帮我们封装好了~</p>
+<pre><code><code>from .views import BookView
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+router.register(r&quot;book&quot;, BookView)
+
+urlpatterns = [
+    # url(r&#39;^book$&#39;, BookView.as_view()),
+    # url(r&#39;^book/(?P&lt;id&gt;\d+)$&#39;, BookEditView.as_view()),
+    # url(r&#39;^book$&#39;, BookView.as_view({&quot;get&quot;: &quot;list&quot;, &quot;post&quot;: &quot;create&quot;})),
+    # url(r&#39;^book/(?P&lt;pk&gt;\d+)$&#39;, BookView.as_view({&quot;get&quot;: &quot;retrieve&quot;, &quot;patch&quot;: &quot;update&quot;, &quot;delete&quot;: &quot;destroy&quot;})),
+
+]
+urlpatterns += router.urls</code></pre>
+<p>我们可以看到通过框架我们可以把路由视图都变的非常简单</p>
+<p>但是需要自定制的时候还是需要我们自己用APIView写当不需要那么多路由的时候~也不要用这种路由注册</p>
+<p>总之一切按照业务需要去用</p>
+<p><br></p>
+<h1 id="三认证组件">三、认证组件</h1>
+<h2 id="局部视图认证">局部视图认证</h2>
+<p>在app01.service.auth.py:</p>
+<pre><code><code>class Authentication(BaseAuthentication):
+
+    def authenticate(self,request):
+        token=request._request.GET.get(&quot;token&quot;)
+        token_obj=UserToken.objects.filter(token=token).first()
+        if not token_obj:
+            raise exceptions.AuthenticationFailed(&quot;验证失败!&quot;)
+        return (token_obj.user,token_obj)</code></pre>
+<p>在views.py：</p>
+<pre><code><code>def get_random_str(user):
+    import hashlib,time
+    ctime=str(time.time())
+
+    md5=hashlib.md5(bytes(user,encoding=&quot;utf8&quot;))
+    md5.update(bytes(ctime,encoding=&quot;utf8&quot;))
+
+    return md5.hexdigest()
+
+
+from app01.service.auth import *
+
+from django.http import JsonResponse
+class LoginViewSet(APIView):
+    authentication_classes = [Authentication,]
+    def post(self,request,*args,**kwargs):
+        res={&quot;code&quot;:1000,&quot;msg&quot;:None}
+        try:
+            user=request._request.POST.get(&quot;user&quot;)
+            pwd=request._request.POST.get(&quot;pwd&quot;)
+            user_obj=UserInfo.objects.filter(user=user,pwd=pwd).first()
+            print(user,pwd,user_obj)
+            if not user_obj:
+                res[&quot;code&quot;]=1001
+                res[&quot;msg&quot;]=&quot;用户名或者密码错误&quot;
+            else:
+                token=get_random_str(user)
+                UserToken.objects.update_or_create(user=user_obj,defaults={&quot;token&quot;:token})
+                res[&quot;token&quot;]=token
+
+        except Exception as e:
+            res[&quot;code&quot;]=1002
+            res[&quot;msg&quot;]=e
+
+        return JsonResponse(res,json_dumps_params={&quot;ensure_ascii&quot;:False})</code></pre>
+<h2 id="全局视图认证组件">全局视图认证组件</h2>
+<p>settings.py配置如下：</p>
+<pre><code><code>`REST_FRAMEWORK``=``{``    ``&quot;DEFAULT_AUTHENTICATION_CLASSES&quot;``:[``&quot;app01.service.auth.Authentication&quot;``,]``}`</code></pre>
+<h1 id="四权限组件">四、权限组件</h1>
+<h2 id="局部视图权限">局部视图权限</h2>
+<p>在app01.service.permissions.py中：</p>
+<pre><code><code>from rest_framework.permissions import BasePermission
+class SVIPPermission(BasePermission):
+    message=&quot;SVIP才能访问!&quot;
+    def has_permission(self, request, view):
+        if request.user.user_type==3:
+            return True
+        return False</code></pre>
+<p>在views.py：</p>
+<pre><code><code>from app01.service.permissions import *
+
+class BookViewSet(generics.ListCreateAPIView):
+    permission_classes = [SVIPPermission,]
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers</code></pre>
+<h2 id="全局视图权限">全局视图权限</h2>
+<p>settings.py配置如下：</p>
+<pre><code><code>`REST_FRAMEWORK``=``{``    ``&quot;DEFAULT_AUTHENTICATION_CLASSES&quot;``:[``&quot;app01.service.auth.Authentication&quot;``,],``    ``&quot;DEFAULT_PERMISSION_CLASSES&quot;``:[``&quot;app01.service.permissions.SVIPPermission&quot;``,]``}`</code></pre>
+<h1 id="五throttle访问频率组件">五、throttle(访问频率)组件</h1>
+<h2 id="局部视图throttle">局部视图throttle</h2>
+<p>在app01.service.throttles.py中：</p>
+<pre><code><code>from rest_framework.throttling import BaseThrottle
+
+VISIT_RECORD={}
+class VisitThrottle(BaseThrottle):
+
+    def __init__(self):
+        self.history=None
+
+    def allow_request(self,request,view):
+        remote_addr = request.META.get(&#39;REMOTE_ADDR&#39;)
+        print(remote_addr)
+        import time
+        ctime=time.time()
+
+        if remote_addr not in VISIT_RECORD:
+            VISIT_RECORD[remote_addr]=[ctime,]
+            return True
+
+        history=VISIT_RECORD.get(remote_addr)
+        self.history=history
+
+        while history and history[-1]&lt;ctime-60:
+            history.pop()
+
+        if len(history)&lt;3:
+            history.insert(0,ctime)
+            return True
+        else:
+            return False
+
+    def wait(self):
+        import time
+        ctime=time.time()
+        return 60-(ctime-self.history[-1])</code></pre>
+<p>在views.py中：</p>
+<pre><code><code>from app01.service.throttles import *
+
+class BookViewSet(generics.ListCreateAPIView):
+    throttle_classes = [VisitThrottle,]
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers</code></pre>
+<h2 id="全局视图throttle">全局视图throttle</h2>
+<pre><code><code>REST_FRAMEWORK={
+    &quot;DEFAULT_AUTHENTICATION_CLASSES&quot;:[&quot;app01.service.auth.Authentication&quot;,],
+    &quot;DEFAULT_PERMISSION_CLASSES&quot;:[&quot;app01.service.permissions.SVIPPermission&quot;,],
+    &quot;DEFAULT_THROTTLE_CLASSES&quot;:[&quot;app01.service.throttles.VisitThrottle&quot;,]
+}</code></pre>
+<h2 id="内置throttle类">内置throttle类</h2>
+<p>在app01.service.throttles.py修改为：</p>
+<pre><code><code>class VisitThrottle(SimpleRateThrottle):
+
+    scope=&quot;visit_rate&quot;
+    def get_cache_key(self, request, view):
+
+        return self.get_ident(request)</code></pre>
+<p>settings.py设置：</p>
+<pre><code><code>REST_FRAMEWORK={
+    &quot;DEFAULT_AUTHENTICATION_CLASSES&quot;:[&quot;app01.service.auth.Authentication&quot;,],
+    &quot;DEFAULT_PERMISSION_CLASSES&quot;:[&quot;app01.service.permissions.SVIPPermission&quot;,],
+    &quot;DEFAULT_THROTTLE_CLASSES&quot;:[&quot;app01.service.throttles.VisitThrottle&quot;,],
+    &quot;DEFAULT_THROTTLE_RATES&quot;:{
+        &quot;visit_rate&quot;:&quot;5/m&quot;,
+    }
+}</code></pre>
+<h1 id="六解析器">六、解析器</h1>
+<h2 id="request类">request类</h2>
+<p>django的request类和rest-framework的request类的源码解析</p>
+<h2 id="局部视图">局部视图</h2>
+<pre><code><code>from rest_framework.parsers import JSONParser,FormParser
+class PublishViewSet(generics.ListCreateAPIView):
+    parser_classes = [FormParser,JSONParser]
+    queryset = Publish.objects.all()
+    serializer_class = PublshSerializers
+    def post(self, request, *args, **kwargs):
+        print(&quot;request.data&quot;,request.data)
+        return self.create(request, *args, **kwargs)</code></pre>
+<h2 id="全局视图">全局视图</h2>
+<pre><code><code>REST_FRAMEWORK={
+    &quot;DEFAULT_AUTHENTICATION_CLASSES&quot;:[&quot;app01.service.auth.Authentication&quot;,],
+    &quot;DEFAULT_PERMISSION_CLASSES&quot;:[&quot;app01.service.permissions.SVIPPermission&quot;,],
+    &quot;DEFAULT_THROTTLE_CLASSES&quot;:[&quot;app01.service.throttles.VisitThrottle&quot;,],
+    &quot;DEFAULT_THROTTLE_RATES&quot;:{
+        &quot;visit_rate&quot;:&quot;5/m&quot;,
+    },
+    &quot;DEFAULT_PARSER_CLASSES&quot;:[&#39;rest_framework.parsers.FormParser&#39;,]
+}</code></pre>
+<h1 id="七分页">七、分页</h1>
+<h2 id="简单分页">简单分页</h2>
+<pre><code><code>from rest_framework.pagination import PageNumberPagination,LimitOffsetPagination
+
+class PNPagination(PageNumberPagination):
+        page_size = 1
+        page_query_param = &#39;page&#39;
+        page_size_query_param = &quot;size&quot;
+        max_page_size = 5
+
+class BookViewSet(viewsets.ModelViewSet):
+
+    queryset = Book.objects.all()
+    serializer_class = BookSerializers
+    def list(self,request,*args,**kwargs):
+
+        book_list=Book.objects.all()
+        pp=LimitOffsetPagination()
+        pager_books=pp.paginate_queryset(queryset=book_list,request=request,view=self)
+        print(pager_books)
+        bs=BookSerializers(pager_books,many=True)
+
+        #return Response(bs.data)
+        return pp.get_paginated_response(bs.data)</code></pre>
+<h2 id="偏移分页">偏移分页</h2>
+<pre><code><code>from rest_framework.pagination import LimitOffsetPagination</code></pre>
+<h1 id="八版本控制">八、版本控制</h1>
+<h2 id="版本控制是做什么用的-我们为什么要用">版本控制是做什么用的, 我们为什么要用</h2>
+<p>首先我们要知道我们的版本是干嘛用的呢<del>大家都知道我们开发项目是有多个版本的</del></p>
+<p>随着我们项目的更新~版本就越来越多<del>我们不可能新的版本出了~以前旧的版本就不进行维护了</del>~</p>
+<p>那我们就需要对版本进行控制<del>这个DRF也给我们提供了一些封装好的版本控制方法</del></p>
+<h2 id="版本控制怎么用">版本控制怎么用</h2>
+<p>之前我们学视图的时候知道APIView，也知道APIView返回View中的view函数，然后调用的dispatch方法~</p>
+<p>那我们现在看下dispatch方法看下它都做了什么</p>
+<p><img src="./images/Django REST  framework 基本组件0.png" /></p>
+<p>执行self.initial方法之前是各种赋值，包括request的重新封装赋值，下面是路由的分发，那我们看下这个方法都做了什么~~</p>
+<p><img src="./images/Django REST  framework 基本组件1.png" /></p>
+<p>我们可以看到，我们的version版本信息赋值给了 request.version 版本控制方案赋值给了 request.versioning_scheme~~</p>
+<p>其实这个版本控制方案~就是我们配置的版本控制的类~~</p>
+<p>也就是说，APIView通过这个方法初始化自己提供的组件~~</p>
+<p>我们接下来看看框架提供了哪些版本的控制方法~~在rest_framework.versioning里</p>
+<p><img src="./images/Django REST  framework 基本组件2.png" /></p>
+<p>框架一共给我们提供了这几个版本控制的方法<del>我们在这里只演示一个</del>因为基本配置都是一样的~~</p>
+<h2 id="详细用法">详细用法</h2>
+<p>我们看下放在URL上携带版本信息怎么配置~~</p>
+<ol>
+<li><p>setting配置</p>
+<pre><code><code>REST_FRAMEWORK = {
+    # 默认使用的版本控制类
+    &#39;DEFAULT_VERSIONING_CLASS&#39;: &#39;rest_framework.versioning.URLPathVersioning&#39;,
+    # 允许的版本
+    &#39;ALLOWED_VERSIONS&#39;: [&#39;v1&#39;, &#39;v2&#39;],
+    # 版本使用的参数名称
+    &#39;VERSION_PARAM&#39;: &#39;version&#39;,
+    # 默认使用的版本
+    &#39;DEFAULT_VERSION&#39;: &#39;v1&#39;,
+}</code></pre></li>
+<li><p>urls.py</p>
+<pre><code><code>urlpatterns = [
+    url(r&quot;^versions&quot;, MyView.as_view()),
+    url(r&quot;^(?P&lt;version&gt;[v1|v2]+)/test01&quot;, TestView.as_view()),
+]</code></pre></li>
+<li><p>测试视图</p>
+<pre><code><code>class TestView(APIView):
+    def get(self, request, *args, **kwargs):
+        print(request.versioning_scheme)
+        ret = request.version
+        if ret == &quot;v1&quot;:
+            return Response(&quot;版本v1的信息&quot;)
+        elif ret == &quot;v2&quot;:
+            return Response(&quot;版本v2的信息&quot;)
+        else:
+            return Response(&quot;根本就匹配不到这个路由&quot;)</code></pre>
+<p>其他的版本控制的类，配置方法都差不多~~这里就不一一例举了<br />
+详细请见：<a href="https://www.cnblogs.com/GGGG-XXXX/p/9564651.html" class="uri">https://www.cnblogs.com/GGGG-XXXX/p/9564651.html</a><br />
+<br></p></li>
+</ol>
+<p><br></p>
+<p><br></p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

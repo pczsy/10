@@ -1,0 +1,568 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Flask--WTForms' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Flask--WTForms</center></div><div class='banquan'>原文出处:本文由博客园博主蔚蓝的爱提供。<br/>
+原文连接:https://www.cnblogs.com/Hades123/p/11766285.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#flask-wtf"><span>Flask-WTF</span></a><ul>
+        <li><a href="#基本了解">基本了解</a></li>
+        <li><a href="#用法">用法：</a><ul>
+        <li><a href="#创建基础表单">1.创建基础表单</a></li>
+        <li><a href="#csrf保护">2.CSRF保护</a></li>
+        <li><a href="#验证表单">3.验证表单</a></li>
+        <li><a href="#文件上传">4.文件上传</a></li>
+        <li><a href="#验证码">5.验证码</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="#wtforms"><span>WTForms</span></a><ul>
+        <li><a href="#wtforms支持的html标准字段">WTForms支持的HTML标准字段</a></li>
+        <li><a href="#validators验证器">Validators验证器</a><ul>
+        <li><a href="#自定义validators验证器">自定义Validators验证器</a></li>
+        <li><a href="#widget组件">Widget组件</a></li>
+        </ul></li>
+        <li><a href="#使用">使用</a><ul>
+        <li><a href="#案例一登录">案例一：登录</a></li>
+        <li><a href="#案例二注册">案例二：注册</a></li>
+        </ul></li>
+        </ul></li>
+        </ul>
+    </div>
+</div>
+<p>在说WTForms之前，我们先搞清楚Flask-WTF与WTForms的区别</p>
+<h1 id="flask-wtf"><a href="https://flask-wtf.readthedocs.io/en/stable/#">Flask-WTF</a></h1>
+<h2 id="基本了解">基本了解</h2>
+<p>Flask-WTF是集成WTForms，并带有 csrf 令牌的安全表单和全局的 csrf 保护的功能。<br />
+每次我们在建立表单所创建的类都是继承与flask_wtf中的FlaskForm，而FlaskForm是继承WTForms中forms。</p>
+<h2 id="用法">用法：</h2>
+<h3 id="创建基础表单">1.创建基础表单</h3>
+<p>例如，form.py:</p>
+<pre><code><code>class LoginForm(FlaskForm):
+    username = StringField()
+    password = PasswordField()
+    remember_me = BooleanField(label=&#39;Keep me logged in&#39;)</code></pre>
+<h3 id="csrf保护">2.CSRF保护</h3>
+<p>任何使用FlaskForm创建的表单发送请求，都会有CSRF的全部保护，在对应的template中HTML渲染表单时，可以加入form.csrf_token：</p>
+<pre class="xml"><code>&lt;form method=&quot;post&quot;&gt;
+    {{ form.csrf_token }}
+&lt;/form&gt;</code></pre>
+<p>但是如果模板中没有表单，则可以使用一个隐藏的input标签加入csrf_token。</p>
+<pre class="xml"><code>&lt;form method=&quot;post&quot;&gt;
+    &lt;input type=&quot;hidden&quot; name=&quot;csrf_token&quot; value=&quot;{{ csrf_token() }}&quot;/&gt;
+&lt;/form&gt;</code></pre>
+<h3 id="验证表单">3.验证表单</h3>
+<p>在视图处理程序中验证请求:<br />
+view.py</p>
+<pre><code><code>def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        return redirect(&#39;/success&#39;)
+    return render_template(&#39;login.html&#39;, form=form)</code></pre>
+<p>使用<code>validate_on_submit</code> 来检查是否是一个 POST 请求并且请求是否有效。</p>
+<h3 id="文件上传">4.文件上传</h3>
+<p>Flask-WTF 提供 <a href="https://wizardforcel.gitbooks.io/flask-extension-docs/content/api.html#flask_wtf.file.FileField"><code>FileField</code></a> 来处理文件上传，它在表单提交后，自动从 <code>flask.request.files</code> 中抽取数据。<a href="https://wizardforcel.gitbooks.io/flask-extension-docs/content/api.html#flask_wtf.file.FileField"><code>FileField</code></a> 的 <code>data</code> 属性是一个 Werkzeug FileStorage 实例。</p>
+<pre><code><code>from werkzeug import secure_filename
+from flask_wtf.file import FileField
+
+class PhotoForm(Form):
+    photo = FileField(&#39;Your photo&#39;)
+
+@app.route(&#39;/upload/&#39;, methods=(&#39;GET&#39;, &#39;POST&#39;))
+def upload():
+    form = PhotoForm()
+    if form.validate_on_submit():
+        filename = secure_filename(form.photo.data.filename)
+        form.photo.data.save(&#39;uploads/&#39; + filename)
+    else:
+        filename = None
+    return render_template(&#39;upload.html&#39;, form=form, filename=filename)</code></pre>
+<p>注意：在 HTML 表单的 enctype 设置成 multipart/form-data，如下:</p>
+<pre class="xml"><code>&lt;form action=&quot;/upload/&quot; method=&quot;POST&quot; enctype=&quot;multipart/form-data&quot;&gt;
+    ....
+&lt;/form&gt;</code></pre>
+<h3 id="验证码">5.验证码</h3>
+<p>Flask-WTF 通过 RecaptchaField 也提供对验证码的支持:</p>
+<pre><code><code>from flask_wtf import Form, RecaptchaField
+from wtforms import TextField
+
+class SignupForm(Form):
+    username = TextField(&#39;Username&#39;)
+    recaptcha = RecaptchaField()</code></pre>
+<p>还需要配置一下信息：</p>
+<table>
+<thead>
+<tr class="header">
+<th>字段</th>
+<th>配置</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>RECAPTCHA_PUBLIC_KEY</td>
+<td><strong>必须</strong> 公钥</td>
+</tr>
+<tr class="even">
+<td>RECAPTCHA_PRIVATE_KEY</td>
+<td><strong>必须</strong> 私钥</td>
+</tr>
+<tr class="odd">
+<td>RECAPTCHA_API_SERVER</td>
+<td><strong>可选</strong> 验证码 API 服务器</td>
+</tr>
+<tr class="even">
+<td>RECAPTCHA_PARAMETERS</td>
+<td><strong>可选</strong> 一个 JavaScript（api.js）参数的字典</td>
+</tr>
+<tr class="odd">
+<td>RECAPTCHA_DATA_ATTRS</td>
+<td><strong>可选</strong> 一个数据属性项列表 https://developers.google.com/recaptcha/docs/display</td>
+</tr>
+</tbody>
+</table>
+<h1 id="wtforms"><a href="https://wtforms.readthedocs.io/en/stable/">WTForms</a></h1>
+<p>WTForms是一个Flask集成的框架，或者是说库。用于处理浏览器表单提交的数据。它在Flask-WTF 的基础上扩展并添加了一些随手即得的精巧的帮助函数，这些函数将会使在 Flask 里使用表单更加有趣。</p>
+<p><strong>安装</strong></p>
+<p>pip install wtforms</p>
+<h2 id="wtforms支持的html标准字段">WTForms支持的HTML标准字段</h2>
+<table>
+<thead>
+<tr class="header">
+<th>字段类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>StringField</td>
+<td>文本字段， 相当于type类型为text的input标签</td>
+</tr>
+<tr class="even">
+<td>TextAreaField</td>
+<td>多行文本字段</td>
+</tr>
+<tr class="odd">
+<td>PasswordField</td>
+<td>密码文本字段</td>
+</tr>
+<tr class="even">
+<td>HiddenField</td>
+<td>隐藏文本字段</td>
+</tr>
+<tr class="odd">
+<td>DateField</td>
+<td>文本字段， 值为datetime.date格式</td>
+</tr>
+<tr class="even">
+<td>DateTimeField</td>
+<td>文本字段， 值为datetime.datetime格式</td>
+</tr>
+<tr class="odd">
+<td>IntegerField</td>
+<td>文本字段， 值为整数</td>
+</tr>
+<tr class="even">
+<td>DecimalField</td>
+<td>文本字段， 值为decimal.Decimal</td>
+</tr>
+<tr class="odd">
+<td>FloatField</td>
+<td>文本字段， 值为浮点数</td>
+</tr>
+<tr class="even">
+<td>BooleanField</td>
+<td>复选框， 值为True 和 False</td>
+</tr>
+<tr class="odd">
+<td>RadioField</td>
+<td>一组单选框</td>
+</tr>
+<tr class="even">
+<td>SelectField</td>
+<td>下拉列表</td>
+</tr>
+<tr class="odd">
+<td>SelectMultipleField</td>
+<td>下拉列表， 可选择多个值</td>
+</tr>
+<tr class="even">
+<td>FileField</td>
+<td>文件上传字段</td>
+</tr>
+<tr class="odd">
+<td>SubmitField</td>
+<td>表单提交按钮</td>
+</tr>
+<tr class="even">
+<td>FormFiled</td>
+<td>把表单作为字段嵌入另一个表单</td>
+</tr>
+<tr class="odd">
+<td>FieldList</td>
+<td>子组指定类型的字段</td>
+</tr>
+</tbody>
+</table>
+<h2 id="validators验证器">Validators验证器</h2>
+<p>WTForms可以支持很多表单的验证函数：</p>
+<table>
+<thead>
+<tr class="header">
+<th>验证函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Email</td>
+<td>验证是电子邮件地址</td>
+</tr>
+<tr class="even">
+<td>EqualTo</td>
+<td>比较两个字段的值； 常用于要求输入两次密钥进行确认的情况</td>
+</tr>
+<tr class="odd">
+<td>IPAddress</td>
+<td>验证IPv4网络地址</td>
+</tr>
+<tr class="even">
+<td>Length</td>
+<td>验证输入字符串的长度</td>
+</tr>
+<tr class="odd">
+<td>NumberRange</td>
+<td>验证输入的值在数字范围内</td>
+</tr>
+<tr class="even">
+<td>Optional</td>
+<td>无输入值时跳过其它验证函数</td>
+</tr>
+<tr class="odd">
+<td>DataRequired</td>
+<td>确保字段中有数据</td>
+</tr>
+<tr class="even">
+<td>Regexp</td>
+<td>使用正则表达式验证输入值</td>
+</tr>
+<tr class="odd">
+<td>URL</td>
+<td>验证url</td>
+</tr>
+<tr class="even">
+<td>AnyOf</td>
+<td>确保输入值在可选值列表中</td>
+</tr>
+<tr class="odd">
+<td>NoneOf</td>
+<td>确保输入值不在可选列表中</td>
+</tr>
+</tbody>
+</table>
+<h3 id="自定义validators验证器">自定义Validators验证器</h3>
+<p><strong>第一种： <a href="https://wtforms.readthedocs.io/en/latest/forms.html#inline-validators">in-line validator</a>（内联验证器）</strong><br />
+也就是自定义一个验证函数，在定义表单类的时候，在对应的字段中加入该函数进行认证。下面的<code>my_length_check</code>函数就是用于判<code>name</code>字段长度不能超过50.</p>
+<pre><code><code>def my_length_check(form, field):
+    if len(field.data) &gt; 50:
+        raise ValidationError(&#39;Field must be less than 50 characters&#39;)
+
+class MyForm(Form):
+    name = StringField(&#39;Name&#39;, [InputRequired(), my_length_check])</code></pre>
+<p><strong>第二种：通用且可重用的验证函数</strong><br />
+一般是以<code>validate</code>开头，加上下划线再加上对应的field字段（validate_filed），浏览器在提交表单数据时，会自动识别对应字段所有的验证器，然后执行验证器进行判断。</p>
+<pre><code><code>class RegistrationForm(FlaskForm):
+    email = StringField(&#39;Email&#39;, validators=[DataRequired(), Length(1, 60), Email()])
+    username = StringField(&#39;Username&#39;, validators=[DataRequired(), Length(1, 60),
+        Regexp(&#39;^[A-Za-z][A-Za-z0-9_.]*$&#39;, 0, &#39;username must have only letters, numbers dots or underscores&#39;)])
+    password = PasswordField(&#39;Password&#39;, validators=[DataRequired(), EqualTo(&#39;password2&#39;, message=&#39;password must match&#39;)])
+    password2 = PasswordField(&#39;Confirm password&#39;, validators=[DataRequired()])
+
+    def validate_email(self, field):
+        if User.objects.filter(email=field.data).count() &gt; 0:
+            raise ValidationError(&#39;Email already registered&#39;)
+
+    def validate_username(self, field):
+        if User.objects.filter(username=field.data).count() &gt; 0:
+            raise ValidationError(&#39;Username has exist&#39;)</code></pre>
+<p><strong>第三种：比较高级的validators</strong></p>
+<pre><code><code>class Length(object):
+    def __init__(self, min=-1, max=-1, message=None):
+        self.min = min
+        self.max = max
+        if not message:
+            message = u&#39;Field must be between %i and %i characters long.&#39; % (min, max)
+        self.message = message
+
+    def __call__(self, form, field):
+        l = field.data and len(field.data) or 0
+        if l &lt; self.min or self.max != -1 and l &gt; self.max:
+            raise ValidationError(self.message)
+
+length = Length</code></pre>
+<h3 id="widget组件">Widget组件</h3>
+<p>下面可以以登录界面为实例：</p>
+<pre><code><code>#  login.py
+from flask import Flask, render_template, request, redirect
+from wtforms import Form
+from wtforms import validators
+from wtforms import widgets
+
+class LoginForm(Form):
+    name = simple.StringField(
+        label=&#39;用户名&#39;,
+        validators=[
+            validators.DataRequired(message=&#39;用户名不能为空.&#39;),
+        ],
+        widget=widgets.TextInput(),
+        render_kw={&#39;class&#39;: &#39;form-control&#39;}
+    )
+    pwd = simple.PasswordField(
+        label=&#39;密码&#39;,
+        validators=[
+            validators.DataRequired(message=&#39;密码不能为空.&#39;),
+        ],
+        widget=widgets.PasswordInput(),
+        render_kw={&#39;class&#39;: &#39;form-control&#39;}
+    )</code></pre>
+<h2 id="使用">使用</h2>
+<h3 id="案例一登录">案例一：登录</h3>
+<pre><code><code>from flask import Flask, render_template, request, redirect
+from wtforms.fields import simple
+from wtforms import validators, widgets, Form
+
+app = Flask(__name__, template_folder=&#39;templates&#39;)
+app.debug = True
+
+
+class LoginForm(Form):
+    # 字段（内部包含正则表达式）
+    name = simple.StringField(
+        label=&#39;用户名&#39;,
+        validators=[
+            validators.DataRequired(message=&#39;用户名不能为空.&#39;),
+            validators.Length(min=6, max=18, message=&#39;用户名长度必须大于%(min)d且小于%(max)d&#39;)
+        ],
+        widget=widgets.TextInput(), # 页面上显示的插件
+        render_kw={&#39;class&#39;: &#39;form-control&#39;}
+
+    )
+    # 字段（内部包含正则表达式）
+    pwd = simple.PasswordField(
+        label=&#39;密码&#39;,
+        validators=[
+            validators.DataRequired(message=&#39;密码不能为空.&#39;),
+            validators.Length(min=8, message=&#39;用户名长度必须大于%(min)d&#39;),
+            validators.Regexp(
+                regex=&quot;^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[$@$!%*?&amp;])[A-Za-z\d$@$!%*?&amp;]{8,}&quot;,
+                message=&#39;密码至少8个字符，至少1个大写字母，1个小写字母，1个数字和1个特殊字符&#39;)
+        ],
+        widget=widgets.PasswordInput(),
+        render_kw={&#39;class&#39;: &#39;form-control&#39;}
+    )
+
+
+@app.route(&#39;/login&#39;, methods=[&#39;GET&#39;, &#39;POST&#39;])
+def login():
+    if request.method == &#39;GET&#39;:
+        form = LoginForm()
+        return render_template(&#39;login.html&#39;, form=form)
+    else:
+        form = LoginForm(formdata=request.form)
+        if form.validate():
+            print(&#39;用户提交数据通过格式验证，提交的值为：&#39;, form.data)
+        else:
+            print(form.errors)
+        return render_template(&#39;login.html&#39;, form=form)
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<pre class="html"><code>&lt;!--login.html--&gt;
+
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;登录&lt;/h1&gt;
+&lt;form method=&quot;post&quot;&gt;
+    &lt;p&gt;{{form.name.label}} {{form.name}} {{form.name.errors[0] }}&lt;/p&gt;
+
+    &lt;p&gt;{{form.pwd.label}} {{form.pwd}} {{form.pwd.errors[0] }}&lt;/p&gt;
+    &lt;input type=&quot;submit&quot; value=&quot;提交&quot;&gt;
+&lt;/form&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<h3 id="案例二注册">案例二：注册</h3>
+<pre><code><code>from flask import Flask, render_template, request, redirect
+from wtforms import Form
+from wtforms.fields import core
+from wtforms.fields import html5
+from wtforms.fields import simple
+from wtforms import validators
+from wtforms import widgets
+
+app = Flask(__name__, template_folder=&#39;templates&#39;)
+app.debug = True
+
+
+
+class RegisterForm(Form):
+    name = simple.StringField(
+        label=&#39;用户名&#39;,
+        validators=[
+            validators.DataRequired()
+        ],
+        widget=widgets.TextInput(),
+        render_kw={&#39;class&#39;: &#39;form-control&#39;},
+        default=&#39;cxw&#39;
+    )
+
+    pwd = simple.PasswordField(
+        label=&#39;密码&#39;,
+        validators=[
+            validators.DataRequired(message=&#39;密码不能为空.&#39;)
+        ],
+        widget=widgets.PasswordInput(),
+        render_kw={&#39;class&#39;: &#39;form-control&#39;}
+    )
+
+    pwd_confirm = simple.PasswordField(
+        label=&#39;重复密码&#39;,
+        validators=[
+            validators.DataRequired(message=&#39;重复密码不能为空.&#39;),
+            validators.EqualTo(&#39;pwd&#39;, message=&quot;两次密码输入不一致&quot;)
+        ],
+        widget=widgets.PasswordInput(),
+        render_kw={&#39;class&#39;: &#39;form-control&#39;}
+    )
+
+    email = html5.EmailField(
+        label=&#39;邮箱&#39;,
+        validators=[
+            validators.DataRequired(message=&#39;邮箱不能为空.&#39;),
+            validators.Email(message=&#39;邮箱格式错误&#39;)
+        ],
+        widget=widgets.TextInput(input_type=&#39;email&#39;),
+        render_kw={&#39;class&#39;: &#39;form-control&#39;}
+    )
+
+    gender = core.RadioField(
+        label=&#39;性别&#39;,
+        choices=(
+            (1, &#39;男&#39;),
+            (2, &#39;女&#39;),
+        ),
+        #这句话的意思是上面的choices元组的第一个值是int类型
+        #如果上上面为(‘1’, &#39;男&#39;),(‘2’, &#39;女&#39;),则下面的coerce则不用写
+        coerce=int # “1” “2”
+     )
+    
+    #这里是单选框
+    city = core.SelectField(
+        label=&#39;城市&#39;,
+        choices=(
+            (&#39;bj&#39;, &#39;北京&#39;),
+            (&#39;sh&#39;, &#39;上海&#39;),
+        )
+    )
+   
+    #这里是多选框
+    hobby = core.SelectMultipleField(
+        label=&#39;爱好&#39;,
+        choices=(
+            (1, &#39;篮球&#39;),
+            (2, &#39;足球&#39;),
+        ),
+        coerce=int
+    )
+    
+    #这里是多选的checkbox
+    favor = core.SelectMultipleField(
+        label=&#39;喜好&#39;,
+        choices=(
+            (1, &#39;篮球&#39;),
+            (2, &#39;足球&#39;),
+        ),
+        widget=widgets.ListWidget(prefix_label=False),
+        option_widget=widgets.CheckboxInput(),
+        coerce=int,
+        default=[1, 2]
+    )
+    
+    #这里可以改值
+    def __init__(self, *args, **kwargs):
+        super(RegisterForm, self).__init__(*args, **kwargs)
+        self.favor.choices = ((1, &#39;篮球&#39;), (2, &#39;足球&#39;), (3, &#39;羽毛球&#39;))
+
+    def validate_pwd_confirm(self, field):
+        &quot;&quot;&quot;
+        自定义pwd_confirm字段规则，例：与pwd字段是否一致
+        :param field:
+        :return:
+        &quot;&quot;&quot;
+        # 最开始初始化时，self.data中已经有所有的值
+
+        if field.data != self.data[&#39;pwd&#39;]:
+            # raise validators.ValidationError(&quot;密码不一致&quot;) # 继续后续验证
+            raise validators.StopValidation(&quot;密码不一致&quot;)  # 不再继续后续验证
+
+
+@app.route(&#39;/register&#39;, methods=[&#39;GET&#39;, &#39;POST&#39;])
+def register():
+    if request.method == &#39;GET&#39;:
+        #这里可以传默认值
+        form = RegisterForm(data={&#39;gender&#39;: 2,&#39;hobby&#39;:[1,]}) # initial
+        return render_template(&#39;register.html&#39;, form=form)
+    else:
+        form = RegisterForm(formdata=request.form)
+        if form.validate():
+            print(&#39;用户提交数据通过格式验证，提交的值为：&#39;, form.data)
+        else:
+            print(form.errors)
+        return render_template(&#39;register.html&#39;, form=form)
+
+
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<pre class="html"><code>&lt;!--register.html--&gt;
+
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;Title&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;用户注册&lt;/h1&gt;
+&lt;form method=&quot;post&quot; novalidate style=&quot;padding:0  50px&quot;&gt;
+    {% for field in form %}
+    &lt;p&gt;{{field.label}}: {{field}} {{field.errors[0] }}&lt;/p&gt;
+    {% endfor %}
+    &lt;input type=&quot;submit&quot; value=&quot;提交&quot;&gt;
+&lt;/form&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

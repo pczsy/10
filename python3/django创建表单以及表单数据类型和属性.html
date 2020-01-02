@@ -1,0 +1,381 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修django创建表单以及表单数据类型和属性' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>django创建表单以及表单数据类型和属性</center></div><div class='banquan'>原文出处:本文由博客园博主小小咸鱼YwY提供。<br/>
+原文连接:https://www.cnblogs.com/pythonywy/p/11360274.html</div><br>
+    <h1 id="自我总结">08.15自我总结</h1>
+<h1 id="关于django的表单不同关系之间的创建">关于django的表单不同关系之间的创建</h1>
+<h2 id="一.不同关系之间的创建">一.不同关系之间的创建</h2>
+<h3 id="一对一">1.一对一</h3>
+<p>举例</p>
+<h4 id="母表userinfo">母表:userinfo</h4>
+<table>
+<thead>
+<tr class="header">
+<th>id</th>
+<th>name</th>
+<th>age</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>张三</td>
+<td>12</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>李四</td>
+<td>58</td>
+</tr>
+</tbody>
+</table>
+<h4 id="字表private">字表:private</h4>
+<table>
+<thead>
+<tr class="header">
+<th>id</th>
+<th>salary</th>
+<th>sp_id</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>100</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>400</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h4 id="models.py">models.py</h4>
+<pre><code><code>class UserInfo(models.Model):
+    name = models.CharField(max_length=32, null=True)
+    age  = models.IntegerField(null=True)
+    
+class Private(models.Model):
+    salary = models.CharField(max_length=32, null=True)
+    sp = models.OneToOneField(&quot;UserInfo&quot;, null=True) #oneTooneField: 一对一， 默认要求该字段必须是唯一的 unique 外键关系</code></pre>
+<h4 id="插入信息">插入信息</h4>
+<pre><code><code>models.UserInfo.objects.create(name=&#39;张三&#39;,age=12)
+models.Private.objects.create(salary=100,sp_id=1)</code></pre>
+<h4 id="查询">查询</h4>
+<pre><code><code>#从母表查询子表中的数据
+
+#方法1:res = models.UserInfo.objects.filter(name=&#39;张三&#39;).first().private.salary #子表表名小写.子表字段名
+#方法2:res = models.UserInfo.objects.filter(name=&#39;张三&#39;).values(&#39;private__salary&#39;)</code></pre>
+<pre><code><code>#从子表查询母表信息
+#方法1:res = models.Private.objects.filter(salary=&#39;100&#39;).first().sp.name
+
+#方法2:res = models.Private.objects.values(&#39;sp__name&#39;):</code></pre>
+<h3 id="多对多通过关系表">2.多对多(通过关系表)</h3>
+<h4 id="models.py-1">models.py</h4>
+<pre><code><code>class Boy(models.Model):
+    bname = models.CharField(max_length=30,null=True)
+    
+class Girl(models.Model):
+    gname = models.CharField(max_length=30,null=True)
+
+class Boy2Girl(models.Model):
+    b = models.ForeignKey(&#39;Boy&#39;,null=True)
+    g = models.ForeignKey(&#39;Girl&#39;,null=True)
+    #联合唯一属性
+    class Meta:
+        unique_together=[
+            (&#39;b&#39;,&#39;g&#39;)
+        ]</code></pre>
+<h4 id="插入信息-1">插入信息</h4>
+<pre><code><code>import random
+boys =[
+    models.Boy(bname=&#39;男1&#39;),
+    models.Boy(bname=&#39;男2&#39;),
+    models.Boy(bname=&#39;男3&#39;),
+    models.Boy(bname=&#39;男4&#39;),
+    models.Boy(bname=&#39;男5&#39;),
+    models.Boy(bname=&#39;男6&#39;)
+]
+res = models.Boy.objects.bulk_create(boys)
+
+girls =[
+    models.Girl(gname=&#39;女1&#39;),
+    models.Girl(gname=&#39;女2&#39;),
+    models.Girl(gname=&#39;女3&#39;),
+    models.Girl(gname=&#39;女4&#39;),
+    models.Girl(gname=&#39;女5&#39;),
+    models.Girl(gname=&#39;女6&#39;),
+    models.Girl(gname=&#39;女7&#39;),
+    models.Girl(gname=&#39;女8&#39;),
+]
+models.Girl.objects.bulk_create(girls)
+
+a = [
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=1),
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=2),
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=3),
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=4),
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=5),
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=6),
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=7),
+    models.Boy2Girl(b_id=random.randint(1,6),g_id=8),
+]
+models.Boy2Girl.objects.bulk_create(a)</code></pre>
+<h4 id="查询-1">查询</h4>
+<pre><code><code>#通过关系表查询,查boy位男1对于的女的信息
+#方法1:res = models.Boy2Girl.objects.filter(b__bname=&#39;男1&#39;).values(&#39;g__gname&#39;)
+
+#方法2:
+ res = models.Boy2Girl.objects.filter(b__bname=&#39;男1&#39;).all()
+ for a in res:
+    print(res.g.gname)
+    
+#通过boy表查女的信息
+#方法1:    res = models.Boy.objects.filter(bname=&#39;男1&#39;).values(&#39;boy2girl__g__gname&#39;)
+
+#方法2:
+    res = models.Boy.objects.filter(bname=&#39;男1&#39;).all()
+    for a in res:
+        for b in a.boy2girl_set.all():
+            print(b.g.gname)</code></pre>
+<h3 id="多对多不通过关系表">3.多对多(不通过关系表)</h3>
+<h4 id="models.py-2">models.py</h4>
+<pre><code><code>class Boy1(models.Model):
+    bname = models.CharField(max_length=32, null=True)
+    g = models.ManyToManyField(&#39;Girl&#39;, null=True)
+ #他会生成一个boy1_g的表
+
+class Girl1(models.Model):
+    gname = models.CharField(max_length=32, null=True)</code></pre>
+<h4 id="插入信息-2">插入信息</h4>
+<pre><code><code>boys =[
+    models.Boy(bname=&#39;男1&#39;),
+    models.Boy(bname=&#39;男2&#39;),
+    models.Boy(bname=&#39;男3&#39;),
+    models.Boy(bname=&#39;男4&#39;),
+    models.Boy(bname=&#39;男5&#39;),
+    models.Boy(bname=&#39;男6&#39;)
+]
+res = models.Boy1.objects.bulk_create(boys)
+#
+girls =[
+    models.Girl(gname=&#39;女1&#39;),
+    models.Girl(gname=&#39;女2&#39;),
+    models.Girl(gname=&#39;女3&#39;),
+    models.Girl(gname=&#39;女4&#39;),
+    models.Girl(gname=&#39;女5&#39;),
+    models.Girl(gname=&#39;女6&#39;),
+    models.Girl(gname=&#39;女7&#39;),
+    models.Girl(gname=&#39;女8&#39;),
+]
+models.Girl1.objects.bulk_create(girls)</code></pre>
+<p>建立两者关系</p>
+<ul>
+<li>取出boy的对象</li>
+<li>再选择其中的g对象,再进行add<code>添加</code>|<code>删除</code>|<code>查询</code>girl的id</li>
+</ul>
+<p>添加(add)</p>
+<pre><code><code>models.Boy1.objects.filter(bname=&#39;男1&#39;).first().g.add(1,2,3,4,5,2) #会自动去重保持唯一性也不会因为相同而报错</code></pre>
+<p>删除(remove)</p>
+<pre><code><code>models.Boy1.objects.filter(bname=&#39;男1&#39;).first().g.remove(1)</code></pre>
+<p>查询(all)</p>
+<pre><code><code>models.Boy1.objects.filter(bname=&#39;男1&#39;).first().g.all()</code></pre>
+<p>清除(clear)</p>
+<pre><code><code>models.Boy1.objects.filter(bname=&#39;男1&#39;).first().g.clear() #清除所有</code></pre>
+<h4 id="注意点">注意点</h4>
+<p>add进行添加时候如果有会自动去重,他自带联合唯一的效果</p>
+<h3 id="一对多">4.一对多</h3>
+<p><a href="https://www.cnblogs.com/pythonywy/p/11353202.html看这里" class="uri">https://www.cnblogs.com/pythonywy/p/11353202.html看这里</a></p>
+<h2 id="二.mysql与djamgo-orm数据类型对应关系">二.mysql与djamgo-orm数据类型对应关系</h2>
+<table>
+<thead>
+<tr class="header">
+<th>数据类型</th>
+<th>mysql</th>
+<th>djamgo-orm</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>数字</td>
+<td>tinyint</td>
+<td>不存在</td>
+</tr>
+<tr class="even">
+<td>-</td>
+<td>smallint</td>
+<td>SmallIntegerField(有符号) PositiveSmallIntegerField(没符号)</td>
+</tr>
+<tr class="odd">
+<td>-</td>
+<td>mediumint</td>
+<td>不存在</td>
+</tr>
+<tr class="even">
+<td>-</td>
+<td>int （unsigned）</td>
+<td>IntegerField(有符号)PositiveIntegerField(没符号)</td>
+</tr>
+<tr class="odd">
+<td>-</td>
+<td>bigint</td>
+<td>BigIntegerField(有符号) PositiveBigIntegerField(没符号)</td>
+</tr>
+<tr class="even">
+<td>-</td>
+<td>decimal</td>
+<td>DecimalField</td>
+</tr>
+<tr class="odd">
+<td>-</td>
+<td>float</td>
+<td>FloatField</td>
+</tr>
+<tr class="even">
+<td>-</td>
+<td>double</td>
+<td>不存在</td>
+</tr>
+<tr class="odd">
+<td>字符串</td>
+<td>char</td>
+<td>不存在</td>
+</tr>
+<tr class="even">
+<td>-</td>
+<td>varchar</td>
+<td>CharField</td>
+</tr>
+<tr class="odd">
+<td>-</td>
+<td>text</td>
+<td>TextField</td>
+</tr>
+<tr class="even">
+<td>时间日期</td>
+<td>date</td>
+<td>DateField</td>
+</tr>
+<tr class="odd">
+<td>-</td>
+<td>datetime</td>
+<td>DateTimeField</td>
+</tr>
+<tr class="even">
+<td>-</td>
+<td>timestamp</td>
+<td>不存在</td>
+</tr>
+</tbody>
+</table>
+<h2 id="三.mysql与djamgo-orm数据类型对应属性">三.mysql与djamgo-orm数据类型对应属性</h2>
+<pre><code><code>null                数据库中字段是否可以为空
+db_column           数据库中字段的列名
+default             数据库中字段的默认值
+primary_key         数据库中字段是否为主键
+db_index            数据库中字段是否可以建立索引
+unique              数据库中字段是否可以建立唯一索引
+
+
+class Meta:
+### 联合唯一索引
+unique_together=[
+(&#39;b&#39;, &#39;g&#39;)
+]
+
+#### 联合索引
+index_together = [
+(&#39;b&#39;, &#39;g&#39;)
+]</code></pre>
+<h2 id="四.djamgo只在admin中生效的数据类型">四.djamgo只在admin中生效的数据类型</h2>
+<ul>
+<li>EmailField(CharField)：<code>字符串类型</code>对应信息是不是邮箱格式进行验证</li>
+<li>IPAddressField(Field):<code>字符串类型</code>，Django Admin以及ModelForm中提供验证 IPV4 机制</li>
+<li>GenericIPAddressField(Field):<code>字符串类型</code>，Django Admin以及ModelForm中提供验证 Ipv4和Ipv6
+<ul>
+<li>参数：
+<ul>
+<li>protocol:用于指定Ipv4或Ipv6， 'both',&quot;ipv4&quot;,&quot;ipv6&quot;</li>
+<li>unpack_ipv4: 如如果指定为True，则输入::ffff:192.0.2.1时候，可解析为192.0.2.1，开启刺功能，需要protocol=&quot;both&quot;</li>
+</ul></li>
+</ul></li>
+<li>URLField(CharField):<code>字符串类型</code>，Django Admin以及ModelForm中提供验证 URL</li>
+<li>SlugField(CharField):<code>字符串类型</code>，Django Admin以及ModelForm中提供验证支持 字母、数字、下划线、连接符（减号）</li>
+<li>CommaSeparatedIntegerField(CharField):<code>字符串类型</code>，格式必须为逗号分割的数字</li>
+<li>UUIDField(Field):<code>字符串类型</code>，Django Admin以及ModelForm中提供对UUID格式的验证</li>
+<li>FilePathField(Field):<code>字符串</code>，Django Admin以及ModelForm中提供读取文件夹下文件的功能
+<ul>
+<li>参数:
+<ul>
+<li>path:文件路径</li>
+<li>match=None:正则匹配</li>
+<li>recursive=False:递归下面的文件夹</li>
+<li>allow_files=True:允许文件</li>
+<li>allow_folders=False:允许文件夹</li>
+</ul></li>
+</ul></li>
+<li>ImageField(FileField):<code>字符串类型</code> 路径保存在数据库，文件上传到指定目录
+<ul>
+<li>参数:
+<ul>
+<li>upload_to = &quot;&quot; : 上传文件的保存路径</li>
+<li>storage = None:存储组件，默认django.core.files.storage.FileSystemStorage</li>
+<li>ImageField(FileField):上传图片的高度保存的数据库字段名（字符串）</li>
+<li>height_field=None:上传图片的宽度保存的数据库字段名（字符串）</li>
+</ul></li>
+</ul></li>
+</ul>
+<h2 id="五.djamgo只在admin中生效的属性">五.djamgo只在admin中生效的属性</h2>
+<ul>
+<li><p>verbose_name:Admin中显示的字段名称</p></li>
+<li><p>blank:Admin中是否允许用户输入为空</p></li>
+<li><p>editable:Admin中是否可以编辑</p></li>
+<li><p>help_text:Admin中该字段的提示信息</p></li>
+<li><p>choices:Admin中显示选择框的内容，用不变动的数据放在内存中从而避免跨表操作</p>
+<ul>
+<li>如：gf = models.IntegerField(choices=[(0, '何穗'),(1, '大表姐'),],default=1)</li>
+</ul></li>
+<li><p>error_messages: 自定义错误信息（字典类型），从而定制想要显示的错误信息；</p>
+<ul>
+<li>from django.core.validators import RegexValidator<br />
+from django.core.validators import EmailValidator,URLValidator,DecimalValidator,
+ MaxLengthValidator,MinLengthValidator,MaxValueValidator,MinValueValidator<br />
+如：<br />
+test = models.CharField(<br />
+max_length=32,<br />
+error_messages={<br />
+'c1': '优先错信息1',<br />
+'c2': '优先错信息2',<br />
+'c3': '优先错信息3',<br />
+},<br />
+validators=[<br />
+RegexValidator(regex='root_\d+', message='错误了', code='c1'),<br />
+RegexValidator(regex='root_112233\d+', message='又错误了', code='c2'),<br />
+EmailValidator(message='又错误了', code='c3'), ]<br />
+)</li>
+</ul>
+<p>​</p></li>
+</ul>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

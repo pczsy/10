@@ -1,0 +1,281 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修使用dva改造React旧项目的数据流方案' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>使用dva改造React旧项目的数据流方案</center></div><div class='banquan'>原文出处:本文由博客园博主韩子卢提供。<br/>
+原文连接:https://www.cnblogs.com/vvjiang/p/12037059.html</div><br>
+    <h2 id="前言"> 前言</h2>
+<p>最近在给自己的脚手架项目转到TypeScript时，遇到了一些麻烦。</p>
+<p>项目之前采用的是react + react-redux + redux-thunk + redux-actions +redux-promise的体系。</p>
+<p>当项目转TypeScript时,react和react-redux这种完美转换。</p>
+<p>redux-actions转换也初步完成，但是各种为了适应TypeScript的声明很奇怪， 并且有些类型推断错误。</p>
+<p>百度了一下，用typesafe-actions去替换，然后与redux-thunk 和redux-promise结合后，各种TypeScript类型错误。</p>
+<p>这些类型推断稀奇古怪，网上也没有这个技术体系的相关文章，下班后调试代码，内心逐渐崩溃。</p>
+<p>于是有了接下来的举措，用dva去替换react-redux + redux-thunk + redux-actions +redux-promise的数据流方案。</p>
+<h2 id="关于dva"> 关于dva</h2>
+<p>关于dva的介绍咱们就不说了，这里给个链接：<a href="https://dvajs.com/guide">dva指南</a>。</p>
+<p>明白它是基于 redux + react-router + redux-saga 的封装就够了。</p>
+<p>我之前的脚手架是将action，reducer+initialState 分成了不同的文件来处理。</p>
+<p>而dva将 reducer, initialState, action, saga 这些数据流相关的都放在model中一起处理。</p>
+<h2 id="安装dva"> 安装dva</h2>
+<p>网上很多都是安装dva-cli，然后再用 dva-quickstart。</p>
+<p>然而我们是旧项目，只想用dva的数据流方案，所以不可能这么做，只需要安装dva就好了：</p>
+<p>    npm i --save dva</p>
+<p>博客发布时dva最新稳定版是：2.4.1。</p>
+<h2 id="先看一下改造前的代码"> 先看一下改造前的代码</h2>
+<p>在改造之前我们看一下原有入口js的代码：</p>
+<pre><code><code>import React, { Suspense } from &#39;react&#39;;
+import { createStore, applyMiddleware } from &#39;redux&#39;;
+import { Provider } from &#39;react-redux&#39;;
+import thunk from &#39;redux-thunk&#39;;
+import createLogger from &#39;redux-logger&#39;;
+import promiseMiddleware from &#39;redux-promise&#39;;
+import ReactDOM from &#39;react-dom&#39;;
+import { HashRouter as Router, Route, Switch } from &#39;react-router-dom&#39;;
+import reducer from &#39;store/reducers&#39;;
+import &#39;./app.less&#39;;
+
+import Frame from &#39;modules/layout/Frame&#39;
+
+function Loading() {
+  return &lt;div&gt;Loading...&lt;/div&gt;;
+}
+const PageMain = React.lazy(() =&gt; import(&#39;modules/pageMain&#39;));
+
+const store = createStore(reducer, applyMiddleware(thunk, createLogger, promiseMiddleware));
+
+const App = () =&gt; (
+  &lt;Provider store={store}&gt;
+    &lt;Router&gt;
+      &lt;Suspense fallback={&lt;Loading /&gt;}&gt;
+        &lt;Frame&gt;
+          &lt;Switch&gt;
+            &lt;Route path=&#39;/&#39; component={PageMain} /&gt;
+          &lt;/Switch&gt;
+        &lt;/Frame&gt;
+      &lt;/Suspense&gt;
+    &lt;/Router&gt;
+  &lt;/Provider &gt;
+);
+
+ReactDOM.render(&lt;App /&gt;, document.getElementById(&#39;app&#39;));</code></pre>
+<h2 id="改造入口js">改造入口js</h2>
+<p>先贴上改造后的代码：</p>
+<pre><code><code>import createLogger from &#39;redux-logger&#39;;
+import dva from &#39;dva&#39;
+
+import routerConfig from &#39;./route/index&#39;
+import pageMainModel from &#39;modules/pageMain/model&#39;
+import { createHashHistory } from &#39;history&#39;;
+
+const app = dva({
+  history: createHashHistory(),
+  onAction: createLogger
+});
+
+app.model(pageMainModel)
+
+app.router(routerConfig)
+
+app.start(&#39;#app&#39;)</code></pre>
+<p>首先我们新建了一个dva对象，这个dva对象设置了路由为hash路由，并且集成了redux-logger这个redux中间件。</p>
+<p>更多参数配置可以查看：<a href="https://dvajs.com/api/#app-dva-opts">API文档</a>。</p>
+<p>然后我们调用</p>
+<pre><code><code>app.model(pageMainModel)</code></pre>
+<p>这一步主要是设置了数据流中数据的初始化和如何进行处理，具体后面会讲。</p>
+<p>接着调用</p>
+<pre><code><code>app.router(routerConfig)</code></pre>
+<p>这一步dva设置了应用的路由，这是因为dva中集成了react-router-dom，所以可以进行路由设置。</p>
+<p>当然接下来</p>
+<pre><code><code>app.start(&#39;#app&#39;)</code></pre>
+<p>也很好理解，对应原有代码中的 ReactDOM.render 。</p>
+<h2 id="改造路由部分">改造路由部分</h2>
+<p>上面的代码比原有代码看起来精简很多，有一大半原因是我没有将route的配置提取出去。</p>
+<p>所以我们先讲一下改造后路由 <strong>/route/index</strong> ：</p>
+<pre><code><code>import React, { Suspense } from &#39;react&#39;
+import { Router, Switch, Route } from &#39;dva/router&#39;
+import Frame from &#39;modules/layout/Frame&#39;
+
+function Loading() {
+  return &lt;div&gt;Loading...&lt;/div&gt;;
+}
+
+const PageMain = React.lazy(() =&gt; import(&#39;modules/pageMain&#39;));
+
+const RouterConfig = (({ history }) =&gt; (
+  &lt;Router history={history}&gt;
+    &lt;Suspense fallback={&lt;Loading /&gt;}&gt;
+      &lt;Frame&gt;
+        &lt;Switch&gt;
+          &lt;Route path=&quot;/&quot; &gt;
+            &lt;PageMain /&gt;
+          &lt;/Route&gt;
+        &lt;/Switch&gt;
+      &lt;/Frame&gt;
+    &lt;/Suspense&gt;
+  &lt;/Router&gt;
+));
+
+export default RouterConfig;</code></pre>
+<p>因为集成的是react-router-dom，所以基本上不需要改变，只需要按照dva.router的格式修改即可。</p>
+<p>这里需要注意的是dva集成的react-router-dom是v4.1.2版本，还不能识别这种React.lazy这种最新的懒加载方式。</p>
+<p>所以要将配置在Route组件的component参数上的懒加载组件PageMain，修改为Route组件的子组件，否则会报错。</p>
+<h2 id="改造reducer">改造reducer</h2>
+<p>首先看下咱们原有的代码：</p>
+<pre><code><code>import { handleActions } from &#39;redux-actions&#39;;
+import * as T from &#39;./actionTypes&#39;;
+
+
+const initialState = {
+  fundDatas: []
+};
+
+const pageMainReducer = handleActions({
+  [T.GET_DATA_LIST]:
+  {
+    next(state, action) {
+      if (!action.payload.data.Data) {
+        return {
+          ...state,
+          fundDatas: []
+        }
+      }
+      return {
+        ...state,
+        fundDatas: action.payload.data.Data.LSJZList.reverse().map(l =&gt; ({
+          netValueDate: l.FSRQ,
+          netValue: l.DWJZ,
+          totalNetValue: l.LJJZ,
+          dayOfGrowth: l.JZZZL
+        }))
+      }
+    },
+    throw(state) {
+      return state;
+    },
+  }
+}, initialState);
+
+export default pageMainReducer;</code></pre>
+<p>这里T.GET_DATA_LIST是action的type的文本。</p>
+<p>然后看下改造后的代码</p>
+<pre><code><code>import { getFundData } from &#39;services/fundService&#39;
+
+export default {
+  namespace: &#39;pageMainModel&#39;,
+  state: {
+    fundDatas: []
+  },
+  effects: {
+    *getDatas({ payload }, { call, put }) {
+      const { data } = yield call(getFundData, payload);
+      const fundDatas = data.Data.LSJZList.reverse().map((l) =&gt; ({
+        netValueDate: l.FSRQ,
+        netValue: l.DWJZ,
+        totalNetValue: l.LJJZ,
+        dayOfGrowth: l.JZZZL
+      }))
+      yield put({ type: &#39;refreshDatas&#39;, payload: fundDatas });
+    },
+  },
+  reducers: {
+    refreshDatas(state, { payload }) {
+      return {
+        ...state,
+        fundDatas: payload
+      }
+    },
+  },
+};</code></pre>
+<p>dva集成的是redux-saga，所以有使用经验的应该比较懂。</p>
+<p>namespace是命名空间，用作各个model的key。</p>
+<p>state是初始化值。</p>
+<p>effects主要用来处理异步操作。</p>
+<p>reducer部分和原有reducer类似。</p>
+<p>另外getFundData的格式如下：</p>
+<pre><code><code>export const getFundData = (params: IGetFundParams) =&gt; {
+  const { fundCode, startDate, endDate, pageSize } = params
+  return axios.get(`http://localhost:8011/getList?fundCode=${fundCode}&amp;startDate=${startDate}&amp;endDate=${endDate}&amp;pageSize=${pageSize}`)
+};</code></pre>
+<h2 id="改造action">改造action</h2>
+<p>下面是原有action</p>
+<pre><code><code>import { createAction } from &#39;redux-actions&#39;;
+import axios from &#39;axios&#39;
+import * as T from &#39;./actionTypes&#39;;
+
+/**
+* 获取基金数据
+*/
+export const getDataList = createAction(T.GET_DATA_LIST, (fundCode, startDate, endDate, pageSize) =&gt; {
+  return axios.get(`http://localhost:8011/getList?fundCode=${fundCode}&amp;startDate=${startDate}&amp;endDate=${endDate}&amp;pageSize=${pageSize}`)
+});</code></pre>
+<p>connect到相应组件后的调用方式为：</p>
+<pre><code><code>this.props.getDataList(fundCode, startDate, endDate, pageSize)</code></pre>
+<p>然后我们经过之前的改造已经没有了不再需要action这个文件，使用的时候直接使用以下方式：</p>
+<pre><code><code>this.props.dispatch({
+  type: &#39;pageMainModel/getDatas&#39;,
+  payload: { fundCode, startDate, endDate, pageSize }
+})</code></pre>
+<p>这里的dispacth是dva的connect直接封装传递到组件的。</p>
+<h2 id="改造容器组件">改造容器组件</h2>
+<p>先给改造后的代码：</p>
+<pre><code><code>import React from &#39;react&#39;;
+import { connect } from &#39;dva&#39;;
+
+const mapStateToProps = ({ pageMainModel }) =&gt; {
+  return {
+    fundDatas: pageMainModel.fundDatas
+  };
+}
+
+/**
+* 首页
+*/
+@connect(mapStateToProps)
+export default class PageMain extends React.Component {
+  componentDidMount() {
+    this.getList()
+  }
+  // 获取基金数据
+  getList = () =&gt; {
+
+    // ...
+
+    this.props.dispatch({
+      type: &#39;pageMainModel/getDatas&#39;,
+      payload: { fundCode, startDate, endDate, pageSize }
+    })
+  }
+
+  render() {
+    //...
+  }
+}</code></pre>
+<p>改造前的代码就不给了，因为涉及的改动比较少，只需要注意dva的conenct只需要将redux的state传到组件，不需要将调用action的函数传入即可。</p>
+<h2 id="总结">总结</h2>
+<p>最开始改造的目的是为了ts，但是等改造完成再去看dva的相关示例时，发现dva官网推荐的项目示例<a href="https://github.com/hqwlkj/umi-dva-antd-mobile/blob/master/src/models/global.tsx">umi-dva-antd-mobile</a>中的model文件中都加了</p>
+<pre><code><code>// @ts-ignore</code></pre>
+<p>来隐藏文件中的ts报错。（感觉有点囧啊，不过整个改造的过程还是蛮多收获的）</p>
+<p>我自己的方案是将model.js的后缀不修改为ts，项目会避开对js文件的转换和检测。</p>
+<p>总的来说，我只是对自己做的脚手架项目进行了一个改造，如果旧项目较大的话，改造起来还是挺费劲的。</p>
+<p>博客中的代码都或多或少进行了删减，具体的项目代码可以查看我的Github项目：<a href="https://github.com/vvjiang/webpack4Hanzilu">脚手架项目</a>。</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

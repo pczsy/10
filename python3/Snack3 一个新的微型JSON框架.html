@@ -1,0 +1,409 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Snack3 一个新的微型JSON框架' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Snack3 一个新的微型JSON框架</center></div><div class='banquan'>原文出处:本文由博客园博主刘之西东提供。<br/>
+原文连接:https://www.cnblogs.com/noear/p/12022566.html</div><br>
+    <h1 id="snack3-一个新的微型json框架">Snack3 一个新的微型JSON框架</h1>
+<p>一个作品，一般表达作者的一个想法。因为大家想法不同，所有作品会有区别。就做技术而言，因为有很多有区别的框架，所以大家可以选择的框架很丰富。</p>
+<p>snack3。基于<code>jdk8</code>，<code>60kb</code>，无其它依赖，非常小巧。</p>
+<ul>
+<li>强调文档树的链式操控和构建能力</li>
+<li>强调中间媒体，方便不同格式互转</li>
+<li>支持<code>序列化、反序列化</code></li>
+<li>支持<code>Json path</code>查询</li>
+</ul>
+<p>ONode 即 <code>One node</code> 之意；借签了 <code>Javascript</code> 所有变量由 <code>var</code> 申明，及 <code>Xml dom</code> 一切都是 <code>Node</code> 的设计。这应该也是与别的框架不同之处。</p>
+<h4 id="设计思路">设计思路</h4>
+<ul>
+<li><p><code>ONode</code>是一个接口界面，内部由<code>nodeType</code>和<code>nodeData</code>组成。通过<code>nodeType</code>进行类型识别，通过<code>nodeData</code>容纳所有的类型数据。</p></li>
+<li><p>采用<code>Fromer</code>-&gt;<code>ONode</code>-&gt;<code>Toer</code>的架构设计。这是重要的一个设计，可使转换具有很强的扩展能力，<code>Fromer</code> 和 <code>Toer</code> 各做一半工作，也可各自切换（有好处也会有坏处）。</p></li>
+<li><p>强调非null操作，通过o.isNull()进行判断（留意后面<code>-get(key | idx)</code>接口的注释；可通过<code>getOrNull(key | idx)</code> 获取 <code>null</code> ）</p></li>
+</ul>
+<h4 id="项目源码">项目源码</h4>
+<ul>
+<li>github：<a href="https://github.com/noear/snack3" class="uri">https://github.com/noear/snack3</a></li>
+<li>gitee：<a href="https://gitee.com/noear/snack3" class="uri">https://gitee.com/noear/snack3</a></li>
+</ul>
+<h4 id="meven配置">Meven配置</h4>
+<pre><code><code>&lt;dependency&gt;
+  &lt;groupId&gt;org.noear&lt;/groupId&gt;
+  &lt;artifactId&gt;snack3&lt;/artifactId&gt;
+  &lt;version&gt;3.1.5.12&lt;/version&gt;
+&lt;/dependency&gt;</code></pre>
+<h4 id="一简单的代码演示">一、简单的代码演示</h4>
+<ul>
+<li>简单操控</li>
+</ul>
+<pre class="java"><code>//1.加载json
+// name支持没有引号
+// 字符串支持单引号（在java里写代码方便点；输出是标准的引号）
+ONode n = ONode.load(&quot;{code:1,msg:&#39;Hello world&#39;,data:{list:[1,2,3,4,5]}}&quot;);
+
+//2.1.取一个属性的值
+String msg = n.get(&quot;msg&quot;).getString();
+
+//2.2.取列表里的一项
+int li2  = n.get(&quot;data&quot;).get(&quot;list&quot;).get(2).getInt();
+int li2  = n.select(&quot;data.list[2]&quot;).getInt(); //使用josn path 
+
+//2.3.获取一个数组
+List&lt;Integer&gt; ary = n.get(&quot;data&quot;).get(&quot;list&quot;).toObject(ArrayList.class);
+List&lt;Integer&gt; ary = n.select(&quot;data.list&quot;).toObject(ArrayList.class); //使用josn path 
+
+//3.1.设置值
+n.set(&quot;msg&quot;,&quot;Hello world2&quot;);
+n.get(&quot;msg&quot;).val(&quot;Hello world2&quot;); //另一种设置方式
+
+//3.2.设置列表里的一项值为12
+n.get(&quot;data&quot;).get(&quot;list&quot;).get(2).val(12);
+n.select(&quot;data.list[2]&quot;).val(12); //使用josn path 
+
+//3.3.清掉一个数组
+n.get(&quot;data&quot;).get(&quot;list&quot;).clear();
+n.select(&quot;data.list&quot;).clear(); //使用josn path </code></pre>
+<h4 id="二更多代码演示">二、更多代码演示</h4>
+<ul>
+<li>1.字符串化</li>
+</ul>
+<pre class="java"><code>//将 java object 转为 json
+String json = ONode.stringify(user);</code></pre>
+<ul>
+<li>2.序列化</li>
+</ul>
+<pre class="java"><code>//1.序列化（通过@type申明类型）
+String json = ONode.serialize(user);
+
+//2.反序列化
+UserModel user = ONode.deserialize(json, UserModel.class);</code></pre>
+<ul>
+<li>3.转换</li>
+</ul>
+<pre class="java"><code>//1.1.将json string 转为 ONode
+ONode o = ONode.load(json); 
+
+//1.2.将java bean 转为 ONode
+ONode o = ONode.load(user); 
+
+//2.1.将 ONode 转为 string（由转换器决定，默认转换器为json）
+o.toString();
+
+//2.2.将 ONode 转为 json
+o.toJson();
+
+//2.3.将 ONode 转为XxxModel (例：UserModel)
+o.toObject(UserModel.class);
+
+//&gt;将 ONode 转为 Map 或 List 或 常规值
+o.toObject(null);
+
+//&gt;将 ONode 转为 自动类型的 Java Object
+o.toObject(Object.class);
+</code></pre>
+<ul>
+<li>4.填充</li>
+</ul>
+<pre class="java"><code>ONode o = ONode.load(&quot;{code:1,msg:&#39;Hello world!&#39;}&quot;);
+
+//填充java object
+List&lt;UserModel&gt; list = new ArrayList&lt;&gt;();
+//...
+o.get(&quot;data&quot;).get(&quot;list&quot;).fill(list);
+
+//填充string json
+o.get(&quot;data&quot;).get(&quot;list&quot;).fill(&quot;[{a:1,b:2},{a:2,c:3}]&quot;);</code></pre>
+<ul>
+<li>5.一个应用示例（极光推送的rest api调用）</li>
+</ul>
+<pre class="java"><code>public static void push(Collection&lt;String&gt; alias_ary, String text)  {
+    ONode data = new ONode().build((d)-&gt;{
+        d.get(&quot;platform&quot;).val(&quot;all&quot;);
+
+        d.get(&quot;audience&quot;).get(&quot;alias&quot;).addAll(alias_ary);
+
+        d.get(&quot;options&quot;)
+                .set(&quot;apns_production&quot;,false);
+
+        d.get(&quot;notification&quot;).build(n-&gt;{
+            n.get(&quot;ios&quot;)
+                    .set(&quot;alert&quot;,text)
+                    .set(&quot;badge&quot;,0)
+                    .set(&quot;sound&quot;,&quot;happy&quot;);
+        });
+    });
+
+    String message = data.toJson();
+    String author = Base64Util.encode(appKey+&quot;:&quot;+masterSecret);
+
+    Map&lt;String,String&gt; headers = new HashMap&lt;&gt;();
+    headers.put(&quot;Content-Type&quot;,&quot;application/json&quot;);
+    headers.put(&quot;Authorization&quot;,&quot;Basic &quot;+author);
+
+    HttpUtil.postString(apiUrl, message, headers);
+}</code></pre>
+<ul>
+<li>5.数据遍历</li>
+</ul>
+<pre class="java"><code>//遍历Object数据 方案1
+o.forEach((k,v)-&gt;{
+  //...
+});
+//遍历Object数据 方案2
+for(Map.Entry&lt;String,ONode&gt; kv : n.obj().entrySet()){
+  //...    
+}
+
+//遍历Array数据 方案1
+o.forEach((v)-&gt;{
+  //...
+});
+//遍历Array数据 方案2
+for(ONode v : o.ary()){
+  //..
+}</code></pre>
+<h4 id="三混合加载与转换代码演示">三、混合加载与转换代码演示</h4>
+<pre class="java"><code>List&lt;UserModel&gt; list = new ArrayList&lt;&gt;();
+//..
+ONode o = ONode.load(&quot;{code:1,msg:&#39;succeed&#39;}&quot;);
+o.get(&quot;data&quot;).get(&quot;list&quot;).fill(list);
+</code></pre>
+<h4 id="关于三组类型接口的设计json-objectarrayvalue">关于三组类型接口的设计（Json object,array,value）</h4>
+<ul>
+<li>关于<code>json object</code>的操作</li>
+</ul>
+<pre class="swift"><code>-obj() -&gt; Map&lt;String,ONode&gt;             //获取节点对象数据结构体（如果不是对象类型，会自动转换）
+-contains(key:String) -&gt; bool           //是否存在对象子节点?
+-get(key:String) -&gt; child:ONode         //获取对象子节点（不存在，生成新的子节点并返回）
+-getOrNull(key:String) -&gt; child:ONode   //获取对象子节点（不存在，返回null）
+-getNew(key:String) -&gt; child:ONode      //生成新的对象子节点，会清除之前的数据
+-set(key:String,val:Object) -&gt; self:ONode           //设置对象的子节点（会自动处理类型）//val:为常规类型或ONode
+-setNode(key:String,val:ONode) -&gt; self:ONode        //设置对象的子节点，值为ONode类型
+-setAll(obj:ONode) -&gt; self:ONode                    //设置对象的子节点，将obj的子节点搬过来
+-setAll(map:Map&lt;String,T&gt;) -&gt;self:ONode             //设置对象的子节点，将map的成员搬过来
+-setAll(map:Map&lt;String,T&gt;, (n,t)-&gt;..) -&gt;self:ONode  //设置对象的子节点，将map的成员搬过来，并交由代理处置
+-remove(key:String)     //移除对象的子节点
+-forEach((k,v)-&gt;..)     //遍历对象的子节点</code></pre>
+<ul>
+<li>关于<code>json array</code>的操作</li>
+</ul>
+<pre class="swift"><code>-ary() -&gt; List&lt;ONode&gt;                   //获取节点数组数据结构体（如果不是数组，会自动转换）
+-get(index:int)  -&gt; child:ONode                 //获取数组子节点（超界，返回空节点）
+-getOrNull(index:int)  -&gt; child:ONode           //获取数组子节点（超界，返回null）
+-addNew() -&gt; child:ONode                        //生成新的数组子节点
+-add(val) -&gt; self:ONode                         //添加数组子节点 //val:为常规类型或ONode
+-addNode(val:ONode) -&gt; self:ONode               //添加数组子节点，值为ONode类型
+-addAll(ary:ONode)  -&gt; self:ONode               //添加数组子节点，将ary的子节点搬过来
+-addAll(ary:Collection&lt;T&gt;) -&gt; self:ONode                //添加数组子节点，将ary的成员点搬过来
+-addAll(ary:Collection&lt;T&gt;,(n,t)-&gt;..) -&gt; self:ONode      //添加数组子节点，将ary的成员点搬过来，并交由代理处置
+-removeAt(index:int)    //移除数组的子节点
+-forEach(v-&gt;..)         //遍历数组的子节点</code></pre>
+<ul>
+<li>关于<code>json value</code>的操作</li>
+</ul>
+<pre class="swift"><code>-val() -&gt; OValue                //获取节点值数据结构体（如果不是值类型，会自动转换）
+-val(val:Object) -&gt; self:ONode  //设置节点值 //val:为常规类型或ONode
+-getString()    //获取值并以string输出 //如果节点为对象或数组，则输出json
+-getShort()     //获取值并以short输出...(以下同...)
+-getInt()
+-getBoolean()
+-getLong()
+-getDate()
+-getFloat()
+-getDouble()
+-getDouble(scale:int)
+-getChar()</code></pre>
+<h4 id="关于序列化的特点">关于序列化的特点</h4>
+<ul>
+<li>对象</li>
+</ul>
+<pre class="json"><code>{&quot;@type&quot;:&quot;...&quot;,&quot;a&quot;:1,&quot;b&quot;:&quot;2&quot;}</code></pre>
+<ul>
+<li>数组（可以精准反序列化列表类型；需要特性开启）</li>
+</ul>
+<pre class="json"><code>[{&quot;@type&quot;:&quot;...&quot;},[1,2,3]]  </code></pre>
+<h4 id="关于json-path的支持">关于Json path的支持</h4>
+<ul>
+<li>支持完整的<code>Json path</code>的选择操作</li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>支持操作</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>$</td>
+<td>查询根元素（或当前元素）。<br/>这将启动所有路径表达式（可以不输）。</td>
+</tr>
+<tr class="even">
+<td>*</td>
+<td>通配符，必要时可用任何地方的名称或数字。</td>
+</tr>
+<tr class="odd">
+<td>..</td>
+<td>深层扫描。 必要时在任何地方可以使用名称。</td>
+</tr>
+<tr class="even">
+<td>.<name></td>
+<td>点，表示子节点</td>
+</tr>
+<tr class="odd">
+<td>['<name>' (, '<name>')]</td>
+<td>括号表示子项</td>
+</tr>
+<tr class="even">
+<td>[<number> (, <number>)]</td>
+<td>数组索引或索引</td>
+</tr>
+<tr class="odd">
+<td>[start:end]</td>
+<td>数组切片操作</td>
+</tr>
+</tbody>
+</table>
+<p>例：<code>n.select(&quot;$.store.book[0].title&quot;)</code> 或 <code>n.select(&quot;$['store']['book'][0]['title']&quot;)</code></p>
+<h3 id="附完整的接口字典">附：完整的接口字典</h3>
+<pre class="swift"><code>//初始化操作
+//
+-asObject() -&gt; self:ONode  //将节点切换为对象
+-asArray()  -&gt; self:ONode  //将节点切换为数组
+-asValue()  -&gt; self:ONode  //将节点切换为值
+-asNull()   -&gt; self:ONode  //将节点切换为null
+
+//检测操作
+//
+-isObject() -&gt; bool  //检查节点是否为对象
+-isArray()  -&gt; bool  //检查节点是否为数组
+-isValue()  -&gt; bool  //检查节点是否为值
+-isNull()   -&gt; bool  //检查节点是否为null
+
+//公共
+//
+-nodeData() -&gt; ONodeData //获取节点数据
+-nodeType() -&gt; ONodeType //获取节点类型
+
+-cfg(cfg:Constants) -&gt; self:ONode   //切换配置
+-cfg() -&gt; Constants                 //获取配置
+
+-build(n-&gt;..) -&gt; self:ONode         //节点构建表达式
+-select(jpath:String) -&gt; new:ONode                      //使用JsonPath表达式选择节点（默认缓存路径编译）
+-select(jpath:String, useStandard:boolean)-&gt; new:ONode  //useStandard:使用标准模式,默认非标准
+-select(jpath:String, useStandard:boolean, cacheJpath:boolean)-&gt; new:ONode   //cacheJpath:是否缓存javaPath编译成果，默认缓存
+
+-clear()        //清除子节点，对象或数组有效
+-count() -&gt; int //子节点数量，对象或数组有效
+
+
+//值操作
+//
+-val() -&gt; OValue                //获取节点值数据结构体（如果不是值类型，会自动转换）
+-val(val:Object) -&gt; self:ONode  //设置节点值 //val:为常规类型或ONode
+-getString()    //获取值并以string输出 //如果节点为对象或数组，则输出json
+-getShort()     //获取值并以short输出...(以下同...)
+-getInt()
+-getBoolean()
+-getLong()
+-getDate()
+-getFloat()
+-getDouble()
+-getDouble(scale:int)
+-getChar()
+
+//对象操作
+//
+-obj() -&gt; Map&lt;String,ONode&gt;                     //获取节点对象数据结构体（如果不是对象类型，会自动转换）
+-readonly() -&gt; self:ONode                       //只读形态（get时，不添加子节点）
+-contains(key:String) -&gt; bool                   //是否存在对象子节点?
+-rename(key:String,newKey:String) -&gt; self:ONode //重命名子节点并返回自己
+-get(key:String) -&gt; child:ONode                 //获取对象子节点（不存在，生成新的子节点并返回）
+-getOrNull(key:String) -&gt; child:ONode           //获取对象子节点（不存在，返回null）
+-getNew(key:String) -&gt; child:ONode              //生成新的对象子节点，会清除之前的数据
+-set(key:String,val:Object) -&gt; self:ONode           //设置对象的子节点（会自动处理类型）
+-setNode(key:String,val:ONode) -&gt; self:ONode        //设置对象的子节点，值为ONode类型
+-setAll(obj:ONode) -&gt; self:ONode                    //设置对象的子节点，将obj的子节点搬过来
+-setAll(map:Map&lt;String,T&gt;) -&gt;self:ONode             //设置对象的子节点，将map的成员搬过来
+-setAll(map:Map&lt;String,T&gt;, (n,t)-&gt;..) -&gt;self:ONode  //设置对象的子节点，将map的成员搬过来，并交由代理处置
+-remove(key:String)                   //移除对象的子节点
+-forEach((k,v)-&gt;..) -&gt; self:ONode     //遍历对象的子节点
+
+//数组操作
+//
+-ary() -&gt; List&lt;ONode&gt;                   //获取节点数组数据结构体（如果不是数组，会自动转换）
+-get(index:int)  -&gt; child:ONode                 //获取数组子节点（超界，返回空节点）
+-getOrNull(index:int)  -&gt; child:ONode           //获取数组子节点（超界，返回null）
+-addNew() -&gt; child:ONode                        //生成新的数组子节点
+-add(val) -&gt; self:ONode                         //添加数组子节点 //val:为常规类型或ONode
+-addNode(val:ONode) -&gt; self:ONode               //添加数组子节点，值为ONode类型
+-addAll(ary:ONode)  -&gt; self:ONode               //添加数组子节点，将ary的子节点搬过来
+-addAll(ary:Collection&lt;T&gt;) -&gt; self:ONode                //添加数组子节点，将ary的成员点搬过来
+-addAll(ary:Collection&lt;T&gt;,(n,t)-&gt;..) -&gt; self:ONode      //添加数组子节点，将ary的成员点搬过来，并交由代理处置
+-removeAt(index:int)                 //移除数组的子节点
+-forEach(v-&gt;..) -&gt; self:ONode        //遍历数组的子节点
+
+//特性操作（不破坏数据的情况上，添加数据；或用于构建xml dom）
+//
+-attrGet(key:String) -&gt; String                  //获取特性
+-attrSet(key:String,val:String) -&gt; self:ONode   //设置特性
+-attrForeach((k,v)-&gt;..) -&gt; self:ONode           //遍历特性
+
+//转换操作
+//
+-toString() -&gt; String           //转为string （由字符串转换器决定，默认为json）
+-toJson() -&gt; String             //转为json string
+-toData() -&gt; Object             //转为数据结构体（Map,List,Value）
+-toObject(clz:Class&lt;T&gt;) -&gt; T    //转为java object（clz=Object.class：自动输出类型）
+
+-to(toer:Toer, clz:Class&lt;T&gt;) -&gt; T   //将当前节点通过toer进行转换
+-to(toer:Toer) -&gt; T                 //将当前节点通过toer进行转换
+
+//填充操作（为当前节点填充数据；source 为 String 或 java object）
+-fill(source:Object)    -&gt; self:ONode               //填充数据
+-fill(source:Object, fromer:Fromer) -&gt; self:ONode   //填充数据，由fromer决定处理
+
+/**
+ * 以下为静态操作
+**/
+
+//加载操作（source 为 String 或 java object）
+//
++load(source:Object) -&gt; new:ONode    //加载数据
++load(source:Object, cfg:Constants) -&gt; new:ONode
++load(source:Object, cfg:Constants, fromer:Fromer) -&gt; new:ONode
+
+//加载 string
++loadStr(source:String) -&gt; new:ONode    //仅String
+//加载 java object
++loadObj(source:Object) -&gt; new:ONode    //仅java object
+
+//字符串化操作
+//
++stringify(source:Object) -&gt; String                   //字符串化；
+
+//序列化操作
+//
++serialize(source:Object) -&gt; String                   //序列化（带@type属性）
++deserialize(source:String) -&gt; T                      //反序列化
++deserialize(source:String, clz:Class&lt;?&gt;) -&gt; T        //反序列化
+</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

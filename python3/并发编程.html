@@ -1,0 +1,899 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修并发编程' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>并发编程</center></div><div class='banquan'>原文出处:本文由博客园博主我思无邪提供。<br/>
+原文连接:https://www.cnblogs.com/sjf981012-/p/11403776.html</div><br>
+    <h1 id="并发编程多进程">并发编程:多进程</h1>
+<h3 id="进程创建的两种方式">进程创建的两种方式</h3>
+<pre><code><code>#第一种
+from multiprocessing import Process
+import time
+def func(name):(
+    print(f&#39;{name}子进程开始&#39;)
+    time.sleep(1)
+    print(f&#39;{name}子进程结束&#39;)
+if __name__==&#39;__main__&#39;:
+    times=time.time()
+    x = Process(target=func,args(&#39;宋&#39;,))   #里面一定要放元组
+    x.start()              #启动进程,并调用该子进程中的x.run()
+    time.sleep(1)      #x.run()调用target制定的函数,启动进程运行的方法
+    print(&#39;主进程启动&#39;)
+    print(f&#39;{time.time()-times}&#39;)
+#第二种
+from multiprocessing import Process
+import time
+class A(Process):    #父类一定是Process
+    def __init__(self,name):
+    self.name=name
+    super().__init__()
+    def run(self):       #一定要有run方法!!!!!!
+        print(f&#39;{self.name}子进程开始&#39;)
+        time.sleep(1)
+        print(f&#39;{self.name}子进程结束&#39;)
+if __name__==&#39;__main__&#39;:
+    times=time.time()
+    x=A(&#39;宋&#39;,)
+    x.start()          #只是想操作系统发憷一个开辟子进程的信号,执行下一行,信号接收到了,会在内存总开辟一个进程空间,然后再讲主进程所有数据copy加载到子进程,然后在调用CPU去执行,开辟子进程开销是很大的
+    time.sleep(1)
+    print(f&#39;{time.time()-times}主进程开启&#39;)
+    #所以永远会先执行主进程的代码
+    
+    
+x.terminate()  #强制终止进程x 不会进行任何清理操作 
+x.is_alive()   #判断进程是不是还活着
+x.join()   #主进程等待执行完子进程以后再执行主进程
+x.daemon() #默认值为Flase 代表x为后台运行的守护进程
+x.name  #查看进程的名称
+x.pid #进程的pid
+</code></pre>
+<p>注意:在Windows中process()必须放到if __name__=='__main__'下</p>
+<h3 id="获取进程pid">获取进程pid</h3>
+<pre><code><code>import os
+import time
+print(f&#39;子进程:{os.getpid()}&#39;)
+print(f&#39;主进程:{os.getppid()}&#39;)</code></pre>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566351108003.png" alt="1566351108003" /></p>
+<h3 id="验证进程之间的空间">验证进程之间的空间</h3>
+<p>进程与进程之间是有物理隔离，不能共享内存的数据（lock,队列）</p>
+<pre><code><code>from multiprocessing import Process
+import time
+import os
+name=&#39;song&#39;
+def task():
+    global name
+    name=&#39;111&#39;
+    print(f&#39;{name}&#39;)
+if __name__==&#39;__main__&#39;:
+    p.Process(target=task)
+    p.start()
+    time.sleep(2)
+    print(f&#39;主开始{name}&#39;)
+
+
+from multiprocessing import Process
+import time
+import os
+lst=[11,22,33]
+def task():
+    global name
+    name.append(44)
+    print(f&#39;{lst}&#39;)
+if __name__==&#39;__main__&#39;:
+    p.Process(target=task)
+    p.start()
+    time.sleep(2)
+    print(f&#39;主开始{lst}&#39;)
+#可变不可变都会隔离</code></pre>
+<h3 id="join">join</h3>
+<pre><code><code>#join就是主进程先让子进程执行结束,再执行主进程
+from multiprocessing import Process
+import time
+def func(name):
+    print(f&#39;{name} is running&#39;)
+    time.sleep(1)
+    print(f&#39;{name} is out&#39;)
+if __name__ == &#39;__main__&#39;:
+    p = Process(target=task,args=(&#39;song&#39;,))  # 创建一个进程对象
+    p.start()
+    p.join()
+    print(&#39;==主开始&#39;)
+#多个子进程使用join
+from multiprocessing import Process
+import time
+def func(name,s):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(s)
+    print(f&#39;{name}结束&#39;)
+def func1(name,s):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(s)
+    print(f&#39;{name}结束&#39;)
+def func2(name,s):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(s)
+    print(f&#39;{name}结束&#39;)
+if __name__ == &#39;__main__&#39;:
+    times=time.time()
+    li=[]
+    for i  in range(1,4):
+        x = Process(target=func,args=(&#39;song&#39;,i))
+        x.start()
+        li.append(x)
+#
+    for i in li:
+        i.join()
+    print(&#39;主进程开始&#39;)
+    x=Process(target=func,args=(&#39;宋&#39;,3))
+    x1=Process(target=func,args=(&#39;李&#39;,2))
+    x2=Process(target=func,args=(&#39;王&#39;,1))
+    x.start()
+    x1.start()
+    x2.start()
+    #
+    x.join()
+    print(f&#39;{time.time()-times}&#39;)
+    x1.join()
+    print(f&#39;{time.time()-times}&#39;)
+    x2.join()
+    print(f&#39;主进程开启{time.time()-times}&#39;)</code></pre>
+<ol>
+<li><p>.代码优化</p>
+<pre><code><code>from multiprocessing import Process
+import time
+def func(name,s):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(s)
+    print(f&#39;{name}结束&#39;)
+if __name__ == &#39;__main__&#39;:
+    times=time.time()
+    li=[]
+    for i  in range(1,4):
+        x = Process(target=func,args=(&#39;song&#39;,i))
+        x.start()
+        li.append(x)
+    for i in li:
+        i.join()
+        print(&#39;主进程开始&#39;)</code></pre></li>
+</ol>
+<h3 id="进程的其他参数">进程的其他参数</h3>
+<pre><code><code>x.terminate()   #杀死子进程
+x.join()        #先执行子进程,后执行主进程
+print(x.is_alive())   #判断进程还在不在 
+
+
+# from multiprocessing import Process
+# import time
+#
+# def task(name):
+#     print(f&#39;{name} is running&#39;)
+#     time.sleep(2)
+#     print(f&#39;{name} is gone&#39;)
+#
+#
+#
+# if __name__ == &#39;__main__&#39;:
+#     # 在windows环境下, 开启进程必须在 __name__ == &#39;__main__&#39; 下面
+#     # p = Process(target=task,args=(&#39;常鑫&#39;,))  # 创建一个进程对象
+#     p = Process(target=task,args=(&#39;常鑫&#39;,),name=&#39;alex&#39;)  # 创建一个进程对象
+#     p.start()
+#     # time.sleep(1)
+#     # p.terminate()  # 杀死子进程  ***
+#     # p.join()  # ***
+#     # time.sleep(0.5)
+#     # print(p.is_alive())   # ***
+#     # print(p.name)
+#     p.name = &#39;sb&#39;
+#     print(p.name)
+#     print(&#39;==主开始&#39;)</code></pre>
+<h3 id="守护进程">守护进程</h3>
+<pre><code><code>#子进程守护主进程,只要结束主进程,子进程也随之结束
+x.daemon=True
+
+from multiprocessing import Process
+import time
+def func(name):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(1)
+    print(f&#39;{name}结束&#39;)
+if __name__ == &#39;__main__&#39;:
+    x.Process(target=func,args(&#39;song&#39;))
+    x.daemon=True   #在发送信号之前开启 守护进程，将X子进程设置成守护进程，只要主进程结束，守护进程马上结束
+    x.start()
+    x.join()
+    print(&#39;666主进程开始&#39;)</code></pre>
+<h3 id="僵尸进程与孤儿进程面试会问">僵尸进程与孤儿进程(面试会问)</h3>
+<ol>
+<li>基于unix环境(Linux,macOS)
+<ul>
+<li>主进程需要等待子进程结束之后,主进程才结束</li>
+</ul></li>
+</ol>
+<h4 id="主进程时刻监测子进程的运行状态当子进程结束之后一段时间之内将子进程进行回收">主进程时刻监测子进程的运行状态,当子进程结束之后,一段时间之内,将子进程进行回收/</h4>
+<ul>
+<li><p>为什么主进程不在子进程结束会对其马上回收?</p>
+<ul>
+<li>主进程与子进程是异步关系,主进程无法马上捕获子进程什么时候结束</li>
+<li>如果子进程结束之后马上在内存中释放资源,主进程就没办法监测子进程的状态了</li>
+</ul></li>
+<li><p>Unix针对于上面的问题,提供了一个机制</p>
+<p>所有的子进程结束之后,立马回释放掉文件的操作链接,内存的大部分数据,会保留一些内容,进程号,结束时间,运行状态,等待主进程监测,回收</p></li>
+<li><p>僵尸进程:所有的子进程结束之后,在准备回收之前,都会进入僵尸进程状态</p></li>
+<li><p>僵尸进程有危害:如果父进程不对僵尸进程进行回收(wait//waitpid),产生大量的僵尸进程,这样就会占用内存,占用进程pid号</p></li>
+<li><p>孤儿进程:父进程由于某种原因结束了,但是你的子进程还在运行中,这样你的这些子进程就成了孤儿进程,.你的父进程如果结束了.你的所有的孤儿进程就会被inIT进程回收,init就变成了你的父进程,对孤儿进程进行回收</p></li>
+<li><p>僵尸进程如何解决::::</p>
+<p>父进程产生了大量的子进程,但是不回收,这样就会形成大量的僵尸进程,解决方式就是直接杀死父进程将所有的僵尸进程变成孤儿进程然后init进行照顾,由init进程进行回收</p></li>
+</ul>
+<h3 id="互斥锁">互斥锁</h3>
+<pre><code><code>三个同事,同时用一个打印机打印内容
+模拟三个进程模仿三个同事,输出平台模拟打印机
+from multiprocessing import Process
+import time,random
+def func1(name):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(random.randint(1, 3))
+    print(f&#39;{name}结束&#39;)
+def func2(name):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(random.randint(1, 3))
+    print(f&#39;{name}结束&#39;)
+def func3(name):
+    print(f&#39;{name}开始&#39;)
+    time.sleep(random.randint(1, 3))
+    print(f&#39;{name}结束&#39;)
+if __name__ == &#39;__main__&#39;:
+    x1=Process(target=func1,args=(&#39;宋&#39;,))
+    x2=Process(target=func2,args=(&#39;佳&#39;,))
+    x3=Process(target=func3,args=(&#39;凡&#39;,))
+    x1.start()
+    x2.start()
+    x3.start()
+#并发的抢占打印机
+#并发效率优先,但是不是顺序优先
+#多个进程共枪一个资源,需要保证顺序,一个一个来  串行
+
+
+版本二 加join 变成串行,但是这个顺序是固定的,
+
+
+版本三
+from multiprocessing import Process,Lock
+import time,random
+def func1(lock,name):
+    lock.acquire()
+    print(f&#39;{name}开始&#39;)
+    time.sleep(random.randint(1,3))
+    print(f&#39;{name}结束&#39;)
+    lock.release()
+def func2(lock,name):
+    lock.acquire()
+    print(f&#39;{name}开始&#39;)
+    time.sleep(random.randint(1,3))
+    print(f&#39;{name}结束&#39;)
+    lock.release()
+def func3(lock,name):
+    lock.acquire()
+    print(f&#39;{name}开始&#39;)
+    time.sleep(random.randint(1,3))
+    print(f&#39;{name}结束&#39;)
+    lock.release()
+if __name__ == &#39;__main__&#39;:
+    lock=Lock()
+    x1=Process(target=func1,args=(lock,&#39;宋&#39;,))
+    x2=Process(target=func2,args=(lock,&#39;佳&#39;,))
+    x3=Process(target=func3,args=(lock,&#39;凡&#39;,))
+    x1.start()
+    x2.start()
+    x3.start()
+#保证了顺序,保证了先到先得的原则,串行</code></pre>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566376485378.png" alt="1566376485378" /></p>
+<h3 id="join和lock的区别">join和lock的区别</h3>
+<pre><code><code>共同点:都可以阻塞,都可以把并发变成并发,保证了顺序
+不同点:join是人为的设定顺序,lock让其争抢顺序,保证了公平性</code></pre>
+<h3 id="进程之间的通信">进程之间的通信:</h3>
+<p>进程在内存级别是隔离的,但是文件在磁盘上</p>
+<ol>
+<li><p>基于文件通信</p>
+<ol>
+<li><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566376925686.png" alt="1566376925686" /></li>
+</ol>
+<pre><code><code>抢票系统
+#思路分析:先可以查票,查询剩余票数  并发 都可以查
+#购买,向服务器发送请求,服务端接受,在后端将票数修改,返回给前端,串行 一个一个的买
+from multiprocessing import Process,Lock
+import os,time,random,json
+def search():
+    time.sleep(random.randint(1,3))
+    with open(&#39;song.json&#39;,&#39;r&#39;,encoding=&#39;utf-8&#39;)as f:
+        dic=json.load(f)
+        print(f&#39;{os.getpid()}查看了票,还剩{dic[&quot;count&quot;]}张票&#39;)
+def buy():
+    with open(&#39;song.json&#39;,&#39;r&#39;,encoding=&#39;utf-8&#39;)as f1:
+        dic=json.load(f1)
+        if dic[&#39;count&#39;]&gt;0:
+            dic[&#39;count&#39;]-=1
+            time.sleep(random.randint(1,3))
+            with open(&#39;song.json&#39;,&#39;w&#39;,encoding=&#39;utf-8&#39;)as f2:
+                json.dump(dic,f2)
+                print(f&#39;{os.getpid()}购票成功&#39;)
+def run(lock):
+    search()
+    lock.acquire()
+    buy()
+    lock.release()
+if __name__ == &#39;__main__&#39;:
+    lock=Lock()
+    for i in range(6):
+        x= Process(target=run,args=(lock,))
+        x.start()
+#当多个进程共枪一个数据时,保证数据安全,必须加锁和串行
+#互斥锁  可以公平的保证顺序的问题 以及数据的安全
+#基于文件的进程之间的通信
+ 效率低
+    自己加锁麻烦而且很容易出现死锁</code></pre></li>
+<li><p>基于队列通信</p>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566377791348.png" alt="1566377791348" /></p>
+<pre><code><code>from multiprocessing import Queue
+q=Queue(3)    #里面可以限制最大有几个
+
+def func():
+ print(1)
+
+q.put(1)    #往队列里面放入1
+q.put(&#39;adfadf&#39;)
+q.put(func)     &#39;啥也能放&#39;
+
+q.get()
+q.get()
+print(q.get())      &#39;一般放几个就取几个&#39;
+print(q.get(timeout=3))  #阻塞三秒,给他计时,三秒之后还阻塞就主动抛出错误  
+
+队列:把队列理解成一个容器,这个容器可以承载一些数据
+    特性:先进先出 永远保持这个数据,FIFO  羽毛球筒
+#如果队列里面是限制三个数据 要是放四个数据 或是取四个数据 会阻塞
+#解除阻塞 在别的进程里面取出来 或者添加
+print(q.get(block=False))   #只要遇到阻塞就会报错
+print(q.get(timeout=2))
+q.put(3,block=False) 
+q.put(3,timeout=2)    都报错</code></pre></li>
+<li><p>基于管道通信</p></li>
+</ol>
+<h1 id="线程">线程</h1>
+<ol>
+<li><p>生产者与消费者模型</p>
+<pre><code><code>from multiprocessing import Process,Queue
+import time,random
+
+def producer(q,name):
+    for i in range(1,6):
+        ret=f&#39;第{i}个包子&#39;
+        q.put(ret)
+        print(f&#39;生产者:{name},生产的{ret}&#39;)
+def consumer(q,name):
+    while 1:
+        try:
+            s1=q.get(timeout=2)
+            time.sleep(random.randint(1,3))
+            print(f&#39;消费者:{name},吃了{s1}&#39;)
+        except Exception:
+            return
+if __name__==&#39;__main__&#39;:
+    q=Queue()
+    x=Process(target=producer,args=(q,&#39;宋&#39;))
+    x1=Process(target=consumer,args=(q,&#39;李&#39;))
+    x.start()
+    x1.start()
+</code></pre>
+<p>生产者消费者模型:编程思想,设计理念,理论等等,都是交给你一种编程的方法,以后遇到类似的情况,套用即可</p>
+<p>生产者消费者模型三要素:</p>
+<p>生产者:产生数据的</p>
+<p>消费者:接受数据做进一步处理</p>
+<p>容器:队列</p>
+<p>队列容易起到的作用:起到缓冲作用,平衡生产力和消费力 ,解耦</p></li>
+</ol>
+<h3 id="线程的理论知识">线程的理论知识</h3>
+<pre><code><code>1.什么是线程
+    是一条流水线的工作流程
+    进程:在内存中开启一个进程空间,然后将主进程的所有资源数据复制一份,然后调用CPU去执行这些代码
+     开启一个进程:在内存中开启一个进程空间,然后将主进程的所有资源数据复制一份,然后调用线程去执行代码
+        进程是资源单位,线程是执行单位</code></pre>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566483480160.png" alt="1566483480160" /></p>
+<h5 id="如何正确描述开启一个进程">如何正确描述开启一个进程</h5>
+<p>开启一个进程:进程会在内存,中开辟一个进程空间,将主进程的资源数据去复制一份,线程会执行里面的代码</p>
+<h3 id="进程vs线程">进程vs线程:</h3>
+<ol>
+<li><p>开启进程的开销非常大,比开启线程的开销大很多</p></li>
+<li><p>开启线程的速度非常快,要比进程快几十上百倍</p>
+<pre><code><code>from threading import Thread
+# from multiprocessing import Process
+# import os
+#
+# def work():
+#     print(&#39;hello&#39;)
+#
+# if __name__ == &#39;__main__&#39;:
+#     #在主进程下开启线程
+#     t=Process(target=work)
+#     t.start()
+#     print(&#39;主线程/主进程&#39;)
+
+
+
+
+# 多线程
+# from threading import Thread
+# import time
+#
+# def task(name):
+#     print(f&#39;{name} is running&#39;)
+#     time.sleep(1)
+#     print(f&#39;{name} is gone&#39;)
+#
+#
+#
+# if __name__ == &#39;__main__&#39;:
+#
+#     t1 = Thread(target=task,args=(&#39;海狗&#39;,))
+#     t1.start()
+#     print(&#39;===主线程&#39;)  # 线程是没有主次之分的.</code></pre></li>
+</ol>
+<h3 id="线程线程之间可以共享数据进程与进程之间之间需要借助队列等办法实现通信">线程线程之间可以共享数据,进程与进程之间之间需要借助队列等办法实现通信</h3>
+<pre><code><code># from threading import Thread
+# import os
+#
+# x = 3
+# def task():
+#     global x
+#     x = 100
+#
+# if __name__ == &#39;__main__&#39;:
+#
+#     t1 = Thread(target=task)
+#     t1.start()
+#     t1.join()
+#     print(f&#39;===主线程{x}&#39;)
+
+# 同一进程内的资源数据对于这个进程的多个线程来说是共享的.</code></pre>
+<h3 id="线程的应用">线程的应用:</h3>
+<ol>
+<li>并发:一个CPU看起来像是同时执行多个任务</li>
+<li>单个进程开启三个线程,并发的执行任务</li>
+<li>开启三个进程并发的执行任务</li>
+<li>文本编辑器:
+<ol>
+<li>输入而文字</li>
+<li>子啊屏幕上显示</li>
+<li>保存在磁盘中</li>
+</ol></li>
+<li>开启多线程就非常好了:数据共享,开销小,速度快</li>
+<li>主线程子线程没有地位之分,但是一个进程谁在干活.:一个主线程在干活,当干完活了你需要等待其他线程干完活之后,才能结束本进程</li>
+</ol>
+<h3 id="开启线程的两种方式">开启线程的两种方式</h3>
+<pre><code><code>#第一种
+from threading import Thread
+import time 
+def func():
+    print(&#39;子线程开&#39;)
+    time.sleep(1)
+    print(&#39;子线程关&#39;)
+if __name__==&#39;__main__&#39;:
+    x=Thread(target=func)
+    x.start()
+    print(&#39;主线程开&#39;)
+#一般是子线程先开再开主线程
+
+#第二种
+from threading import Thread
+import time
+class A(Thread):
+    def __init__(self,name):
+        super().__init__()
+        self.name=name
+    def run(self):        #必须要有run这个方法
+        print(&#39;子线程开&#39;)
+        time.sleep(1)
+        print(&#39;子线程关&#39;)
+x=A(&#39;song&#39;)             #可以不写__name__==&#39;__main__&#39;
+x.start()
+print(&#39;主线程开&#39;)</code></pre>
+<h3 id="线程其他方法了解">线程其他方法(了解</h3>
+<pre><code><code>from threading import Thread,enumerate,activeCount,CurrentThread
+import time,os,random
+def func():
+    print(666)
+if __name__ == &#39;__main__=&#39;:
+    x=Thread(target=func)
+    x.start()
+    print(x.name)    #查询name属性  父类中是 Thread-1
+    x.steName(&#39;song&#39;)    #添加name属性或者修改name属性
+    print(x.getname())   #查获name属性
+    print(x.isAlive)     #返回线程是否活动的
+    print(currentThread())   #返回当前的线程变量
+    print(enumernate())     #返回一个包换正在运功的线程列表list 线程启动后,结束前
+    print(activecount())  #返回正在运行的线程数量
+    
+ #主线程等待子线程结束   
+from threading import Thread
+import time
+def sayhi(name):
+    time.sleep(2)
+    print(&#39;%s say hello&#39; %name)
+
+if __name__ == &#39;__main__&#39;:
+    t=Thread(target=sayhi,args=(&#39;egon&#39;,))
+    t.start()
+    t.join()
+    print(&#39;主线程&#39;)
+    print(t.is_alive())
+    &#39;&#39;&#39;
+    egon say hello
+    主线程
+    False
+    &#39;&#39;&#39;</code></pre>
+<h3 id="join与守护线程考点">join与守护线程(考点)</h3>
+<pre><code><code>#join  阻塞 告知主线程要等待子线程执行完毕后再执行主线程
+
+from threading import Thread
+import time
+#
+def task(name):
+    print(f&#39;{name} is running&#39;)
+    time.sleep(1)
+    print(f&#39;{name} is gone&#39;)
+#
+#
+
+if __name__ == &#39;__main__&#39;:
+    start_time = time.time()
+    t1 = Thread(target=task,args=(&#39;海狗&#39;,))
+    t2 = Thread(target=task,args=(&#39;海狗1&#39;,))
+    t3 = Thread(target=task,args=(&#39;海狗2&#39;,))
+#
+    t1.start()
+    t1.join()
+    t2.start()
+    t2.join()
+    t3.start()
+    t3.join()
+    print(f&#39;===主线程{time.time() - start_time}&#39;)  # 线程是没有主次之分的.
+    
+$$$$守护线程
+from multiprocessing import Process
+import os,time,random 
+def func():
+    print(&#39;子进程开&#39;)
+    time.sleep(1)
+    print(&#39;子进程罐&#39;)
+def foo():
+    print(&#39;1  kai&#39;)
+    time.sleep(1)
+    print(&#39;1  guan&#39;)
+if __name__==&#39;__main__&#39;:
+    x=Process(target=func)
+    x1=Process(target=foo)
+    x.daemon=True
+    x.start()
+    x1.start()
+    time.sleep(1)      #注意没有睡眠一秒 就会直接不执行x子进程
+    print(&#39;主进程开&#39;)
+$$$$守护线程
+from threading import Thread
+import time
+def func(name):
+    print(&#39;zou&#39;)
+    time.sleep(2)
+    print(&#39;gunle&#39;)
+if __name__ == &#39;__main__&#39;:
+    x=Thread(target=func,args=(&#39;宋&#39;,))
+    x1=Thread(target=func,args=(&#39;反&#39;,))
+    x1.daemon=True
+    x.start()
+    x1.start()
+    print(&#39;主线程开&#39;)
+#主线程什么时候结束:
+非守护进程与主线程结束之后,再结束</code></pre>
+<h3 id="互斥锁线程-考点">互斥锁(线程 考点)</h3>
+<pre><code><code>from threading import Thread
+import time
+import random
+x = 10
+
+def task():
+    time.sleep(random.randint(1,2))
+    global x
+    temp = x
+    time.sleep(random.randint(1, 3))
+    temp = temp - 1
+    x = temp
+if __name__ == &#39;__main__&#39;:
+    l1 = []
+    for i in range(10):
+        t = Thread(target=task)
+        l1.append(t)
+        t.start()
+
+    for i in l1:
+        i.join()
+    print(f&#39;主线程{x}&#39;)
+    #多个任务共抢一个数据,保证数据的安全的目的,要让其串行
+    
+from threading import Thread
+from threading import Lock
+import time
+import random
+x = 100
+
+def task(lock):
+
+    lock.acquire()
+    # time.sleep(random.randint(1,2))
+    global x
+    temp = x
+    time.sleep(0.01)
+    temp = temp - 1
+    x = temp
+    lock.release()
+
+
+if __name__ == &#39;__main__&#39;:
+    mutex = Lock()
+    l1 = []
+    for i in range(100):
+        t = Thread(target=task,args=(mutex,))
+        l1.append(t)
+        t.start()
+
+    time.sleep(3)
+    print(f&#39;主线程{x}&#39;)</code></pre>
+<h3 id="死锁现象递归锁rlock">死锁现象递归锁(RLock</h3>
+<pre><code><code>from threading import Thread,Lock
+import time
+locka=Lock()
+lockb=Lock()
+class A(Thread):
+    def run(self):
+        self.f1()
+        self.f2()
+    def f1(self):
+        locka.acquire()
+        print(f&#39;{self.name}拿到a&#39;)
+        lockb.acquire()
+        print(f&#39;{self.name}拿到b&#39;)
+        locka.release()
+        lockb.release()
+    def f2(self):
+        lockb.acquire()
+        print(f&#39;{self.name}拿到b&#39;)
+        time.sleep(0.1)
+        locka.acquire()
+        print(f&#39;{self.name}拿到a&#39;)
+        lockb.release()
+        locka.release()
+if __name__ == &#39;__main__&#39;:
+    for i in range(3):
+        x = A()
+        x.start()</code></pre>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566551175238.png" alt="1566551175238" /></p>
+<p>解决死锁用递归锁就可以,递归锁有一个计数功能,上锁加1,解锁-1</p>
+<p>只要递归锁上面的数字不为零,其他线程就不能抢锁</p>
+<pre><code><code>from threading import Thread,RLock
+import time
+locka=lockb=RLock()
+class A(Thread):
+    def run(self):
+        self.f1()
+        self.f2()
+    def f1(self):
+        locka.acquire()
+        print(f&#39;{self.name}拿到a&#39;)
+        lockb.acquire()
+        print(f&#39;{self.name}拿到b&#39;)
+        locka.release()
+        lockb.release()
+    def f2(self):
+        lockb.acquire()
+        print(f&#39;{self.name}拿到b&#39;)
+        time.sleep(0.1)
+        locka.acquire()
+        print(f&#39;{self.name}拿到a&#39;)
+        lockb.release()
+        locka.release()
+if __name__ == &#39;__main__&#39;:
+    for i in range(3):
+        x = A()
+        x.start()
+#   RLock  递归锁使用方法 locka=loakb=RLock()
+$$$递归锁可以解决死锁现象,业务需要多个锁时,要先考虑递归锁</code></pre>
+<h3 id="信号量semaphore">信号量(Semaphore)</h3>
+<p>也是一种锁,控制并发数量</p>
+<pre><code><code>from threading import Thread,Semaphore,currentThread
+import time ,random
+s=Semaphore(5)   #Semaphore  赋值一个变量 限制分次数,然后用这个带上锁
+def func():
+    s.acquire()
+    print(f&#39;{currentThread().name}厕所ing&#39;)
+    time.sleep(random.randint(1,3))
+    s.release()
+if __name__ == &#39;__main__&#39;:
+    for i in range(10):
+        x=Thread(target=func,)
+        x.start()</code></pre>
+<h3 id="gil全局解释器锁">GIL全局解释器锁</h3>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566552371631.png" alt="1566552371631" /></p>
+<p>理论上来说,单个进程的多线程可以利用多核,但是开发cpython解释器的程序员,给进入解释器的线程加了锁</p>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566552452215.png" alt="1566552452215" /></p>
+<h4 id="为什么加锁优缺点">为什么加锁,优缺点</h4>
+<p>当时都是单核时代,而且CPU价格非常贵,</p>
+<p>如果不加全局解释器锁,开发cpython解释器的程序员就会在源码内部各种主动加锁,解锁,非常麻烦,各种死锁现象,为了省事,直接进入解释器时给线程加了一个锁</p>
+<p>优点:保证了cpython解释器的数据资源的安全</p>
+<p>缺点:单个进程的多线程不能利用多核</p>
+<p>jpython以及pypy没有GIL锁</p>
+<p>多核时代,将GIL锁去掉可以吗?</p>
+<p>因为cpython解释器的所有的业务逻辑都是围绕着单个线程实现的,去掉这个GIL锁,几乎不可能</p>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566552695304.png" alt="1566552695304" /></p>
+<p>单个进程的多线程可以并发,但是不能利用多核,不能并行</p>
+<p>多个进程可以并行,并发</p>
+<h3 id="gil与lock锁的区别">GIL与Lock锁的区别</h3>
+<p>相同点:都是同种锁,互斥锁</p>
+<p>不同点:GIL全局解释器锁,保护解释器内部的资源数据的安全</p>
+<p>​ GIL锁,上锁 释放 无需手动操作</p>
+<p>​ 自己代码中定义的互斥锁保护进程中的资源数据的安全</p>
+<p>​ 自己定义的互斥锁必须自己手动上锁,释放锁</p>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566554494992.png" alt="1566554494992" /></p>
+<h3 id="io计算密集型">io计算密集型</h3>
+<p>io密集型</p>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566553126583.png" alt="1566553126583" /></p>
+<pre><code><code>#io密集型:单个进程的多线程合适 并发执行</code></pre>
+<p>计算密集型</p>
+<p><img src="C:\Users\lenovo\AppData\Roaming\Typora\typora-user-images\1566553143861.png" alt="1566553143861" /></p>
+<pre><code><code>计算密集型:适合多进程的并行</code></pre>
+<h3 id="验证io计算密集型">验证io计算密集型</h3>
+<pre><code><code>from threading import Thread
+from multiprocessing import Process
+import time,random
+# 计算密集型:单个进程的多线程并发vs进程的并发执行
+def  func():
+    count=0
+    for i in range(100000000):
+        count+=1
+if __name__ == &#39;__main__&#39;:
+    times=time.time()
+    lst=[]
+    for i in range(4):
+        x=Process(target=func)
+        lst.append(x)
+        x.start()
+    for i in lst:
+        i.join()
+    print(f&#39;{time.time()-times}&#39;)        #17.108332633972168
+
+
+if __name__ == &#39;__main__&#39;:
+    times=time.time()
+    lst=[]
+    for i in range(4):
+        x=Thread(target=func)
+        lst.append(x)
+        x.start()
+    for i in lst:
+        i.join()
+    print(f&#39;{time.time()-times}&#39;)      #30.25704336166382
+ 总结:计算密集型,还是用多进程的并发效率高(前提是数据比较大   
+
+#io密集型
+# io密集型  单个进程的多线程并发vs多个进程的并发并行
+from threading import Thread
+from multiprocessing import Process
+import time,random
+def func():
+    count=0
+    time.sleep(random.randint(1,3))
+    count+=1
+if __name__ == &#39;__main__&#39;:
+    times=time.time()
+    li=[]
+    for i in range(4):
+        x=Process(target=func)
+        li.append(x)
+        x.start()
+    for i in li:
+        i.join()
+    print(f&#39;{time.time()-times}&#39;)        #多进程3.244175910949707
+
+if __name__ == &#39;__main__&#39;:
+    times=time.time()
+    li=[]
+    for i in range(4):
+        x=Thread(target=func)
+        li.append(x)
+        x.start()
+    for i in li:
+        i.join()
+    print(f&#39;{time.time()-times}&#39;)       #多线程2.002326250076294
+计算io密集型的还是用多线程的并发合适效率高</code></pre>
+<h3 id="多线程实现socket通信">多线程实现socket通信</h3>
+<p>无论是多线程还是多进程,如果按照上面的写法,来一个<br />
+客户端请求,我就开一个线程,来一个请求开一个线程,<br />
+应该是这样: 你的计算机允许范围内,开启的线程进程数<br />
+量越多越好</p>
+<pre><code><code>#服务端
+import socket,time
+from threading import Thread
+def foo(conn,addr):
+    while 1:
+        try:
+            s=conn.recv(1024).decode(&#39;utf-8&#39;)
+            print(f&#39;{addr[1]}{s}&#39;)
+            time.sleep(1)
+            s1=input(&#39;&lt;&lt;&lt;&lt;&#39;).strip().encode(&#39;utf-8&#39;)
+            conn.send(s1)
+        except Exception:
+            break
+    conn.close()
+def func():
+    server = socket.socket()
+    server.bind((&#39;127.0.0.1&#39;, 8848))
+    server.listen(5)
+    while 1:
+        conn, addr = server.accept()
+        x=Thread(target=foo,args=(conn,addr))
+        x.start()
+if __name__ == &#39;__main__&#39;:
+    func()
+    
+#客户端
+import socket
+client=socket.socket()
+client.connect((&#39;127.0.0.1&#39;,8890))
+while 1:
+    s=input(&#39;&lt;&lt;&lt;&lt;&#39;).strip().encode(&#39;utf-8&#39;)
+    client.send(s)
+    s1=client.recv(1024).decode(&#39;utf-8&#39;)
+    print(f&#39;{s1}&#39;)
+client.close()
+</code></pre>
+<h3 id="进程池线程池processpoolexecutorthreadpoolexecutor">进程池,线程池(ProcessPoolExecutor,ThreadPoolExecutor)</h3>
+<pre><code><code>线程池:一个容器,这个容器限制住你开启线程的数量,比如四个,第一次肯定只能并发的处理四个任务,只要有任务完成,线程马上就会接下一个任务.以时间换空间
+    #默认进程池,是你的计算机cpu核数 
+    #默认线程池 是你的计算机CPU核数 *5  乘5
+    #查看cpu核数 import  os
+    #           print(os.cpu_count())</code></pre>
+<pre><code><code>from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor
+import os,time,random
+print(os.cpu_count())   #查看计算机核数
+def func():
+    print(f&#39;{os.getpid()}接客&#39;)
+    time.sleep(random.randint(1,2))
+if __name__ == &#39;__main__&#39;:           #进程池(并行+并发
+    p=ProcessPoolExecutor()   # 默认不写,进程池里面的进程数与cpu个数相等
+    for i in range(5):
+        p.submit(func,)
+
+if __name__ == &#39;__main__&#39;:           #线程池(并发
+    p=ThreadPoolExecutor(3)      # 默认不写, cpu个数*5 线程数
+    p.submit(func)
+    p.submit(func)
+    p.submit(func)
+    p.submit(func)
+    p.submit(func)
+    p.submit(func)</code></pre>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

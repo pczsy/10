@@ -1,0 +1,199 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修MySql CPU彪高到百分之1000的排查思路' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>MySql CPU彪高到百分之1000的排查思路</center></div><div class='banquan'>原文出处:本文由博客园博主Dearzh提供。<br/>
+原文连接:https://www.cnblogs.com/zh94/p/12019333.html</div><br>
+    <div style="display: none;"><img src="/fx/assets/yx-icon@300.png" alt="" /></div>
+<noscript>You need to enable JavaScript to run this app.</noscript>
+<div id="root">
+<div class="sc-gzVnrw iGocLg">
+<div class="sc-eHgmQL hpXNdL">&nbsp;</div>
+原文内容来自于LZ(楼主)的印象笔记，如出现排版异常或图片丢失等情况，可查看当前链接：https://app.yinxiang.com/fx/bf7839b3-5f7b-4212-9f7d-5f5577e952ea</div>
+<div class="sc-gzVnrw iGocLg">&nbsp;</div>
+<div class="sc-gzVnrw iGocLg">
+<div style="position: relative; word-break: break-all; line-height: 1.5;">
+<h3 style="font-size: 20px; margin-bottom: 12px; font-weight: 500;">MySql CPU彪高到百分之1000的排查思路</h3>
+<div>
+<div class="ennote">
+<div>&nbsp;</div>
+<div><span style="font-size: 12pt; font-weight: bold;">查看当前MySql的CPU已经在百分之 1019</span></div>
+<div><img class="en-media" src="./images/MySql CPU彪高到百分之1000的排查思路1.png" alt="" width="963" height="155" /></div>
+<div>&nbsp;</div>
+<div><span style="font-size: 12pt; font-weight: bold;">下述为当前MySql的所以子线程的CPU使用状况，可以看到当前已经有11个线程的CPU都是在99%左右</span></div>
+<div><img class="en-media" src="./images/MySql CPU彪高到百分之1000的排查思路2.png" alt="" width="1087" height="637" /></div>
+<div>&nbsp;</div>
+<div><span style="font-size: 14pt;"><span style="font-size: 14pt; font-weight: bold;">进行问题的排查：</span></span></div>
+<div><span style="font-size: 12pt;">1、首先怀疑是否是存在较大的全盘扫描的SQL语句，导致MySql查询时间过长导致的CPU彪高现象</span></div>
+<div><span style="font-size: 12pt;">2、查询当前MySql的my.cnf配置，是否是MySql配置问题（由于我司运维同学有一个统一的MySql公共配置可用，所以并没有怀疑是MySql的配置不合理而导致的问题，最终确认，也的确不是MySql的配置问题，博客结尾会给出一份优化过的MySQL5.7.20的安装包，需要的朋友可自取）</span></div>
+<div><span style="font-size: 12pt;">3、验证当前服务器的IO，是否是过于频繁的读写引起的IO异常而导致的CPU彪高；</span></div>
+<div>&nbsp;</div>
+<div><span style="font-size: 12pt;"><span style="font-size: 12pt; font-weight: bold;">1、使用&nbsp;show FULL PROCESSLIST&nbsp;查询当前MySql的线程执行情况</span></span></div>
+<div>&nbsp;</div>
+<div><img class="en-media" src="./images/MySql CPU彪高到百分之1000的排查思路3.png" alt="" width="1471" height="188" /></div>
+<div><span style="font-size: 12pt;">由于之前出现过由于用户的使用过于频繁，而导致的表数据量过大引起的数据查询缓慢的问题，所以在此CPU彪高之前，已经频繁使用</span> <span style="font-size: 12pt; font-weight: bold; color: #eb0073;">show processlist</span><span style="font-size: 12pt;">&nbsp;查看过执行时间过长的SQL，并且皆已经做了相对应的处理</span><span style="font-size: 12pt; font-weight: bold; color: #ff0000;">（相关的业务皆已经分表分层，以及都增加了相关的表索引）</span><span style="font-size: 12pt;">，所以，我在人工观察 show processlist的过程当中，的确没有再出现过&nbsp;Query过程中Time占用时间很长的情况；</span></div>
+<div><span style="font-size: 12pt;">&nbsp;</span></div>
+<div><span style="font-size: 12pt;">并且查看了对应的&nbsp;</span><span style="font-size: 12pt;">mysql-slow.log&nbsp;日志（在最初部署Mysql的同时，MySql的配置中已经开启过了慢SQL记录的日志功能），查询了对应的慢SQL的记录日志后，的确是不存在在当前CPU彪高的时间点中存在慢SQL查询的情况；</span></div>
+<div><span style="font-size: 12pt;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">所以，也就是说，当前已经不在存在由于表数据量较大导致的SQL查询慢的情况；那么此时则开始转向思考，难道是我的服务在使用MySql的过程中，读写频率太高了？而导致的MySql服务CPU异常？LZ（楼主）当前所负责开发的产品是一款坐席的实时通话的产品，相关的业务逻辑中的确是存在频繁的读写DB的；所以此时开始转向思考是否是读写频率太高而引起的CPU彪高的问题，于是开始了以下的排查；</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;"><span style="font-size: 16px; font-weight: bold;">2、查询CPU的IO读写速率</span></span></div>
+<div><span style="font-size: 16px;">分别使用sar&nbsp;命令获取&nbsp;IO的读写速率监控：</span></div>
+<div><span style="font-size: 16px;">1、sar -b 1 30</span></div>
+<div><span style="font-size: 12pt;"><img class="en-media" src="./images/MySql CPU彪高到百分之1000的排查思路4.png" alt="" width="1047" height="693" /></span></div>
+<div><span style="font-size: 16px;">2、sar -u -o 1 30</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 12pt;"><img class="en-media" src="./images/MySql CPU彪高到百分之1000的排查思路5.png" alt="" width="648" height="284" /></span></div>
+<div><span style="font-size: 16px;">通过使用，sar&nbsp;命令查看了相关的IO信息后，发现并没有出现&nbsp;IOWAIT过高的问题，并且也没看到每秒钟物理设备读写频率过高的问题，所以此处就很疑惑；并且由于此处使用sar是分析的系统级IO使用情况，所以也很</span><span style="font-size: 12pt;">&nbsp;难避免是否存在MySql自身的机制，比如某些Sql的查询频繁被命中缓存，所以走缓存查询而并没有直接走IO读取的情况；由于上述使用TOP命令时，所对应的wa值也是很低的，那么到底是什么原因引起的MySQL的CPU彪高呢，而且还是如此高？</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">此时，在逐步的排查中，重点来了：</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">当首先出现了CPU彪高的时候，我们对于Mysql的第一印象就是某SQL执行较慢，导致的线程卡死最终引起的CPU彪高，我们会去排查慢SQL的执行日志，或者查看MySql的执行日志，是否有异常的情况出现；</span><span style="font-size: 16px;">甚至还会怀疑是否是应用程序链接Mysql的线程池太多，没有及时回收线程链接，而导致不断创建线程链接最终导致的MySQL服务彪高（此时使用 top -Hp&nbsp;查看了进程所创建的线程数量，也是正常数据）；</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">但始终就一直没怀疑，是否是并发过高，而导致的MySQL&nbsp;CPU问题，其实LZ最初也怀疑过，难道是应用程序的并发过高而导致的吗？但简单想了一下，当前的应用程序并还没有到达完全的负载状态，理论上MySQL这样一个成熟的DB，不至于如此便随意彪高了，虽然是在简单的回想，但手上的动作还是敲起了熟悉的命令：show full processlist ，因为如果并发高的情况下，采取每1秒获取一次正在运行的线程数量的方式（采用SQL脚本for输出），可以判断出是否存在运行线程递增的情况。</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 12pt;"><img class="en-media" src="./images/MySql CPU彪高到百分之1000的排查思路6.png" alt="" width="1495" height="189" /></span></div>
+<div><span style="font-size: 12pt;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">此时则发现了一个新的问题，我每一次不管任何时候查询当前正在运行的线程，都会看到这样一个SQL在执行中过程中，尽管对应的Time查询时间很短，该线程的ID便直接结束了，但意外的是，每一次查看时，都能看到该SQL在运行中；换句话理解则是，<span style="color: #e30000;">该SQL查询结果是很快的，但是</span></span><span style="font-size: 16px;"><span style="color: #e30000;">不管在任何一个时间查看线程时都能看到该SQL正在执行中，这只能说明一个问题，，<span>那就是该SQL的查询频率极高！</span></span><span style="color: #e30000;">高到每毫秒不间断的都一直在重新查询该SQL；</span></span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">所以这只能是代码BUG问题，最终根据该线程所一直在执行的SQL反向推到应用程序中以后发现，。。。。的确是存在一个定时器的业务BUG，由于定时器是每秒钟都会被执行，且当前定时器设置的是并行模式（即当前定时器线程无论是否执行完成，只要1秒以后，都会紧接着开启新的线程执行该定时器代码块，所以，这就导致了一旦线程执行了1分钟，甚至更久，那么将会导致后续的所有线程都会执行1分钟的时间，并且还在源源不断的创建新的线程，且由于线程代码快中，对该SQL查询代码还是循环的在查询........（后续这块代码被重构了），所以这将导致不断的for循环查询，再加上不断的新的创建的创建查询，引起了CPU的循环彪高的情况。。。。。）</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">所以如果有遇到相同CPU彪高的情况，但是一直在生产环境没法定位到具体SQL的情况下，此时记得也一定要关注下SQL的执行频率问题，因为最初的确没有想到执行频率可以高到这种程度，一个如此高的执行频率竟然可以让MySQL彪高到如此大的CPU；</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">此处做下简单汇总：</span></div>
+<div><span style="font-size: 16px;">MySQL的服务器本质上是一个很稳定的软件了，正常情况下只要是给与正确的服务器配置（</span><span style="font-size: 16px;">my.cnf</span><span style="font-size: 16px;">），很难再出现因为连接数过多，或者线程所占用内存较大，导致的内存或者CPU问题，因为在对应的mysql的配置中，可以设置对应的线程链接数，以及线程所占用的内存大小，包括缓冲区的内存大小等配置，只要给与合理的配置，这些问题所导致的服务异常都很难看到，也正是因为如此，所以MySQL这样的服务对外所提供的排查手段也是极为有限的，类似排查MySQL的运行日志，以及查看慢SQL的日志，和查看线程的执行状况等，只有寥寥几个是MySQL所提供的排查工具；</span></div>
+<div><span style="font-size: 16px;">所以如果出现了MySql的服务异常：</span></div>
+<div><span style="font-size: 16px;">1、排查MySql运行日志，是否有错误提示</span></div>
+<div><span style="font-size: 16px;">2、排查是否是全表查询慢SQL导致的服务异常</span></div>
+<div><span style="font-size: 16px;">3、排查MySQL内部线程的执行情况</span></div>
+<div><span style="font-size: 16px;">4、排查SQL线程的执行频率</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">MySQL本质上还是一个DB服务，提供数据的存储和检索，一般情况下更大的问题还是来自于不合理的表的使用，以及不合理的全表检索，和不合理的索引等使用上而导致的服务异常的情况偏多，而对于上述LZ做碰到的频繁的线程查询而导致的CPU彪高，应该也是很难遇到的。。。当然，，如果遇到类似的问题，一定也要记得关注下执行频率而会导致的问题。</span></div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">此处推荐一份已经被验证过的常用的MySQL服务器配置方式，以及一个简单优化了my.cnf后的</span><span style="font-size: 12pt;">mysqlDB.5.7.20的实例安装包：</span></div>
+<div><span style="font-size: 12pt;">链接：</span><a style="font-size: 12pt;" href="https://pan.baidu.com/s/1hF99W4DJY8vSZ0rx3NYYow">https://pan.baidu.com/s/1hF99W4DJY8vSZ0rx3NYYow</a></div>
+<div><span style="font-size: 12pt;">提取码：a47j</span></div>
+<div style="box-sizing: border-box; padding: 8px; font-family: Monaco, Menlo, Consolas, 'Courier New', monospace; font-size: 12px; color: #333333; border-radius: 4px; background-color: #fbfaf8; border: 1px solid rgba(0, 0, 0, 0.15); -en-codeblock: true;">
+<div>[client]</div>
+<div>port = 3306</div>
+<div>default-character-set=utf8</div>
+<div>#character_set_server=utf8</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+<div>[mysqld]</div>
+<div>port = 3306</div>
+<div>character_set_server=utf8</div>
+<div>basedir = /opt/mysqlDB/mysql</div>
+<div>datadir = /opt/mysqlDB/dbData</div>
+<div>server-id = 1 #表示是本机的序号为1,一般来讲就是master的意思</div>
+<div>skip-name-resolve</div>
+<div>#skip-networking</div>
+<div>back_log = 600</div>
+<div>max_connections = 1000</div>
+<div>open_files_limit = 65535</div>
+<div>table_open_cache = 128</div>
+<div>max_allowed_packet = 4M</div>
+<div>binlog_cache_size = 1M</div>
+<div>max_heap_table_size = 8M</div>
+<div>tmp_table_size = 16M</div>
+<div>read_buffer_size = 2M</div>
+<div>read_rnd_buffer_size = 8M</div>
+<div>sort_buffer_size = 8M</div>
+<div>join_buffer_size = 8M</div>
+<div>thread_cache_size = 16</div>
+<div>query_cache_size = 8M</div>
+<div>query_cache_limit = 2M</div>
+<div>key_buffer_size = 4M</div>
+<div>log_bin = /opt/mysqlDB/logs/binLog/mysql-bin</div>
+<div>binlog_format = mixed</div>
+<div>expire_logs_days = 7 #超过7天的binlog删除</div>
+<div>log_error = /opt/mysqlDB/logs/errorLog/mysql-error.log #错误日志路径</div>
+<div>slow_query_log = 1</div>
+<div>long_query_time = 10 #慢查询时间 超过1秒则为慢查询</div>
+<div>slow_query_log_file = /opt/mysqlDB/logs/slowLog/mysql-slow.log</div>
+<div>performance_schema = 0</div>
+<div>explicit_defaults_for_timestamp</div>
+<div>lower_case_table_names = 1 #不区分大小写</div>
+<div>skip-external-locking #MySQL选项以避免外部锁定。该选项默认开启</div>
+<div>default-storage-engine = InnoDB #默认存储引擎</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+<div>innodb_file_per_table = 1</div>
+<div>innodb_open_files = 500</div>
+<div>innodb_buffer_pool_size = 5G</div>
+<div>innodb_write_io_threads = 4</div>
+<div>innodb_read_io_threads = 4</div>
+<div>innodb_thread_concurrency = 0</div>
+<div>innodb_purge_threads = 1</div>
+<div>innodb_flush_log_at_trx_commit = 2</div>
+<div>innodb_log_buffer_size = 2M</div>
+<div>innodb_log_file_size = 32M</div>
+<div>innodb_log_files_in_group = 3</div>
+<div>innodb_max_dirty_pages_pct = 90</div>
+<div>innodb_lock_wait_timeout = 120</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+<div>bulk_insert_buffer_size = 8M</div>
+<div>myisam_sort_buffer_size = 8M</div>
+<div>myisam_max_sort_file_size = 10G</div>
+<div>myisam_repair_threads = 1</div>
+<div>interactive_timeout = 28800</div>
+<div>wait_timeout = 28800</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+<div>sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES</div>
+<div>[mysqldump]</div>
+<div>quick</div>
+<div>max_allowed_packet = 16M #服务器发送和接受的最大包长度</div>
+<div>[myisamchk]</div>
+<div>key_buffer_size = 8M</div>
+<div>sort_buffer_size = 8M</div>
+<div>read_buffer = 4M</div>
+<div>write_buffer = 4M</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+</div>
+<div><span style="font-size: 16px;">&nbsp;</span></div>
+<div><span style="font-size: 12pt;">&nbsp;</span></div>
+<div><span style="font-size: 16px;">相关链接参考推荐：</span></div>
+<div><span style="font-size: 16px;">1、使用sar&nbsp;命令进行IO以及CPU读写速率的排查，相关&nbsp;sar&nbsp;命令参数使用详解可参考如下链接：</span></div>
+<div><span style="font-size: 12pt;"><a style="font-size: 12pt;" href="http://lovesoo.org/linux-sar-command-detailed.html?aonypw=msmxi">http://lovesoo.org/linux-sar-command-detailed.html?aonypw=msmxi</a>&nbsp;&nbsp;</span> <span style="font-size: 12pt;"><a style="font-size: 12pt;" href="https://blog.csdn.net/u012167045/article/details/55056940">https://blog.csdn.net/u012167045/article/details/55056940</a></span></div>
+<div><span style="font-size: 12pt;">2、索引的创建及优化方式：</span><span style="font-size: 12pt;">&nbsp;</span></div>
+<div><span style="font-size: 12pt;"><a href="https://www.cnblogs.com/lfs2640666960/p/9147768.html">https://www.cnblogs.com/lfs2640666960/p/9147768.html</a></span><span style="font-size: 12pt;">&nbsp;</span></div>
+<div><span style="font-size: 12pt;">3、show processlist&nbsp;字段解释</span></div>
+<div><span style="font-size: 12pt;"><a href="https://blog.csdn.net/dhfzhishi/article/details/81263084">https://blog.csdn.net/dhfzhishi/article/details/81263084</a></span></div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+<div>&nbsp;</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="protal-root">&nbsp;</div>
+
+
+
+<div style="position: static; display: none; width: 0px; height: 0px; border: none; padding: 0px; margin: 0px;">&nbsp;</div>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,410 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Falsk框架 Session 与 Flask-Session' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Falsk框架 Session 与 Flask-Session</center></div><div class='banquan'>原文出处:本文由博客园博主郭楷丰提供。<br/>
+原文连接:https://www.cnblogs.com/guokaifeng/p/11595130.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#cookie-与-session-简单了解">Cookie 与 Session 简单了解</a></li>
+        <li><a href="#falsk-中-session-的保管机制">Falsk 中 Session 的保管机制</a></li>
+        <li><a href="#相关的配置">相关的配置</a></li>
+        <li><a href="#使用-flask-session-三方组件">使用 Flask-Session 三方组件</a></li>
+        <li><a href="#基础练习题">基础练习题</a></li>
+        </ul>
+    </div>
+</div>
+<h3 id="cookie-与-session-简单了解">Cookie 与 Session 简单了解</h3>
+<pre><code><code>Cookie：  #存储大小受限,储存在客户端,有安全隐患
+
+Cookie意为“甜饼”，是由W3C组织提出，最早由Netscape社区发展的一种机制。目前Cookie已经成为标准，所有的主流浏览器如IE、
+Netscape、Firefox、Opera等都支持Cookie。由于HTTP是一种无状态的协议，服务器单从网络连接上无从知道客户身份。怎么办呢？
+就给客户端们颁发一个通行证吧，每人一个，无论谁访问都必须携带自己通行证。这样服务器就能从通行证上确认客户身份了。这就是Cookie的工作原理。
+
+Session： #来完善Cookie
+
+Session是另一种记录客户状态的机制，不同的是Cookie保存在客户端浏览器中，而Session保存在服务器上。客户端浏览器访问服务器的时候，
+服务器把客户端信息以某种形式记录在服务器上。这就是Session。客户端浏览器再次访问时只需要从该Session中查找该客户的状态就可以了，
+实质上session就是保存在服务器端的键值对。</code></pre>
+<h3 id="falsk-中-session-的保管机制">Falsk 中 Session 的保管机制</h3>
+<pre><code><code>交由客户端保管机制  实现过程
+1.开启并设置 Session - session[&quot;user&quot;] = 123
+2.session 序列化字符串
+3.通过 secret_key密钥 进行加密
+4.通过 Cookie 返回客户端
+
+接收Session
+1.通过客户端 Cookie 获取 session
+2.通过 secret_key密钥 进行解密
+3.反序列化 字典
+4.得到 session
+
+优点:不占用服务器资源
+缺点:保存在客户端,安全性相对较差
+
+#一般我们都会使用三方组件提供的session模块,来解决flask session的安全问题,如 Flask-Session这个组件就可以帮我们解决问题.      </code></pre>
+<h3 id="相关的配置">相关的配置</h3>
+<pre><code><code>Flask 中的 Session
+    - from flask import session
+    - 使用session的前提是在 application 中加入 secret_key 如:app.secret_key = &quot;!@#$%^&amp;*()&quot;
+    
+
+#Session 相关配置  想要配置生效必须在代码中重新配置 重启后生效
+&quot;SECRET_KEY&quot;: None,  # 通用密钥
+# 设置方法 app.secret_key = &quot;!@#$%^&amp;*()&quot;(编码方便)  或  app.config[&#39;SECRET_KEY&#39;] = &quot;!@#$%^&amp;*()&quot;(效率高)
+
+ session.pop(&#39;username&#39;)  #删除session中的username对应的键和值
+ session.clear()          #删除所有session
+
+&quot;SESSION_COOKIE_NAME&quot;: &quot;session&quot;,
+# 设置session 在Cookie Session名称 app.session_cookie_name = &#39;session&#39;
+
+&quot;SESSION_COOKIE_HTTPONLY&quot;: True,  
+# 是否只在HTTP请求下开启 session
+  
+    
+############################### 其他配置 ############################### 
+    
+{
+    &#39;DEBUG&#39;: False,               
+    # 是否开启Debug模式 开发环境 log级别低 重启代码错误透传
+    
+    &#39;TESTING&#39;: False,              
+    # 是否开启测试模式   测试环境 log级别较高   
+    
+    &#39;PROPAGATE_EXCEPTIONS&#39;: None,  
+    # 异常传播(是否在控制台打印LOG) 当Debug或者testing开启后,自动为True
+    
+    &#39;PRESERVE_CONTEXT_ON_EXCEPTION&#39;: None,  
+    # 一两句话说不清楚,一般不用它
+    
+    &#39;SECRET_KEY&#39;: None,            
+    # 开启Session序列化,在启用Session的时候,一定要有它
+    
+    &#39;PERMANENT_SESSION_LIFETIME&#39;: 31,  
+    #  Session的生命周期(秒)默认31秒
+    
+    &#39;USE_X_SENDFILE&#39;: False,  
+    # 是否弃用 x_sendfile
+    
+    &#39;LOGGER_NAME&#39;: None,  
+    # 日志记录器的名称
+    
+    &#39;LOGGER_HANDLER_POLICY&#39;: &#39;always&#39;,
+    
+    &#39;SERVER_NAME&#39;: None,  # 服务访问域名
+    
+    &#39;APPLICATION_ROOT&#39;: None,  # 项目的完整路径
+    
+    &#39;SESSION_COOKIE_NAME&#39;: &#39;session&#39;,  # 在cookies中存放session加密字符串的名字
+    
+    &#39;SESSION_COOKIE_DOMAIN&#39;: None,  # 在哪个域名下会产生session记录在cookies中
+    
+    &#39;SESSION_COOKIE_PATH&#39;: None,  # cookies的路径
+    
+    &#39;SESSION_COOKIE_HTTPONLY&#39;: True,  # 控制 cookie 是否应被设置 httponly 的标志，
+    
+    &#39;SESSION_COOKIE_SECURE&#39;: False,  # 控制 cookie 是否应被设置安全标志
+    
+    &#39;SESSION_REFRESH_EACH_REQUEST&#39;: True,  # 这个标志控制永久会话如何刷新
+    
+    &#39;MAX_CONTENT_LENGTH&#39;: None,  
+    # 如果设置为字节数， Flask 会拒绝内容长度大于此值的请求进入，并返回一个 413 状态码
+    
+    &#39;SEND_FILE_MAX_AGE_DEFAULT&#39;: 12,  # hours 默认缓存控制的最大期限
+    
+    &#39;TRAP_BAD_REQUEST_ERRORS&#39;: False,
+    # 如果这个值被设置为 True ，Flask不会执行 HTTP 异常的错误处理，而是像对待其它异常一样，
+    # 通过异常栈让它冒泡地抛出。这对于需要找出 HTTP 异常源头的可怕调试情形是有用的。
+    
+    &#39;TRAP_HTTP_EXCEPTIONS&#39;: False,
+    # Werkzeug 处理请求中的特定数据的内部数据结构会抛出同样也是“错误的请求”异常的特殊的 key errors 。
+    # 同样地，为了保持一致，许多操作可以显式地抛出 BadRequest 异常。
+    # 因为在调试中，你希望准确地找出异常的原因，这个设置用于在这些情形下调试。
+    # 如果这个值被设置为 True ，你只会得到常规的回溯。
+    
+    &#39;EXPLAIN_TEMPLATE_LOADING&#39;: False,
+    
+    &#39;PREFERRED_URL_SCHEME&#39;: &#39;http&#39;,  # 生成URL的时候如果没有可用的 URL 模式话将使用这个值
+    
+    &#39;JSON_AS_ASCII&#39;: True,
+    # 默认情况下 Flask 使用 ascii 编码来序列化对象。如果这个值被设置为 False ，
+    # Flask不会将其编码为 ASCII，并且按原样输出，返回它的 unicode 字符串。
+    # 比如 jsonfiy 会自动地采用 utf-8 来编码它然后才进行传输。
+    
+    &#39;JSON_SORT_KEYS&#39;: True,
+    #默认情况下 Flask 按照 JSON 对象的键的顺序来序来序列化它。
+    # 这样做是为了确保键的顺序不会受到字典的哈希种子的影响，从而返回的值每次都是一致的，不会造成无用的额外 HTTP 缓存。
+    # 你可以通过修改这个配置的值来覆盖默认的操作。但这是不被推荐的做法因为这个默认的行为可能会给你在性能的代价上带来改善。
+    
+    &#39;JSONIFY_PRETTYPRINT_REGULAR&#39;: True,
+    &#39;JSONIFY_MIMETYPE&#39;: &#39;application/json&#39;,
+    &#39;TEMPLATES_AUTO_RELOAD&#39;: None,
+}    </code></pre>
+<h3 id="使用-flask-session-三方组件">使用 Flask-Session 三方组件</h3>
+<h4 id="安装">安装</h4>
+<pre><code><code>#flask_session是flask框架实现session功能的一个插件，用来替代flask自带的session实现机制。
+
+#安装 
+pip3 install flask-session 
+
+#Flask-Session 支持 session保存到多个地方如：
+- redis     #存放在内网使用,不要存放在公网
+- memcached
+- filesystem
+- mongodb
+- sqlalchmey
+
+#存放在redis实例
+import redis
+from flask import Flask, session
+from flask_session import Session
+  
+app = Flask(__name__)
+app.debug = True
+app.secret_key = &#39;xxxx&#39;
+  
+app.config[&#39;SESSION_TYPE&#39;] = &#39;redis&#39; # session类型为redis
+app.config[&#39;SESSION_PERMANENT&#39;] = False # 如果设置为True，则关闭浏览器session就失效。
+app.config[&#39;SESSION_USE_SIGNER&#39;] = False # 是否对发送到浏览器上session的cookie值进行加密
+app.config[&#39;SESSION_KEY_PREFIX&#39;] = &#39;session:&#39; # 保存到session中的值的前缀
+app.config[&#39;SESSION_REDIS&#39;] = redis.Redis(host=&#39;127.0.0.1&#39;, port=&#39;6379&#39;, password=&#39;123123&#39;) # 用于连接redis的配置
+  
+Session(app)
+  
+@app.route(&#39;/index&#39;)
+def index():
+  session[&#39;k1&#39;] = &#39;v1&#39;
+  return &#39;xx&#39;
+  
+if __name__ == &#39;__main__&#39;:
+  app.run()</code></pre>
+<h4 id="flask-session文件目录">Flask-Session文件目录</h4>
+<p><img src="./images/Falsk框架 Session 与 Flask-Session0.png" /></p>
+<pre><code><code>################################  代码  ################################
+# __init__.py  Session配置代码
+from flask import Flask,request,session
+from flask_session import Session
+from redis import Redis
+
+from app01.views.user import user_bp
+
+def create_app():
+    app = Flask(__name__)
+
+    app.config[&quot;DEBUG&quot;] = True
+    app.config[&quot;SESSION_TYPE&quot;] = &quot;redis&quot; 
+    app.config[&quot;SESSION_REDIS&quot;] = Redis(host=&quot;127.0.0.1&quot;,port=6379,db=15)
+
+    # app.session_interface = SecureCookieSessionInterface()  # 原生 Session
+    
+    # 在Config之后
+    
+    # 三方组件存活的空间
+    Session(app)  #完成flask_session 对原生 Session的替换
+
+    # 在蓝图导入之前
+    app.register_blueprint(user_bp)
+    
+    return app
+
+
+# app01.py 蓝图代码
+from flask import Blueprint
+
+# 蓝图是Flask实例,不可被run
+user = Blueprint(&quot;user&quot;,__name__,url_prefix=&quot;/user&quot;) # Blueprint name 不能再同一个Flask实例中重复
+
+@user.route(&quot;/reg&quot;)
+def reg():
+    return &quot;user注册成功&quot;
+
+@user.route(&quot;/login&quot;)
+def login():
+    return &quot;user登录成功&quot;</code></pre>
+<h3 id="基础练习题">基础练习题</h3>
+<h4 id="需求">需求</h4>
+<pre><code><code>使用以下数据制作学生详情页面
+STUDENT_DICT = {
+    1: {&#39;name&#39;: &#39;钢蛋&#39;, &#39;age&#39;: 17, &#39;gender&#39;: &#39;不详&#39;},
+    2: {&#39;name&#39;: &#39;铁蛋&#39;, &#39;age&#39;: 19, &#39;gender&#39;: &#39;男&#39;},
+    3: {&#39;name&#39;: &#39;丫蛋&#39;, &#39;age&#39;: 18, &#39;gender&#39;: &#39;女&#39;},
+}
+
+要求:
+1.编写登录页面 登录成功跳转到 学生概况页面 
+2.学生概况页面 只显示学生的 ID name  详细信息需点击后访问 学生详情页面页面查看
+3.学生详情页面 显示这个学生的所有信息ID name age gender
+4.基于Session编写登录验证装饰器 未登录状态只能访问 登录页面 登录成功后才可以访问 学生概况页面 与 学生详情页面</code></pre>
+<h4 id="参考答案-python代码">参考答案 (python代码)</h4>
+<pre><code><code>from flask import Flask, request, render_template, redirect, session
+
+STUDENT_DICT = {
+    1: {&#39;name&#39;: &#39;钢蛋&#39;, &#39;age&#39;: 17, &#39;gender&#39;: &#39;不详&#39;},
+    2: {&#39;name&#39;: &#39;铁蛋&#39;, &#39;age&#39;: 19, &#39;gender&#39;: &#39;男&#39;},
+    3: {&#39;name&#39;: &#39;丫蛋&#39;, &#39;age&#39;: 18, &#39;gender&#39;: &#39;女&#39;},
+}
+
+app = Flask(__name__, template_folder=&#39;templates&#39;)#实例化一个Flask类,指定模板存放位置
+app.secret_key = &quot;!@#$%^&amp;*()&quot;  # 密钥(对session进行加密)
+app.debug = True  # 开启Debug模式 修改代码自动重启项目
+
+
+def check(func):  # 装饰器 检测用户是否登录 利用session中的user的值做判断
+    def inner(*args, **kwargs):
+        if session.get(&#39;user&#39;) == &#39;gkf&#39;:
+            ret = func(*args, **kwargs)
+            return ret
+        else:
+            return redirect(&#39;/login&#39;)
+
+    return inner
+
+
+@app.route(&#39;/login&#39;, methods=[&#39;POST&#39;, &#39;GET&#39;], endpoint=&#39;login&#39;)#指定路由与接受请求方式,设置endpoint
+def login():
+    if request.method == &#39;GET&#39;:
+        return render_template(&#39;login.html&#39;)  #如果是get请求返回一个login.html
+
+    if request.method == &#39;POST&#39;:              #如果是post请求,把request.form中页面输入的值取出
+        username = request.form.get(&#39;username&#39;).lower()
+        password = request.form.get(&#39;password&#39;)
+        if username == &#39;gkf&#39; and password == &#39;123&#39;:#如果账户密码正确,设置 session[&quot;user&quot;] = username
+            session[&quot;user&quot;] = username
+            return redirect(&#39;/brief_introduction&#39;) #重定向到brief_introduction
+        else:
+            return &#39;账号或密码错误&#39;  #如果账户密码不对,抛出错误提示
+
+#设置endpoint=&#39;brief_introduction&#39;让其与其他的视图函数不冲突,才能正常使用装饰器
+@app.route(&#39;/brief_introduction&#39;, methods=(&#39;GET&#39;,), endpoint=&#39;brief_introduction&#39;)
+@check  #装饰器 必需添加在@app.route()下,不然会导致,使用装饰器导致@app.route()不被识别,报错
+def brief_introduction():
+    return render_template(&#39;brief_introduction.html&#39;, st_obj=STUDENT_DICT)#返回brief_introduction.html 并传入STUDENT_DICT字典 调用名字为st_obj
+
+
+@app.route(&#39;/detailed&#39;, methods=(&#39;GET&#39;,), endpoint=&#39;detailed&#39;)
+@check
+def detailed():   #取出前端页面返回的url携带的学生编号, 并把它传给模板detailed.html 进行渲染
+    s_id = request.args.get(&#39;id&#39;) #对url携带参数做效验,确保返回的学生编号正确
+    if not s_id:
+        return &quot;查询错误请重试&quot;
+    if not s_id.isdecimal():
+        return &quot;查询错误请重试&quot;
+    s_id = int(s_id)
+    num = STUDENT_DICT.get(s_id,&#39;&#39;)
+    if not num:
+        return &quot;查询错误请重试&quot;
+    else:
+        return render_template(&#39;detailed.html&#39;, id=s_id, st_obj=STUDENT_DICT)
+
+
+if __name__ == &#39;__main__&#39;:
+    app.run()</code></pre>
+<h4 id="参考答案-html代码">参考答案 (html代码)</h4>
+<pre class="html"><code>&lt;!--templates 下 login.html 代码--&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;zh-CN&quot;&gt;
+&lt;head&gt;
+  &lt;title&gt;登录&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;用户登录&lt;/h1&gt;
+&lt;form action=&quot;&quot; method=&quot;post&quot; enctype=&quot;multipart/form-data&quot;&gt;
+  &lt;p&gt;用户名: &lt;input type=&quot;text&quot; name=&quot;username&quot;&gt;&lt;/p&gt;
+  &lt;p&gt;密码: &lt;input type=&quot;password&quot; name=&quot;password&quot;&gt;&lt;/p&gt;
+  &lt;input type=&quot;submit&quot; value=&quot;登录&quot;&gt;
+&lt;/form&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+
+&lt;!--templates 下 brief_introduction.html 代码--&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;学生信息简介&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;学生信息简介&lt;/h1&gt;
+&lt;table border=&quot;1px&quot;&gt;
+    &lt;thead&gt;
+    &lt;tr&gt;
+        &lt;th&gt;编号&lt;/th&gt;
+        &lt;th&gt;姓名&lt;/th&gt;
+        &lt;th&gt;操作&lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+    {% for foo in st_obj %}
+    &lt;tr&gt;
+        &lt;td&gt;{{ foo }}&lt;/td&gt;
+        &lt;td&gt;{{ st_obj[foo].name }}&lt;/td&gt;
+        &lt;!--把学生对应的编号添加到detailed的url上--&gt;
+        &lt;td&gt;&lt;a href=&quot;http://127.0.0.1:5000/detailed?id={{ foo }}&quot;&gt;点击查看详情&lt;a&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    {% endfor %}
+    &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+
+&lt;!--templates 下 detailed.html 代码--&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;title&gt;学生详细信息&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;学生详细信息&lt;/h1&gt;
+&lt;table border=&quot;1px&quot;&gt;
+    &lt;thead&gt;
+    &lt;tr&gt;
+        &lt;th&gt;编号&lt;/th&gt;
+        &lt;th&gt;姓名&lt;/th&gt;
+        &lt;th&gt;年龄&lt;/th&gt;
+        &lt;th&gt;性别&lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;/thead&gt;
+    &lt;tbody&gt;
+    &lt;tr&gt;
+        &lt;td&gt;{{ id }}&lt;/td&gt;
+        &lt;td&gt;{{ st_obj[id].name }}&lt;/td&gt;
+        &lt;td&gt;{{ st_obj[id].age }}&lt;/td&gt;
+        {% if st_obj[id].gender==&#39;不详&#39; %}&lt;!--判断对不正常的性别,修改显示结果--&gt;
+        &lt;td&gt;男&lt;/td&gt;
+        {% else %}
+         &lt;td&gt;{{ st_obj[id].gender }}&lt;/td&gt;
+        {% endif %}
+    &lt;/tr&gt;
+    &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<div id="MySignature" style="display: block;">
+    <div><b>作    者：</b><a href="https://www.cnblogs.com/guokaifeng/" target="_blank">郭楷丰</a></div>
+    <div><b>出    处：</b><a href="https://www.cnblogs.com/guokaifeng/" target="_blank">https://www.cnblogs.com/guokaifeng/</a></div>
+    <div><b>声援博主：</b>如果您觉得文章对您有帮助，可以点击文章右下角 <strong><span style="color: #ff0000; font-size: 12pt;">【<a id="post-up" onclick="votePost(11221919,'Digg')">推荐</a>】</span></strong>一下。您的鼓励是博主的最大动力！</div>
+    <div><b>自    勉：</b>生活，需要追求；梦想，需要坚持；生命，需要珍惜；但人生的路上，更需要坚强。<b>带着感恩的心启程，学会爱，爱父母，爱自己，爱朋友，爱他人。</b></div>
+</div>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

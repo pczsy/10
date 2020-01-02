@@ -1,0 +1,119 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修client-go获取k8s集群内部连接，实现deployment的增删改查' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>client-go获取k8s集群内部连接，实现deployment的增删改查</center></div><div class='banquan'>原文出处:本文由博客园博主凝风提供。<br/>
+原文连接:https://www.cnblogs.com/darope/p/12097013.html</div><br>
+    <h3><strong>一开始写了一个client-java版本的，但是java放在k8s集群上跑需要装jvm而且java的包比较大，client-go版本更适合主机端，下面是整个实现</strong></h3>
+<p><strong>说明</strong>：k8s官方维护的客户端库只有go和python版本，所以为了稳定性建议使用这两个版本，考虑到k8s是go实现的，我这里也就选择go版本。至于客户端连接k8s集群，在具体的生产环境中不建议外部连接访问。原因一是生产环境中的k8s配置文件重要，一般如果对接其他公司的业务，虽然有鉴权，人家也不愿意把配置文件拷贝给你，因为有了集群的配置文件，外部的这个项目的权限就很大，相当于给集群开了一个隐患口子，要知道k8s集群中有可能是该公司的整个业务。原因二集群内部访问不需要那么复杂的鉴权，反而更省事点，只需要写个小应用部署到k8s集群中即可。应用已经在集群内部了，就没有鉴权的概念了，其他三方服务只需要调用小应用的api即可操作k8s。</p>
+<h3>1. 构建goWeb小应用导入依赖：</h3>
+<p>　　a. 不管是走go的代理还是其他办法，这里默认能搭建goWeb项目，并且能够使用go mod tidy拉取包。</p>
+<p>　　b. 按照官方文档导入依赖这里我用的是0.17.0版本，此处有坑，不仅仅这个版本有这个坑，其他版本很有可能也有，完全正常的导入但是会存在jar包之间版本不一致问题，这个问题会导致go build无法构建，是官方自身的兼容问题，报错信息为：</p>
+<p>　　# k8s.io/client-go/rest<br />　　../../../../goworkspace/pkg/mod/k8s.io/client-go@v11.0.0+incompatible/rest/request.go:598:31: not enough arguments in call to watch.NewStreamWatcher<br />        　　have (*versioned.Decoder)<br />        　　want (watch.Decoder, watch.Reporter)</p>
+<p>　　c. 可以尝试手动替换k8s.io/apimachinery@v0.17.0为k8s.io/apimachinery@release-1.14来解决。在终端执行#&nbsp;go mod download -json k8s.io/apimachinery@release-1.14最终gomod的关于k8s的所有依赖文件如下所示：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #000000;">require (    
+</span><span style="color: #008080;"> 2</span> 　　<span style="color: #000000;">k8s.io/api v0.17.0 // indirect
+</span><span style="color: #008080;"> 3</span> 　　<span style="color: #000000;">k8s.io/apimachinery v0.17.0
+</span><span style="color: #008080;"> 4</span> 　　<span style="color: #000000;">k8s.io/client-go v11.0.0+incompatible
+</span><span style="color: #008080;"> 5</span> 　　<span style="color: #000000;">k8s.io/utils v0.0.0-20191114184206-e782cd3c129f // indirect
+</span><span style="color: #008080;"> 6</span> 　　<span style="color: #000000;">sigs.k8s.io/yaml v1.1.0 // indirect
+</span><span style="color: #008080;"> 7</span> <span style="color: #000000;">）
+</span><span style="color: #008080;"> 8</span> 
+<span style="color: #008080;"> 9</span> <span style="color: #000000;">replace (
+</span><span style="color: #008080;">10</span> <span style="color: #000000;">    k8s.io/api =&gt; k8s.io/api v0.0.0-20191004102349-159aefb8556b
+</span><span style="color: #008080;">11</span> <span style="color: #000000;">    k8s.io/apiextensions-apiserver =&gt; k8s.io/apiextensions-apiserver v0.0.0-20191004105649-b14e3c49469a
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">    k8s.io/apimachinery =&gt; k8s.io/apimachinery v0.0.0-20191004074956-c5d2f014d689
+</span><span style="color: #008080;">13</span> <span style="color: #000000;">    sigs.k8s.io/controller-runtime =&gt; sigs.k8s.io/controller-runtime v0.3.0
+</span><span style="color: #008080;">14</span> )</pre>
+</div>
+<p>这里参考博客为：<a href="https://segmentfault.com/a/1190000021077653?utm_source=tag-newest">https://segmentfault.com/a/1190000021077653?utm_source=tag-newest</a></p>
+<p>最终go build就没问题了。</p>
+<h3>2. 配置集群内部访问的客户端</h3>
+<p>　　a. 内部访问k8s客户端使用defaultClient即可，但是这里第二个坑，client-go里面默认的客户端寻找的是~/.kube下的config文件，并且需要集群的ip和port，也就是说需要人为的去配置环境变量以便满足ip和port的写入需要，需要提前把config放到~/.kube下。恰巧客户的环境也没配置环境变量，也没把config拷到响应的目录下，只能找其他办法。由于之前写过一个java的客户端调用，里面的defaultClient是可以访问到的。所以看下java中的寻找路径，发现了一个上下文路径的东西。最终改造client-go客户端信息如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span> <span style="color: #000000;">package utils
+</span><span style="color: #008080;"> 2</span> 
+<span style="color: #008080;"> 3</span> <span style="color: #000000;">import (
+</span><span style="color: #008080;"> 4</span>     <span style="color: #800000;">"</span><span style="color: #800000;">k8s.io/client-go/kubernetes</span><span style="color: #800000;">"</span>
+<span style="color: #008080;"> 5</span>     <span style="color: #800000;">"</span><span style="color: #800000;">k8s.io/client-go/tools/clientcmd</span><span style="color: #800000;">"</span>
+<span style="color: #008080;"> 6</span>     <span style="color: #800000;">"</span><span style="color: #800000;">log</span><span style="color: #800000;">"</span>
+<span style="color: #008080;"> 7</span>     <span style="color: #800000;">"</span><span style="color: #800000;">os</span><span style="color: #800000;">"</span>
+<span style="color: #008080;"> 8</span>     <span style="color: #800000;">"</span><span style="color: #800000;">path/filepath</span><span style="color: #800000;">"</span>
+<span style="color: #008080;"> 9</span> <span style="color: #000000;">)
+</span><span style="color: #008080;">10</span> 
+<span style="color: #008080;">11</span> <span style="color: #008000;">//</span><span style="color: #008000;"> 获取集群内部k8s客户端</span>
+<span style="color: #008080;">12</span> func K8sClient() *<span style="color: #000000;">kubernetes.Clientset {
+</span><span style="color: #008080;">13</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 使用当前上下文环境</span>
+<span style="color: #008080;">14</span>     kubeconfig :=<span style="color: #000000;"> filepath.Join(
+</span><span style="color: #008080;">15</span>         os.Getenv(<span style="color: #800000;">"</span><span style="color: #800000;">KUBECONFIG</span><span style="color: #800000;">"</span><span style="color: #000000;">),
+</span><span style="color: #008080;">16</span> <span style="color: #000000;">    )
+</span><span style="color: #008080;">17</span>     config, err := clientcmd.BuildConfigFromFlags(<span style="color: #800000;">""</span><span style="color: #000000;">, kubeconfig)
+</span><span style="color: #008080;">18</span>     <span style="color: #0000ff;">if</span> err !=<span style="color: #000000;"> nil {
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">        log.Fatal(err)
+</span><span style="color: #008080;">20</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">21</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 根据指定的 config 创建一个新的 clientSet</span>
+<span style="color: #008080;">22</span>     clientSet, err :=<span style="color: #000000;"> kubernetes.NewForConfig(config)
+</span><span style="color: #008080;">23</span>     <span style="color: #0000ff;">if</span> err !=<span style="color: #000000;"> nil {
+</span><span style="color: #008080;">24</span> <span style="color: #000000;">        panic(err.Error())
+</span><span style="color: #008080;">25</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">26</span>     <span style="color: #0000ff;">return</span><span style="color: #000000;"> clientSet
+</span><span style="color: #008080;">27</span> }</pre>
+</div>
+<p>其中os.Getenv就是拿k8s的默认配置文件，只要该应用部署在k8s集群环境中，这个客户端就可以正确返回和使用。</p>
+<h3>3. pod列表，deployment列表，deployment扩缩容等实现</h3>
+<div class="cnblogs_code">
+<pre><code><span style="color: #008080;"> 1</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 拿客户端    </span>
+<span style="color: #008080;"> 2</span>     clientSet :=<span style="color: #000000;"> utils.K8sClient()
+</span><span style="color: #008080;"> 3</span>     <span style="color: #008000;">//</span><span style="color: #008000;">获取PODS列表，不传namespace默认查全部</span>
+<span style="color: #008080;"> 4</span>     pods, err :=<span style="color: #000000;"> clientSet.CoreV1().Pods(nameSpace).List(metav1.ListOptions{})
+</span><span style="color: #008080;"> 5</span>     <span style="color: #0000ff;">if</span> err !=<span style="color: #000000;"> nil {
+</span><span style="color: #008080;"> 6</span> <span style="color: #000000;">        log.Println(err.Error())
+</span><span style="color: #008080;"> 7</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;"> 8</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> deployment列表获取</span>
+<span style="color: #008080;"> 9</span>     deploymentsClient :=<span style="color: #000000;"> clientSet.AppsV1().Deployments(nameSpace)
+</span><span style="color: #008080;">10</span>     deployments, err :=<span style="color: #000000;"> deploymentsClient.List(metav1.ListOptions{})
+</span><span style="color: #008080;">11</span>     <span style="color: #0000ff;">if</span> err !=<span style="color: #000000;"> nil {
+</span><span style="color: #008080;">12</span> <span style="color: #000000;">        panic(err)
+</span><span style="color: #008080;">13</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">14</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> deployment详情获取</span>
+<span style="color: #008080;">15</span>     deploymentsClient :=<span style="color: #000000;"> clientSet.AppsV1().Deployments(nameSpace)
+</span><span style="color: #008080;">16</span>     deployment, err :=<span style="color: #000000;"> deploymentsClient.Get(deploymentName, metav1.GetOptions{})
+</span><span style="color: #008080;">17</span>     <span style="color: #0000ff;">if</span> err !=<span style="color: #000000;"> nil {
+</span><span style="color: #008080;">18</span> <span style="color: #000000;">        panic(err)
+</span><span style="color: #008080;">19</span> <span style="color: #000000;">    }
+</span><span style="color: #008080;">20</span>     <span style="color: #008000;">//</span><span style="color: #008000;"> 扩缩容，num是扩缩容至多少</span>
+<span style="color: #008080;">21</span> 　　deploymentsClient :=<span style="color: #000000;"> clientSet.AppsV1().Deployments(nameSpace)
+</span><span style="color: #008080;">22</span>    retryErr :=<span style="color: #000000;"> retry.RetryOnConflict(retry.DefaultRetry, func() error {
+</span><span style="color: #008080;">23</span>         result, getErr :=<span style="color: #000000;"> deploymentsClient.Get(deploymentName, metav1.GetOptions{})
+</span><span style="color: #008080;">24</span>         <span style="color: #0000ff;">if</span> getErr !=<span style="color: #000000;"> nil {
+</span><span style="color: #008080;">25</span>             panic(fmt.Errorf(<span style="color: #800000;">"</span><span style="color: #800000;">失败，确认之后再试一下呗～: %v</span><span style="color: #800000;">"</span><span style="color: #000000;">, getErr))
+</span><span style="color: #008080;">26</span> <span style="color: #000000;">        }
+</span><span style="color: #008080;">27</span>         result.Spec.Replicas =<span style="color: #000000;"> int32Ptr(int32(num))
+</span><span style="color: #008080;">28</span>         _, updateErr :=<span style="color: #000000;"> deploymentsClient.Update(result)
+</span><span style="color: #008080;">29</span>         <span style="color: #0000ff;">return</span><span style="color: #000000;"> updateErr
+</span><span style="color: #008080;">30</span> <span style="color: #000000;">    })
+</span><span style="color: #008080;">31</span>     <span style="color: #0000ff;">if</span> retryErr !=<span style="color: #000000;"> nil {
+</span><span style="color: #008080;">32</span>         panic(fmt.Errorf(<span style="color: #800000;">"</span><span style="color: #800000;">扩容出现问题，请检查调用～: %v</span><span style="color: #800000;">"</span><span style="color: #000000;">, retryErr))
+</span><span style="color: #008080;">33</span>     }</pre>
+</div>
+<h3>亲测可用～，点个赞呗～</h3>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

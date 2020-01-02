@@ -1,0 +1,106 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修DataFrame 避免链式赋值' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>DataFrame 避免链式赋值</center></div><div class='banquan'>原文出处:本文由博客园博主悦光阴提供。<br/>
+原文连接:https://www.cnblogs.com/ljhdo/p/12036510.html</div><br>
+    <p>在运行以下Python代码时，Pandas抛出SettingWithCopyWarning警告：</p>
+<div class="cnblogs_code">
+<pre><code>row_data =<span style="color: #000000;"> df_pred.loc[key]
+row_data[</span><span style="color: #800000;">'</span><span style="color: #800000;">col</span><span style="color: #800000;">'</span>] = new_value</pre>
+</div>
+<p>df_pred是一个数据框，根据索引从数据框中获取一行，然后对该行的一个字段进行赋值，警告的详细内容如下：</p>
+<blockquote>
+<p>SettingWithCopyWarning:<br />A value is trying to be set on a copy of a slice from a DataFrame.<br />Try using .loc[row_indexer,col_indexer] = value instead</p>
+
+
+
+
+</blockquote>
+<p>该警告的意思是：在DataFrame的一个切片上的copy上进行赋值操作。出现警告是因为该赋值操作可能不会影响到原始的数据框。</p>
+<p>从代码上来理解：row_data 是原始数据框的一个切片（df_loc[key]），该切片可能是原始数据框的一个视图（View），也可能是原始数据框的一个副本（Copy）。如果row_data是原始数据框的一个视图，对row_data进行数据修改不会影响到df_pred。建议使用df_pred.loc[row_indx,col_index] 方式，该方式肯定修改原始数据框。</p>
+<h2>一，深拷贝和浅拷贝</h2>
+<p>在使用DataFrame修改数据时，要知道深拷贝和浅拷贝的区别。图例描述了浅拷贝和深拷贝的区别，假设B复制了A，当修改B时，如果A也跟着变了，说明这是浅拷贝；如果A没变，那就是深拷贝。</p>
+<p><img src="./images/DataFrame 避免链式赋值0.png" alt="" width="344" height="199" /></p>
+<p>也就是说，浅拷贝是创建了对象的一个引用，而深拷贝是创建了对象的一个独立的实体。</p>
+<h2>二，数据的视图和副本</h2>
+<p>在pandas中，浅拷贝也称作数据的视图（View），深拷贝也称作数据的副本（Copy），Pandas 中的某些操作可以返回数据的视图（View），而某些其他操作将返回数据的副本（Copy）。</p>
+<p><img src="./images/DataFrame 避免链式赋值1.png" alt="" width="329" height="162" /></p>
+<p><code>SettingWithCopyWarning</code>&nbsp;警告暗示：赋值操作可能没有按照预期执行，你应该检查结果以确保结果没有出错。</p>
+<p>如果你的代码执行的结果符合预期，那么你可以忽略警告，但这并不是良好的编码实践，<code>SettingWithCopyWarning</code>&nbsp;警告不应该被忽略。在采取下一步行动之前，花点时间了解以下为什么Pandas会抛出这一警告。</p>
+<h2>三，警告出现的原因</h2>
+<p>直接抛出结论，警告出现的原因只有一个：</p>
+<blockquote>
+<h1><strong>出现警告的原因是链式赋值</strong></h1>
+
+
+
+
+</blockquote>
+<p>当 Pandas 检测到链式赋值（Chained assignment）时会生成警告，链式赋值是指通过使用链式索引来赋值。链式索引（Chaining）是指连续使用多个索引，例如<code>data[1:5][1:3]。</code></p>
+<p>使用链式索引赋值的两种方式：</p>
+<ul>
+<li>第一种是显式的，索引是连续的，例如，data.iloc[1][3] = value</li>
+<li>第二种是隐式的，例如，先定义 df = data.iloc[1]，再使用 df[3] = value 也属于链式赋值</li>
+
+
+
+</ul>
+<p>链式赋值可以在一行中进行，也可以跨越多行，只要Pandas检测到链式赋值，Python就会抛出SettingWithCopyWarning警告。</p>
+<p><strong>1，显式的链式赋值</strong></p>
+<p>举个例子，使用链式索引对bidder列进行赋值：</p>
+<div class="cnblogs_code">
+<pre><code>data[data.bidder == <span style="color: #800000;">'</span><span style="color: #800000;">parakeet2004</span><span style="color: #800000;">'</span>][<span style="color: #800000;">'</span><span style="color: #800000;">bidderrate</span><span style="color: #800000;">'</span>] = 100</pre>
+</div>
+<p>生成警告是因为我们把两个索引操作链接在一起，代码中直接使用了两次中括号，所以这种格式比较容易理解。但如果我们使用其他访问方法，例如&nbsp;<code>.bidderrate</code>、<code>.loc[]</code>、<code>.iloc[]</code>、<code>.ix[]</code>，也是如此，我们的链式操作一个接一个独立执行：</p>
+<div class="cnblogs_code">
+<pre><code>data[data.bidder == <span style="color: #800000;">'</span><span style="color: #800000;">parakeet2004</span><span style="color: #800000;">'</span><span style="color: #000000;">]
+[</span><span style="color: #800000;">'</span><span style="color: #800000;">bidderrate</span><span style="color: #800000;">'</span>] = 100</pre>
+</div>
+<p>第一次是访问操作（get），返回一个&nbsp;<code>DataFrame</code>，其包含所有&nbsp;<code>bidder</code>&nbsp;等于&nbsp;<code>'parakeet2004'</code>&nbsp;的行。第二个是赋值操作（set），是在这个新的&nbsp;<code>DataFrame</code>&nbsp;上运行的，我们压根没有在原始&nbsp;<code>DataFrame</code>&nbsp;上运行。</p>
+<p>这个解决方案很简单：使用&nbsp;<code>loc</code>&nbsp;将链式操作组合到一个操作中，以便 Pandas 可以确保 set 操作是在原始&nbsp;<code>DataFrame上执行</code>。Pandas 会始终确保下面这样的非链式 set 操作起作用。</p>
+<div class="cnblogs_code">
+<pre><code>data.loc[data.bidder == <span style="color: #800000;">'</span><span style="color: #800000;">parakeet2004</span><span style="color: #800000;">'</span>, <span style="color: #800000;">'</span><span style="color: #800000;">bidderrate</span><span style="color: #800000;">'</span>] = 100<span style="color: #008000;"><br /></span></pre>
+</div>
+<p><strong>2，隐式的链式赋值</strong></p>
+<p>举个例子，使用原始数据框的一个变量，对变量赋值，这是隐式的链式赋值：</p>
+<div class="cnblogs_code">
+<pre><code>winners = data.loc[data.bid ==<span style="color: #000000;"> data.price]
+winners.loc[</span>304, <span style="color: #800000;">'</span><span style="color: #800000;">bidder</span><span style="color: #800000;">'</span>] = <span style="color: #800000;">'</span><span style="color: #800000;">therealname</span><span style="color: #800000;">'</span></pre>
+</div>
+<p>隐式的链式索引可能跨越多行代码发生，也可能在一行代码内发生。因为&nbsp;<code>winners</code>&nbsp;是作为 get 操作的输出创建的（<code>data.loc[data.bid == data.price]</code>），它可能是原始&nbsp;<code>DataFrame</code>&nbsp;的副本，也可能不是，但除非我们检查，否则我们不能确认。当我们对&nbsp;<code>winners</code>&nbsp;进行索引时，我们实际上使用的是链式索引。这意味着当我们尝试修改&nbsp;<code>winners</code>&nbsp;时，我们可能也修改了&nbsp;<code>data</code>。</p>
+<p>在实际的代码中，这些行可能会跨越很大的距离，因此追踪问题可能会更困难，但情况是与示例类似的。</p>
+<p>为了防止这种情况下的警告，解决方案是在创建新 DataFrame 时明确告知 Pandas 这是创建的一个副本，对副本的修改不会影响到原始对象：</p>
+<div class="cnblogs_code">
+<pre><code>winners = data.loc[data.bid ==<span style="color: #000000;"> data.price].copy()
+winners.loc[</span>304, <span style="color: #800000;">'</span><span style="color: #800000;">bidder</span><span style="color: #800000;">'</span>] = <span style="color: #800000;">'</span><span style="color: #800000;">therealname</span><span style="color: #800000;">'</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>敲门就是，学会识别链式索引，不惜一切代价避免使用链式索引。如果要更改原始数据，请使用单一索引赋值操作。如果你想要一个副本，请确保显式调用copy()函数强制让 Pandas 创建副本。</p>
+<p>&nbsp;</p>
+<p><strong>提一个中肯的建议</strong>，即使<code>SettingWithCopyWarning警告</code>只在set 时才会发生，但在进行 get 操作时，最好也避免使用链式索引。不仅因为链式操作较慢，而且因为链式索引始终是一个潜在的问题，只要你稍后进行赋值操作，就可能不会影响到原始对象，这可能不是你的预期操作，所以，请不惜一切代价避免使用链式索引。</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>参考文档：</p>
+<p><a href="https://msd.misuland.com/pd/2884250171976189168" target="_blank">python学习笔记之Pandas 中 SettingwithCopyWarning 的原理和解决方案</a></p>
+<p><a href="https://www.dataquest.io/blog/settingwithcopywarning/" target="_blank">SettingwithCopyWarning: How to Fix This Warning in Pandas</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,324 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修【python数据分析实战】电影票房数据分析(二)数据可视化' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>【python数据分析实战】电影票房数据分析(二)数据可视化</center></div><div class='banquan'>原文出处:本文由博客园博主cbowen提供。<br/>
+原文连接:https://www.cnblogs.com/cbowen/p/11727726.html</div><br>
+    <div class="toc">
+    <p class="toc-title">目录</p>
+    <div class="toc-list">
+        <ul>
+        <li><a href="#图1-每年的月票房走势图">图1 每年的月票房走势图</a></li>
+        <li><a href="#图2-年票房总值上映影片总数及观影人次">图2 年票房总值、上映影片总数及观影人次</a></li>
+        <li><a href="#图3-单片总票房及日均票房">图3 单片总票房及日均票房</a></li>
+        <li><a href="#图4-单片票房及上映月份关系图">图4 单片票房及上映月份关系图</a></li>
+        </ul>
+    </div>
+</div>
+<p>在上一部分<a href="https://www.cnblogs.com/cbowen/p/11725859.html">《【python数据分析实战】电影票房数据分析(一)数据采集》</a> 已经获取到了2011年至今的票房数据，并保存在了mysql中。<br />
+本文将在实操中讲解如何将mysql中的数据抽取出来并做成动态可视化。</p>
+<h2 id="图1-每年的月票房走势图">图1 每年的月票房走势图</h2>
+<p>第一张图，我们要看一下每月的票房走势，毫无疑问要做成折线图，将近10年的票房数据放在一张图上展示。</p>
+<p>数据抽取：<br />
+采集到的票房数据是按天统计的，并且我们只看正常上映的和点映的，其他如重映等场次均不在本次统计内。<br />
+因此我们先对mysql中的数据releaseInfo字段进行筛选，然后根据上映年份和月份进行分组聚合，得到10年内每月的票房数据。<br />
+用sql取到数据后，再将不同年份的数据分别放入list中，原始数据是以&quot;万&quot;为单位的str，这里我们折算为以&quot;亿&quot;为单位的float。</p>
+<p>构造图像：<br />
+x轴数据为年份，<br />
+再分别将不同年份的票房数据添加到y轴中，<br />
+最后配置下图像的属性即可。</p>
+<pre><code><code>config = {...}    # db配置省略
+conn = pymysql.connect(**config)
+cursor = conn.cursor()
+sql = &#39;&#39;&#39;
+        select  substr(`date`,1,4) year, 
+                substr(`date`,5,2) month, 
+                round(sum(`boxInfo`),2) monthbox 
+        from movies_data 
+        where (substr(`releaseInfo`,1,2) = &#39;上映&#39; or `releaseInfo`=&#39;点映&#39; ) 
+        group by year,month order by year,month
+      &#39;&#39;&#39;
+cursor.execute(sql)
+data = cursor.fetchall()
+x_data = list(set([int(i[1]) for i in data]))
+x_data.sort()
+x_data = list(map(str, x_data))
+y_data1 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2011&#39;]
+y_data2 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2012&#39;]
+y_data3 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2013&#39;]
+y_data4 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2014&#39;]
+y_data5 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2015&#39;]
+y_data6 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2016&#39;]
+y_data7 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2017&#39;]
+y_data8 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2018&#39;]
+y_data9 = [round(int(i[2]) / 10000, 2) for i in data if i[0] == &#39;2019&#39;]
+cursor.close()
+conn.close()
+
+
+def line_base() -&gt; Line:
+    c = (
+        Line(init_opts=opts.InitOpts(height=&quot;600px&quot;, width=&quot;1300px&quot;))
+            .add_xaxis(x_data)
+            .add_yaxis(&quot;2011&quot;, y_data1)
+            .add_yaxis(&quot;2012&quot;, y_data2)
+            .add_yaxis(&quot;2013&quot;, y_data3)
+            .add_yaxis(&quot;2014&quot;, y_data4)
+            .add_yaxis(&quot;2015&quot;, y_data5)
+            .add_yaxis(&quot;2016&quot;, y_data6)
+            .add_yaxis(&quot;2017&quot;, y_data7)
+            .add_yaxis(&quot;2018&quot;, y_data8)
+            .add_yaxis(&quot;2019&quot;, y_data9)
+            .set_global_opts(title_opts=opts.TitleOpts(title=&quot;月票房走势&quot;),
+                             legend_opts=opts.LegendOpts(
+                                 type_=&quot;scroll&quot;, pos_top=&quot;55%&quot;, pos_left=&quot;95%&quot;, orient=&quot;vertical&quot;),
+                             xaxis_opts=opts.AxisOpts(
+                                 axistick_opts=opts.AxisTickOpts(is_align_with_label=True), boundary_gap=False, ),)
+            .set_series_opts(label_opts=opts.LabelOpts(is_show=False),  # 不显示柱体上的标注(数值)
+                             markline_opts=opts.MarkLineOpts(
+                                 data=[opts.MarkLineItem(type_=&quot;max&quot;, name=&quot;最大值&quot;), ]), )
+            .extend_axis(yaxis=opts.AxisOpts(name=&quot;票房(亿元)&quot;, position=&#39;left&#39;),  # 设置y轴标签显示格式，数据+&quot;人&quot;
+                              xaxis=opts.AxisOpts(name=&quot;月份&quot;))
+    )
+
+    return c
+
+
+line_base().render(&quot;v1.html&quot;)</code></pre>
+<p>有本图可以看出：<br />
+1、近10年票房总数逐渐增长(当然这是废话)<br />
+2、11-13年每月票房波动很小，几乎没有明显的高峰档期，最近两年高峰档期最为明显，集中在春节、暑期和十一。<br />
+<img src="./images/【python数据分析实战】电影票房数据分析(二)数据可视化0.png" /></p>
+<h2 id="图2-年票房总值上映影片总数及观影人次">图2 年票房总值、上映影片总数及观影人次</h2>
+<p>第二张图，我们要看一下票房、上映影片数和观影人次 逐年的变化情况</p>
+<p>数据抽取：<br />
+先筛选releaseInfo 为正常上映和首映的数据，<br />
+再按年份分组，也就是date字段的前4位，</p>
+<ul>
+<li>对当日票房字段进行sum聚合得到年度总票房；</li>
+<li>对movieId字段去重 并求得出现次数 即为上映的影片总数；</li>
+<li>场均人数 * 排片场次 是当日观影人次，再用sum求得年观影人次。</li>
+</ul>
+<p>构造图像：<br />
+因为三类数据的x轴都是年份，所以可放在一张图上展示，为了观察更直观，将其中一项数据作成柱状图，另外两项做成折线图。</p>
+<ul>
+<li>1、先构造折线图图，将票房和影片数量添加为y轴数据，年份为x轴数据。</li>
+<li>2、因为票房和上映影片数 在做完单位换算后，值域基本相同，所以可以共用一个y轴，而观影人次则需要使用单独的y轴，<br />
+所以要添加一个新的y轴，并分别指定这三项数据的y轴索引，即票房和上映影片数 使用默认的y轴索 引为0，而观影人次使用后添加的y轴，索引为1。</li>
+<li>3、再构造柱状图，y轴数据为观影人次，x轴数据依然为年份，并指定y轴索引为1</li>
+<li>4、最后，将柱状图和折线图重叠输出，再简单调整一下图像位置即可。</li>
+</ul>
+<pre><code><code>config = {...}    # db配置省略
+conn = pymysql.connect(**config)
+cursor = conn.cursor()
+sql2 = &#39;&#39;&#39;select substr(date,1,4), 
+                 round(sum(boxInfo)/10000,2), 
+                 count(DISTINCT movieId), 
+                 round(sum(avgShowView*showInfo)/100000000,2) 
+            from movies_data 
+            where (substr(`releaseInfo`,1,2) = &#39;上映&#39; or `releaseInfo`=&#39;点映&#39; ) 
+            GROUP by substr(date,1,4)&#39;&#39;&#39;
+cursor.execute(sql2)
+data2 = cursor.fetchall()
+x_data2 = [i[0] for i in data2]
+y_data2_1 = [i[1] for i in data2]
+y_data2_2 = [i[2] for i in data2]
+y_data2_3 = [i[3] for i in data2]
+cursor.close()
+conn.close()
+
+
+def bar_base() -&gt; Line:
+    c = (
+        Line()
+            .add_xaxis(x_data2)
+            .add_yaxis(&quot;总票房&quot;, y_data2_1, yaxis_index=0)
+            .add_yaxis(&quot;上映电影总数&quot;, y_data2_2, color=&#39;LimeGreen&#39;, yaxis_index=0, )
+            .set_global_opts(title_opts=opts.TitleOpts(title=&quot;年票房总值、上映影片总数及观影总人次&quot;),
+                             legend_opts=opts.LegendOpts(pos_left=&quot;40%&quot;),
+                             )
+            .extend_axis(
+            yaxis=opts.AxisOpts(name=&quot;票房/数量(亿元/部)&quot;, position=&#39;left&#39;))
+            .extend_axis(
+            yaxis=opts.AxisOpts(name=&quot;人次(亿)&quot;, type_=&quot;value&quot;, position=&quot;right&quot;,  # 设置y轴的名称，类型，位置
+                                axisline_opts=opts.AxisLineOpts(linestyle_opts=opts.LineStyleOpts(color=&quot;#483D8B&quot;)), ))
+    )
+
+    bar = (
+        Bar()
+            .add_xaxis(x_data2)
+            .add_yaxis(&quot;观影人次&quot;, y_data2_3, yaxis_index=2, category_gap=&quot;1%&quot;,
+                       label_opts=opts.LabelOpts(position=&quot;inside&quot;))
+
+    )
+
+    c.overlap(bar)
+    return Grid().add(c, opts.GridOpts(pos_left=&quot;10%&quot;,pos_top=&#39;20%&#39;), is_control_axis_index=True)  # 调整位置
+
+
+bar_base().render(&quot;v2.html&quot;)
+</code></pre>
+<p>本图可以看出：<br />
+（2019年数据下滑是因为统计时 2019年刚到10月下旬，还没有得到一年完整的数据。）<br />
+1、上映影片数增长幅度不大，票房和观影人次涨幅相近，因此票房逐年增长的最主要原因是观影人次的增长，年平均票价应该变化不大。</p>
+<p><img src="./images/【python数据分析实战】电影票房数据分析(二)数据可视化1.png" /></p>
+<h2 id="图3-单片总票房及日均票房">图3 单片总票房及日均票房</h2>
+<p>影片的上映期长短不一，这也影响了影片的票房情况，所以这张图我们要看一下单片总票房和日均票房的情况。</p>
+<pre><code><code>config = {...}    # db配置省略
+conn = pymysql.connect(**config)
+
+cursor = conn.cursor()
+sql2 = &#39;&#39;&#39;select a.*,b.releasemonth from 
+            (select movieid,
+                    moviename,
+                    round(sum(boxinfo)/10000,2) sumBox,
+                    count(movieid) releasedays,
+                    round(sum(boxinfo)/count(movieid)/10000,2) avgdaybox
+            from movies_data 
+            where (substr(`releaseInfo`,1,2) = &#39;上映&#39; or `releaseInfo`=&#39;点映&#39; ) 
+            group by movieid,moviename) a ,
+            (select substr(date,5,2) releasemonth,movieId,movieName,releaseInfo from movies_data where releaseInfo=&#39;上映首日&#39;) b
+        where a.movieid = b.movieid  order by sumBox desc&#39;&#39;&#39;
+cursor.execute(sql2)
+data3 = cursor.fetchall()
+x_data3 = [i[1] for i in data3[:30]]  # 名称
+y_data3_1 = [i[2] for i in data3[:30]]  # 总票房
+y_data3_2 = [i[4] for i in data3[:30]]  # 日均票房
+y_data3_3 = [int(i[5]) for i in data3[:30]]  # 上映月份
+cursor.close()
+conn.close()
+
+
+def bar_base() -&gt; Line:
+    c = (
+        Bar(init_opts=opts.InitOpts(height=&quot;600px&quot;, width=&quot;1500px&quot;))
+            .add_xaxis(x_data3)
+            .add_yaxis(&quot;影片总票房&quot;, y_data3_1, yaxis_index=0)
+            # .add_yaxis(&quot;影片日均票房&quot;, y_data3_2, yaxis_index=1, gap=&#39;-40%&#39;)
+            .set_global_opts(title_opts=opts.TitleOpts(title=&quot;单片总票房及日均票房&quot;),
+                             xaxis_opts=opts.AxisOpts(axislabel_opts=opts.LabelOpts(rotate=-45)),
+                             datazoom_opts=opts.DataZoomOpts(), )
+            .set_series_opts(label_opts=opts.LabelOpts(is_show=False),  # 不显示柱体上的标注(数值)
+                             markpoint_opts=opts.MarkPointOpts(
+                                 data=[opts.MarkPointItem(type_=&quot;max&quot;, name=&quot;最大值&quot;),
+                                       opts.MarkPointItem(type_=&quot;min&quot;, name=&quot;最小值&quot;), ]),)
+            .extend_axis(
+            yaxis=opts.AxisOpts(name=&quot;亿元&quot;, position=&#39;left&#39;))
+            .extend_axis(
+            yaxis=opts.AxisOpts(name=&quot;亿元&quot;, type_=&quot;value&quot;, position=&quot;right&quot;,  # 设置y轴的名称，类型，位置
+                                axisline_opts=opts.AxisLineOpts(linestyle_opts=opts.LineStyleOpts(color=&quot;#483D8B&quot;)), ))
+    )
+
+    bar = (
+      Bar(init_opts=opts.InitOpts(height=&quot;600px&quot;, width=&quot;1500px&quot;))
+            .add_xaxis(x_data3)
+            # .add_yaxis(&quot;影片总票房&quot;, y_data3_1, yaxis_index=0)
+            .add_yaxis(&quot;影片日均票房&quot;, y_data3_2, yaxis_index=2, gap=&#39;-40%&#39;)
+            .set_global_opts(title_opts=opts.TitleOpts(title=&quot;单片总票房及日均票房&quot;),)
+            .set_series_opts(label_opts=opts.LabelOpts(is_show=False),  # 不显示柱体上的标注(数值)
+                             markpoint_opts=opts.MarkPointOpts(
+                                 data=[opts.MarkPointItem(type_=&quot;max&quot;, name=&quot;最大值&quot;),
+                                       opts.MarkPointItem(type_=&quot;min&quot;, name=&quot;最小值&quot;), ]),
+                             markline_opts=opts.MarkLineOpts(
+                                 data=[opts.MarkLineItem(type_=&quot;average&quot;, name=&quot;平均值&quot;), ]
+                             ),)
+
+    )
+
+    c.overlap(bar)
+    return Grid().add(c, opts.GridOpts(pos_left=&quot;5%&quot;, pos_right=&quot;20%&quot;), is_control_axis_index=True)  # 调整位置
+
+
+bar_base().render(&quot;v3.html&quot;)
+</code></pre>
+<p>可以看出有的电影虽然总票房一般，但是日均票房很高，说明上映时间不长但却很火爆。<br />
+而对于总票房很高，但日均票房一般的影片，可能是由于上映时间较长，后期较低的上座率拉低了日均票房。<br />
+所以看一个影片的火爆程度，总票房只是一方面，在相同上映时间内的上座率变化趋势也很重要。<br />
+<img src="./images/【python数据分析实战】电影票房数据分析(二)数据可视化2.png" /></p>
+<h2 id="图4-单片票房及上映月份关系图">图4 单片票房及上映月份关系图</h2>
+<p>本图相当于图一的补充，主要是看一下高票房的影片和上映时间的关系</p>
+<pre><code><code>
+def dayformat(i):
+    mm = int(i[-2])
+    dd = int(i[-1])
+    mmdd = mm + dd/100*3.3
+    return mmdd
+
+config = {...}    # db配置省略
+conn = pymysql.connect(**config)
+
+cursor = conn.cursor()
+sql2 = &#39;&#39;&#39;select a.*,b.releaseyear,b.releasemonth,b.releaseday from 
+            (select movieid,
+                    moviename,
+                    round(sum(boxinfo)/10000,2) sumBox,
+                    count(movieid) releasedays,
+                    round(sum(boxinfo)/count(movieid)/10000,2) avgdaybox
+            from movies_data 
+            where (substr(`releaseInfo`,1,2) = &#39;上映&#39; or `releaseInfo`=&#39;点映&#39; ) 
+            group by movieid,moviename) a ,
+            (select substr(date,1,4) releaseyear,
+                    substr(date,5,2) releasemonth,
+                    substr(date,7,2) releaseday,
+                    movieId,
+                    movieName,
+                    releaseInfo 
+                from movies_data where releaseInfo=&#39;上映首日&#39;) b
+        where a.movieid = b.movieid  order by sumBox desc&#39;&#39;&#39;
+
+cursor.execute(sql2)
+data4 = cursor.fetchall()
+
+x_data4 = [i for i in range(1, 13)]
+y_data4_1 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2011&#39;]
+y_data4_2 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2012&#39;]
+y_data4_3 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2013&#39;]
+y_data4_4 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2014&#39;]
+y_data4_5 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2015&#39;]
+y_data4_6 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2016&#39;]
+y_data4_7 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2017&#39;]
+y_data4_8 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2018&#39;]
+y_data4_9 = [(dayformat(i), i[2]) for i in data4 if i[-3] == &#39;2019&#39;]
+cursor.close()
+conn.close()
+
+my_config = pygal.Config()  # 创建Config实例
+my_config.show_y_guides = False  # 隐藏水平虚线
+my_config.show_x_guides = True
+xy_chart = pygal.XY(stroke=False, config=my_config)
+xy_chart.title = &#39;单片票房及上映月份关系图&#39;
+
+xy_chart.add(&#39;2011&#39;, y_data4_1)
+xy_chart.add(&#39;2012&#39;, y_data4_2)
+xy_chart.add(&#39;2013&#39;, y_data4_3)
+xy_chart.add(&#39;2014&#39;, y_data4_4)
+xy_chart.add(&#39;2015&#39;, y_data4_5)
+xy_chart.add(&#39;2016&#39;, y_data4_6)
+xy_chart.add(&#39;2017&#39;, y_data4_7)
+xy_chart.add(&#39;2018&#39;, y_data4_8)
+xy_chart.add(&#39;2019&#39;, y_data4_9)
+
+
+xy_chart.render_to_file(&quot;v4.svg&quot;)
+</code></pre>
+<p><img src="./images/【python数据分析实战】电影票房数据分析(二)数据可视化3.png" /></p>
+<p>上一部分<a href="https://www.cnblogs.com/cbowen/p/11725859.html">《【python数据分析实战】电影票房数据分析(一)数据采集》</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

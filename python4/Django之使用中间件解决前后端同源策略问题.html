@@ -1,0 +1,81 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修Django之使用中间件解决前后端同源策略问题' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>Django之使用中间件解决前后端同源策略问题</center></div><div class='banquan'>原文出处:本文由博客园博主YifChan提供。<br/>
+原文连接:https://www.cnblogs.com/yifchan/p/python-1-32.html</div><br>
+    <h2>问题描述</h2>
+<p>前端时间在公司的时候，要使用angular开发一个网站，因为angular很适合前后端分离，所以就做了一个简单的图书管理系统来模拟前后端分离。</p>
+<p>但是在开发过程中遇见了同源策略的跨域问题，页面能够显示，但是却没有数据，显示如下</p>
+<p><img src="./images/Django之使用中间件解决前后端同源策略问题0.png" alt="" width="1063" height="208" /></p>
+<p>右键检查报错如下：</p>
+<p><img src="./images/Django之使用中间件解决前后端同源策略问题1.png" alt="" width="1061" height="148" /></p>
+<p>报错代码如下</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">Failed to load http://127.0.0.1:8888/publisher/: 
+No 'Access-Control-Allow-Origin' header is present on the requested resource. 
+Origin 'http://localhost:4200' is therefore not allowed access.</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>angular从后端获取数据的代码如下：</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #000000;">private publishersUrl = 'http://127.0.0.1:8888/publisher/';
+private addpubUrl = 'http://127.0.0.1:8888/addpub/';
+
+
+getPublishers (): Observable</span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Publisher</span><span style="color: #ff0000;">[]</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;"> {
+    return this.http.get</span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Publisher</span><span style="color: #ff0000;">[]</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">(this.publishersUrl)
+    .pipe(
+      catchError(this.handleError</span><span style="color: #0000ff;">&lt;</span><span style="color: #800000;">Publisher</span><span style="color: #ff0000;">[]</span><span style="color: #0000ff;">&gt;</span><span style="color: #000000;">('getPublishers', []))
+    ); 
+}</span></pre>
+</div>
+<h2>问题原因</h2>
+<p>出现这个问题的原因是同源策略的跨域问题，关于这个问题不在此处详细讨论，如有兴趣可以去搜索一下。</p>
+<p>&nbsp;</p>
+<h2>问题解决</h2>
+<p>解决这个问题关键在于后端，要允许其他网站进行访问，在这里我们可以定义一个中间件来解决这个问题，步骤如下。</p>
+<p>1.在app下新建一个myMiddleware.py文件。</p>
+<p>2.在文件中加入以下代码</p>
+<div class="cnblogs_code">
+<pre><code><span style="color: #0000ff;">from</span> django.utils.deprecation <span style="color: #0000ff;">import</span><span style="color: #000000;"> MiddlewareMixin
+
+
+</span><span style="color: #0000ff;">class</span><span style="color: #000000;"> MyCore(MiddlewareMixin):
+    </span><span style="color: #0000ff;">def</span><span style="color: #000000;"> process_response(self, request, response):
+        response[</span><span style="color: #800000;">'</span><span style="color: #800000;">Access-Control-Allow-Origin</span><span style="color: #800000;">'</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">*</span><span style="color: #800000;">"</span>
+        <span style="color: #0000ff;">if</span> request.method == <span style="color: #800000;">"</span><span style="color: #800000;">OPTIONS</span><span style="color: #800000;">"</span><span style="color: #000000;">:
+            </span><span style="color: #008000;">#</span><span style="color: #008000;"> 复杂请求 预检</span>
+            response[<span style="color: #800000;">'</span><span style="color: #800000;">Access-Control-Allow-Headers</span><span style="color: #800000;">'</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">Content-Type</span><span style="color: #800000;">"</span><span style="color: #000000;">
+            response[</span><span style="color: #800000;">'</span><span style="color: #800000;">Access-Control-Allow-Methods</span><span style="color: #800000;">'</span>] = <span style="color: #800000;">"</span><span style="color: #800000;">POST, DELETE, PUT</span><span style="color: #800000;">"</span>
+        <span style="color: #0000ff;">return</span> response</pre>
+</div>
+<p>3.去settings文件中注册中间件</p>
+<div class="cnblogs_code">
+<pre><code>MIDDLEWARE =<span style="color: #000000;"> [
+    </span><span style="color: #800000;">'</span><span style="color: #800000;">BMS.myMiddleware.MyCore</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+]</span></pre>
+</div>
+<p>&nbsp;</p>
+<p>至此，这个问题就算解决了，我们可以将项目运行起来看一下结果</p>
+<p><img src="./images/Django之使用中间件解决前后端同源策略问题2.png" alt="" width="1051" height="344" /></p>
+<p>&nbsp;</p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

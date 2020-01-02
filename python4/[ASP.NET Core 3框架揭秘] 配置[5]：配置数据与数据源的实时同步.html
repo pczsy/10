@@ -1,0 +1,127 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修[ASP.NET Core 3框架揭秘] 配置[5]：配置数据与数据源的实时同步' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>[ASP.NET Core 3框架揭秘] 配置[5]：配置数据与数据源的实时同步</center></div><div class='banquan'>原文出处:本文由博客园博主Artech提供。<br/>
+原文连接:https://www.cnblogs.com/artech/p/inside-asp-net-core-05-05.html</div><br>
+    <p>在《<a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-03.html">配置模型总体设计</a>》介绍配置模型核心对象的时候，我们刻意回避了与配置同步相关的API，现在我们利用一个独立文章来专门讨论这个话题。配置的同步涉及到两个方面：第一，对原始的配置源实施监控并在其发生变化之后重新加载配置；第二，配置重新加载之后及时通知应用程序进而使应用能够及时使用最新的配置。要了解配置同步机制的实现原理，我们先得了解一下配置数据的流向。</p><h1><font size="4">一、配置数据流</font></h1><p>通过前面的介绍，我们已经对配置模型有了充分的了解，处于核心地位的 IConfigurationBuilder对象借助注册的IConfigurationSource对象提供的IConfigurationProvider对象从相应的配置源中加载数据，而各种针对IConfigurationProvider接口的实现就是为了将形态各异的原始配置数据转换成配置字典。我们在应用程序中使用的配置数据直接来源于IConfigurationBuilder对象创建的IConfiguration对象，那么当我们调用定义在IConfiguration对象上的API获取配置数据时，配置数据究竟具有怎样的流向呢？</p><p>我们在前面已经提到过，由ConfigurationBuilder（IConfigurationBuilder接口的默认实现）的Build方法提供的IConfiguration对象是一个ConfigurationRoot对象，它代表着整颗配置树，而组成这棵树的配置节则通过ConfigurationSection对象表示。这棵由ConfigurationRoo对象表示的配置树其实是无状态的，也就说<font color="#ff0000">不论是ConfigurationRoot对象还是ConfigurationSection对象，它们并没有利用某个字段存储任何的配置数据</font>。</p><p>ConfigurationRoot对象保持着对所有注册IConfigurationSource提供的IConfigurationProvider对象的引用，当我们调用ConfigurationRoot或者ConfigurationSection相应的API提取配置数据时，最终都会直接从这些IConfigurationProvider中提取数据。换句话说，<font color="#ff0000">配置数据在整个模型中只以配置字典的形式存储在IConfigurationProvider对象上面</font>。</p><p><a href="https://img2018.cnblogs.com/blog/19327/201912/19327-20191213083241263-1528989183.png"><img width="367" height="92" title="6-15" style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" alt="6-15" src="./images/[ASP.NET Core 3框架揭秘] 配置[5]：配置数据与数据源的实时同步0.png" border="0"></a></p><p>应用程序在读取配置时产生的数据流基本体现在上图中。接下来我们从ConfigurationRoot和ConfigurationSection这两个类型的定义来对这个数据流，以及建立在此基础上的配置同步机制作进一步的介绍，不过在这之前我们得先来了解一个名为ConfigurationReloadToken的类型。</p><h1><font size="4">二、ConfigurationReloadToken</font></h1><p>ConfigurationRoot和ConfigurationSection的GetReloadToken方法返回的IChangeToken对象类型都是ConfigurationReloadToken。不仅如此，对于组成同一棵配置树的所有节点对应的IConfiguration对象（ConfigurationRoot或者ConfigurationSection）来说，它们的GetReloadToken方法返回的其实是<font color="#ff0000">同一个ConfigurationReloadToken对象</font>。</p><p>还有一点值得强调，IConfiguration接口的GetReloadToken方法返回的IChangeToken，其作用不是在配置源发生变化时向应用程序发送通知，它实际上是通知应用程序：<font color="#ff0000">配置源已经发生改变，并且新的数据已经被相应的IConfigurationProvider重新加载进来</font>。由于ConfigurationRoot和ConfigurationSection对象都不维护任何数据，它们仅仅将我们的API调用转移到IConfigurationProvider对象上，所以应用程序使用原来的IConfiguration对象就可以获取到最新的配置数据。</p><p>ConfigurationReloadToken本质上是对一个<font color="#ff0000">CancellationTokenSource</font>对象的封装。从如下的代码片段可以看出，ConfigurationReloadToken与CancellationChangeToken具有类似的定义和实现。两者唯一不同之处在于：CancellationChangeToken对象利用创建时提供的CancellationTokenSource对象对外发送通知，而ConfigurationReloadToken对象则通过调用<font color="#ff0000">OnReload</font>方法利用内置的CancellationTokenSource对象发送通知。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid rgb(204, 204, 204); border-image: none; background-color: rgb(245, 245, 245);"><pre><code><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">class</span><span style="color: rgb(0, 0, 0);"> ConfigurationReloadToken : IChangeToken
+{
+    </span><span style="color: rgb(0, 0, 255);">private</span> CancellationTokenSource _cts = <span style="color: rgb(0, 0, 255);">new</span><span style="color: rgb(0, 0, 0);"> CancellationTokenSource(); 
+    </span><span style="color: rgb(0, 0, 255);">public</span> IDisposable RegisterChangeCallback(Action&lt;<span style="color: rgb(0, 0, 255);">object</span>&gt; callback, <span style="color: rgb(0, 0, 255);">object</span> state) =&gt;<span style="color: rgb(0, 0, 0);">_cts.Token.Register(callback, state);    
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">bool</span> ActiveChangeCallbacks =&gt;<span style="color: rgb(0, 0, 0);"> True; 
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">bool</span> HasChanged =&gt;<span style="color: rgb(0, 0, 0);">_cts.IsCancellationRequested;
+
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">void</span> OnReload() =&gt;<span style="color: rgb(0, 0, 0);"> _cts.Cancel();
+}</span></pre></div><h1><font size="4">三、ConfigurationRoot<strong>对象</strong></font></h1><p>接下来我们来看看由ConfigurationBuilder对象的Build方法直接创建的ConfigurationRoot对象具有怎样的实现。正如我们前面所说，一个ConfigurationRoot对象根据一组IConfigurationProvider对象创建，这些IConfigurationProvider对象则由注册的IConfigurationSource对象来提供。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid rgb(204, 204, 204); border-image: none; background-color: rgb(245, 245, 245);"><pre><code><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">class</span><span style="color: rgb(0, 0, 0);"> ConfigurationRoot : IConfigurationRoot
+{
+    </span><span style="color: rgb(0, 0, 255);">private</span> IList&lt;IConfigurationProvider&gt;<span style="color: rgb(0, 0, 0);"> _providers;
+    </span><span style="color: rgb(0, 0, 255);">private</span><span style="color: rgb(0, 0, 0);"> ConfigurationReloadToken _changeToken;
+
+    </span><span style="color: rgb(0, 0, 255);">public</span> ConfigurationRoot(IList&lt;IConfigurationProvider&gt;<span style="color: rgb(0, 0, 0);"> providers)
+    {
+        _providers  </span>=<span style="color: rgb(0, 0, 0);"> providers;
+        _changeToken </span>= <span style="color: rgb(0, 0, 255);">new</span><span style="color: rgb(0, 0, 0);"> ConfigurationReloadToken();
+        </span><span style="color: rgb(0, 0, 255);">foreach</span> (<span style="color: rgb(0, 0, 255);">var</span> provider <span style="color: rgb(0, 0, 255);">in</span><span style="color: rgb(0, 0, 0);"> providers)
+        {
+            provider.Load();
+            ChangeToken.OnChange( () </span>=&gt; provider.GetReloadToken(), () =&gt;<span style="color: rgb(0, 0, 0);"> RaiseChanged());
+        }
+    }
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">void</span><span style="color: rgb(0, 0, 0);"> Reload()
+    {
+        </span><span style="color: rgb(0, 0, 255);">foreach</span> (<span style="color: rgb(0, 0, 255);">var</span> provider <span style="color: rgb(0, 0, 255);">in</span><span style="color: rgb(0, 0, 0);"> _providers)
+        {
+            provider.Load();  
+        }
+        RaiseChanged();
+    }
+    </span><span style="color: rgb(0, 0, 255);">public</span> IChangeToken GetReloadToken() =&gt;<span style="color: rgb(0, 0, 0);"> _changeToken;
+    </span><span style="color: rgb(0, 0, 255);">private</span> <span style="color: rgb(0, 0, 255);">void</span> RaiseChanged()   =&gt; Interlocked.Exchange(<span style="color: rgb(0, 0, 255);">ref</span> _changeToken, <span style="color: rgb(0, 0, 255);">new</span><span style="color: rgb(0, 0, 0);"> ConfigurationReloadToken()) .OnReload();
+    ...
+}</span></pre></div><p>ConfigurationRoot的GetReloadToken方法返回的是一个ConfigurationReloadToken对象，该对象通过字段_changeToken表示。我们知道如果需要利用这个对象对外发送配置重新加载的通知，需要调用其OnReload方法就可以了，通过上面的代码片段我们知道该方法会在RaiseChanged方法中被调用。由于一个IChangeToken对象只能发送一次通知，所以该方法还负责创建新的ConfigurationReloadToken对象并对_changeToken字段赋值。</p><p>换句话说，一旦ConfigurationRoot的<font color="#ff0000">RaiseChanged</font>方法被调用，我们就可以利用其GetReloadToken方法返回的IChangeToken对象接收到配置被重新加载的通知。通过上面提供的代码，我们可以看到这个RaiseChanged方法在两个地方被调用：第一，<font color="#ff0000">在构造函数中调用每个IConfigurationProvider对象的GetReloadToken方法得到对应的IChangeToken对象后，并为它们注册的回调中调用了这个方法</font>；第二，<font color="#ff0000">实现的Reload方法依次调用每个IConfigurationProvider对象的Load方法重新加载配置数据之后，调用了这个RaiseChanged方法</font>。按照这个逻辑，应用程序会在如下两个场景中利用ConfigurationRoot返回的IChangeToken接收到配置被重新加载的通知：</p><ul><li>某个IConfigurationProvider对象捕捉到对应配置源的改变后自动重新加载配置，并在加载完成后利用其GetReloadToken方法返回的IChangeToken发送通知；</li><li>我们显式调用ConfigurationRoot的Reload方法手动加载配置。</li></ul><p>在了解了ConfigurationRoot的GetRealodToken返回的是什么样的IChangeToken之后，我们接着介绍它的其他成员具有怎样的<a>实现</a> 。如下面的代码片段所示，在ConfigurationRoot的索引定义中，它分别调用了IConfigurationProvider对象的TryGet和Set方法根据配置字典的Key获取和设置对应的Value。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid rgb(204, 204, 204); border-image: none; background-color: rgb(245, 245, 245);"><pre><code><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">class</span><span style="color: rgb(0, 0, 0);"> ConfigurationRoot : IConfigurationRoot
+{
+    </span><span style="color: rgb(0, 0, 255);">private</span> IList&lt;IConfigurationProvider&gt;<span style="color: rgb(0, 0, 0);"> _providers;    
+
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">string</span> <span style="color: rgb(0, 0, 255);">this</span>[<span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);"> key]
+    {
+        </span><span style="color: rgb(0, 0, 255);">get</span><span style="color: rgb(0, 0, 0);">
+        {
+            </span><span style="color: rgb(0, 0, 255);">foreach</span> (<span style="color: rgb(0, 0, 255);">var</span> provider <span style="color: rgb(0, 0, 255);">in</span><span style="color: rgb(0, 0, 0);"> _providers.Reverse())
+            {
+                </span><span style="color: rgb(0, 0, 255);">if</span> (provider.TryGet(key, <span style="color: rgb(0, 0, 255);">out</span> <span style="color: rgb(0, 0, 255);">var</span><span style="color: rgb(0, 0, 0);"> value))
+                {
+                    </span><span style="color: rgb(0, 0, 255);">return</span><span style="color: rgb(0, 0, 0);"> value;
+                }
+            }  
+            </span><span style="color: rgb(0, 0, 255);">return</span> <span style="color: rgb(0, 0, 255);">null</span><span style="color: rgb(0, 0, 0);">;
+        }
+        </span><span style="color: rgb(0, 0, 255);">set</span><span style="color: rgb(0, 0, 0);">
+        { 
+            </span><span style="color: rgb(0, 0, 255);">foreach</span> (<span style="color: rgb(0, 0, 255);">var</span> provider <span style="color: rgb(0, 0, 255);">in</span><span style="color: rgb(0, 0, 0);"> _providers)
+            {
+                provider.Set(key, value);
+            }
+        }
+    } 
+  
+    </span><span style="color: rgb(0, 0, 255);">public</span> IConfigurationSection GetSection(<span style="color: rgb(0, 0, 255);">string</span> key)  =&gt; <span style="color: rgb(0, 0, 255);">new</span> ConfigurationSection(<span style="color: rgb(0, 0, 255);">this</span><span style="color: rgb(0, 0, 0);">, key); 
+  
+    </span><span style="color: rgb(0, 0, 255);">public</span> IEnumerable&lt;IConfigurationSection&gt; GetChildren()  =&gt; GetChildrenImplementation(<span style="color: rgb(0, 0, 255);">null</span><span style="color: rgb(0, 0, 0);">);
+
+    </span><span style="color: rgb(0, 0, 255);">internal</span> IEnumerable&lt;IConfigurationSection&gt; GetChildrenImplementation(  <span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);"> path)
+    {
+        </span><span style="color: rgb(0, 0, 255);">return</span><span style="color: rgb(0, 0, 0);"> _providers
+            .Aggregate(Enumerable.Empty</span>&lt;<span style="color: rgb(0, 0, 255);">string</span>&gt;(),   (seed, source) =&gt;<span style="color: rgb(0, 0, 0);"> source.GetChildKeys(seed, path))
+            .Distinct()
+            .Select(key </span>=&gt; GetSection(path == <span style="color: rgb(0, 0, 255);">null</span> ? key : $<span style="color: rgb(128, 0, 0);">"</span><span style="color: rgb(128, 0, 0);">{path}:{key}</span><span style="color: rgb(128, 0, 0);">"</span><span style="color: rgb(0, 0, 0);">));
+    }
+
+    </span><span style="color: rgb(0, 0, 255);">public</span> IEnumerable&lt;IConfigurationProvider&gt; Providers =&gt;<span style="color: rgb(0, 0, 0);"> _providers;
+}</span></pre></div><p>从索引的定义可以看出，ConfigurationRoot在读取Value值时针对IConfigurationProvider列表的遍历是<font color="#ff0000">从后往前</font>的，这一点非常重要，因为该特性决定了IConfigurationSource的注册会采用“<font color="#ff0000">后来居上</font>”的原则。也就说如果<font color="#ff0000">多个IConfigurationSource配置源提供的IConfiguationProvider对象包含同名的配置项，后面注册的IConfigurationSource对象具有更高选择优先级</font>，我们应该根据这个特性合理安排IConfigurationSource对象的注册顺序。在进行Value的设置的时候，ConfigurationRoot对象会调用每个IConfigurationProvider对象的Set方法，这意味着新的值会被保存到所有IConfigurationProvider对象的配置字典中。</p><p>正如我们前面多次提到过的，通过ConfigurationRoot表示的配置树的所有配置节都是一个类型为ConfigurationSection的对象，这一点体现在实现的GetSection方法上。将对应的路径作为参数，我们可以得到组成配置树的所有配置节。用于获取所有子配置节的GetChildren方法通过调用内部方法GetChildrenImplementation来实现。GetChildrenImplementation方法旨在获取配置树某个节点的所有子节点，该方法的参数表示指定节点针对配置树根的路径。当这个方法被执行的时候，它会以聚合的形式遍历所有的IConfigurationProvider并调用它们的GetChildKeys方法获取所有子节点的Key，这些Key与当前节点的路径进行合并后代表子节点的路径，这些路径最终被作为参数调用GetSection方法创建出对应的配置节。</p><h1><font size="4">四、ConfigurationSection<strong>对象</strong></font></h1><p>如下所示的代码片段大体上体现了代表配置节的ConfigurationSection类型的实现逻辑。如下面的代码片段所示，一个ConfigurationSection对象通过代表配置树根的ConfigurationRoot对象和当前配置节在配置树中的路径来构建。ConfigurationSection的Path属性直接返回构建时指定的路径，而<a>Key</a>属性则由根据这个路径解析出来 。</p><div class="cnblogs_code" style="padding: 5px; border: 1px solid rgb(204, 204, 204); border-image: none; background-color: rgb(245, 245, 245);"><pre><code><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">class</span><span style="color: rgb(0, 0, 0);"> ConfigurationSection : IConfigurationSection
+{
+    </span><span style="color: rgb(0, 0, 255);">private</span> <span style="color: rgb(0, 0, 255);">readonly</span><span style="color: rgb(0, 0, 0);"> ConfigurationRoot     _root;
+    </span><span style="color: rgb(0, 0, 255);">private</span> <span style="color: rgb(0, 0, 255);">readonly</span> <span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);"> _path;
+    </span><span style="color: rgb(0, 0, 255);">private</span> <span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);"> _key;
+
+    </span><span style="color: rgb(0, 0, 255);">public</span> ConfigurationSection(ConfigurationRoot root, <span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);"> path)
+    {  
+        _root </span>=<span style="color: rgb(0, 0, 0);"> root;
+        _path </span>=<span style="color: rgb(0, 0, 0);"> path;
+    }
+
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">string</span> <span style="color: rgb(0, 0, 255);">this</span>[<span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);"> key]
+    {
+        </span><span style="color: rgb(0, 0, 255);">get</span> =&gt; _root[<span style="color: rgb(0, 0, 255);">string</span>.Join(<span style="color: rgb(128, 0, 0);">'</span><span style="color: rgb(128, 0, 0);">:</span><span style="color: rgb(128, 0, 0);">'</span>, <span style="color: rgb(0, 0, 255);">new</span> <span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);">[] { _path, _key })];
+        </span><span style="color: rgb(0, 0, 255);">set</span> =&gt; _root[<span style="color: rgb(0, 0, 255);">string</span>.Join(<span style="color: rgb(128, 0, 0);">'</span><span style="color: rgb(128, 0, 0);">:</span><span style="color: rgb(128, 0, 0);">'</span>, <span style="color: rgb(0, 0, 255);">new</span> <span style="color: rgb(0, 0, 255);">string</span>[] { _path, _key })] =<span style="color: rgb(0, 0, 0);"> value;
+    }
+
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">string</span> Key =&gt; _key  ?? (_key = _path.Contains(<span style="color: rgb(128, 0, 0);">'</span><span style="color: rgb(128, 0, 0);">:</span><span style="color: rgb(128, 0, 0);">'</span>) ? _path.Split(<span style="color: rgb(128, 0, 0);">'</span><span style="color: rgb(128, 0, 0);">:</span><span style="color: rgb(128, 0, 0);">'</span><span style="color: rgb(0, 0, 0);">).Last() : _path);
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">string</span> Path =&gt;<span style="color: rgb(0, 0, 0);"> _path;  
+    </span><span style="color: rgb(0, 0, 255);">public</span> <span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);"> Value
+    {
+        </span><span style="color: rgb(0, 0, 255);">get</span> =&gt;<span style="color: rgb(0, 0, 0);"> _root[_path];
+        </span><span style="color: rgb(0, 0, 255);">set</span> =&gt; _root[_path] =<span style="color: rgb(0, 0, 0);"> value;
+    } 
+    </span><span style="color: rgb(0, 0, 255);">public</span> IEnumerable&lt;IConfigurationSection&gt; GetChildren()   =&gt;<span style="color: rgb(0, 0, 0);"> _root.GetChildrenImplementation(_path);  
+    </span><span style="color: rgb(0, 0, 255);">public</span> IChangeToken GetReloadToken() =&gt;<span style="color: rgb(0, 0, 0);"> _root.GetReloadToken();
+    </span><span style="color: rgb(0, 0, 255);">public</span> IConfigurationSection GetSection(<span style="color: rgb(0, 0, 255);">string</span> key)  =&gt; _root.GetSection(<span style="color: rgb(0, 0, 255);">string</span>.Join(<span style="color: rgb(128, 0, 0);">'</span><span style="color: rgb(128, 0, 0);">:</span><span style="color: rgb(128, 0, 0);">'</span>, <span style="color: rgb(0, 0, 255);">new</span> <span style="color: rgb(0, 0, 255);">string</span><span style="color: rgb(0, 0, 0);">[] { _path, key }));
+}</span></pre></div><p>如下图6-15所示，<a>实现</a>在ConfigurationSection类型中的大部分成员都是调用ConfigurationRoot对象相应的API来实现的。ConfigurationSection的索引直接调用ConfigurationRoot的索引来获取或者设置配置字典的Value，GetChildren方法返回的就是调用GetChildrenImplementation方法得到的结果，而GetReloadToken和GetSection方法都是通过调用同名方法实现的。</p><p><a href="https://img2018.cnblogs.com/blog/19327/201912/19327-20191213083241900-608467288.png"><img width="367" height="87" title="6-15" style="border: 0px currentcolor; border-image: none; display: inline; background-image: none;" alt="6-15" src="./images/[ASP.NET Core 3框架揭秘] 配置[5]：配置数据与数据源的实时同步1.png" border="0"></a></p><p><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-01.html">[ASP.NET Core 3框架揭秘] 配置[1]：读取配置数据[上篇]</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-02.html">[ASP.NET Core 3框架揭秘] 配置[2]：读取配置数据[下篇]</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-03.html">[ASP.NET Core 3框架揭秘] 配置[3]：配置模型总体设计</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-04.html">[ASP.NET Core 3框架揭秘] 配置[4]：将配置绑定为对象</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-05.html">[ASP.NET Core 3框架揭秘] 配置[5]：配置数据与数据源的实时同步</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-06.html">[ASP.NET Core 3框架揭秘] 配置[6]：多样化的配置源[上篇]</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-07.html">[ASP.NET Core 3框架揭秘] 配置[7]：多样化的配置源[中篇]</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-08.html">[ASP.NET Core 3框架揭秘] 配置[8]：多样化的配置源[下篇]</a><br><a href="https://www.cnblogs.com/artech/p/inside-asp-net-core-05-09.html">[ASP.NET Core 3框架揭秘] 配置[9]：自定义配置源</a></p>
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>

@@ -1,0 +1,170 @@
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<meta name='applicable-device' content='pc'><meta name='keywords' content='电脑,电脑讲解,电脑技术,编程,电脑故障维修python 分析 知乎粉丝数据' />
+<script src='../../highlight/highlight.pack.js'></script>
+<link rel='stylesheet' type='text/css' href='../../highlight/styles/monokai.css'/>
+
+<link rel='stylesheet' href='../../fenxiang/dist/css/share.min.css'>
+<script src='../../fenxiang/src/js/social-share.js'></script>
+<script src='../../fenxiang/src/js/qrcode.js'></script>
+
+</head><body><script>hljs.initHighlightingOnLoad();</script><script>
+var system ={};  
+var p = navigator.platform;       
+system.win = p.indexOf('Win') == 0;  
+system.mac = p.indexOf('Mac') == 0;  
+system.x11 = (p == 'X11') || (p.indexOf('Linux') == 0);     
+if(system.win||system.mac||system.xll){
+document.write("<link href='../css/3.css' rel='stylesheet' type='text/css'>");}else{ document.write("<link href='../css/3wap.css' rel='stylesheet' type='text/css'>");}</script><script src='../../js/3.js'></script><div class='div2'><div class='heading_nav'><ul><div><li><a href='../../index.html'>首页</a></li>
+</div><div onclick='hidden1()' >分享</div>
+</ul></div></div>
+<div id='heading_nav2'> 
+<li class='row' >
+<div class='social-share' data-mode='prepend'><a href='javascript:' class='social-share-icon icon-heart'></a></div></li></div><script charset='utf-8' src='../../3/js/hengfu.js'></script><script charset='utf-8' src='../../3/js/hengfu2.js'></script><hr><div class='div1'><div class='biaoti'><center>python 分析 知乎粉丝数据</center></div><div class='banquan'>原文出处:本文由博客园博主有意识的呼吸提供。<br/>
+原文连接:https://www.cnblogs.com/flash314/p/11391592.html</div><br>
+    <blockquote>
+<p>昨天花了一下午写了一个小爬虫，用来分析自己的粉丝数据。这个真好玩！今天帮了群里好多大V也爬了他们的数据。运行速度：每分钟5千粉丝以上。暂时先写成这样，这两天要准备补考，没有时间继续玩这个。</p>
+</blockquote>
+<p>下次要改进的地方：1、多线程 2、scrapy 3、深度数据 4、分布式爬虫</p>
+<p>希望实现的功能：</p>
+<ul>
+<li>1、地区、教育程度、注册时间、送粉识别、颜值检测</li>
+<li>2、导出 <strong>h5超秀的界面</strong> 和完美的 <strong>xlsx 数据</strong></li>
+<li>3、对内容提出建议</li>
+<li>4、对接微信后台实现自动化</li>
+</ul>
+<p>下面是源码，经2019年8月21日测试可用：</p>
+<pre><code><code>from selenium.webdriver import Chrome,ChromeOptions
+from requests.cookies import RequestsCookieJar
+from lxml import etree
+from pandas import DataFrame
+import json,time,requests,re,os,clipboard
+
+def sele_input_zhihu():
+    &#39;首次登陆知乎，需要输入账号密码&#39;
+    # 防止检测
+    option = ChromeOptions()
+    option.add_experimental_option(&#39;excludeSwitches&#39;, [&#39;enable-automation&#39;])
+    driver = Chrome(options=option)
+    # 登录
+    driver.get(&quot;http://www.zhihu.com/&quot;)
+    name=input(&quot;请输入手机号或邮箱:&quot;)
+    pwd=input(&quot;请输入密码：&quot;)
+    needPass=driver.find_element_by_xpath(&quot;//div[@class=&#39;SignFlow-tab&#39;]&quot;)
+    needPass.click()
+    driver.find_element_by_name(&quot;username&quot;).send_keys(name)
+    driver.find_element_by_name(&quot;password&quot;).send_keys(pwd)
+    submitBtn = driver.find_element_by_xpath(&quot;//button[@type=&#39;submit&#39;]&quot;)
+    submitBtn.click()
+    time.sleep(5)
+    # 保存cookies
+    cookies = driver.get_cookies()
+    with open(&quot;cookies.json&quot;, &quot;w&quot;) as fp:
+        json.dump(cookies, fp)
+    print(&quot;保存cookies成功！&quot;)
+    driver.close()
+
+def login_zhihu(s):
+    &#39;利用保存的cookies登录知乎&#39;
+    headers = {
+        &#39;User-Agent&#39;:&#39;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36&#39;
+    }
+    s.headers=headers
+    cookies_jar = RequestsCookieJar()
+    with open(&quot;cookies.json&quot;,&quot;r&quot;)as fp:
+        cookies = json.load(fp)
+        for cookie in cookies:
+            cookies_jar.set(cookie[&#39;name&#39;], cookie[&#39;value&#39;])
+    s.cookies.update(cookies_jar)
+    print(&quot;登录成功！&quot;)
+
+# 浅数据处理
+# &quot;users&quot;:{(.*), &quot;questions&quot;:{}
+def parse_infos(session,url,id):
+    content = session.get(url).text
+    info_json=re.search(r&#39;&quot;users&quot;:(.*}}),&quot;questions&quot;:{}&#39;,content).group(1)
+    json_dict=json.loads(info_json)
+    items=[]
+    for key in json_dict.keys():
+        item = json_dict[key]
+        if &quot;name&quot; in item.keys() and key!=id:
+            custom = &quot;是&quot; if(item[&quot;useDefaultAvatar&quot;]==False) else &quot;否&quot;
+            thetype=&quot;普通用户&quot; if(item[&quot;isOrg&quot;]==False) else &quot;机构号&quot;
+            gender=&quot;女&quot; if(item[&quot;gender&quot;]==0) else (&quot;男&quot; if (item[&quot;gender&quot;]==1)else &quot;未知&quot;)
+            vip=&quot;否&quot;if(item[&quot;vipInfo&quot;][&quot;isVip&quot;]==False) else &quot;是&quot;
+            items.append([item[&quot;urlToken&quot;] , item[&quot;name&quot;] , custom , item[&quot;avatarUrl&quot;], item[&quot;url&quot;] , thetype , item[&quot;headline&quot;] , gender , vip ,  item[&quot;followerCount&quot;] , item[&quot;answerCount&quot;] , item[&quot;articlesCount&quot;]])
+    return items
+
+def main():
+    # 登录
+    if not os.path.exists(&quot;cookies.json&quot;):
+        print(&quot;未登录账户，请登录！&quot;)
+        sele_input_zhihu()
+    session=requests.session()
+    login_zhihu(session)
+
+    # 需要的数据
+    zhuye_url=&quot;https://www.zhihu.com/people/you-yi-shi-de-hu-xi/activities&quot;     # 这个地方用来输入主页链接
+    zhuye=re.match(r&quot;(.*)/activities$&quot;,zhuye_url).group(1)
+    id = re.match(r&quot;.*/(.*)$&quot;,zhuye).group(1)
+    followers_url=zhuye+r&quot;/followers?page={}&quot;
+
+    # 分析粉丝个数和页码
+    html = etree.HTML(session.get(zhuye_url).text)
+    text=html.xpath(&quot;//div[@class=&#39;NumberBoard FollowshipCard-counts NumberBoard--divider&#39;]//strong/text()&quot;)[1]
+    follows = int(&quot;&quot;.join(text.split(&quot;,&quot;)))
+    pages = follows//20+1
+    print(&quot;关注者 &quot;+str(follows)+&quot;人，共 &quot;+str(pages)+&quot;页数据！&quot;)
+
+    # 获取导出浅数据
+    all_info = []
+    for i in range(1,pages+1):
+        infos_url = followers_url.format(i)
+        print(&quot;正在获取第 &quot;+str(i)+&quot; 页数据...&quot;)
+        array = parse_infos(session,infos_url,id)
+        all_info+=array
+    many=len(all_info)
+    print(&quot;数据获取完成，共&quot;+ str(many)+&quot; 条数据！&quot;)
+    data = DataFrame(data=all_info,columns=[&quot;id&quot;, &quot;用户名&quot;, &quot;自定义头像&quot;, &quot;头像url&quot;, &quot;主页链接&quot;, &quot;类型&quot;, &quot;一句话描述&quot;, &quot;性别&quot;, &quot;盐选会员&quot;,  &quot;粉丝总数&quot;, &quot;回答数&quot;, &quot;文章数&quot;])
+    data.to_csv(id+&quot;_浅数据.csv&quot;,encoding=&quot;utf-8-sig&quot;)
+    print(&quot;数据已导出到&quot;+ id+&quot;_浅数据.csv！&quot;)
+
+    # 生成粉丝数据报告
+    wood=org=female=money=male=f2k=f5k=f10k=gfemale=gmale=0
+    for info in all_info:
+        if info[2]==&quot;否&quot; and info[9]==0 and info[10]&lt;=2 and info[11]&lt;=2: wood+=1
+        if info[5]==&quot;机构号&quot;: org+=1
+        if info[7]==&quot;女&quot;:
+            female+=1
+            if info[9]&gt;=20: gfemale+=1
+        else:
+            if info[9]&gt;=50: gmale+=1
+        if info[7]==&quot;男&quot;: male+=1
+        if info[8]==&quot;是&quot;: money+=1
+        if info[9]&gt;=10000: f10k+=1
+        elif info[9]&gt;=5000: f5k+=1
+        elif info[9]&gt;=2000: f2k+=1
+    report=&quot;*&quot;*40+&quot;\n浅粉丝数据快览：在你所有 &quot;+str(many)+&quot; 个粉丝中：\n&quot;+&quot;共有僵尸粉 &quot;+str(wood)+&quot; 个，占比 &quot;+&quot;{:.4%}&quot;.format(wood/many)+&quot; ，这可是相当&quot;+(&quot; 低 &quot; if (wood/many)&lt;0.2 else &quot; 高 &quot;)+&quot;的比例。\n&quot;+&quot;另外，粉丝的男女比例为 1 : &quot;+&quot;{:.3}&quot;.format(female/male)+&quot; ,看来你深受广大&quot;+(&quot; 女 &quot; if (female&gt;=male) else &quot; 男 &quot;)+&quot;性同胞的喜爱！\n&quot;+&quot;靓女&quot;+str(gfemale)+&quot;人,靓仔&quot;+str(gmale)+&quot;人 【只统计有颜值的】\n&quot;+&quot;在你的所有粉丝里，氪金学习的用户有 &quot;+str(money)+&quot; 个,占比 &quot;+&quot;{:.3%}&quot;.format(money/many)+&quot;，看来您的粉丝多为&quot;+(&quot;高&quot;if(money/many&gt;0.045) else&quot; 低 &quot;)+&quot;收入用户！\n&quot;+&quot; ◉ 粉丝10K+有 &quot;+str(f10k)+&quot; 人；\n&quot;+&quot; ◉ 粉丝5K-10K有 &quot;+str(f5k)+&quot; 人；\n&quot;+&quot; ◉ 粉丝2K-5K有 &quot;+str(f2k)+&quot; 人；\n&quot;
+    if org&gt;=1:
+        report+=&quot;除此之外，你的粉丝中还有 &quot;+str(org)+&quot; 位机构号！详细的报告快去 浅数据.csv 里看看吧！\n&quot;
+    clipboard.copy(report)
+    print(report)
+
+if __name__==&quot;__main__&quot;:
+    main()</code></pre>
+<p>运行截图：<br />
+<img src="./images/python 分析 知乎粉丝数据0.png" /></p>
+<p><img src="./images/python 分析 知乎粉丝数据1.png" /></p>
+<p>这是我今天的粉丝报告：</p>
+<hr />
+<p>浅粉丝数据快览：在你所有 9934 个粉丝中：<br />
+共有僵尸粉 2091 个，占比 21.0489% ，这可是相当 高 的比例。<br />
+另外，粉丝的男女比例为 1 : 0.352 ,看来你深受广大 男 性同胞的喜爱！<br />
+靓女123人,靓仔354人 【只统计有颜值的】<br />
+在你的所有粉丝里，氪金学习的用户有 477 个,占比 4.802%，看来您的粉丝多为高收入用户！<br />
+◉ 粉丝10K+有 11 人；<br />
+◉ 粉丝5K-10K有 7 人；<br />
+◉ 粉丝2K-5K有 17 人；<br />
+除此之外，你的粉丝中还有 1 位机构号！详细的报告快去 浅数据.csv 里看看吧！</p>
+
+</div>
+</div><hr><script charset='utf-8' src='../../js/sming.js'></script></body></html>
